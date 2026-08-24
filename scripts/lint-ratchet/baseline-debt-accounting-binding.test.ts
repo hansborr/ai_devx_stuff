@@ -10,7 +10,7 @@ import {
 } from "@musi/lint-ratchet/kernel/baseline-constants.js";
 import { describe, expect, it, vi } from "vitest";
 
-import { musiLintRatchetContext } from "./engine-binding.js";
+import { musiLintRatchetContext, musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 
 // Binding smoke for the real Musi context (engine semantics live in the package
 // suite: tools/lint-ratchet/src/governance/baseline-debt-accounting-git.test.ts).
@@ -22,6 +22,7 @@ const EXPECTED_DEBT_LOG_REL_PATH = "lint-ratchet.debt-log.jsonl";
 
 const emptyBaselineRegenerate = lintRatchetBaselineRegenerateForVersion(
   LINT_RATCHET_BASELINE_WRITE_VERSION,
+  musiLintRatchetWorkflowVocabulary.updateCommand,
 );
 const EMPTY_BASELINE = `${JSON.stringify(
   {

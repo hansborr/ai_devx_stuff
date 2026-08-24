@@ -5,6 +5,8 @@ import type {
 } from "./baseline.js";
 import { parseLintRatchetBaseline, parseLintRatchetBaselineStructure } from "./baseline.js";
 import type { LintRatchetConfig } from "./config-types.js";
+import type { LintRatchetWorkflowVocabulary } from "./engine-context.js";
+import { DEFAULT_BASELINE_FILENAME } from "./engine-context.js";
 
 export interface ParsedBaselineWithRuleSourceDrift {
   readonly baseline?: LintRatchetBaseline;
@@ -22,8 +24,16 @@ export function parseBaselineWithRuleSourceDrift(
   text: string,
   ratchets: readonly LintRatchetConfig[],
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
+  options: {
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+    readonly baselineFile?: string;
+  },
 ): ParsedBaselineWithRuleSourceDrift {
-  const strict = parseLintRatchetBaseline(text, ratchets, ruleSourceHashesById);
+  const baselineFile = options.baselineFile ?? DEFAULT_BASELINE_FILENAME;
+  const strict = parseLintRatchetBaseline(text, ratchets, ruleSourceHashesById, {
+    workflowVocabulary: options.workflowVocabulary,
+    baselineFile,
+  });
   if (strict.baseline !== undefined) {
     return { baseline: strict.baseline, failures: [], ruleSourceIdentityDrift: false };
   }
@@ -31,7 +41,12 @@ export function parseBaselineWithRuleSourceDrift(
     return { failures: strict.failures, ruleSourceIdentityDrift: false };
   }
 
-  const structural = parseLintRatchetBaselineStructure(text);
+  const structural = parseLintRatchetBaselineStructure(
+    text,
+    options.workflowVocabulary,
+    undefined,
+    baselineFile,
+  );
   if (structural.baseline === undefined) {
     return {
       failures: [...strict.failures, ...structural.failures],
@@ -69,35 +84,40 @@ export function equalCountSwapsProvable(
 export function formatRuleSourceDriftClassification(
   changedCount: number,
   baselineDisplayName: string,
-  infoCount = 0,
-  equalCountSwapsProvable = true,
+  options: {
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+    readonly infoCount?: number;
+    readonly equalCountSwapsProvable?: boolean;
+  },
 ): string {
+  const infoCount = options.infoCount ?? 0;
+  const swapsProvable = options.equalCountSwapsProvable ?? true;
   if (changedCount === 0 && infoCount === 0) {
     // "findings unchanged" is only provable when every compared message-count
     // item carries a messagesFingerprint; without it, an equal-count message
     // swap is invisible (see equalCountMessageSwapInfo), so the honest claim
     // narrows to the finding counts.
-    if (!equalCountSwapsProvable) {
+    if (!swapsProvable) {
       return (
         `lint:ratchet rule source identity drift only — finding counts unchanged from ${baselineDisplayName} ` +
         "(equal-count message swaps not provable without messagesFingerprint); " +
-        "run bun run lint:ratchet:update to refresh ruleSourceHash metadata"
+        `run ${options.workflowVocabulary.updateCommand} to refresh ruleSourceHash metadata`
       );
     }
     return (
       `lint:ratchet rule source identity drift only — findings unchanged from ${baselineDisplayName}; ` +
-      "run bun run lint:ratchet:update to refresh ruleSourceHash metadata"
+      `run ${options.workflowVocabulary.updateCommand} to refresh ruleSourceHash metadata`
     );
   }
   if (changedCount === 0) {
     return (
       "lint:ratchet rule source identity drift — finding set changed (informational finding changes only); " +
       `counts match ${baselineDisplayName}, but ${String(infoCount)} informational equal-count swap(s) were reported; ` +
-      "run bun run lint:ratchet:update after reviewing the info findings"
+      `run ${options.workflowVocabulary.updateCommand} after reviewing the info findings`
     );
   }
   return (
     "lint:ratchet rule source identity drift — finding set changed; inspect diagnostics, " +
-    "then run bun run lint:ratchet:update after fixing or accepting the finding changes"
+    `then run ${options.workflowVocabulary.updateCommand} after fixing or accepting the finding changes`
   );
 }

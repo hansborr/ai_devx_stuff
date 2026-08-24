@@ -9,7 +9,7 @@ import {
   totalCurrentCount,
 } from "@musi/lint-ratchet/kernel/current-collector.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { regressionRecoveryFooter } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 import {
   equalCountSwapsProvable,
@@ -18,7 +18,7 @@ import {
 } from "@musi/lint-ratchet/kernel/rule-source-drift.js";
 
 import { buildEnvelopeFromComparison, loadRuleDocsById } from "./diagnostics.js";
-import { musiLintRatchetBinding } from "./engine-binding.js";
+import { musiLintRatchetBinding, musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 import { emitHarnessDiagnosticsEnvelope } from "./output.js";
 import { BASELINE_FILENAME, readBaselineOrThrow } from "./paths.js";
@@ -36,9 +36,13 @@ function parseDefaultBaseline(ruleSourceHashesById: LintRatchetRuleSourceHashesB
   readonly ruleSourceIdentityDrift: boolean;
 } {
   const parsed = parseBaselineWithRuleSourceDrift(
-    readBaselineOrThrow(),
+    readBaselineOrThrow(musiLintRatchetWorkflowVocabulary.updateCommand),
     lintRatchets,
     ruleSourceHashesById,
+    {
+      workflowVocabulary: musiLintRatchetWorkflowVocabulary,
+      baselineFile: BASELINE_FILENAME,
+    },
   );
   if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
   return {
@@ -57,7 +61,12 @@ export async function runDefault(options: LintRatchetDefaultModeOptions): Promis
     binding: musiLintRatchetBinding,
     concurrency: collectConcurrency(options),
   });
-  const comparison = compareCurrentToBaseline(parsedBaseline.baseline, lintRatchets, currentById);
+  const comparison = compareCurrentToBaseline(
+    parsedBaseline.baseline,
+    lintRatchets,
+    currentById,
+    musiLintRatchetWorkflowVocabulary,
+  );
   const envelope = buildEnvelopeFromComparison({
     regressions: comparison.regressions,
     improvements: comparison.improvements,
@@ -77,16 +86,15 @@ export async function runDefault(options: LintRatchetDefaultModeOptions): Promis
       `blocking=${String(envelope.summary.blocking)} info=${String(envelope.summary.info)}`,
   );
   if (comparison.regressions.length > 0) {
-    console.error(REGRESSION_RECOVERY_FOOTER);
+    console.error(regressionRecoveryFooter(musiLintRatchetWorkflowVocabulary));
   }
   if (hasRuleSourceIdentityDrift) {
     console.error(
-      formatRuleSourceDriftClassification(
-        changedCount,
-        BASELINE_FILENAME,
+      formatRuleSourceDriftClassification(changedCount, BASELINE_FILENAME, {
         infoCount,
-        equalCountSwapsProvable(parsedBaseline.baseline, lintRatchets),
-      ),
+        equalCountSwapsProvable: equalCountSwapsProvable(parsedBaseline.baseline, lintRatchets),
+        workflowVocabulary: musiLintRatchetWorkflowVocabulary,
+      }),
     );
     process.exitCode = 1;
   }

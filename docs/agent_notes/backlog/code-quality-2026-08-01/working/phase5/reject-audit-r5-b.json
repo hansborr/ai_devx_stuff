@@ -1,0 +1,1025 @@
+{
+  "contractVersion": 1,
+  "consult": "R5B",
+  "step": "1b-round-5",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[6]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/harness/control-field-validation.ts:68-96 and scripts/harness/generate-harness-controls.ts:171-174,214-250. pairedGuide is validated as a nonblank, existing in-repository path, and the generated control inventory publishes the forward control-to-guide link. A reciprocal guide declaration would create a second relationship registry without establishing a missing correctness condition; reverse provenance/queryability is already the subject of leaf 220.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[14]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/ai-hooks/session-state.sh:5-11,94-152 and scripts/ai-hooks/stop-policy.sh:381-445,571-662. Session-state deliberately reuses stop-policy's low-level readers, but its summaries implement different policy: they ignore Stop kill switches and notification counters, and cached verify reports do not perform Stop's fingerprint-currentness test. The similar formatting fronts different decisions, so a shared shell codec would add coupling without removing a material defect.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[17]",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reasoning": "Opened both standalone sensor reuse paths. Near-duplicate reuse does not rewrite diagnostics, so the cut's plural claim is too broad. The Knip path is concrete: scripts/drift-ai/knip-runner.ts:176-203 exports a reusable runner but embeds the drift:ai label, while scripts/sensor-knip-unused-exports-core.ts:234-268 wraps its callback solely to regex-replace that prefix.",
+      "promotionIds": [
+        "R5B-L01-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[19]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/max-lines-exceptions-core.ts:31-76 and tools/lint-ratchet/src/kernel/entry-baseline.ts:24-44. The aliases form an explicit adapter: the generic gate requires key/count, while the committed JSON contract uses path/cap, and makeMaxLinesExceptionEntry constructs both pairs together. No production path mutates them independently, so changing the shared baseline kernel to remove this localized bridge is disproportionate.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[13]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened scripts/code-intel/server-cli.ts. ServerCliCommand includes start at line 31, but parseServerCliCommand only returns status, stop, or restart at lines 97-105. The dispatcher handles status and stop explicitly and sends the only remaining reachable command to restartCommand at lines 89-94, making start unconstructable.",
+      "promotionIds": [
+        "R5B-L02-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[14]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened drift-ai.config.json, scripts/drift-ai/config.ts, config-readers.ts, ghost-files-current.ts, and the operator guide. Eight current-scope suppressions are bare path pairs at drift-ai.config.json:15-29; the runtime model and parser have no rationale field, even though README.md:344-350 describes them as explicit exceptions for heuristic residuals.",
+      "promotionIds": [
+        "R5B-L02-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[17]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened triage-packet-group.ts, triage-packet-types.ts, and triage-packets.ts. Normal packing flushes before exceeding packetSize, and oversized connected components are divided into balanced chunks. toGroup nevertheless computes items.length > packetSize, so oversized is always false and is then serialized into both packet and manifest shapes.",
+      "promotionIds": [
+        "R5B-L02-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[19]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened coldspots-aggregate.ts, coldspots-coldspot.ts, and hotspots-history.ts. FileAggregate writes added and oldestTouchMs, but the reducer reads newestTouchMs for age and revisions, churnLines, and birth fields for qualification/output. added is write-only, and oldestTouchMs is maintained only because the shared helper mutates both bounds.",
+      "promotionIds": [
+        "R5B-L02-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[20]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened both backfills. backfill-srd-spell-combat.ts constructs exactSrdIds from rows at lines 31-38, then derives each checked id from the same current row. backfill-srd-monster-actions.ts repeats the tautology at lines 42-48. These checks resemble trusted-corpus scope protection but cannot reject any supplied row.",
+      "promotionIds": [
+        "R5B-L03-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[23]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/prisma/schema.prisma throughout. It is 1,479 lines but deliberately sectioned into enums, SRD, character, campaign, combat, VTT, and homebrew domains, with cross-domain relations visible in one catalog. The title establishes size rather than drift or mistaken ownership; a multi-file split would add navigation and movement cost without a demonstrated defect.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[24]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened the two production HTTP authentication boundaries. trpc/context.ts:14-20 privately defines Bearer parsing, while routes/upload-routes.ts:49,65-68 repeats the prefix check, slice, and token verification. The REST route's distinct error mapping is intentional, but authorization-header interpretation is not boundary-specific.",
+      "promotionIds": [
+        "R5B-L03-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[25]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened packages/server/prisma/seed.ts:8-32 and seed-template.ts:10-33. They duplicate logger setup, DATABASE_URL validation, adapter/client construction, main/catch/finally wiring, and failure reporting. Both call process.exit(1) before their chained finally claims to disconnect, duplicating a fragile forced-exit lifecycle.",
+      "promotionIds": [
+        "R5B-L03-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[4]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened death-saves.tsx:37-60, desktop-sheet-layout.tsx:81-89, mobile-sheet-tabs.tsx:87-95, and character-sheet.test.tsx:12,122-134. Production renders DeathSavesInteractive on both layouts; the legacy DeathSaves component has no production consumer and survives only because a broad test imports it directly.",
+      "promotionIds": [
+        "R5B-L05-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[5]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened the spell picker, row, detail, cast, VTT tab, and cast-rail presentations. They are density- and context-specific: compact surfaces use C/R glyphs, detail/cast use full badges, VTT adds aria labels and test hooks, and the rail composes prose metadata. Only two boolean guards repeat; a shared component would require variants that obscure the local markup.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[6]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened tool-handlers.ts:50-87,207-225 and map-canvas-store.ts:443-452. One handler routes freehand, line, rectangle, and circle moves through updateDrawing, which always copies and appends freehandPoints. Only the freehand builder reads that history; the other builders use startPoint/currentPoint.",
+      "promotionIds": [
+        "R5B-L05-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[8]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened tool-handlers.ts:146-149,301-318 and use-canvas-input.ts:57-120,139-145. The handlers array is needed locally to populate handlerMap but is unnecessarily returned and unread. The residual is one private interface field and one shorthand property; removing it changes no live branching, work, or meaningful maintenance risk. Leaf 047 owns the material registry design issue.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[20]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened use-campaign-presence.ts:26-126 and campaign-room-handler.ts:23-57. Event/state handlers are already extracted. The effect owns one external lease lifecycle: join/rejoin, matched listener registration/removal, heartbeat start/clear, and StrictMode-aware leave defer/cancel. Server handling confirms heartbeat revalidates membership, so splitting the lifecycle would add cleanup coordination without addressing a defect.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[21]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened dice.ts, chat-inputs.ts, dice-inputs.ts, use-ability-roll.ts, and use-weapon-roll.ts. dice.roll exposes generic chatMessageSchema metadata even though the producer always writes RollResult. The hooks reconstruct that procedure-specific contract through four unchecked assertions; one boundary comment falsely claims tRPC already guarantees RollResult.",
+      "promotionIds": [
+        "R5B-L05-021"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[24]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened roll-toast.ts:64-105 and roll-toast.test.ts:120-140. The createElement code is a bounded two-level toast body plus the required toast.custom render wrapper. Presentation is isolated from formatting and crit logic, and rendered badges are covered. Renaming the file to TSX would be readability-only churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[25]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened use-long-press.ts:35-38,128-135, roll-context-menu.tsx:139-142, and the keyboard-path test at use-long-press.test.ts:255-270. elementCenter returns and tests rect.left/rect.bottom, which the menu uses directly as its CSS anchor. The behavior is intentional; the helper name is false.",
+      "promotionIds": [
+        "R5B-L05C-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[27]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened the contrasting character-sheet hooks and their consumers. Some recreate wrappers and others expose or memoize mutation adapters, but the unstable callbacks feed ordinary non-memoized components, with LevelUpDialogSlot unmounted while closed. No effect, subscription, or memoized boundary relies on identity, so standardizing every hook would add callback machinery without demonstrated benefit.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[28]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened create-map-dialog.tsx:203-253, maps-panel.tsx:157-168, and use-map-image-preview.ts:48-53. The always-mounted dialog resets its draft only through handleClose, but successful creation closes it from the parent with setCreateOpen(false), bypassing that reset. Reopening can retain the submitted draft/file/preview, and the object URL cleanup does not run because the hook owner remains mounted.",
+      "promotionIds": [
+        "R5B-L05C-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[41]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened encounter-participants.tsx:123-203, shared encounter summary fields, and realtime-invalidation.ts:87-125. Most affected mutations change list-summary fields, and every server mutation emits the coarse encounter:updated event whose handler already invalidates detail, list, and logs. Narrowing only local callbacks would not remove refetches; richer socket semantics would be an unmeasured optimization. Leaf 043 already owns controller relocation while preserving behavior.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[44]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened add-participant-dialog.tsx:115-131, combat-log-panel.tsx:178-223, and ui/select.tsx. The three native selects are not duplicate form controls: challenge rating is a full-width labeled field, while action and participant are compact inline log controls with different option models. Replacing them with the portal-based Radix primitive changes interaction behavior without removing meaningful duplication.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[45]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened homebrew-page.tsx:94-228 and collection-detail-page.tsx:81-259. Their state machines diverge: the collection page owns import and one search query, while detail owns collection plus entry queries, a type filter, and collection-scoped dialogs. Both already isolate their distinct query-state rendering. At two consumers, a generic CRUD-page controller would add a polymorphic boundary; leaf 239 owns the genuinely identical deletion-dialog shell.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[46]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened all four production useParams({ strict: false }) sites and their route declarations. Each path requires its parameter, yet each page opts out of route-specific inference and compensates with empty-string fallbacks, disabled queries, or unreachable missing-ID UI. CampaignDetailPage demonstrates the intended route-specific useSearch/useNavigate form beside its widened useParams call.",
+      "promotionIds": [
+        "R5B-L05D-001"
+      ]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R5B-L01-001",
+      "title": "Make Knip runner diagnostics caller-neutral",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/knip-runner.ts",
+          "line": 176,
+          "endLine": 203,
+          "measurement": null,
+          "note": "The exported runner accepts a generic warning callback but hard-codes drift:ai into both heartbeat messages."
+        },
+        {
+          "path": "scripts/sensor-knip-unused-exports-core.ts",
+          "line": 234,
+          "endLine": 268,
+          "measurement": null,
+          "note": "The standalone sensor wraps the callback with an anchored replacement from drift:ai to sensor:knip-unused-exports."
+        },
+        {
+          "path": "scripts/drift-ai/knip-runner.ts",
+          "line": 1,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The header still describes the runner as owned solely by the orphan-files adapter."
+        }
+      ],
+      "problem": "A reusable subprocess boundary owns one caller's diagnostic identity, forcing another production caller to parse and rewrite human-facing text. Message changes can leak the wrong command identity or silently break the replacement.",
+      "proposedDirection": "Emit caller-neutral heartbeat text or typed heartbeat events and let each caller add its command label. Remove the sensor's prefix rewrite and refresh the stale header.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[17]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Reusable sensor engines live beneath drift-ai and rewrite its diagnostic identity.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-41",
+          "residual": "The scheduled sensor-family move does not address the imported runner's hard-coded label or the sensor's text rewrite."
+        },
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-146",
+          "residual": "No drift-ai directory restructuring is proposed; this residual is caller-neutral formatting at the existing boundary."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 163 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L02-001",
+      "title": "Remove the unreachable start command from the code-intel server CLI vocabulary",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 31,
+          "endLine": null,
+          "measurement": null,
+          "note": "ServerCliCommand advertises start."
+        },
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 97,
+          "endLine": 105,
+          "measurement": null,
+          "note": "The sole parser accepts only status, stop, and restart."
+        },
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 89,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The dispatcher has no distinct start behavior."
+        }
+      ],
+      "problem": "The private command union claims a state that the parser cannot produce and the dispatcher does not distinguish, weakening exhaustiveness and misleading lifecycle maintenance.",
+      "proposedDirection": "Delete start from ServerCliCommand and retain the three-command parser and usage text as authority.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[13]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "ServerCliCommand contains an unreachable start arm",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 133 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L02-002",
+      "title": "Require rationale metadata on ghost-file allow-pair exceptions",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "drift-ai.config.json",
+          "line": 15,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Eight durable currentAllowedPairs entries contain paths only."
+        },
+        {
+          "path": "scripts/drift-ai/config.ts",
+          "line": 112,
+          "endLine": 114,
+          "measurement": null,
+          "note": "GhostFileAllowedPair has only a files tuple."
+        },
+        {
+          "path": "scripts/drift-ai/config-readers.ts",
+          "line": 149,
+          "endLine": 167,
+          "measurement": null,
+          "note": "The parser requires a positional two-path array and cannot retain rationale."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 344,
+          "endLine": 350,
+          "measurement": null,
+          "note": "The guide describes these as explicit exceptions for residual heuristic cases."
+        }
+      ],
+      "problem": "Durable suppressions cannot record why they are legitimate, so reviewers cannot distinguish deliberate module pairs from temporary or stale permissions.",
+      "proposedDirection": "Represent each pair with files and a required non-empty rationale, migrate the eight entries, and retain rationale in effective-config inspection.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[14]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Ghost-file allowlist pairs carry no rationale metadata",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-10",
+          "residual": "Its surviving analyzer-contract slices do not add rationale to currentAllowedPairs."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 169 — hint only",
+        "looks close to leaf 207 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L02-003",
+      "title": "Remove the always-false oversized field from triage packet serialization",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-packet-group.ts",
+          "line": 74,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Ordinary groups flush before exceeding packetSize."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-group.ts",
+          "line": 88,
+          "endLine": 117,
+          "measurement": null,
+          "note": "Large components are split into bounded chunks before oversized is calculated."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-types.ts",
+          "line": 30,
+          "endLine": 37,
+          "measurement": null,
+          "note": "The unreachable state is exposed in every packet."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packets.ts",
+          "line": 62,
+          "endLine": 95,
+          "measurement": null,
+          "note": "The value is copied into manifest and packet serialization."
+        }
+      ],
+      "problem": "The packet protocols advertise an oversized state that grouping structurally prevents, inviting dead consumer handling and synchronized maintenance across types and serializers.",
+      "proposedDirection": "Remove oversized from group, packet, manifest, serializers, and fixtures; keep splitPathComponent as the truthful exceptional-condition disclosure.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[17]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Packet oversized is an always-false serialized field",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-10",
+          "residual": "Its surviving triage-contract slices do not address the uninhabitable packet field."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 232 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L02-004",
+      "title": "Stop accumulating coldspot state that no coldspot calculation reads",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/coldspots-aggregate.ts",
+          "line": 12,
+          "endLine": 20,
+          "measurement": null,
+          "note": "FileAggregate includes added and oldestTouchMs."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-aggregate.ts",
+          "line": 33,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Every row increments added and mutates both touch bounds."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-coldspot.ts",
+          "line": 81,
+          "endLine": 84,
+          "measurement": null,
+          "note": "Age calculation reads newestTouchMs only."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-coldspot.ts",
+          "line": 162,
+          "endLine": 174,
+          "measurement": null,
+          "note": "Surfaced rows do not read added or oldestTouchMs."
+        }
+      ],
+      "problem": "Coldspot aggregation performs per-file writes for an added-line total and oldest-touch bound that the lens never reads, obscuring its actual age and birth requirements.",
+      "proposedDirection": "Remove added and oldestTouchMs, track only newestTouchMs for age, and retain birthMs as the live earliest-commit selector.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[19]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Coldspot aggregation retains unused accumulator state",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 209 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L03-001",
+      "title": "SRD backfills advertise scope guards built from the rows they guard",
+      "area": "server",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/seed/backfill-srd-spell-combat.ts",
+          "line": 31,
+          "endLine": 44,
+          "measurement": null,
+          "note": "The allow-looking set and query predicate are derived from the same supplied rows."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-monster-actions.ts",
+          "line": 42,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The monster backfill repeats the self-derived membership check; sourceType is the separate real constraint."
+        }
+      ],
+      "problem": "Checks that read as allowlist enforcement cannot filter any supplied row, creating false assurance about database-write scope and dead branches reviewers must reason through.",
+      "proposedDirection": "Delete the self-derived checks and redundant predicate, or validate against an independently trusted SRD-id source. Preserve the monster sourceType constraint.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[20]",
+          "lane": "lane-03-server",
+          "originalTitle": "Both SRD backfills contain tautological allowlist-looking guards.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 203 — hint only",
+        "looks close to leaf 097 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L03-002",
+      "title": "Bearer-header interpretation has two private production implementations",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/trpc/context.ts",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The tRPC boundary privately defines and parses the Bearer prefix."
+        },
+        {
+          "path": "packages/server/src/routes/upload-routes.ts",
+          "line": 49,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The upload boundary repeats prefix checking, slicing, and verification."
+        }
+      ],
+      "problem": "The two authenticated HTTP boundaries can silently diverge on scheme, whitespace, or empty-token policy despite delegating token semantics to the same verifier.",
+      "proposedDirection": "Expose one authorization-header extractor or authentication helper and use it from both boundaries, leaving REST response mapping local.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[24]",
+          "lane": "lane-03-server",
+          "originalTitle": "Bearer-token parsing is duplicated between tRPC and upload boundaries.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 205 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L03-003",
+      "title": "Database seed entrypoints duplicate a fragile forced-exit lifecycle",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/prisma/seed.ts",
+          "line": 8,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The ordinary seed configures logging and Prisma, then exits in catch before chained cleanup."
+        },
+        {
+          "path": "packages/server/prisma/seed-template.ts",
+          "line": 10,
+          "endLine": 33,
+          "measurement": null,
+          "note": "The template seed duplicates the same configuration and lifecycle."
+        }
+      ],
+      "problem": "Two entrypoints maintain the same database bootstrap, failure, and shutdown protocol by hand, and both force process exit before their chained finally purports to disconnect.",
+      "proposedDirection": "Extract a database-script runner accepting command/messages and a Prisma callback; set a nonzero exit code on failure and let finally disconnect.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[25]",
+          "lane": "lane-03-server",
+          "originalTitle": "Seed command configuration and entrypoint lifecycle are duplicated.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 087 — hint only",
+        "looks close to leaf 009 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L05-001",
+      "title": "Remove the legacy DeathSaves production orphan and its stale test",
+      "area": "client",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/death-saves.tsx",
+          "line": 37,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The legacy read-only DeathSaves component remains exported."
+        },
+        {
+          "path": "packages/client/src/components/sheet/desktop-sheet-layout.tsx",
+          "line": 81,
+          "endLine": 89,
+          "measurement": null,
+          "note": "The live desktop sheet renders DeathSavesInteractive."
+        },
+        {
+          "path": "packages/client/src/components/sheet/mobile-sheet-tabs.tsx",
+          "line": 87,
+          "endLine": 95,
+          "measurement": null,
+          "note": "The live mobile sheet also renders DeathSavesInteractive."
+        },
+        {
+          "path": "packages/client/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production imports (`rg -l 'death-saves\\.js' packages/client/src --glob '!**/*.test.*' --glob '!**/*.spec.*' | wc -l`)",
+          "note": "The legacy module has no production consumer; its external consumer is a test."
+        }
+      ],
+      "problem": "A superseded production component survives only through a stale test, duplicating presentation and making coverage imply that production exercises behavior it never renders.",
+      "proposedDirection": "Delete death-saves.tsx and remove or relocate its obsolete test cases; retain coverage on DeathSavesInteractive and the shared dot primitive.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[4]",
+          "lane": "lane-05-client",
+          "originalTitle": "Legacy DeathSaves is unreferenced.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 061 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L05-002",
+      "title": "Non-freehand drawing drags copy an unused growing point history",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 207,
+          "endLine": 225,
+          "measurement": null,
+          "note": "One handler sends every drawing tool's pointer moves through updateDrawing."
+        },
+        {
+          "path": "packages/client/src/stores/map-canvas-store.ts",
+          "line": 443,
+          "endLine": 452,
+          "measurement": null,
+          "note": "Every update copies and appends to freehandPoints."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 50,
+          "endLine": 87,
+          "measurement": null,
+          "note": "Only the freehand builder consumes the history."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/use-map-canvas-handlers.ts",
+          "line": 60,
+          "endLine": 72,
+          "measurement": null,
+          "note": "MapCanvas subscribes to the complete drawing object, including each replaced history array."
+        }
+      ],
+      "problem": "Line, rectangle, and circle drags grow and recopy a coordinate array their builders never read, creating quadratic cumulative allocation on a pointer-frequency path.",
+      "proposedDirection": "Append points only for draw-freehand; update currentPoint alone for other drawing tools.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[6]",
+          "lane": "lane-05-client",
+          "originalTitle": "Non-freehand drawing gestures accumulate unused freehand history.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-188",
+          "residual": "CQ25-188 declined splitting the canvas store; this candidate changes only per-tool accumulation and does not split ownership."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 047 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L05-021",
+      "title": "Give dice.roll a RollResult-typed response instead of four client metadata assertions",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/dice.ts",
+          "line": 29,
+          "endLine": 61,
+          "measurement": null,
+          "note": "dice.roll validates generic chat output while always producing metadata from a concrete RollResult."
+        },
+        {
+          "path": "packages/shared/src/schemas/chat-inputs.ts",
+          "line": 52,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The generic chat schema leaves metadata unknown."
+        },
+        {
+          "path": "packages/shared/src/schemas/dice-inputs.ts",
+          "line": 26,
+          "endLine": 40,
+          "measurement": null,
+          "note": "A runtime rollResultSchema already exists."
+        },
+        {
+          "path": "packages/client/src/hooks/use-ability-roll.ts",
+          "line": 23,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The ability hook asserts metadata and falsely describes it as guaranteed by the mutation contract."
+        },
+        {
+          "path": "packages/client/src/hooks/use-weapon-roll.ts",
+          "line": 39,
+          "endLine": 80,
+          "measurement": null,
+          "note": "Three more assertions feed toast rendering and critical-damage control flow."
+        }
+      ],
+      "problem": "The procedure always returns roll metadata but exposes it as unknown, forcing four unchecked assertions. Producer/schema drift remains invisible to TypeScript, and malformed metadata can crash toast formatting or the weapon crit chain.",
+      "proposedDirection": "Add a dice-roll response schema narrowing the chat envelope to metadata validated by rollResultSchema. If generic output must remain, centralize a safeParse adapter with explicit invalid-data handling.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[21]",
+          "lane": "lane-05-client",
+          "originalTitle": "Dice roll hooks repeat the same transport adapter and JSON narrowing.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-179",
+          "residual": "CQ25-179 preserves the persisted RollResult model; this candidate leaves that shape unchanged and addresses only the procedure response boundary."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L05C-001",
+      "title": "Rename elementCenter to match its intentional bottom-left menu anchor",
+      "area": "client",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/use-long-press.ts",
+          "line": 35,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The helper named elementCenter returns rect.left and rect.bottom."
+        },
+        {
+          "path": "packages/client/src/hooks/use-long-press.ts",
+          "line": 128,
+          "endLine": 135,
+          "measurement": null,
+          "note": "Shift+Enter sends the result as the keyboard-triggered menu position."
+        },
+        {
+          "path": "packages/client/src/components/sheet/roll-context-menu.tsx",
+          "line": 139,
+          "endLine": 142,
+          "measurement": null,
+          "note": "The menu consumes the point directly as CSS left/top."
+        },
+        {
+          "path": "packages/client/src/hooks/use-long-press.test.ts",
+          "line": 255,
+          "endLine": 270,
+          "measurement": null,
+          "note": "The test pins bottom-left behavior, showing that placement is intentional."
+        }
+      ],
+      "problem": "A geometry helper claims to return the center while returning the bottom-left anchor. The false name obscures the tested menu-placement contract and invites an accidental behavior change.",
+      "proposedDirection": "Keep the behavior and rename the helper to elementBottomLeft or elementMenuAnchor; update the test title accordingly.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[25]",
+          "lane": "lane-05-client",
+          "originalTitle": "elementCenter returns a bottom-left anchor.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5B-L05C-002",
+      "title": "CreateMapDialog retains its submitted draft because successful close bypasses reset",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+          "line": 203,
+          "endLine": 216,
+          "measurement": null,
+          "note": "The persistently mounted component owns form, image-mode, upload, file, and preview state."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+          "line": 239,
+          "endLine": 253,
+          "measurement": null,
+          "note": "State resets only through handleClose."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/maps-panel.tsx",
+          "line": 157,
+          "endLine": 168,
+          "measurement": null,
+          "note": "Success closes from the parent with setCreateOpen(false), bypassing handleClose."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/use-map-image-preview.ts",
+          "line": 48,
+          "endLine": 53,
+          "measurement": null,
+          "note": "Object URLs are revoked on hook-owner unmount, which a controlled close does not cause."
+        }
+      ],
+      "problem": "Successful creation bypasses the dialog's manual reset, so reopening can expose the submitted name, dimensions, image mode/file, and preview. The selected-file object URL also remains live while the always-mounted owner survives.",
+      "proposedDirection": "Place draft/upload/preview state in keyed dialog content so every close/reopen transition remounts and cleanup runs; add a close-after-success and reopen regression case.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[28]",
+          "lane": "lane-05-client",
+          "originalTitle": "CreateMapDialog manually reconstructs keyed-remount lifecycle.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-216",
+          "residual": "CQ25-216 declined sheet-dialog lifecycle work as outside a sheet-owner capability change. This map dialog is outside that scope and has a concrete success-close path that bypasses reset."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 055 — hint only"
+      ],
+      "overturnsRuling": "Overturns CQ25-216 only if its phrase “dialog remount/reset work” is read repository-wide. That refusal concerned sheet-dialog work outside a sheet-owner capability fix and did not inspect CreateMapDialog. Here, MapsPanel's success path closes the map dialog without invoking its reset, producing observable stale draft state and retained object-URL lifetime."
+    },
+    {
+      "promotionId": "R5B-L05D-001",
+      "title": "Preserve required route-parameter typing in parameterized pages",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/routes/character-sheet-route.ts",
+          "line": 18,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The registered route requires characterId."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet-page.tsx",
+          "line": 23,
+          "endLine": 30,
+          "measurement": null,
+          "note": "strict:false widens characterId, forcing an empty query input and missing-ID branch."
+        },
+        {
+          "path": "packages/client/src/pages/campaign-detail-page.tsx",
+          "line": 231,
+          "endLine": 251,
+          "measurement": null,
+          "note": "campaignId is read loosely while adjacent search/navigation calls retain exact route identity."
+        },
+        {
+          "path": "packages/client/src/pages/collection-detail-page.tsx",
+          "line": 149,
+          "endLine": 164,
+          "measurement": null,
+          "note": "Required collectionId is widened and normalized to an empty string."
+        },
+        {
+          "path": "packages/client/src/pages/join-page.tsx",
+          "line": 52,
+          "endLine": 70,
+          "measurement": null,
+          "note": "Required invite code becomes optional, producing fallback and enabled guards."
+        }
+      ],
+      "problem": "Four pages discard the router's compile-time guarantee that required parameters exist, spreading empty-ID fallbacks and unreachable states while allowing route/page mismatches to compile.",
+      "proposedDirection": "Bind each useParams call to its exact route and remove fallbacks and missing-parameter branches that become unreachable.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[46]",
+          "lane": "lane-05-client",
+          "originalTitle": "Required route parameters are widened through strict:false.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 248 — hint only",
+        "looks close to leaf 051 — hint only"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly the 26 assigned cut items across lanes 01, 02, 03, and 05; no files were modified and no tests or builds were run.",
+    "Every cited source path was opened against the tree identical to AUDIT_TARGET_SHA; authored leaf titles, the distilled prior-pack corpus, live prior constraints, and originating wave context were reviewed.",
+    "For lane-01 cut[17], both standalone sensor reuse paths were inspected; the promotion is intentionally narrowed to the Knip runner because near-duplicate reuse did not substantiate diagnostic rewriting.",
+    "For lane-05 cut[27], the survey covered the production character-sheet hooks and their sheet-layout/dialog consumers; no identity-sensitive effect, subscription, or memoized boundary was found.",
+    "The CreateMapDialog candidate explicitly addresses the only potentially broad reading of CQ25-216; the freehand and dice candidates leave the persisted/store shapes protected by CQ25-188 and CQ25-179 unchanged."
+  ]
+}

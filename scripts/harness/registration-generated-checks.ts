@@ -1,23 +1,12 @@
 import { isAbsolute, relative, resolve } from "node:path";
 
+import { errorMessage } from "../lib/error-message.js";
 import { isObjectLike } from "../lib/records.js";
 import { collectSkillArtifactCheckFailures } from "./generate-skill-artifacts.js";
-import { renderVerifyStepsShellFromManifest } from "./generate-verify-steps.js";
-import {
-  type GeneratedSurfaceRecord,
-  parseGeneratedSurfaces,
-  renderClassifierFragment,
-  renderFixtureManifest,
-  renderFreshnessShell,
-} from "./generated-surfaces.js";
+import { renderProjectionsFor, type VerifyStepProjectionContext } from "./generate-verify-steps.js";
+import { type GeneratedSurfaceRecord, parseGeneratedSurfaces } from "./generated-surfaces.js";
 import { type ControlFailures, pushFailure } from "./harness-check-validation.js";
 import { safeParseHarnessManifest } from "./harness-manifest-schema.js";
-import {
-  GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
-  GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
-  GENERATED_SURFACE_FRESHNESS_PATH,
-  GENERATED_VERIFY_STEPS_PATH,
-} from "./harness-paths.js";
 
 const VERIFY_REGISTRATION_REPAIR = "Run `bun run verify:steps` and commit the result.";
 const SKILL_REGISTRATION_REPAIR = "Run `bun run harness:skills:refresh` and commit the result.";
@@ -97,42 +86,30 @@ function checkVerifyRegistrationFragments(
   failures: Map<string, ControlFailures>,
 ): void {
   // A manifest that fails the typed contract is reported control-by-control by
-  // collectManifestRegistrationFailures; skipping the verify-step render here
-  // keeps those granular diagnostics reachable instead of aborting the run on
-  // a schema throw.
+  // collectManifestRegistrationFailures, and every collector projection is a
+  // projection *of* that manifest's world, so this pass has nothing it can
+  // usefully compare until the schema failure is repaired. Bowing out here
+  // keeps those granular diagnostics as the only report, rather than adding a
+  // "run `bun run verify:steps`" repair that cannot fix a malformed manifest.
   const { manifest } = safeParseHarnessManifest(inputs.rawManifest);
+  if (manifest === undefined) return;
+  const context: VerifyStepProjectionContext = {
+    records,
+    knownScripts: new Set(inputs.scripts.keys()),
+    manifest,
+  };
+  // Selection is the generator's: renderProjectionsFor picks this checker's
+  // projections and fails loudly if one renders nothing, so a collector
+  // projection can never lose its freshness comparison here unnoticed.
   try {
-    if (manifest !== undefined) {
-      checkOutputFreshness(
-        inputs,
-        failures,
-        GENERATED_VERIFY_STEPS_PATH,
-        renderVerifyStepsShellFromManifest(manifest, new Set(inputs.scripts.keys())),
-      );
+    for (const { outputPath, rendered } of renderProjectionsFor("collector", context)) {
+      checkOutputFreshness(inputs, failures, outputPath, rendered);
     }
-    checkOutputFreshness(
-      inputs,
-      failures,
-      GENERATED_SURFACE_FRESHNESS_PATH,
-      renderFreshnessShell(records),
-    );
-    checkOutputFreshness(
-      inputs,
-      failures,
-      GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
-      renderClassifierFragment(records),
-    );
-    checkOutputFreshness(
-      inputs,
-      failures,
-      GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
-      renderFixtureManifest(records),
-    );
   } catch (error) {
     pushFailure(
       failures,
       "verify registration",
-      `${error instanceof Error ? error.message : String(error)}. ${VERIFY_REGISTRATION_REPAIR}`,
+      `${errorMessage(error)}. ${VERIFY_REGISTRATION_REPAIR}`,
     );
   }
 }
@@ -153,7 +130,7 @@ function checkSkillRegistration(
     pushFailure(
       failures,
       "skill artifact registration",
-      `${error instanceof Error ? error.message : String(error)}. ${SKILL_REGISTRATION_REPAIR}`,
+      `${errorMessage(error)}. ${SKILL_REGISTRATION_REPAIR}`,
     );
   }
 }
@@ -169,7 +146,7 @@ export function collectGeneratedRegistrationFailures(
     pushFailure(
       failures,
       "generatedSurface schema",
-      `${error instanceof Error ? error.message : String(error)}; repair harness.controls.json`,
+      `${errorMessage(error)}; repair harness.controls.json`,
     );
   }
   for (const record of records) {

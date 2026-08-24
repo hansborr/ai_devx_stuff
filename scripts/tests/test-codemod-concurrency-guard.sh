@@ -3,6 +3,7 @@
 # smoke-subjects: scripts/codemods/concurrency-guard.ts
 # smoke-subjects: scripts/codemods/concurrency-guard/
 # smoke-subjects: scripts/codemods/lib/
+# smoke-subjects: scripts/lib/path-taxonomy.ts
 # smoke-subjects: scripts/codemods/fixtures/concurrency-guard/
 # smoke-subjects: scripts/tests/test-codemod-concurrency-guard.sh
 # smoke-subjects: package.json
@@ -34,10 +35,10 @@ status=0
 ) || status=$?
 
 [ "$status" -ne 0 ] \
-  || fail "concurrency-guard codemod CLI should fail on direct writes"
+  || fail "concurrency-guard scanner CLI should fail on direct writes"
 grep -qF "RawTxClient/raw-tx-boundary ERROR" "$STDOUT" \
-  || fail "concurrency-guard codemod CLI did not report RawTxClient boundary: $(cat "$STDOUT")"
-grep -qF "Use updateParticipantStatsLocked" "$STDOUT" \
-  || fail "concurrency-guard codemod CLI did not report locked-helper suggestion: $(cat "$STDOUT")"
+  || fail "concurrency-guard scanner CLI did not report RawTxClient boundary: $(cat "$STDOUT")"
+grep -qF "Route encounterParticipant writes through updateParticipantStatsLocked" "$STDOUT" \
+  || fail "concurrency-guard scanner CLI did not report locked-helper suggestion: $(cat "$STDOUT")"
 
 printf 'codemod concurrency-guard CLI smoke passed\n'

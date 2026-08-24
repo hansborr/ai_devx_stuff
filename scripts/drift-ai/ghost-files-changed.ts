@@ -1,36 +1,37 @@
 import path from "node:path";
 
 import { matchesAnyGlob } from "./config-match.js";
-import type { DirectoryListing, RunGhostFilesCheckOptions } from "./ghost-files.js";
+import type { DirectoryListing } from "./ghost-files.js";
 import { ghostMessage, pairKey, relatedFiles, repairHint } from "./ghost-files-findings.js";
 import { findGhostMatches, type GhostFileTuning } from "./ghost-files-match.js";
-import { changedFilesFromScope, isSourceLike, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { isSourceLike, toPosix } from "./path-util.js";
+import { type ChangedDetectorScope, changedFilesFromScope } from "./scope.js";
 import type { DriftFinding } from "./types.js";
 
 export function runChangedGhostFilesCheck(
-  options: RunGhostFilesCheckOptions,
+  options: ChangedGhostFilesDependencies,
   excludeGlobs: readonly string[],
   sourceExtensions: ReadonlySet<string>,
   tuning: GhostFileTuning,
   dependentsHint: string,
 ): DriftFinding[] {
-  const listDirectory = options.listDirectory;
-  if (listDirectory === undefined) {
-    throw new Error("runGhostFilesCheck requires listDirectory for changed scope.");
-  }
   return runChangedGhostFiles({
     detectorScope: options.detectorScope,
     excludeGlobs,
-    listDirectory,
+    listDirectory: options.listDirectory,
     sourceExtensions,
     tuning,
     dependentsHint,
   });
 }
 
+type ChangedGhostFilesDependencies = {
+  readonly detectorScope: ChangedDetectorScope;
+  readonly listDirectory: DirectoryListing;
+};
+
 type ChangedGhostFilesOptions = {
-  readonly detectorScope: DetectorScope;
+  readonly detectorScope: ChangedDetectorScope;
   readonly excludeGlobs: readonly string[];
   readonly listDirectory: DirectoryListing;
   readonly sourceExtensions: ReadonlySet<string>;

@@ -1,6 +1,13 @@
 # 44. Comments record the change that produced the code instead of stating what the code does, anchoring on bare leaf/task ids, a deleted awk script, and closed follow-ups — and some of those strings render into generated docs
 
-Status: Proposed — not promoted
+Status: **Landed 2026-07-30 on branch `feat/cq-server-comments-s12-s13`
+(merge `3b7830ce4`)** through [SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md)
+slices **S12 and S13**, cut to roughly a fifth; the plan shrinks this leaf L→S and
+**corrects its central evidence in both directions** (see `## Evidence` below
+and the plan's correction 1). **Steps 6, 7, 8 and 9 are dropped permanently** —
+do not schedule the 60-plus bare-coordinate sweep (one carve-out,
+`scripts/lib/eslint-json.ts`, survives in S13), the two header trims, or step
+9's failure-reporting restructure, which is not comment work at all.
 Theme: comment provenance · Area: comments · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
@@ -101,6 +108,34 @@ does not do it.
   leaf 03e`, rendered from the drift-ai `expect-expect` / `valid-expect`
   principles. These two *are* pack-qualified and are the shape the others should
   take.
+
+**Correction — this section's central claim is wrong in both directions, and
+the priority inverts.** Re-traced on `2cf49496` by
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md) (correction 1), which
+supersedes the two bullets above:
+
+- **The four `principle` strings do *not* reach the agent envelope.**
+  `buildLocalFinding` (`scripts/lint-ratchet/diagnostics.ts:182-196`) reads the
+  *local ESLint rule's* docs metadata — `ruleDocsById.get(regression.ruleId).principle`
+  — not the registry entry. `:157` is
+  `ratchet/local-no-swallowed-errors-broader-semantics` (`ruleId:
+  "local/no-swallowed-errors"`), so it takes that path. The `principle` strings
+  reach `docs/generated/harness-controls.md` and nothing else.
+- **The two `zeroBaselineDisposition.reason` strings at `:405` and `:423` do
+  *not* "render nowhere".** `buildGenericFinding` (`diagnostics.ts:207-225`)
+  reads `ratchet.zeroBaselineDisposition?.reason` for `third-party` and `core`
+  ratchets, and both of these sit on `source: { kind: "third-party" }`
+  testing-library ratchets. **They are the strings an agent reads today** — the
+  most urgent two, not the inert two.
+- **Two sites this inventory misses**, added by the plan's correction 3:
+  `scripts/lint-ratchet/lint-ratchet-config.ts:479`
+  (`ratchet/vitest-valid-expect-script-tests`, "while Leaf 41 drain work
+  proceeds") and `harness.controls.json:1722` (`check/lint-coverage-map`, "the
+  Leaf 41 lint coverage map"). S12 covers eight strings, not six.
+
+Both sets still need fixing, and editing either field moves no baseline —
+`configHashInput` (`tools/lint-ratchet/src/kernel/baseline-hash.ts:92-107`)
+hashes neither, so **no `lint:ratchet:update` is required**.
 
 ### Bare coordinates in source comments
 

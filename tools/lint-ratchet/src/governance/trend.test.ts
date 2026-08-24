@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  customWorkflowVocabulary,
+  fixtureWorkflowVocabulary,
+} from "../../test/fixture-workflow-vocabulary.js";
 import { currentById, FIXTURE_HASH } from "../../test/support/lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
@@ -18,6 +22,7 @@ const trendContext: LintRatchetEngineContext = {
   repoRoot: "/repo",
   baselinePath: "/repo/lint-ratchet.baseline.json",
   debtLogPath: "/repo/lint-ratchet.debt-log.jsonl",
+  workflowVocabulary: fixtureWorkflowVocabulary,
 };
 
 const messageRatchet: LintRatchetConfig = {
@@ -30,7 +35,6 @@ const messageRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture message ratchet principle.",
 };
 
@@ -44,8 +48,12 @@ function baselineText(total: number, writeVersion: 1 | 2 = 1): string {
       [messageRatchet],
       currentById([[messageRatchet.id, [["packages/app/src/a.ts", { count: total }]]]]),
       ruleSourceHashes,
-      createLintRatchetBaselineVersionPolicy(writeVersion),
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        versionPolicy: createLintRatchetBaselineVersionPolicy(writeVersion),
+      },
     ),
+    fixtureWorkflowVocabulary,
   );
 }
 
@@ -122,14 +130,14 @@ describe("lint ratchet trend", () => {
 
   it("omits retired series by default and points to the complete history command", () => {
     const result = runLintRatchetTrend({
-      context: trendContext,
+      context: { ...trendContext, workflowVocabulary: customWorkflowVocabulary },
       deps: trendDeps({ old: baselineText(5), new: baselineText(2) }),
       ratchets: [],
     });
 
     expect(result.report).not.toContain("ratchet/fixture-message");
     expect(result.report).toContain("Omitted 1 retired series");
-    expect(result.report).toContain("bun run lint:ratchet:trend -- --all");
+    expect(result.report).toContain(customWorkflowVocabulary.trendAllCommand);
   });
 
   it("includes every historical series in explicit all mode", () => {

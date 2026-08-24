@@ -21,10 +21,40 @@ TMP_ROOT=$(mktemp -d /tmp/musi-ai-hooks-tidy-test.XXXXXX)
 TIDY_REPO_TMP="$TMP_ROOT/tidy-repo"
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
+# The full ESLint extension policy is shared by tidy, coverage, and Stop. Keep
+# the matrix here beside tidy's behavior fixtures and pin the three consumers
+# to the same helper so a future extension change cannot land partially.
+# shellcheck source=edited-paths.sh
+. "$SCRIPT_DIR/edited-paths.sh"
+for supported in fixture.js fixture.JSX fixture.mjs fixture.cjs fixture.ts fixture.tsx fixture.mts fixture.cts fixture.json fixture.jsonc fixture.json5; do
+  ai_edited_path_eslint_supported "$supported" \
+    || fail "shared ESLint extension matrix should include $supported"
+done
+for unsupported in fixture.md fixture.yaml fixture.prisma; do
+  if ai_edited_path_eslint_supported "$unsupported"; then
+    fail "shared ESLint extension matrix should exclude $unsupported"
+  fi
+done
+grep -qF 'ai_edited_path_eslint_supported "$absolute_path"' "$SCRIPT_DIR/tidy-edited-file.sh" \
+  || fail "tidy must consume the shared ESLint extension helper"
+grep -qF 'ai_edited_path_eslint_supported "$relative_path"' "$SCRIPT_DIR/lint-coverage-check.sh" \
+  || fail "lint coverage must consume the shared ESLint extension helper"
+grep -qF 'ai_edited_path_eslint_supported "$path"' "$SCRIPT_DIR/stop-policy.sh" \
+  || fail "Stop lint warnings must consume the shared ESLint extension helper"
+if (
+  # shellcheck source=ratchet-regression-check.sh
+  . "$SCRIPT_DIR/ratchet-regression-check.sh"
+  ai_ratchet_regression_is_lintable fixture.json
+); then
+  fail "ratchet regression must retain its narrower JS/TS-only extension policy"
+fi
+
 # --- tidy-edited-file hook ----------------------------------------------------
 rm -rf "$TIDY_REPO_TMP"
 mkdir -p "$TIDY_REPO_TMP/scripts/ai-hooks" "$TIDY_REPO_TMP/src" "$TIDY_REPO_TMP/node_modules/.bin"
-cp "$REPO_ROOT/scripts/ai-hooks/common.sh" "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" "$TIDY_REPO_TMP/scripts/ai-hooks/"
+cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/edited-paths.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" "$TIDY_REPO_TMP/scripts/ai-hooks/"
 git -C "$TIDY_REPO_TMP" init -q
 HOOK_FIXTURE_REPO_ROOT="$TIDY_REPO_TMP"
 TIDY_PINNED_LOG="$TMP_ROOT/tidy-pinned.log"
@@ -106,8 +136,13 @@ tidy_context() {
 
 tidy_payload_for_file() {
   local file="$1"
+  local tool_name="${2:-Edit}"
+  local payload_cwd="${3:-}"
 
-  jq -n --arg file "$file" '{tool_name:"Edit",tool_input:{file_path:$file}}'
+  jq -n --arg file "$file" --arg tool_name "$tool_name" --arg payload_cwd "$payload_cwd" '
+    {tool_name:$tool_name,tool_input:{file_path:$file}}
+    + if $payload_cwd == "" then {} else {cwd:$payload_cwd} end
+  '
 }
 
 tidy_relative_path() {
@@ -130,6 +165,20 @@ TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--f
   || fail "Claude .ts tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 [ "$(cat "$TIDY_TS")" = 'const value = { answer: 1 };' ] \
   || fail "Claude .ts tidy should format the fixture: $(cat "$TIDY_TS")"
+
+TIDY_WRITE_TS="$TIDY_REPO_TMP/src/write-needs-formatting.ts"
+TIDY_WRITE_TS_REL=$(tidy_relative_path "$TIDY_WRITE_TS")
+printf 'const writeValue={answer:1}\n' > "$TIDY_WRITE_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$(tidy_payload_for_file "$TIDY_WRITE_TS_REL" Write)") \
+  || fail "tidy hook should not fail for Claude Write payload"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+[ "$TIDY_CONTEXT" = "tidy-edited-file: $TIDY_WRITE_TS_REL tidied" ] \
+  || fail "Claude Write tidy should report changed file, got: $TIDY_CONTEXT"
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_WRITE_TS" "$TIDY_WRITE_TS")
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "Claude Write tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
 TIDY_CLEAN_TS="$TIDY_REPO_TMP/src/already-tidy.ts"
 TIDY_CLEAN_TS_REL=$(tidy_relative_path "$TIDY_CLEAN_TS")
@@ -179,8 +228,9 @@ assert_contains "$(tidy_context "$TIDY_OUTPUT")" "node_modules/foo.ts skipped (u
 # classification is relative to the file's own repo root, not the absolute path.
 TIDY_NESTED_ROOT="$TMP_ROOT/node_modules/nested-lane"
 mkdir -p "$TIDY_NESTED_ROOT/scripts/ai-hooks" "$TIDY_NESTED_ROOT/src" "$TIDY_NESTED_ROOT/node_modules/.bin"
-cp "$REPO_ROOT/scripts/ai-hooks/common.sh" "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" \
-  "$TIDY_NESTED_ROOT/scripts/ai-hooks/"
+cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/edited-paths.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/tidy-edited-file.sh" "$TIDY_NESTED_ROOT/scripts/ai-hooks/"
 cp "$TIDY_REPO_TMP/node_modules/.bin/prettier" "$TIDY_REPO_TMP/node_modules/.bin/eslint" \
   "$TIDY_NESTED_ROOT/node_modules/.bin/"
 git -C "$TIDY_NESTED_ROOT" init -q
@@ -201,8 +251,36 @@ printf 'a\0b' > "$TIDY_BINARY"
 TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_BINARY_REL")") \
   || fail "tidy hook should not fail for binary file"
 assert_hook_json "$TIDY_OUTPUT"
+assert_contains "$(tidy_context "$TIDY_OUTPUT")" "WARNING:"
 assert_contains "$(tidy_context "$TIDY_OUTPUT")" "$TIDY_BINARY_REL skipped (binary file)"
 [ ! -s "$TIDY_PINNED_LOG" ] || fail "binary file should not invoke pinned tools"
+
+TIDY_BINARY_PRISMA="$TIDY_REPO_TMP/packages/server/prisma/schema.prisma"
+mkdir -p "$(dirname "$TIDY_BINARY_PRISMA")"
+TIDY_BINARY_PRISMA_REL=$(tidy_relative_path "$TIDY_BINARY_PRISMA")
+printf 'model Hidden {\0}\n' > "$TIDY_BINARY_PRISMA"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_BINARY_PRISMA_REL")") \
+  || fail "tidy hook should not fail for NUL-bearing Prisma source"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+assert_contains "$TIDY_CONTEXT" "WARNING:"
+assert_contains "$TIDY_CONTEXT" "$TIDY_BINARY_PRISMA_REL"
+assert_contains "$TIDY_CONTEXT" "literal NUL may be hiding source text"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "NUL-bearing Prisma source should not invoke pinned tools"
+
+TIDY_BINARY_TS="$TIDY_REPO_TMP/src/nul-hidden.ts"
+TIDY_BINARY_TS_REL=$(tidy_relative_path "$TIDY_BINARY_TS")
+printf 'const hidden = "\0";\n' > "$TIDY_BINARY_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(run_tidy_hook "$(tidy_payload_for_file "$TIDY_BINARY_TS_REL")") \
+  || fail "tidy hook should not fail for NUL-bearing TypeScript"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+assert_contains "$TIDY_CONTEXT" "WARNING:"
+assert_contains "$TIDY_CONTEXT" "$TIDY_BINARY_TS_REL"
+assert_contains "$TIDY_CONTEXT" "literal NUL may be hiding source text"
+[ ! -s "$TIDY_PINNED_LOG" ] || fail "NUL-bearing TypeScript should not invoke pinned tools"
 
 TIDY_CODEX_TS="$TIDY_REPO_TMP/src/codex one.ts"
 TIDY_CODEX_MD="$TIDY_REPO_TMP/src/codex-note.md"
@@ -361,6 +439,19 @@ TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--f
   || fail "lane .ts tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 [ "$(cat "$TIDY_LANE_TS")" = 'const value = { answer: 1 };' ] \
   || fail "lane .ts tidy should format the fixture: $(cat "$TIDY_LANE_TS")"
+
+TIDY_CWD_TS="$TIDY_LANE/src/payload-cwd.ts"
+printf 'const cwdValue={answer:1}\n' > "$TIDY_CWD_TS"
+: > "$TIDY_PINNED_LOG"
+TIDY_OUTPUT=$(TIDY_PINNED_PRETTIER_FORMAT_FIXTURE=1 run_tidy_hook "$(tidy_payload_for_file "src/payload-cwd.ts" Edit "$TIDY_LANE")") \
+  || fail "tidy hook should not fail for a relative path with sibling-worktree payload cwd"
+assert_hook_json "$TIDY_OUTPUT"
+TIDY_CONTEXT=$(tidy_context "$TIDY_OUTPUT")
+[ "$TIDY_CONTEXT" = "tidy-edited-file: src/payload-cwd.ts tidied" ] \
+  || fail "payload-cwd tidy should resolve and report the lane-relative path, got: $TIDY_CONTEXT"
+TIDY_EXPECTED_LOG=$(printf 'prettier\t--write\t--ignore-unknown\t%s\neslint\t--fix\t--no-warn-ignored\t%s' "$TIDY_CWD_TS" "$TIDY_CWD_TS")
+[ "$(cat "$TIDY_PINNED_LOG")" = "$TIDY_EXPECTED_LOG" ] \
+  || fail "payload-cwd tidy command log mismatch: $(cat "$TIDY_PINNED_LOG")"
 
 TIDY_OUTSIDE_REPO="$TMP_ROOT/outside-repo"
 git -C "$REPO_ROOT" init -q "$TIDY_OUTSIDE_REPO"

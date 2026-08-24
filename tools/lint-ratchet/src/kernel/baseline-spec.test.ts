@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 
+import {
+  customWorkflowVocabulary,
+  fixtureWorkflowVocabulary,
+} from "../../test/fixture-workflow-vocabulary.js";
 import type { LintRatchetBaseline } from "./baseline.js";
 import {
   lintRatchetBaselineFromGrouped,
@@ -49,7 +53,7 @@ function baseline(unsortedComplexity = false): LintRatchetBaseline {
 describe("lintRatchetBaselineSpec", () => {
   it("round-trips the ratchet document through the grouped kernel", () => {
     const original = baseline();
-    const spec = lintRatchetBaselineSpec();
+    const spec = lintRatchetBaselineSpec(undefined, fixtureWorkflowVocabulary);
     const rendered = formatGroupedBaseline(spec, lintRatchetBaselineToGrouped(original));
     const parsed = parseGroupedBaseline(spec, rendered);
 
@@ -61,7 +65,7 @@ describe("lintRatchetBaselineSpec", () => {
 
   it("uses codepoint item ordering and the metric strategy formatter", () => {
     const rendered = formatGroupedBaseline(
-      lintRatchetBaselineSpec(),
+      lintRatchetBaselineSpec(undefined, fixtureWorkflowVocabulary),
       lintRatchetBaselineToGrouped(baseline(true)),
     );
 
@@ -80,6 +84,27 @@ describe("lintRatchetBaselineSpec", () => {
       },
     });
 
-    expect(parseGroupedBaseline(lintRatchetBaselineSpec(), noncanonical).ok).toBe(true);
+    expect(
+      parseGroupedBaseline(
+        lintRatchetBaselineSpec(undefined, fixtureWorkflowVocabulary),
+        noncanonical,
+      ).ok,
+    ).toBe(true);
+  });
+
+  it("uses the adapter workflow vocabulary and resolved baseline filename", () => {
+    const spec = lintRatchetBaselineSpec(
+      undefined,
+      customWorkflowVocabulary,
+      "config/custom-ratchet.json",
+    );
+
+    expect(spec.regenerate).toBe(customWorkflowVocabulary.updateCommand);
+    expect(spec.conflictMarkerRemediation).toEqual({
+      baselineFile: "config/custom-ratchet.json",
+      installerCommand: customWorkflowVocabulary.installMergeDriverCommand,
+      restoreOursCommand: "fixture-ratchet restore-ours config/custom-ratchet.json",
+      updateCommand: customWorkflowVocabulary.updateCommand,
+    });
   });
 });

@@ -22,10 +22,6 @@ _MUSI_TRUTH_UP_KEY="${MUSI_TRUTH_UP_KEY:?internal: MUSI_TRUTH_UP_KEY must be set
 _tu_context="${1:-post-merge}"
 
 case "$_MUSI_TRUTH_UP_KEY" in
-  lint-ratchet)
-    _tu_label="lint-ratchet"
-    _tu_baseline_file="lint-ratchet.baseline.json"
-    ;;
   knip-unused-exports)
     _tu_label="knip unused-exports"
     _tu_baseline_file="sensor-knip-unused-exports.baseline.json"
@@ -119,63 +115,6 @@ _tu_baseline_touched_or_marked() {
 
 # --- per-driver handlers ------------------------------------------------------
 
-_tu_run_lint_ratchet() {
-  local STALE_BASELINE_INSTRUCTION RUNNING_NOTICE COULD_NOT_RUN_INSTRUCTION
-  local FAILED_CHECK_INSTRUCTION VERIFIED_NOTICE
-  STALE_BASELINE_INSTRUCTION="$_tu_context: merge produced a stale ratchet baseline - run: bun run lint:ratchet:update, review the diff against HEAD^1 (and HEAD^2 for a merge commit), then commit the repaired baseline as a follow-up commit (or git commit --amend if your workflow permits history rewriting)"
-  RUNNING_NOTICE="$_tu_context: lint-ratchet truth-up running (full check-baseline, typically ~20s)…"
-  COULD_NOT_RUN_INSTRUCTION="$_tu_context: lint-ratchet truth-up could not run; run bun run lint:ratchet:check-baseline manually to verify the merged baseline."
-  FAILED_CHECK_INSTRUCTION="$_tu_context: lint-ratchet truth-up check failed without a staleness verdict; inspect its output (below) and run bun run lint:ratchet:check-baseline manually once the cause is fixed."
-  VERIFIED_NOTICE="$_tu_context: merged lint-ratchet baseline verified truthful."
-
-  _tu_resolve_diff_base || exit 0
-  # Without bun (GUI git clients, minimal shells) staleness cannot be evaluated.
-  # Leave any marker in place so another capable hook run at the same HEAD can
-  # retry it; after HEAD moves, the stamp check reports and discards it.
-  command -v bun >/dev/null 2>&1 || exit 0
-  _tu_stamp_check
-  _tu_baseline_touched_or_marked || exit 0
-
-  local run_full_check=0
-  [ "${MUSI_RATCHET_POSTMERGE:-}" = "full" ] && run_full_check=1
-  [ "$_tu_marker_present" -eq 1 ] && run_full_check=1
-
-  local preflight_status=0
-  bun run scripts/lint-ratchet/post-merge-baseline-preflight.ts >/dev/null 2>&1 \
-    || preflight_status=$?
-  # exit 127 means the check itself could not run (missing deps, broken install)
-  # - an environment failure, not evidence of staleness.
-  [ "$preflight_status" -eq 127 ] && exit 0
-  [ "$preflight_status" -ne 0 ] && run_full_check=1
-
-  [ "$run_full_check" -eq 1 ] || exit 0
-
-  # The full check-baseline is the ~20s step; announce it so a successful
-  # truth-up is not indistinguishable from the hook never engaging.
-  printf '%s\n' "$RUNNING_NOTICE" >&2
-  local full_check_status=0 full_check_output
-  full_check_output=$(bun run lint:ratchet:check-baseline 2>&1) || full_check_status=$?
-  # Classify by exit code plus output marker: only a WorseBaselineError verdict
-  # (exit 1 with the checker's `lint:ratchet:` diagnostic) is evidence of a stale
-  # baseline. The marker stays put on every failure so a capable retry at the same
-  # HEAD re-runs the check (consume-only-on-success). Match the verdict from a
-  # herestring, never `printf ... | grep -q`: grep -q closes the pipe at the first
-  # match, so a report larger than the pipe buffer takes SIGPIPE on printf and
-  # returns 141 under pipefail, silently misrouting to the generic advisory.
-  if [ "$full_check_status" -eq 0 ]; then
-    [ "$_tu_marker_present" -eq 1 ] && rm -f "$_tu_marker"
-    printf '%s\n' "$VERIFIED_NOTICE" >&2
-  elif [ "$full_check_status" -eq 127 ]; then
-    printf '%s\n' "$COULD_NOT_RUN_INSTRUCTION" >&2
-  elif [ "$full_check_status" -eq 1 ] && grep -q '^lint:ratchet:' <<<"$full_check_output"; then
-    printf '%s\n' "$STALE_BASELINE_INSTRUCTION" >&2
-  else
-    printf '%s\n' "$FAILED_CHECK_INSTRUCTION" >&2
-    printf '%s\n' "$full_check_output" | tail -n 20 >&2
-  fi
-  exit 0
-}
-
 _tu_run_knip_unused_exports() {
   local STALE_BASELINE_INSTRUCTION SUMMARY_DRIFT_BASELINE_INSTRUCTION
   local CORRUPT_BASELINE_INSTRUCTION RUNNING_NOTICE COULD_NOT_RUN_INSTRUCTION VERIFIED_NOTICE
@@ -193,25 +132,23 @@ _tu_run_knip_unused_exports() {
 
   # The sensor run is the wait; announce it, then report its outcome.
   printf '%s\n' "$RUNNING_NOTICE" >&2
-  local check_status=0 output
-  output=$(bun run sensor:knip-unused-exports 2>&1) || check_status=$?
-  # A FAIL entry mismatch takes precedence when both exit-1 defects coexist.
-  # Exit 2 covers a broken merged baseline (`ERROR: baseline …`) and a transient
-  # knip-run failure; only the former is a merge defect. Match verdicts from a
-  # herestring, never `printf ... | grep -qE` (SIGPIPE/pipefail misrouting risk).
+  local check_status=0 check_output
+  check_output=$(bun run sensor:knip-unused-exports 2>&1) || check_status=$?
+  # Knip verdict contract: 3 stale entries, 4 summary drift, 5 corrupt or
+  # unreadable baseline. Codes 1/2 remain unclassified/transient failures;
+  # output is presentation only.
   if [ "$_tu_marker_present" -eq 1 ] && [ "$check_status" -eq 0 ]; then
     rm -f "$_tu_marker"
   fi
-  if [ "$check_status" -eq 1 ] && grep -qE '^FAIL:' <<<"$output"; then
+  if [ "$check_status" -eq 3 ]; then
     printf '%s\n' "$STALE_BASELINE_INSTRUCTION" >&2
-  elif [ "$check_status" -eq 1 ] && grep -qE '^WARN: baseline summary does not match the entries' <<<"$output"; then
+  elif [ "$check_status" -eq 4 ]; then
     printf '%s\n' "$SUMMARY_DRIFT_BASELINE_INSTRUCTION" >&2
-  elif [ "$check_status" -eq 1 ]; then
-    printf '%s\n' "$STALE_BASELINE_INSTRUCTION" >&2
-  elif [ "$check_status" -eq 2 ] && grep -qE '^ERROR: baseline' <<<"$output"; then
+  elif [ "$check_status" -eq 5 ]; then
     printf '%s\n' "$CORRUPT_BASELINE_INSTRUCTION" >&2
   elif [ "$check_status" -ne 0 ]; then
     printf '%s\n' "$COULD_NOT_RUN_INSTRUCTION" >&2
+    printf '%s\n' "$check_output" | tail -n 20 >&2
   elif [ "$check_status" -eq 0 ]; then
     printf '%s\n' "$VERIFIED_NOTICE" >&2
   fi
@@ -241,16 +178,18 @@ _tu_run_near_duplicates() {
   local check_status=0 check_output
   check_output=$( (cd "$_tu_repo_root" && bun run sensor:near-duplicates -- --check-baseline) 2>&1 ) \
     || check_status=$?
-  # --check-baseline: exit 0 truthful, exit 1 exclusively the stale (`FAIL:`)
-  # verdict, exit 2 a config/collection/parse ERROR. Only a genuine mismatch
-  # warrants the --restore-merge-truth recipe; anything else surfaces its real
-  # output. The marker is consumed only on a clean result. Match FAIL from a
-  # herestring, never a pipe (SIGPIPE misroute risk).
+  # --check-baseline verdict contract: exit 0 truthful, exit 3 stale detector
+  # truth, exit 6 unreviewed worktree baseline growth, and 1/2
+  # unclassified/transient failure. Output is presentation only. The marker is
+  # consumed only on a clean result.
   if [ "$check_status" -eq 0 ]; then
     rm -f "$_tu_marker"
     printf '%s: merged near-duplicates baseline verified truthful.\n' "$_tu_context" >&2
-  elif [ "$check_status" -eq 1 ] && grep -qE '^FAIL:' <<<"$check_output"; then
+  elif [ "$check_status" -eq 3 ]; then
     printf '%s: merged near-duplicates baseline is stale; run bun scripts/sensor-near-duplicates.ts --restore-merge-truth to restore the stamped detector truth.\n' \
+      "$_tu_context" >&2
+  elif [ "$check_status" -eq 6 ]; then
+    printf '%s: near-duplicates working-tree baseline proposes unreviewed growth over HEAD; undo the baseline growth, remove the duplicate, or record it with bun run sensor:near-duplicates -- --admit <identity> --reason "<why it is intended>". The truth-up marker is kept for retry.\n' \
       "$_tu_context" >&2
   else
     printf '%s: near-duplicates baseline truth-up could not evaluate staleness (exit %s); this is an environment failure, not a stale baseline. Inspect the output below and re-run bun run sensor:near-duplicates -- --check-baseline once the cause is fixed. The truth-up marker is kept for a capable retry.\n' \
@@ -287,7 +226,6 @@ _tu_run_max_lines_exceptions() {
 }
 
 case "$_MUSI_TRUTH_UP_KEY" in
-  lint-ratchet) _tu_run_lint_ratchet ;;
   knip-unused-exports) _tu_run_knip_unused_exports ;;
   near-duplicates) _tu_run_near_duplicates ;;
   max-lines-exceptions) _tu_run_max_lines_exceptions ;;

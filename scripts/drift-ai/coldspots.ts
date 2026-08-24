@@ -13,7 +13,6 @@
 import { readFileSync } from "node:fs";
 
 import { DRIFT_AI_ADVISORY_BANNER } from "./advisory-common.js";
-import { DriftAiHelp } from "./cli-args.js";
 import {
   COLDSPOT_LENS_SELECTIONS,
   type ConcreteColdspotLens,
@@ -30,8 +29,8 @@ import {
   formatColdspotsText,
 } from "./coldspots-format.js";
 import { reduceStaleMarkers } from "./coldspots-stale-markers.js";
-import { loadDriftAiConfig, type LoadedDriftAiConfig } from "./config.js";
-import { DriftAiError } from "./errors.js";
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
+import type { LoadedDriftAiConfig } from "./config.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
 import {
   type CollectedHistory,
@@ -43,7 +42,7 @@ import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import { buildSourceExtensions } from "./scope.js";
 import { walkSourceFiles } from "./source-walk.js";
 import {
-  loadBaseline,
+  prepareSubcommandInputs,
   type SubcommandBaseOptions,
   writeSubcommandOutput,
 } from "./subcommand-args.js";
@@ -62,10 +61,7 @@ export type ColdspotsRunOptions = {
   readonly now?: number;
 };
 
-export type ColdspotsRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type ColdspotsRunResult = DriftAiCommandResult;
 
 export function runColdspots(options: ColdspotsRunOptions): ColdspotsRunResult {
   const parsed = parseColdspotsForRun(options.argv);
@@ -81,13 +77,7 @@ function parseColdspotsForRun(argv: readonly string[]): ParsedOrResult {
   try {
     return { ok: true, args: parseColdspotsArgs(argv) };
   } catch (err) {
-    if (err instanceof DriftAiHelp) {
-      return { ok: false, result: { exitCode: 0, stdout: err.message } };
-    }
-    if (err instanceof DriftAiError) {
-      return { ok: false, result: { exitCode: 2, stdout: err.message } };
-    }
-    throw err;
+    return { ok: false, result: sentinelToCommandResult(err) };
   }
 }
 
@@ -97,7 +87,11 @@ function runParsedColdspots(
 ): ColdspotsRunResult {
   const git = options.git ?? defaultGitRunner();
   const repoRoot = resolveRepoRoot(git);
-  const prepared = prepareInputs(parsed, repoRoot, options.readBaseline ?? defaultReadBaseline);
+  const prepared = prepareSubcommandInputs(
+    parsed,
+    repoRoot,
+    options.readBaseline ?? defaultReadBaseline,
+  );
   if (!prepared.ok) return prepared.result;
   // The collector walks numstat over the window (far larger than rev-parse), so the
   // real path needs the large-buffer runner; an injected runner (tests) is used for
@@ -119,7 +113,6 @@ function runParsedColdspots(
   const sectionContext: SectionContext = {
     parsed,
     history,
-    repoRoot,
     // A stderr-quiet runner: blame is expected to fail on uncommitted/renamed paths,
     // and the parser degrades those to age-unknown without leaking git's `fatal:`.
     blameGit: options.git ?? defaultBlameGitRunner(repoRoot),
@@ -172,39 +165,12 @@ function defaultReadBaseline(path: string): string {
   return readFileSync(path, "utf8");
 }
 
-type PreparedInputs =
-  | { readonly ok: true; readonly config: LoadedDriftAiConfig; readonly baseline: unknown }
-  | { readonly ok: false; readonly result: ColdspotsRunResult };
-
-// Load the (optional) --config and --baseline up front; both map a DriftAiError to
-// the standard exit-2 message rather than escaping as a stack trace + exit 1.
-function prepareInputs(
-  parsed: ParsedColdspotsArgs,
-  repoRoot: string,
-  read: (path: string) => string,
-): PreparedInputs {
-  try {
-    const config = loadDriftAiConfig({
-      repoRoot,
-      ...(parsed.base.configPath === null ? {} : { configPath: parsed.base.configPath }),
-    });
-    const baseline = parsed.baselinePath === null ? null : loadBaseline(parsed.baselinePath, read);
-    return { ok: true, config, baseline };
-  } catch (err) {
-    if (err instanceof DriftAiError) {
-      return { ok: false, result: { exitCode: 2, stdout: err.message } };
-    }
-    throw err;
-  }
-}
-
 // Everything a lens reducer might need. The coldspot lens uses only `history`; the
 // stale-markers lens also needs the lazy file walk + reader + blame runner +
 // reference time. Threading one context keeps the dispatch map uniform.
 type SectionContext = {
   readonly parsed: ParsedColdspotsArgs;
   readonly history: CollectedHistory;
-  readonly repoRoot: string;
   readonly blameGit: GitRunner;
   readonly readFile: RepoFileReader;
   readonly listFiles: () => readonly string[];
@@ -267,7 +233,6 @@ const LENS_REDUCERS: Record<ConcreteColdspotLens, LensReducer> = {
       files: context.listFiles(),
       readFile: context.readFile,
       git: context.blameGit,
-      repoRoot: context.repoRoot,
       // Blame is meaningless on a blobless clone (it would lazily fetch blobs); the
       // collector already detected that via linesAvailable, so reuse it as the gate.
       agesAvailable: context.history.linesAvailable,

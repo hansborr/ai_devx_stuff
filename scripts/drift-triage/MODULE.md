@@ -23,12 +23,14 @@ directory as module internals.
 1. **Parse** — `drift-triage-options.ts` parses flags (`--format`, `--output`,
    `--packet-dir`, `--packet-size`, packet filters, deferral opt-ins).
 2. **Load** — `drift-triage-inputs.ts` reads and hashes each input; only
-   complete schema-v4 drift reports are accepted (finding chunk files are
+   complete schema-v5 drift reports are accepted (finding chunk files are
    rejected), plus `semgrep-candidates` / `dolos-candidates` advisory JSON.
 3. **Reduce** — `buildTriageReport` merges equivalent Semgrep locations and
    repeated cross-file clone pairs while retaining every distinct location and
    drift message; drift-authored titles deterministically win over generic
-   advisory titles regardless of input order. Policy deferrals (type-only
+   advisory titles regardless of input order. Structured location details are
+   authoritative during reduction; line-only display locations are derived at
+   report finalization. Policy deferrals (type-only
    cycles, unadjudicated repeated literals, test-only
    security/constant/type/schema evidence, clone evidence with two distinct
    test-only locations, Dolos rows below `--min-clone-fragment`, default `20`)
@@ -43,9 +45,12 @@ directory as module internals.
    for `needs-human` verdicts and confirmed medium/high findings.
 
 Internally the directory is three clusters plus entry support: the report
-cluster (`triage-report*.ts`, with `triage-report-support.ts` holding shared
-parse/build helpers), the packet cluster (`triage-packet*.ts`), and the
-verdict cluster (`triage-verdict-*.ts`); `drift-triage-options.ts`,
+cluster (`triage-report*.ts`, plus `triage-location.ts` owning location parsing,
+formatting, and deduplication and `triage-item-id.ts` owning item identity;
+`triage-report-support.ts` retains shared reduction and deferral helpers), the
+packet cluster (`triage-packet*.ts`), and the verdict cluster
+(`triage-verdict-*.ts`);
+`drift-triage-options.ts`,
 `drift-triage-inputs.ts`, `drift-triage-packet-io.ts`, and
 `drift-triage-collect.ts` support the entry.
 
@@ -75,11 +80,40 @@ No DB, cache, or socket state. The module owns its output artifacts only:
   packet item IDs. Packets group by priority, category, evidence source, repo
   area, and exact path overlap; when a path-connected component would exceed
   `--packet-size`, the hard bound wins and affected packets set
-  `splitPathComponent: true`;
+  `splitPathComponent: true`. Repo areas come from `PATH_AREA_TAXONOMY` in
+  `triage-packet-group.ts` — Musi's ordered `{prefix, area}` policy data
+  (first matching prefix wins, so `scripts/drift-ai/` precedes `scripts/`;
+  unmatched paths fall back to their first path segment). Swap that constant
+  wholesale when porting; `triage-packets.test.ts` pins the shipped data;
 - the collect outputs: the collection report and the second-pass queue.
 
 Inputs are read-only; upstream truncations and degradations are copied into
 the input summary rather than repaired.
+
+## Identity
+
+`triage-item-id.ts` is the sole owner and mint site for the producer-side
+branded `TriageItemId`. The brand fences report construction without changing
+the serialized string shape; verdict and manifest item IDs remain plain,
+opaque strings downstream and must never be parsed for meaning.
+
+The published grammars are:
+
+- `drift:<inputPath>:<check>:<zero-based finding index>:<file>`;
+- `pair:<normalized-left><=><normalized-right>`, with cross-file pairs keyed by
+  sorted paths and same-file pairs retaining their ranges;
+- `semgrep:<path>:<sorted ranges>:<identity>`, where each range is
+  `startLine.startCol-endLine.endCol` and multiple ranges use `,`.
+
+The mutable merge-map key and the published item ID deliberately remain the
+same `TriageItemId`; changing merge identity is therefore a protocol decision,
+not a private refactor. IDs promise stability only within one generated run.
+In particular, the drift finding index is load-bearing when duplicate findings
+share a check and file, so cross-run stability is out of scope.
+
+There is no separate ID codec version. The run manifest's schema version,
+Git-head/dirty state, state fingerprint, and input hashes are the provenance
+surface for identity evolution and same-run verdict validation.
 
 ## Drift-AI Contract And Direction Law
 
@@ -111,11 +145,22 @@ import `scripts/drift-triage/**` (`driftDirectionLawConfigs` in
 - Verdict vocabulary is closed: `confirmed`, `false-positive`,
   `accepted-drift`, `duplicate-of`, `needs-human`; `duplicate-of` requires a
   different assigned `canonicalItemId`, every other verdict must leave it
-  `null`. The collector rejects malformed files, unknown packets/items,
-  cross-packet ownership, duplicate item verdicts, and invalid canonical
-  references, and warns when Git HEAD differs from the manifest.
+  `null`. `TRIAGE_VERDICT_CONTRACT` in `triage-verdict-types.ts` is the sole
+  source for each packet's advertised `verdictContract`; do not redeclare that
+  vocabulary or its required fields in the packet producer. The collector
+  rejects malformed files, unknown packets/items, cross-packet ownership,
+  duplicate item verdicts, and invalid canonical references, and warns when
+  Git HEAD differs from the manifest.
 - Same-file clone pairs merge only when their line ranges match, so
   fragment-level drift pairs stay separate from whole-file Dolos ranges.
+  Drift pair IDs consume the original input location strings before parsing;
+  admitted legacy suffix spellings cannot all round-trip through the
+  authoritative structured location form.
+- Published item `locations` are a normalized, line-only projection of
+  `locationDetails` for every producer, including drift inputs: a single line
+  is spelled `path:line-line`, and columns are omitted. Exact columns remain in
+  `locationDetails`; source-faithful drift spellings are not a second
+  authoritative display representation.
 - Scope/coverage disclosure is deliberate: every drift input preserves and
   displays its scope mode, roots, and enabled checks; changed-scope,
   root-restricted, and missing-default-check scans are marked partial even

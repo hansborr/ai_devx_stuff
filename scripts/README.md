@@ -29,15 +29,13 @@ Top-level files should be one of these:
   When companions become a family, move them under a directory instead of adding
   more flat files.
 
-Sanctioned exception: `scripts/eslint-config-shared-policy.d.ts` is an ambient
-declaration for `eslint-config/shared-policy.js` and `eslint-rules/max-lines.js`.
-Keeping it under `scripts/` avoids the TypeScript and ESLint resolver treating it
-as a concrete colocated module for only one of those JavaScript files.
-`scripts/eslint-config-shared-policy.test.ts` guards the declaration against
-runtime drift: it parses the `.d.ts` and asserts every promised export exists in
-the imported JavaScript with the declared shallow shape (the runtime modules may
-intentionally export more than the declaration exposes; only the declared
-surface is checked).
+Plain-JavaScript policy owns precise JSDoc, and `tsconfig.scripts.json` sets
+`allowJs` so `scripts/*.ts` binds to `eslint-config/*.js` and the two imported
+`eslint-rules/*.js` helpers directly — there is no declaration shadow to keep in
+sync. Those bodies keep their `// @ts-check` pragma, and because this project
+compiles them, that pragma is enforced here — a type error in one fails the
+scripts typecheck. It is the only lane that gates any `eslint-rules/*.js` file;
+the rest of that surface is still unenforced (harness-sweep-2026-07 leaf 22c).
 
 Do not add a new implementation family as `scripts/<topic>-*.ts` or
 `scripts/<topic>-*.sh`. Add `scripts/<topic>/` and keep only the package-facing
@@ -58,10 +56,11 @@ The current tree uses these owner directories:
 | `scripts/git/`           | Git helper scripts, including the lint-ratchet merge-driver installer.                                                                                     |
 | `scripts/harness/`       | Harness validation, manifest generators, diagnostics, and tests used by top-level harness facades.                                                         |
 | `scripts/harness-audit/` | Fixtures for the `harness:audit` facade.                                                                                                                   |
+| `scripts/import-closure/` | Source-level ESM import-closure walking for seed fingerprints and synthetic fixture copy sets.                                                            |
 | `scripts/lib/`           | Shared shell and TypeScript helpers used by multiple script families, including sourced shell helpers and modules such as `scripts/lib/lint-rule-docs.ts`. |
 | `scripts/lint-ratchet/`  | Lint-ratchet implementation modules, registry logic, output formatting, and tests.                                                                         |
 | `scripts/logs-audit/`    | Logs-audit checks, redaction/event helpers, diagnostics projection, and tests.                                                                             |
-| `scripts/path-policy/`   | Changed-file classification and smoke-test subject mapping used by script wrappers.                                                                        |
+| `scripts/path-policy/`   | Changed-file classification and smoke-test subject mapping, plus smoke-fixture copy-set closure analysis.                                                    |
 | `scripts/tests/`         | Shell smoke tests run by `scripts/test-scripts.sh`.                                                                                                        |
 | `scripts/verify/`        | Generated verify step data plus the static resolver library that interprets it.                                                                            |
 
@@ -125,7 +124,13 @@ or invoke `bun run scripts/harness-check.ts` directly.
 
 ## Adding Or Moving A Script
 
-Use this checklist when changing the scripts tree:
+Use this checklist when changing the scripts tree. Before editing, print the
+joined governing chain for the surface you are touching — controls, package
+scripts, verify slots, hooks, smoke selection, and generated trigger, output,
+and fixture paths — with
+`bun run harness:registration:check -- --explain --path <repo-path>`
+(selectors `--control <control-id>` and `--script <package-script-name>` and a
+`--json` envelope are also available):
 
 1. Decide whether the file is a package-facing entrypoint/facade or an
    implementation helper. Helpers go under the owner directory unless they are

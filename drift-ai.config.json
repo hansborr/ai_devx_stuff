@@ -13,24 +13,93 @@
     "ghost-files": {
       "dependentsHint": "Run: bun run code:intel -- dependents {path}",
       "currentAllowedPairs": [
-        [
-          "packages/client/src/components/campaign/maps/map-canvas-helpers.ts",
-          "packages/client/src/components/campaign/maps/map-canvas.tsx"
-        ],
-        ["packages/client/src/pages/join-page.tsx", "packages/client/src/pages/login-page.tsx"],
-        ["packages/client/src/routes/join-route.ts", "packages/client/src/routes/login-route.ts"],
-        ["packages/client/src/test/mock-trpc-helpers.ts", "packages/client/src/test/mock-trpc.tsx"],
-        ["scripts/drift-ai/env-define-evaluation.ts", "scripts/drift-ai/env-define-evaluator.ts"],
-        ["scripts/drift-ai/config-match.ts", "scripts/drift-ai/config-paths.ts"],
-        [
-          "packages/server/src/services/character-create-helpers.ts",
-          "packages/server/src/services/character-create.ts"
-        ],
-        ["packages/server/src/utils/map-helpers.ts", "packages/server/src/utils/map-types.ts"]
+        {
+          "files": [
+            "packages/client/src/components/campaign/maps/map-canvas-helpers.ts",
+            "packages/client/src/components/campaign/maps/map-canvas.tsx"
+          ],
+          "rationale": "map-canvas-helpers.ts remains the pure parsing and combat-state seam consumed by the rendering shell in map-canvas.tsx; remove this exception when those helpers are consolidated into the canvas or move behind a differently named seam."
+        },
+        {
+          "files": [
+            "packages/client/src/pages/join-page.tsx",
+            "packages/client/src/pages/login-page.tsx"
+          ],
+          "rationale": "JoinPage and LoginPage are separate route-facing composition roots for authenticated invitation acceptance and guest credential entry; remove this exception when either flow is renamed or reorganized so the pages no longer form a heuristic pair."
+        },
+        {
+          "files": [
+            "packages/client/src/routes/join-route.ts",
+            "packages/client/src/routes/login-route.ts"
+          ],
+          "rationale": "The join and login route modules register distinct paths, guards, and page components for authenticated invitees and guests; remove this exception when those registrations are consolidated or renamed so they no longer form a heuristic pair."
+        },
+        {
+          "files": [
+            "packages/client/src/test/mock-trpc-helpers.ts",
+            "packages/client/src/test/mock-trpc.tsx"
+          ],
+          "rationale": "mock-trpc.tsx assembles the React-facing mock module while mock-trpc-helpers.ts supplies the generic query and mutation factories it consumes; remove this exception when the factories are co-located with the module or move to a differently named test utility."
+        },
+        {
+          "files": [
+            "scripts/drift-ai/env-define-evaluation.ts",
+            "scripts/drift-ai/env-define-evaluator.ts"
+          ],
+          "rationale": "env-define-evaluator.ts traverses source files and delegates branch prediction to the expression semantics in env-define-evaluation.ts; remove this exception when traversal and evaluation are consolidated or the semantic engine moves behind a differently named boundary."
+        },
+        {
+          "files": ["scripts/drift-ai/config-match.ts", "scripts/drift-ai/config-paths.ts"],
+          "rationale": "config-match.ts applies runtime ignore and glob predicates while config-paths.ts validates and canonicalizes authored config paths used by those predicates; remove this exception when the responsibilities are consolidated or renamed so they no longer form a heuristic pair."
+        },
+        {
+          "files": [
+            "packages/server/src/services/character-create-helpers.ts",
+            "packages/server/src/services/character-create.ts"
+          ],
+          "rationale": "character-create.ts owns validation, transaction orchestration, and persistence while importing nested proficiency, feat, and spell-slot derivation from character-create-helpers.ts; remove this exception when that derivation is folded into the service or moves behind a differently named boundary."
+        },
+        {
+          "files": [
+            "packages/server/src/utils/map-helpers.ts",
+            "packages/server/src/utils/map-types.ts"
+          ],
+          "rationale": "map-helpers.ts owns runtime map authorization, mapping, update, and bounds helpers while importing its focused row and result contracts from map-types.ts; remove this exception when those contracts are co-located or move behind a differently named boundary."
+        }
       ]
     },
     "comments": {
       "excludePrefixes": ["scripts/", "eslint-rules/"]
+    },
+    "layer-direction": {
+      "rules": [
+        {
+          "id": "utils-must-not-import-services",
+          "sourceLayer": "utils",
+          "sourcePrefix": "packages/server/src/utils/",
+          "targetLayer": "services",
+          "targetPrefix": "packages/server/src/services/",
+          "hint": "move the dependency down: keep utils independent of services; extract shared primitives into packages/server/src/utils, or move the caller into packages/server/src/services."
+        },
+        {
+          "id": "services-must-not-import-routers",
+          "sourceLayer": "services",
+          "sourcePrefix": "packages/server/src/services/",
+          "targetLayer": "routers",
+          "targetPrefix": "packages/server/src/routers/",
+          "hint": "move the dependency down: services should expose operations that routers call; move router-only wiring out of the service dependency path, or extract shared types to a lower layer."
+        }
+      ],
+      "allowedEdges": [
+        [
+          "packages/server/src/utils/character-mapping.test.ts",
+          "packages/server/src/services/character-create.ts"
+        ],
+        [
+          "packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts",
+          "packages/server/src/services/combat-actions/types.ts"
+        ]
+      ]
     }
   }
 }

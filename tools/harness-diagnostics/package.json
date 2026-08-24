@@ -1,0 +1,17 @@
+{
+  "name": "@musi/harness-diagnostics",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Portable structured harness-diagnostics envelope schema. Copy this directory into your repo and use its schema export from your harness adapters.",
+  "exports": {
+    "./schema.js": "./src/schema.ts"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^24.12.4",
+    "vitest": "^4.1.7"
+  }
+}

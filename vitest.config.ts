@@ -35,6 +35,7 @@ export default defineConfig({
       "eslint-rules",
       "scripts",
       "tools/lint-ratchet",
+      "tools/harness-diagnostics",
     ],
     coverage: {
       provider: "v8",
@@ -76,6 +77,12 @@ export default defineConfig({
           branches: 69,
         },
         "tools/lint-ratchet/src/**": {
+          lines: 90,
+          statements: 90,
+          functions: 90,
+          branches: 80,
+        },
+        "tools/harness-diagnostics/src/**": {
           lines: 90,
           statements: 90,
           functions: 90,

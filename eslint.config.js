@@ -14,7 +14,7 @@ import {
   clientFrameworkConfigs,
   clientRuntimeBoundaryConfigs,
 } from "./eslint-config/client-configs.js";
-import { localPlugin } from "./eslint-config/local-plugin.js";
+import { localPlugin } from "./eslint-config/local-plugin.generated.js";
 import { createLocalRuleAuthoringConfigs } from "./eslint-config/local-rule-authoring-configs.js";
 import {
   packagePolicyConfigs,
@@ -31,7 +31,7 @@ import { createToolsProjectConfigs } from "./eslint-config/tools-configs.js";
 import {
   productionFunctionStructureFiles,
   productionFunctionStructureIgnores,
-} from "./eslint-config/shared-policy.js";
+} from "./eslint-config/path-glob-policy.js";
 import { createTestAndE2eConfigs, unitTestConfigs } from "./eslint-config/test-configs.js";
 
 const repoRoot = import.meta.dirname;

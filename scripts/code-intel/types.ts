@@ -1,10 +1,18 @@
 import type { Node } from "ts-morph";
 
-export const WORKSPACE_PACKAGE_DIRS = ["packages/shared", "packages/server", "packages/client"];
+export const APPLICATION_PACKAGE_DIRS = ["packages/shared", "packages/server", "packages/client"];
 export const SCRIPT_SOURCE_DIR = "scripts";
 export const SCRIPT_FIXTURE_DIR = "scripts/codemods/fixtures";
+export const APPLICATION_SOURCE_ROOTS = APPLICATION_PACKAGE_DIRS.map(
+  (packageDir) => `${packageDir}/src`,
+);
+// Discovery-mode queries search only these roots; package files outside src/
+// and other declared Bun workspaces are intentionally excluded (decision
+// record: docs/guides/code-intel.md#supported-scope).
+export const DISCOVERY_SCOPE_STATEMENT = `Scope: ${APPLICATION_SOURCE_ROOTS.join(", ")}, and ${SCRIPT_SOURCE_DIR}/ (excluding ${SCRIPT_FIXTURE_DIR}/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.`;
 export const DEF_NAME_NEAR_MATCH_LIMIT = 10;
 export const JS_EXTENSIONS = [".js", ".jsx", ".mjs", ".cjs"];
+export const HELP_TOPICS = ["def", "dependents", "exports", "overview", "refs", "tests"] as const;
 
 export type Via = "direct" | "re-export" | "dynamic";
 type TestReason = "co-located" | "direct" | "transitive";
@@ -14,7 +22,7 @@ export type ExportSpace = "type" | "value";
 export type ReferenceKind = "import" | "type" | "value";
 export type OutputFormat = "json" | "text";
 export type ResultMetadata = Record<string, boolean | number | string>;
-export type HelpTopic = "def" | "dependents" | "exports" | "overview" | "refs" | "tests";
+export type HelpTopic = (typeof HELP_TOPICS)[number];
 export type OverviewProcedureKind = "mutation" | "query" | "subscription";
 export type ProjectBucketSummary = Partial<Record<ProjectBucket, number>>;
 
@@ -58,6 +66,10 @@ export type IntelResult =
     };
 
 export type DefinitionResult = Extract<IntelResult, { kind: "definition" }>;
+export type ExportResult = Extract<IntelResult, { kind: "export" }>;
+export type DependentResult = Extract<IntelResult, { kind: "dependent" }>;
+export type ReferenceResult = Extract<IntelResult, { kind: "reference" }>;
+export type TestResult = Extract<IntelResult, { kind: "test" }>;
 
 export type DefinitionNearMatch = {
   col: number;
@@ -165,6 +177,7 @@ export type BfsVisit = {
 
 export type FormatResultsOptions = {
   byProject?: ProjectBucketSummary;
+  commandKind: ExecutableCliCommand["kind"];
   limit?: number;
   metadata?: ResultMetadata;
   textSuffix?: string;

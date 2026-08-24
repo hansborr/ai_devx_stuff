@@ -1,8 +1,9 @@
 # 17. Client hook and prop APIs carry no domain meaning, so MODULE.md has to carry it instead
 
-Status: Open under [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
+Status: **Landed 2026-07-27 on branch `feat/cq-slice-h` (merge
+`d539cfdbd`)** through [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
 **X1**; the plan supersedes and shrinks this leaf (M→XS). Steps 1, 2 and the
-step-4 doc rider remain. **Steps 3, 5 and 6 are dropped permanently. Step 7 has
+step-4 doc rider landed. **Steps 3, 5 and 6 are dropped permanently. Step 7 has
 moved to leaf 46**, whose server/comments plan accepted it and ruled it
 opportunistic-only, not scheduled.
 Theme: Client vocabulary · Area: client · Severity: low · Size: M

@@ -1,6 +1,40 @@
 # 05. Router/service boundaries drift from the repo's own promotion rubric — rule logic left inline, a service MODULE doc that describes a layout the tree no longer has, and one router reaching into tRPC's private `_def`
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-29** in
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md)
+slice **S6 landed steps 1, 2 and 4a** on 2026-07-29, branch
+`feat/cq-broadcast-registry-cleanup`, merge `08d9443ad`: `trpc.ts` exports
+`mergeRouters` and `routers/homebrew.ts` no longer spreads `._def.procedures`,
+`getRefreshTokenFromCookie` returns `string | null` with the hand-inlined
+`parseCookies` gone, and `services/rest-MODULE.md` describes the file set the
+tree actually has. **Step 5 landed too, by slice S7 on branch
+`feat/cq-server-authz-and-spell-rule`, merge `48ff021ed`**: `calcMaxPrepared` and
+a pure `assertPreparedLimit` live in
+`packages/server/src/utils/prepared-spells.ts`
+with unit tests that need no tRPC caller, no database and no race, and
+`services/README.md`'s placement rubric was updated to describe the resulting
+two-module split — the pure cap rule beside the Serializable check-and-write in
+`utils/prepared-spell-toggle.ts`, both staying utilities. See
+[Landed](./00-index.md#landed). **Nothing of
+this leaf is left to schedule** — and only that remained:
+step 3 rides on the optional S19 (leaf 46 owns the `routers/srd.ts` rename, and
+if S19 is skipped neither happens), and steps 4b, 6 and 7 are dropped
+permanently. Step 4b resolved to "do nothing" for a recorded reason: S5
+dissolved `services/rest-encounter-attribution.ts`, so rest has two internal
+files, `services/README.md:21-28` criterion 3 fails, and rest stays a flat
+service with the corrected companion doc. **Do not re-schedule steps 1, 2, 3,
+4a, 4b, 6 or 7 from this leaf.** See
+[Second landing outcome](./SERVER-COMMENTS-PLAN.md#second-landing-outcome) and
+[Third landing outcome](./SERVER-COMMENTS-PLAN.md#third-landing-outcome).
+The plan shrank this leaf L→S and rules the layering itself
+sound. **Step 5 was reframed**: the extraction buys testability only. It does not
+touch concurrency — but neither is there a race left for it to disclaim, because
+leaf 51 closed that one first (`6246c73cf`). No serialization follow-on was
+filed and none is owed.
+The three drops mean: do not promote rest to `services/rest/`, do not split
+`routers/srd.ts` by content family, and do not merge the two `assertTurnLock`
+branches. Step 7's drop is also the answer leaf 45's "Sequencing with leaf 05"
+caveat asks for.
 Theme: layer boundaries · Area: server · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
@@ -68,7 +102,11 @@ treated as urgent.
 - `packages/server/src/services/README.md:21-28` — the "promote when all three hold" criteria for a `services/<name>/` folder.
 - `packages/server/src/services/rest-MODULE.md:5-8` — "Single-file flat service (`rest-service.ts`)… Promote to `services/rest/` only when the implementation actually wants multiple internal files."
 - `packages/server/src/services/rest-service.ts:29-30` — imports `toCharacterForRest` from `rest-character-mapping.ts` (50 lines) and `logRestHpChange`/`broadcastRestHpAttribution` from `rest-encounter-attribution.ts` (44 lines); neither sibling has any consumer outside `rest-service.ts`. File is 457 lines.
-- `packages/server/src/services/rest-service.ts:420` — `{ isolationLevel: "Serializable" }`; `:35` `PRISMA_TX_WRITE_CONFLICT = "P2034"`; `:430-450` the retry loop; `:346-347` the anti-dependency rationale.
+- `packages/server/src/services/rest-service.ts` — the long-rest core uses
+  `{ isolationLevel: "Serializable" }`, the shared two-shape
+  `isPrismaSerializationFailure` predicate, a bounded retry loop, and explicitly
+  checked versus unchecked mutation helpers; see `docs/CONCURRENCY.md` for the
+  current isolation rationale.
 - `packages/server/src/routers/homebrew.ts:403-406` — `router({ ...homebrewCrudRouter._def.procedures, ...homebrewCampaignRouter._def.procedures })`. The only non-test `_def` reach-in in `packages/server/src`.
 - `packages/server/src/trpc/trpc.ts:82`, `:84`, `:93` — exports `router`, `publicProcedure`, `protectedProcedure` only; `mergeRouters` is not re-exported. It exists on the root object in the installed `@trpc/server` 11.17.0.
 - `packages/server/src/routers/auth.ts:181-184` — four-line comment explaining the hand-inlined cookie read; `:185-186` the inlined `parseCookies`; `:52-63` the `getRefreshTokenFromCookie` helper that throws `TRPCError` UNAUTHORIZED / `INVALID_REFRESH_MESSAGE`; `:253` its only remaining caller (logout). Union of callers is exactly two.
@@ -104,9 +142,14 @@ Ordered cheapest-and-safest first. Steps 1, 2, 3, 4a and 5 are each one commit;
 - **`routers/srd.ts` is not "unrelated content families".** It is one uniform read-only catalog: every procedure is 5–10 lines built on three shared factories (`srdListProcedure`, `srdListProcedureWithInput`, `srdGetByIdProcedure` from `utils/srd-query-helpers.ts`), and the file is already banner-sectioned. A naive family split does not cut cleanly — `SUBCLASS_REFERENCE_SELECT`, `mapFeat` and `mapClassFeature` each straddle families. The payoff is navigational file size only, so if step 6 is cut, nothing of substance is lost; what must **not** happen is per-family copies of those shared selects and mappers.
 - **Do not delete `assert-turn.ts`.** Every one of its five artifacts does work that is written down, so deleting the file trades a real asset for a file count. `assertTurnInsideTx` is the domain-facing, transaction-scoped name that `combat-actions/MODULE.md:36-42` advertises as the module's cross-module turn-validation primitive, and its JSDoc at `assert-turn.ts:5-14` is the only place the lock invariant (pins both `round` and `currentTurnIndex` so a stale action cannot land after a turn wrap) and the direct-import/facade-cycle convention are stated together. The alias pair at `types.ts:67-70` exists so field drift against `utils/encounter-state-mutations.ts` is a compile error (`:62-66`), and `utils/__type-tests__/assert-turn-opts-dedup.ts` is what makes that guarantee enforced rather than aspirational. Deleting the file would also cost four files plus a MODULE.md edit and would break the facade export at `combat-actions/combat-actions.ts:38` that `spell-casting/combat-transaction.ts:160` consumes cross-module. If the five-artifact footprint still reads as heavy to a future maintainer, the correct response is a sentence in `combat-actions/MODULE.md` explaining why, not a removal.
 - **`assertTurnLock` is race-sensitive locking code and its exact WHERE clause *is* the lock semantics.** Read `docs/CONCURRENCY.md` and `docs/guides/add-race-sensitive-mutation.md` before touching it. Two flat, separately auditable branches have review value that a conditionally-built WHERE object destroys — a reviewer can currently read each lock predicate end to end. And `utils/encounter-state-mutations.test.ts:28-95` covers the DM branch only, so a merge would refactor the non-DM path with no direct unit coverage. If step 7 happens at all: write the non-DM test first, then merge. Body is 52 lines and merges to roughly 28 — a small win for a real risk.
-- **Preserve verbatim during step 4b:** the `Serializable` isolation choice and its anti-dependency rationale, the P2034 retry loop, the CAS helpers, and the documented Stats→CC lock ordering. The one thing in `rest-MODULE.md` that is *not* preserved is the "single-file flat service / promote only when…" sentence at `:5-8` — step 4a rewrites it either way.
+- **Preserve verbatim during step 4b:** the `Serializable` isolation choice and
+  its isolation rationale, the bounded retry loop using the shared two-shape
+  serialization-failure predicate, the checked/unchecked mutation-helper
+  distinctions, and the documented Stats→CC lock ordering. The one thing in
+  `rest-MODULE.md` that is *not* preserved is the "single-file flat service /
+  promote only when…" sentence at `:5-8` — step 4a rewrites it either way.
 - **Preserve behaviour during step 2:** logout must keep throwing the same UNAUTHORIZED / `INVALID_REFRESH_MESSAGE` pair, and refresh must keep emitting `logMutation({ event: 'auth.refresh', outcome: 'failure', reason: 'invalid_refresh' })` before throwing. Both look asserted-on; this is mechanical but not zero-thought.
 - **Sequencing with leaf 04.** This is a decision dependency, not just a merge conflict. Leaf 04 step 5 consolidates the HP-attribution vocabulary and dissolves `services/rest-encounter-attribution.ts`; that file is one of the three internal files this leaf counts to satisfy `services/README.md:21-28` criterion 3. Land leaf 04 step 5 first, then evaluate step 4b against what is left. Do not promote rest to a folder while leaf 04 step 5 is in flight, and do not run both edits on that file at once.
 - **Sequencing with leaf 46.** Two overlaps, both real. (1) Leaf 46 step 3 is the same `routers/srd.ts` mapper-parameter rename as step 3 here, with a wider inventory; give the naming sweep a single owner — leaf 46 — and let this leaf drop its step 3 rather than renaming the same parameters twice. (2) Leaf 46 step 2 renames `chatMsg`/`chatPayload` inside `services/rest-service.ts`, which step 4b would move to `services/rest/`. Sequence them: either land leaf 46 step 2 before the move, or do the move first and let leaf 46 retarget the path. Do not run them concurrently.
-- **Sequencing with leaf 45.** Leaf 45 steps 1 and 4 rewrite the `encounter-state-mutations.ts` header whose shape 5 (`:37-41`) describes the two `assertTurnLock` branches step 7 here would merge. Decide step 7 first: if it happens, land it before leaf 45 trims the header; if it is dropped, say so, and leaf 45 leaves shape 5 verbatim.
+- **Sequencing with leaf 45 — decided: step 7 is dropped.** Leaf 45 steps 1 and 4 rewrite the `encounter-state-mutations.ts` header whose shape 5 (`:37-41`) describes the two `assertTurnLock` branches step 7 here would merge. The question this caveat asks is answered by [SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md): **step 7 is dropped permanently**, so shape 5 stays verbatim, leaf 45's S14 can land immediately, and the edge dissolves. Do not re-open the merge; the reasoning is in the plan's rejected-alternatives table.
 - Steps 6 and 7 are the two items that do not share this leaf's cause and can be split into their own leaves if the rest lands without them.

@@ -1,7 +1,7 @@
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { tsConfigFiles } from "../../eslint-config/shared-policy.js";
+import { tsConfigFiles } from "../../eslint-config/config-surfaces.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");

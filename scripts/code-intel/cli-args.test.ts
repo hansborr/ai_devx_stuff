@@ -122,6 +122,12 @@ describe("parseArgs characterization", () => {
     expect(thrownMessage(() => parseArgs(["exports", "a.ts", "b.ts"]))).toBe(
       "code:intel: Usage: bun run code:intel -- exports <file>",
     );
+    expect(thrownMessage(() => parseArgs(["dependents"]))).toBe(
+      "code:intel: Usage: bun run code:intel -- dependents <file> [--depth <N>] [--project <shared|server|client>] [--exclude-tests] [--limit <N>]",
+    );
+    expect(thrownMessage(() => parseArgs(["tests"]))).toBe(
+      "code:intel: Usage: bun run code:intel -- tests <file> [--depth <N>] [--direct] [--project <shared|server|client>] [--limit <N>]",
+    );
   });
 
   it("treats a bare -- as an option and rejects it without a usage suffix", () => {

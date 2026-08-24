@@ -3,9 +3,9 @@ import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, unlinkSync }
 import path from "node:path";
 
 import { writeFileAtomicallySync } from "../lib/atomic-write.js";
+import { isRecord } from "../lib/records.js";
 import { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./daemon-protocol.js";
 import { CodeIntelError } from "./errors.js";
-import { isRecord } from "./json-utils.js";
 
 const REPO_KEY_LENGTH = 16;
 const METADATA_INDENT = 2;

@@ -1,10 +1,9 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
+import { resolvedConfigFor } from "./repo-config-harness.js";
 import { makeRuleTester } from "./rule-tester.js";
 import rule from "./no-retired-parse-success-import.js";
 
@@ -15,13 +14,7 @@ describe("no-retired-parse-success-import", () => {
     "is enabled through the repository flat config",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const eslint = new ESLint({
-        cwd: resolve(import.meta.dirname, ".."),
-        overrideConfigFile: resolve(import.meta.dirname, "../eslint.config.js"),
-      });
-      const config = await eslint.calculateConfigForFile(
-        resolve(import.meta.dirname, "../packages/shared/src/schemas/auth.test.ts"),
-      );
+      const config = await resolvedConfigFor("packages/shared/src/schemas/auth.test.ts");
 
       expect(config?.rules?.["local/no-retired-parse-success-import"]?.[0]).toBe(2);
     },

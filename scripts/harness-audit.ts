@@ -20,9 +20,9 @@
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 
+import { harnessDiagnosticsSchema } from "@musi/harness-diagnostics/schema.js";
 import { z } from "zod";
 
-import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   buildAuditReport,
   type EnvelopeFailure,
@@ -42,9 +42,8 @@ export {
   type LoadedEnvelope,
 } from "./harness/harness-audit-report.js";
 import { errorMessage } from "./lib/error-message.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
-const PROCESS_ARG_OFFSET = 2;
 const TOOL_ERROR_EXIT_CODE = 2;
 
 export type HarnessAuditFormat = CliFormat;
@@ -245,7 +244,7 @@ export function runHarnessAudit(options: RunHarnessAuditOptions): RunHarnessAudi
 }
 
 if (isCliEntrypoint(import.meta.url)) {
-  const result = runHarnessAudit({ argv: process.argv.slice(PROCESS_ARG_OFFSET) });
+  const result = runHarnessAudit({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

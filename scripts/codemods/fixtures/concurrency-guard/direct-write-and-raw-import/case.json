@@ -5,6 +5,6 @@
   "expectedStdout": [
     "packages/server/src/routers/encounter.ts:1 RawTxClient/raw-tx-boundary ERROR",
     "packages/server/src/routers/encounter.ts:5 encounterParticipant.updateMany/direct-gated-write ERROR",
-    "Use updateParticipantStatsLocked"
+    "Route encounterParticipant writes through updateParticipantStatsLocked, updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant in packages/server/src/utils/participant-stats-mutations.ts; use blindUpdateParticipant only for documented metadata, and follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper."
   ]
 }

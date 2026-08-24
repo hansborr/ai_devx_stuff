@@ -41,8 +41,7 @@ export const DEFAULT_STALE_MARKER_AGE_THRESHOLD_DAYS = 180;
 export type ReduceStaleMarkersOptions = {
   readonly files: readonly string[]; // repo-relative candidate paths (already scope/ignore-filtered)
   readonly readFile: (path: string) => string | undefined;
-  readonly git: GitRunner; // anchored at repoRoot by the caller; used for status/blame
-  readonly repoRoot: string;
+  readonly git: GitRunner; // anchored when constructed by the caller; used for status/blame
   readonly agesAvailable: boolean; // false on a blobless clone → skip blame, disclose
   readonly nowMs: number; // reference "now" for aging
   readonly ageThresholdDays?: number;
@@ -125,7 +124,7 @@ function buildRow(scan: FileScan, options: ReduceStaleMarkersOptions): BuiltRow 
   const blameSkip = options.agesAvailable ? blameSkipReason(options.git, scan.path) : null;
   const fileAgesAvailable = options.agesAvailable && blameSkip === null;
   const blame = fileAgesAvailable
-    ? blameLineIntroductions({ git: options.git, repoRoot: options.repoRoot, path: scan.path })
+    ? blameLineIntroductions({ git: options.git, path: scan.path })
     : new Map<number, LineIntroduction>();
   const oldest = oldestMarker(scan.first, scan.rest, blame, fileAgesAvailable);
   const ageDays = oldestAgeDays(oldest, blame, options.nowMs, fileAgesAvailable);

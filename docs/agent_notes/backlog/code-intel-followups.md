@@ -22,6 +22,13 @@ tests, project filters, and usage polish are landed.
   reverse graph walk already terminates across cycles.
 - Revisit definition ambiguity formatting only if a real query produces a
   misleading header or output.
+- Extend discovery beyond the application roots (`tools/*`, `examples/*`,
+  non-`src` package files) only with a concrete need: the current exclusion
+  is a recorded decision, not an oversight — see the decision record at
+  `docs/guides/code-intel.md#supported-scope` (2026-08-17, backlog unit
+  109-S3). Work would start at `APPLICATION_PACKAGE_DIRS`,
+  `discoverSupportedSourcePaths`, and `isSupportedRelativePath` in
+  `scripts/code-intel/` and must update that record.
 
 ## Non-Goals
 

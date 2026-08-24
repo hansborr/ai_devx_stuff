@@ -1,15 +1,6 @@
-import type { LintRatchetZeroBaselineDisposition } from "@musi/lint-ratchet/kernel/zero-baseline-types.js";
-
 import { parseMaxLinesExceptionEntry } from "../../eslint-config/max-lines-exceptions-codec.js";
-import { maxLinesPolicy as rawMaxLinesPolicy } from "../../eslint-config/shared-policy.js";
+import { maxLinesPolicy as rawMaxLinesPolicy } from "../../eslint-config/max-lines-policy.js";
 import { isRecord } from "./records.js";
-
-interface MaxLinesRatchetPolicy {
-  readonly id: string;
-  readonly files: readonly string[];
-  readonly ignores: readonly string[];
-  readonly zeroBaselineDisposition: LintRatchetZeroBaselineDisposition;
-}
 
 interface MaxLinesExceptionPolicy {
   readonly path: string;
@@ -37,7 +28,6 @@ interface MaxLinesPolicy {
   readonly ratchetFloor: { readonly cap: number };
   readonly exceptions: readonly MaxLinesExceptionPolicy[];
   readonly generatedExemptions: readonly MaxLinesGeneratedExemptionPolicy[];
-  readonly ratchets: readonly MaxLinesRatchetPolicy[];
 }
 
 function readNonEmptyString(raw: unknown, context: string): string {
@@ -45,47 +35,6 @@ function readNonEmptyString(raw: unknown, context: string): string {
     throw new Error(`${context} must be a non-empty string`);
   }
   return raw;
-}
-
-function readStringArray(raw: unknown, context: string): readonly string[] {
-  if (!Array.isArray(raw)) {
-    throw new Error(`${context} must be an array of strings`);
-  }
-  const parsed: string[] = [];
-  for (const entry of raw) {
-    if (typeof entry !== "string") {
-      throw new Error(`${context} must be an array of strings`);
-    }
-    parsed.push(entry);
-  }
-  return parsed;
-}
-
-function readZeroBaselineDisposition(
-  raw: unknown,
-  context: string,
-): LintRatchetZeroBaselineDisposition {
-  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
-  const { kind, reason } = raw;
-  if (kind !== "intentional-ratchet-only" && kind !== "narrow-floor") {
-    throw new Error(`${context}.kind is invalid`);
-  }
-  return { kind, reason: readNonEmptyString(reason, `${context}.reason`) };
-}
-
-function readRatchetPolicy(raw: unknown, index: number): MaxLinesRatchetPolicy {
-  const context = `maxLinesPolicy.ratchets[${String(index)}]`;
-  if (!isRecord(raw)) throw new Error(`${context} must be an object`);
-  const { id, files, ignores, zeroBaselineDisposition } = raw;
-  return {
-    id: readNonEmptyString(id, `${context}.id`),
-    files: readStringArray(files, `${context}.files`),
-    ignores: readStringArray(ignores, `${context}.ignores`),
-    zeroBaselineDisposition: readZeroBaselineDisposition(
-      zeroBaselineDisposition,
-      `${context}.zeroBaselineDisposition`,
-    ),
-  };
 }
 
 // Delegates the per-entry schema to the shared codec
@@ -115,7 +64,7 @@ function readGeneratedExemptionPolicy(
 
 export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
   if (!isRecord(raw)) throw new Error("maxLinesPolicy must be an object");
-  const { counting, ratchetFloor, exceptions, generatedExemptions, ratchets } = raw;
+  const { counting, ratchetFloor, exceptions, generatedExemptions } = raw;
   if (!isRecord(counting)) throw new Error("maxLinesPolicy.counting must be an object");
   if (counting.skipBlankLines !== true || counting.skipComments !== true) {
     throw new Error("maxLinesPolicy.counting flags must be true");
@@ -127,13 +76,11 @@ export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
   if (!Array.isArray(generatedExemptions)) {
     throw new Error("maxLinesPolicy.generatedExemptions must be an array");
   }
-  if (!Array.isArray(ratchets)) throw new Error("maxLinesPolicy.ratchets must be an array");
   return {
     counting: { skipBlankLines: true, skipComments: true },
     ratchetFloor: { cap: ratchetFloor.cap },
     exceptions: exceptions.map(readExceptionPolicy),
     generatedExemptions: generatedExemptions.map(readGeneratedExemptionPolicy),
-    ratchets: ratchets.map(readRatchetPolicy),
   };
 }
 

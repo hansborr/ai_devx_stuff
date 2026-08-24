@@ -1,12 +1,12 @@
 // @ts-check
 
+import { restrictedImportsRule } from "./package-boundary-policy.js";
 import {
   codemodSourceFiles,
   serverScriptTypeScriptFiles,
   scriptProjectIgnores,
   scriptTypeScriptFiles,
-  sharedSchemasBarrelRestrictedImportPattern,
-} from "./shared-policy.js";
+} from "./script-test-policy.js";
 
 export const driftDirectionLawConfigs = [
   // Direction law (drift-triage collapse, 2026-07-17 ruling 4): triage is the
@@ -20,37 +20,28 @@ export const driftDirectionLawConfigs = [
   {
     files: ["scripts/drift-ai.ts", "scripts/drift-ai.test.ts", "scripts/drift-ai/**/*.ts"],
     rules: {
-      // Flat config replaces (not merges) rule entries by key, so the global
-      // schemas-barrel restriction must be repeated here alongside the
-      // direction-law restriction.
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
+      "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
         {
-          patterns: [
-            sharedSchemasBarrelRestrictedImportPattern,
-            {
-              group: [
-                // The triage directory (module internals), from any depth.
-                "**/drift-triage/**",
-                "../drift-triage/**",
-                "./drift-triage/**",
-                // The flat triage entry scripts/drift-triage.ts: bare and
-                // extensioned (.js/.ts) specifiers from a flat sibling
-                // (./...), from inside scripts/drift-ai/ (../...), or through
-                // any deeper path that ends at the entry (**/...).
-                "**/drift-triage",
-                "**/drift-triage.*",
-                "../drift-triage",
-                "../drift-triage.*",
-                "./drift-triage",
-                "./drift-triage.*",
-              ],
-              message:
-                "Direction law: scripts/drift-ai must not import scripts/drift-triage. Triage is the downstream reducer over drift-ai output; move shared logic into drift-ai and let triage import it.",
-            },
+          group: [
+            // The triage directory (module internals), from any depth.
+            "**/drift-triage/**",
+            "../drift-triage/**",
+            "./drift-triage/**",
+            // The flat triage entry scripts/drift-triage.ts: bare and
+            // extensioned (.js/.ts) specifiers from a flat sibling
+            // (./...), from inside scripts/drift-ai/ (../...), or through
+            // any deeper path that ends at the entry (**/...).
+            "**/drift-triage",
+            "**/drift-triage.*",
+            "../drift-triage",
+            "../drift-triage.*",
+            "./drift-triage",
+            "./drift-triage.*",
           ],
+          message:
+            "Direction law: scripts/drift-ai must not import scripts/drift-triage. Triage is the downstream reducer over drift-ai output; move shared logic into drift-ai and let triage import it.",
         },
-      ],
+      ]),
     },
   },
 ];

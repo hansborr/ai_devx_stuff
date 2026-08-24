@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # smoke-order: 050
 # smoke-subjects: scripts/typecheck.sh
+# smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-typecheck.sh
 # Pure-shell smoke tests for scripts/typecheck.sh fan-out and exit merging.
@@ -14,6 +15,7 @@ musi_clear_inherited_git_hook_env
 musi_exit_after_git_hook_env_assertion_if_requested
 
 TYPECHECK_SCRIPT="$SCRIPT_DIR/../typecheck.sh"
+PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -77,8 +79,9 @@ new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
   git -C "$SANDBOX" init -q -b main "$repo"
-  mkdir -p "$repo/scripts"
+  mkdir -p "$repo/scripts/lib"
   cp "$TYPECHECK_SCRIPT" "$repo/scripts/typecheck.sh"
+  cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
   git -C "$repo" add .

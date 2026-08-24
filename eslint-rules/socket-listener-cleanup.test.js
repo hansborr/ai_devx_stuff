@@ -118,6 +118,15 @@ describe("socket-listener-cleanup", () => {
           code: [
             "useEffect(() => {",
             "  socket.on('campaign:updated', handleUpdated);",
+            "  return;",
+            "}, [socket]);",
+          ].join("\n"),
+          errors: [{ messageId: "missingCleanup" }],
+        },
+        {
+          code: [
+            "useEffect(() => {",
+            "  socket.on('campaign:updated', handleUpdated);",
             "}, [socket]);",
           ].join("\n"),
           errors: [{ messageId: "missingCleanup" }],

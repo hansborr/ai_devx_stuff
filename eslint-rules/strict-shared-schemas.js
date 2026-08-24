@@ -16,14 +16,9 @@
  * multiple places) use `// eslint-disable-next-line local/strict-shared-schemas`.
  */
 
-import { staticPropertyName } from "./ast-helpers.js";
+import { parentOf, staticPropertyName } from "./ast-helpers.js";
 
 const UNKNOWN_KEY_MODES = new Set(["strict", "passthrough", "strip", "catchall"]);
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
 
 /**
  * @param {import('estree').CallExpression} node

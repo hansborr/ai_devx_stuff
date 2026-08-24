@@ -44,14 +44,21 @@ the same lifecycle with a `prevOpen` ref or a reset effect.
 
 ## What enforces this
 
-Two no-new ratchets enforce the decision rule without banning `useEffect`:
+Two lints enforce the decision rule without banning `useEffect`:
 
-- `ratchet/local-no-effect-misuse-client` reports imperative fetch/query calls
-  and effects whose only work is synchronously updating React state. Its
-  diagnostics name the query hook, render-time derivation, event-handler, and
-  keyed-remount alternatives above.
+- `local/no-effect-misuse` is a normal-lint **error** on client production
+  source (`packages/client/src/**/*.{ts,tsx}`, excluding tests and test
+  helpers). It reports imperative fetch/query calls and effects whose only work
+  is synchronously updating React state, and its diagnostics name the query
+  hook, render-time derivation, event-handler, and keyed-remount alternatives
+  above. It was promoted out of `ratchet/local-no-effect-misuse-client` once the
+  client cluster drained that baseline to zero, so a new finding fails
+  `bun run lint` outright instead of landing in a baseline. That ratchet has
+  since been retired through the proven-retirement path, so normal lint is now
+  the only floor for this rule.
 - `ratchet/react-hooks-set-state-in-effect-client` retains the broader official
-  React detector for synchronous `setState` calls in effects.
+  React detector for synchronous `setState` calls in effects, and is still a
+  no-new ratchet over its remaining accepted debt.
 
 See `docs/guides/lint-ratchet.md` for how the ratchets work and how to drain
 their accepted baseline debt.

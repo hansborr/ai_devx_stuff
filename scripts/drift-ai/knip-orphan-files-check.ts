@@ -4,8 +4,8 @@
 
 import {
   buildOrphanFindings,
-  parseKnipOrphanFiles,
   type ParseKnipOrphanFilesResult,
+  projectKnipOrphanFiles,
 } from "./knip-orphan-files.js";
 import {
   orphanFilesCheckConfig,
@@ -21,7 +21,7 @@ export const orphanFilesCheck = defineKnipPassThroughCheck<
   ParsedOrphanFiles
 >({
   ...orphanFilesCheckConfig,
-  parseReport: parseKnipOrphanFiles,
+  projectReport: projectKnipOrphanFiles,
   buildFindings: (parsed, ctx, provenance) =>
     buildOrphanFindings(parsed.files, ctx.detectorScope, provenance),
 });

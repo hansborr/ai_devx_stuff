@@ -4,7 +4,7 @@
 // eslint-config/max-lines-exceptions.baseline.json. It has two readers that used
 // to hand-write their own validation and drifted: the TypeScript baseline spec
 // (scripts/max-lines-exceptions-core.ts) that backs the --check/--update gate,
-// and this directory's plain-JS config loader (eslint-config/shared-policy.js)
+// and this directory's plain-JS config loader (eslint-config/max-lines-policy.js)
 // that reads the committed JSON fail-loud at eslint-config-load time. The live
 // loader used to accept any string for `lifecycle` and any number for `cap`
 // while the gate enforced the enum and positive integers, so a malformed cap
@@ -12,9 +12,8 @@
 // Keeping the field rules here means both consume the same entry schema.
 //
 // Plain JS so eslint-config/*.js can import it natively at config-load time;
-// scripts/*.ts imports it through the ambient module declaration in
-// scripts/eslint-config-shared-policy.d.ts, the pattern this repo already uses
-// for shared-policy.js and config-surfaces.js.
+// scripts/*.ts resolves this module directly (tsconfig.scripts.json sets
+// allowJs), so the JSDoc below is the type contract both sides see.
 
 export const MAX_LINES_EXCEPTIONS_TOOL = "eslint-max-lines";
 export const MAX_LINES_EXCEPTIONS_METRIC = "file-line-cap-exceptions";
@@ -45,8 +44,8 @@ const MAX_LINES_LIFECYCLES = ["permanent", "candidate-for-split"];
 // spec that also consumes this still narrows the union cleanly on `ok`.
 /**
  * @typedef {(
- *   | { ok: true, value: MaxLinesExceptionFields, error: null }
- *   | { ok: false, value: null, error: string }
+ *   | { readonly ok: true, readonly value: MaxLinesExceptionFields, readonly error: null }
+ *   | { readonly ok: false, readonly value: null, readonly error: string }
  * )} MaxLinesExceptionParse
  */
 

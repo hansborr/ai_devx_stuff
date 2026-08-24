@@ -24,6 +24,7 @@
     "packages/server/vitest.unit.config.ts",
     "packages/shared/vitest.config.ts",
     "tools/lint-ratchet/vitest.config.ts",
+    "tools/harness-diagnostics/vitest.config.ts",
     "scripts/vitest.config.ts",
     "eslint-rules/vitest.config.ts"
   ]

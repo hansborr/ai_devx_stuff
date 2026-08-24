@@ -1,6 +1,21 @@
-import { readNonEmpty, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { positiveIntValue } from "./arg-readers.js";
+import {
+  BOUNDED_HISTORY_CLI_OPTIONS,
+  boundedHistoryArgsFromOptions,
+  boundedHistorySchemaShape,
+} from "./bounded-history-options.js";
 import { DriftAiError } from "./errors.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 import {
   DEFAULT_MIN_SOURCE_COMMITS,
   DEFAULT_TEST_MAPPING_PATTERNS,
@@ -40,58 +55,45 @@ export type ParsedTestOrphaningArgs = {
   readonly timeoutMs: number | null;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+  { name: "--min-source-commits", kind: "value" },
+  { name: "--test-pattern", kind: "value", repeatable: true },
+  ...BOUNDED_HISTORY_CLI_OPTIONS,
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_TEST_ORPHANING_TOP),
+  "--min-source-commits": positiveIntValue("--min-source-commits").default(
+    DEFAULT_MIN_SOURCE_COMMITS,
+  ),
+  "--test-pattern": z
+    .array(z.string().transform((value) => parseTemplate(value, "--test-pattern")))
+    .default([]),
+  ...boundedHistorySchemaShape,
+});
+
 export function parseTestOrphaningArgs(argv: readonly string[]): ParsedTestOrphaningArgs {
-  let top = DEFAULT_TEST_ORPHANING_TOP;
-  let minSourceCommits = DEFAULT_MIN_SOURCE_COMMITS;
-  let since: string | null = null;
-  let maxCommits: number | null = null;
-  let maxFiles: number | null = null;
-  let maxOutputBytes: number | null = null;
-  let timeoutMs: number | null = null;
-  const extraPatterns: string[] = [];
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: TEST_ORPHANING_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--min-source-commits": (value) => {
-        minSourceCommits = readPositiveInt(value, "--min-source-commits");
-      },
-      "--test-pattern": (value) => {
-        extraPatterns.push(parseTemplate(value, "--test-pattern"));
-      },
-      "--since": (value) => {
-        since = readNonEmpty(value, "--since");
-      },
-      "--max-commits": (value) => {
-        maxCommits = readPositiveInt(value, "--max-commits");
-      },
-      "--max-files": (value) => {
-        maxFiles = readPositiveInt(value, "--max-files");
-      },
-      "--max-output-bytes": (value) => {
-        maxOutputBytes = readPositiveInt(value, "--max-output-bytes");
-      },
-      "--timeout-ms": (value) => {
-        timeoutMs = readPositiveInt(value, "--timeout-ms");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
+  const extraPatterns = options["--test-pattern"];
   return {
-    base,
-    top,
-    minSourceCommits,
+    base: subcommandBaseFromOptions(options),
+    top: options["--top"],
+    minSourceCommits: options["--min-source-commits"],
     mappingPatterns:
       extraPatterns.length === 0
         ? DEFAULT_TEST_MAPPING_PATTERNS
         : [...DEFAULT_TEST_MAPPING_PATTERNS, ...extraPatterns],
-    since,
-    maxCommits,
-    maxFiles,
-    maxOutputBytes,
-    timeoutMs,
+    ...boundedHistoryArgsFromOptions(options),
   };
 }
 

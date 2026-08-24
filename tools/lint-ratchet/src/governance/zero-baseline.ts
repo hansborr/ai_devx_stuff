@@ -9,8 +9,13 @@ import {
 } from "../kernel/baseline.js";
 import { isJsonValue, isRecord, normalizeRuleOptions } from "../kernel/baseline-hash.js";
 import { type JsonValue, type LintRatchetConfig } from "../kernel/config-types.js";
-import { type LintRatchetEngineBinding, relativeToRepoRoot } from "../kernel/engine-context.js";
+import {
+  type LintRatchetEngineBinding,
+  type LintRatchetWorkflowVocabulary,
+  relativeToRepoRoot,
+} from "../kernel/engine-context.js";
 import { trackedFilesFromGit } from "../kernel/git-tracked-files.js";
+import { escapeMarkdownTableCell } from "../kernel/markdown-escape.js";
 import { ConfigError } from "../kernel/metrics-types.js";
 import { matchingTrackedFiles } from "../kernel/ratchet-globs.js";
 import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
@@ -74,6 +79,7 @@ interface RunLintRatchetZeroBaselineAuditOptions {
   readonly binding: LintRatchetEngineBinding;
   readonly registry: readonly LintRatchetConfig[];
   readonly ruleSourceHashesById?: LintRatchetRuleSourceHashesById;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 interface ParsedNormalRuleConfig {
@@ -185,10 +191,6 @@ export async function auditZeroBaselineRatchets(
   );
 }
 
-function markdownCell(value: string): string {
-  return value.replaceAll("|", "\\|").replaceAll("\n", " ");
-}
-
 function lifecycleLabel(disposition: LintRatchetZeroBaselineDisposition | undefined): string {
   return disposition?.kind ?? "missing";
 }
@@ -253,12 +255,12 @@ export function formatZeroBaselineAudit(rows: readonly ZeroBaselineAuditRow[]): 
   for (const row of rows) {
     lines.push(
       `| ${[
-        markdownCell(row.id),
-        markdownCell(row.ruleId),
+        escapeMarkdownTableCell(row.id),
+        escapeMarkdownTableCell(row.ruleId),
         String(row.matchedFileCount),
         row.normalLintStatus,
         lifecycleLabel(row.disposition),
-        markdownCell(nextAction(row)),
+        escapeMarkdownTableCell(nextAction(row)),
       ].join(" | ")} |`,
     );
   }
@@ -294,17 +296,17 @@ export function createNormalLintStatusForFile(
   };
 }
 
-function readBaselineText(baselinePath: string, baselineName: string): string {
+function readBaselineText(
+  baselinePath: string,
+  baselineName: string,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
+): string {
   if (!existsSync(baselinePath)) {
-    throw new ConfigError(`${baselineName} does not exist; run bun run lint:ratchet:update`);
+    throw new ConfigError(
+      `${baselineName} does not exist; run ${workflowVocabulary.updateCommand}`,
+    );
   }
   return readFileSync(baselinePath, "utf8");
-}
-
-export async function runLintRatchetZeroBaselineAudit(
-  options: RunLintRatchetZeroBaselineAuditOptions,
-): Promise<string> {
-  return (await runLintRatchetZeroBaselineAuditResult(options)).report;
 }
 
 export async function runLintRatchetZeroBaselineAuditResult(
@@ -313,10 +315,14 @@ export async function runLintRatchetZeroBaselineAuditResult(
   const baselineText = readBaselineText(
     options.baselinePath,
     relativeToRepoRoot(options.repoRoot, options.baselinePath),
+    options.workflowVocabulary,
   );
   const ruleSourceHashesById =
     options.ruleSourceHashesById ?? buildRuleSourceHashesById(options.registry, options.binding);
-  const parsed = parseLintRatchetBaseline(baselineText, options.registry, ruleSourceHashesById);
+  const parsed = parseLintRatchetBaseline(baselineText, options.registry, ruleSourceHashesById, {
+    workflowVocabulary: options.workflowVocabulary,
+    baselineFile: relativeToRepoRoot(options.repoRoot, options.baselinePath),
+  });
   if (parsed.baseline === undefined) {
     throw new ConfigError(parsed.failures.join("\n"));
   }

@@ -5,35 +5,32 @@
 # Source this file only after the verify wrapper has initialized runtime
 # variables referenced by slot args/env values. The guards below intentionally
 # fail loudly when a wrapper sources the generated arrays too early.
-: "${LOG_DIR:?scripts/verify/steps.generated.sh requires LOG_DIR}"
 : "${TIMINGS_FILE:?scripts/verify/steps.generated.sh requires TIMINGS_FILE}"
 
 declare -ga MUSI_VERIFY_CONSUMERS=('verify' 'verify_changed' 'verify_parallel' 'pre_commit')
-declare -ga MUSI_VERIFY_STEPS=('lint' 'ratchet' 'test' 'scripts')
-declare -ga MUSI_VERIFY_CHANGED_STEPS=('coverage-map' 'test' 'scripts')
-declare -ga MUSI_VERIFY_PARALLEL_STEPS=('scripts')
+declare -ga MUSI_VERIFY_STEPS=('test' 'local-rule-starter' 'scripts')
+declare -ga MUSI_VERIFY_CHANGED_STEPS=('test' 'scripts')
+declare -ga MUSI_VERIFY_PARALLEL_STEPS=('test' 'local-rule-starter' 'scripts')
 declare -ga MUSI_PRE_COMMIT_STEPS=('test' 'scripts')
 
 declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
+declare -gA MUSI_VERIFY_SLOT_PRODUCES=()
+declare -gA MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT=()
 declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()
-
-MUSI_VERIFY_LINT_CMD=('bun' 'run' 'lint')
-MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
-
-MUSI_VERIFY_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
-MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
+declare -gA MUSI_VERIFY_ARTIFACT_PROBE_FUNC=()
+declare -gA MUSI_VERIFY_ARTIFACT_SUMMARY=()
 
 MUSI_VERIFY_TEST_CMD=('bun' 'run' 'test' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
 MUSI_VERIFY_SLOT_CMD_VAR['verify:test']='MUSI_VERIFY_TEST_CMD'
 
+MUSI_VERIFY_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
+MUSI_VERIFY_SLOT_CMD_VAR['verify:local-rule-starter']='MUSI_VERIFY_LOCAL_RULE_STARTER_CMD'
+
 MUSI_VERIFY_SCRIPTS_CMD=('bun' 'run' 'test:scripts')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:scripts']='MUSI_VERIFY_SCRIPTS_CMD'
-
-MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
-MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:coverage-map']='MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD'
 
 MUSI_VERIFY_CHANGED_TEST_CMD=('bun' 'run' 'test:changed' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:test']='MUSI_VERIFY_CHANGED_TEST_CMD'
@@ -41,6 +38,12 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:test']='MUSI_VERIFY_CHANGED_TEST_CMD'
 MUSI_VERIFY_CHANGED_SCRIPTS_CMD=('bun' 'run' 'test:scripts:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:scripts']='MUSI_VERIFY_CHANGED_SCRIPTS_CMD'
 MUSI_VERIFY_SLOT_DYNAMIC['verify_changed:scripts']='staged-script-classifier'
+
+MUSI_VERIFY_PARALLEL_TEST_CMD=('bun' 'run' 'test' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:test']='MUSI_VERIFY_PARALLEL_TEST_CMD'
+
+MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD=('bun' 'run' 'docs:local-eslint-rule-starter:check')
+MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:local-rule-starter']='MUSI_VERIFY_PARALLEL_LOCAL_RULE_STARTER_CMD'
 
 MUSI_VERIFY_PARALLEL_SCRIPTS_CMD=('bun' 'run' 'test:scripts')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:scripts']='MUSI_VERIFY_PARALLEL_SCRIPTS_CMD'

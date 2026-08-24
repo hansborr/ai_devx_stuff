@@ -1,0 +1,618 @@
+{
+ "batch": "wave1-lanes-01-03",
+ "results": [
+  {
+   "candidateId": "C-001",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "All evidence entries cite path scripts/verify/lib/verify-engine.sh; the file actually lives at scripts/lib/verify-engine.sh (unique basename, so unambiguous; all cited line ranges and the 991-line/30-function measurements match exactly at the corrected path).",
+    "Evidence note for lines 329-390 calls the associative array an 'evidence-record schema'; the code validates the gate *policy* record (musi_verify_validate_gate_policy). The associative-array-as-implicit-record-schema observation itself is accurate.",
+    "Measurement '112 shell control-flow constructs' is not exactly reproducible: 100 statement-starting if/for/while/case/until lines, 122 total control-flow keyword tokens. Within methodology variance, not fabricated."
+   ],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "docs/ai-harness.md § Substrate Ruling (Bash Vs TS) (b7c2ce73, lines 280-310) + code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md § Substrate verdict (context records CQ25-124, CQ25-125)",
+   "refuted": true,
+   "notes": "The factual observations hold at the corrected path, but the problem as banked — 'the verification lifecycle should not be an untyped Bash framework', remedied by a TS core — re-litigates a standing, explicit repo ruling: gate orchestration (verify.sh, pre-commit, land.sh, ai-hooks process glue: traps, locks, markers, watchdogs) stays bash and must share extracted engine libs; verify-engine.sh is that mandated extracted lib. HARNESS-CLUSTER-PLAN declares the substrate question 'not open' and calls a bash-to-TS programme 'the mistake to avoid', with a measured bar (05-plan S2 costs) under which the analogous worktree-db TS-core extension was dropped (CQ25-125). The finding's novelty claim misuses CQ25-124: that precedent covers concentrated parse/serialize codecs with a proven correctness defect, not lifecycle orchestration, and its own record says to read the S2 cost record before extending. Residual doubt recorded: a narrower, substrate-respecting concern (bash-internal decomposition or invariant documentation of the 991-line file, or moving only the analytical reporting/evidence-model pieces to TS under the 'anything analytical lives in TS' clause subject to the measured bar) was NOT explicitly ruled out by the prior pack and could be re-raised as a differently framed finding; that is not the problem C-001 banked."
+  },
+  {
+   "candidateId": "C-002",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All evidence re-derives exactly at the pin: 2,121 lines (708 common.sh + 1,413 policy.sh) and 90 function definitions (34+56). Cited ranges accurate: common.sh:97-469 holds ai_unquote_token (:98), the ai_git_commit_prefixes lexer (:112, self-described 'deliberately only a lexer, not a shell parser'), and Git-verdict helpers; policy.sh:248-557 holds the large embedded awk heredoc-structure parser (awk starts :271); policy.sh:733-965 holds further tokenizers/classifiers (ai_policy_clean_shell_path_token :733 through ai_policy_bash_write_candidate_paths :958). Dedup: prior pack touches these files only peripherally — CQ25-119/leaf 37 (Done) covered two narrow ai-hooks contracts, CQ25-30 extracts the command-policy TEST block from test.sh, and leaf 29 explicitly fences policy.sh out of its TS-core step ('Do not attempt this for scripts/ai-hooks/policy.sh ... as part of this leaf') — a scoping fence, not a decline. No corpus record, CONSTRAINTS.md ruling, or arch-plan schedules or rules out this refactor. Scoping caveat for the fix (not the problem): arch-plans-2026-07/05 records hook-local awk as an accepted exception and that hot-path hooks deliberately avoid spawning bun for cheap checks, so a typed-core remedy must budget hook latency; also common.sh:211-219 documents an intentional over-match/under-match asymmetry between the two git-commit parsers that any unification must preserve."
+  },
+  {
+   "candidateId": "C-003",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "docs/ai-harness.md § Substrate Ruling — single-file portable-skill clause naming agent-run.sh + recorded 2026-07-07 rewrite rejection under the copyability lens; reaffirmed by code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md § Substrate verdict and § Rejected alternatives",
+   "refuted": true,
+   "notes": "All evidence verified exactly at the pin: 3,503 lines and 143 functions re-derived; lines 140-235 = agent_run_reset_state global namespace; 1146-1926 = attempt orchestration/recovery/finalization; 2381-3331 = backend command builders, process management, embedded python3 heredocs (3056, 3159). The problem, not just the fix sketch, collides with a standing ruling: the Substrate Ruling requires .claude/skills/** surfaces to stay single-file dependency-free bash (agent-run.sh is its named example), records that the size concern was handled by shrinking in place (backend-adapter-table work), and forbids re-litigation without a new constraint defeating copyability. The finding's 'no reusable seams for partial adoption' framing inverts the recorded design intent (whole-file copyability IS the feature). Caveats: (1) the lane's priorPackOverlap cites the wrong record — CQ25-127 is the argv-offset sweep, unrelated; the real overlap is the ai-harness.md ruling, which has no dedicated CQ25 corpus record. (2) The 2026-07-07 rejection is literally about a Bun/TS rewrite; a multi-file bash split or build-time-concat decomposition was never separately considered — but the single-file clause forecloses those shapes too, so any pursuit must be framed as a re-litigation with a new copyability-defeating constraint, not banked as a fresh organization finding."
+  },
+  {
+   "candidateId": "C-004",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Nuance, not fabrication: generate-harness-controls-validation.ts DOES partially consume the declared schema — resolveNonLintControl re-parses through categorizedControlFieldsSchema (line 147) with a defensive 'schema divergence' branch — so 'the declared schema is not the model consumed' is overstated at that seam; the guards+re-parse pattern is itself evidence of the duplication, though.",
+    "The problem statement's 'a contributor cannot determine which layer defines an accepted control' is overstated: docs/guides/harness-manifest-parser.md documents the three-module read seam and a division-of-labor table, and scripts/harness/manifest-contract-check.ts:112-127 records generate-harness-controls.ts as a sanctioned direct reader with an explicit design rationale (granular per-control diagnostics must survive past schema-level defects). The competing-models state is partly a documented decision, which any fix must weigh, not accidental drift."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: harness-manifest-schema.ts:45-118 is the Zod discriminated-union contract; generate-harness-controls.ts:46-129 defines a parallel RawControl/ResolvedControl model with its own JSON.parse read path; generate-harness-controls-validation.ts:30-215 hand-rolls per-field guards duplicating schema checks (and self-acknowledges drift risk via its 'schema divergence' defensive branch); harness-check-validation.ts:22-35 defines a SECOND, differently-typed RawControl (all-unknown fields) consumed by harness-check.ts, registration-check.ts, fixture-closure-check.ts, and registration-generated-checks.ts. Three coexisting control models confirmed, including two same-named RawControl interfaces. Dedup: no corpus record covers this — CQ25-66 (code-intel ManifestGatedCache) and CQ25-113 (lint-ratchet sandbox copy sets) are unrelated; HARNESS-CLUSTER-PLAN slices H8/H16/H21 and leaves 28/31/32 touch neighboring files but never schedule or rule on manifest-model unification; the plan's 'read schemas genuinely differ' note (line 374) is about leaf 29's shell codecs, not this. The schema/loader/manifest-contract-check layering landed via later drain commits (bf07da818, 6a5290189, b20a081a3), outside the pack. Problem stands; severity arguably 'medium-high' rather than 'high' given the guide + tripwire already mitigate the discoverability half of the claim, and the proposed single-parse direction conflicts with the recorded rationale for why the generator reads past schema failures (must not be treated as an auto-reject, but must be in scope for any leaf)."
+  },
+  {
+   "candidateId": "C-005",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three cited files exist and the line ranges match the claims precisely: registration-preflight-wiring.ts:44-139 asserts literal shell fragments, regexes over whitespace-normalized source, and indexOf source-order positions; harness-gate-parity.ts:117-181 parses workflow YAML line-by-line with per-line regexes on '# harness-ci-gate:'/'- name:'/'run:'; pre-push-scope-pin.ts:15-80 reproduces the hook's grep -qE ERE (real target confirmed at .husky/pre-push:267). All three run under harness:check via scripts/harness-check.ts. Dedup: CQ25-130 refuses only the pre-commit dispatcher split and actually treats the registration-preflight fingerprint matching as a named hazard and reopen precondition (HARNESS-CLUSTER-PLAN.md 'Operational risk: the commit gate', which calls repointing it 'a re-plumbing job the leaf does not budget for') — prior-pack corroboration, not coverage. CQ25-142 constrains where checks run (never registration admission), not how they parse; no live leaf/plan schedules replacing the fingerprint mechanism. Caveats for scoring, not refutation: (1) pre-push-scope-pin documents its brittleness by design and fails loudly with paste-ready fix text, so part of the 'harmless refactors break checks' cost is intentional and self-repairing — a severity mitigant; (2) any remedy that regenerates .husky/pre-commit fragments must respect CQ25-130's five do-not-reopen conditions and CQ25-142's admission-budget rule, so the fix space is constrained even though the problem is live."
+  },
+  {
+   "candidateId": "C-006",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor framing overstatement, not an evidence error: the claim that 'intentional differences are indistinguishable from drift' is partially contradicted by an existing guard — scripts/harness/generate-verify-steps.ts enforces identical command tokens for shared slots between hook/pre-commit and its marker-bridge superset consumers, with intentional divergences recorded in MARKER_BRIDGE_DIVERGENCE_ALLOWLIST (scripts/harness/verify-step-bridge-divergences.ts). Some drift axes (e.g. verify vs verify-parallel) are not obviously covered by that check, and the four ordered programs themselves remain hand-copied."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All cited evidence verified exactly at the pin. harness.controls.json line 635 is the 'slots' array of verify-wrapper/verify (control id at line 627), line 716 is verify-wrapper/verify-changed's slots (id at 708), line 796 is verify-wrapper/verify-parallel's slots (id at 788); hook/pre-commit's copy is at line 2083 (id at 2075). Measurements re-derived programmatically: verify and verify-parallel slot arrays are byte-identical 16-entry arrays; verify-changed and pre-commit share the same 15 name/script pairs with exactly 13 of 15 slot objects byte-identical (the two divergent ones differ only in args/dynamic/condition/fastCommitSkip fields on the test and scripts slots). The manifest is the hand-maintained source of truth: scripts/harness/generate-verify-steps.ts reads all four control ids (CONSUMERS list at lines ~36-60) and generates scripts/verify/steps.generated.sh from them, so the duplication lives in authored source, not generated output. Dedup: no corpus record (CQ25-1..223) covers manifest slot-program duplication — CQ25-32 touches harness.controls.json but only the smokeTest field; the live 2026-07-25 pack's AUDIT-SUMMARY.md line 123 explicitly declared 'harness.controls.json internals' OUT of that audit's scope ('treated as generator input'), which is a scope exclusion supporting novelty, not a ruling against the work. Severity calibration for the orchestrator: the existing bridge-divergence parity check mitigates the silent-drift risk on the pre-commit/superset axis, so the 'high' severityHint may be somewhat inflated, but the four-way hand-copied program duplication and synchronized-edit burden are real and confirmed."
+  },
+  {
+   "candidateId": "C-007",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All evidence verified at the pin: harness.controls.json lines 1489 (generatedSurface block of check/verify-steps-generator), 1617 (skill-artifacts triggerPaths repeating scripts/harness+scripts/lib deps), and 1659 (fixturePaths repeating trigger entries) say what the finding claims. Measurement re-derived exactly: 12 generatedSurface controls, 158 trigger refs, 123 fixture refs, 85 per-control trigger∩fixture overlaps, and all 12 source files repeated in their own triggerPaths. Dedup: CQ25-67 (H15 follow-up sensor for smoke-subject static import closures) targets a different surface; the finding's novelty note is accurate. No corpus record or live 2026-07-25 slice/ruling covers deriving manifest facets from one dependency graph. Adjacent caution only: CQ25-113's standing ruling against a shared manifest framework is scoped to lint-ratchet sandbox copy sets and does not cover this, but its derive-only-on-concrete-need spirit should inform any fix design."
+  },
+  {
+   "candidateId": "C-008",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor framing ambiguity only: the measurement says '18 hook controls' but the manifest contains 24 kind=hook controls; 6 are git hooks (pre-commit, pre-push, post-commit, commit-msg, post-checkout, post-merge) with no harness bindings, so 18 is the wired-AI-hook subset. Same 18 figure the landed shim plan uses, so consistent usage, not an error."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All cited evidence verified at the pin: harness.controls.json:1420 is the AI-hook-wiring generatedSurface entry (outputPaths .claude/settings.json/.codex/hooks.json/.copilot/hooks/, checkScript harness:wiring:check); :2243 and :2389 are adapter-specific harnesses bindings repeating command/event/matcher records. Measurement re-derived exactly: 18 wired hook controls -> 32 adapter bindings; 7 controls in all three harnesses, 6 of them edit hooks (PostToolUse Edit|Write/apply_patch/create|edit) plus PreToolUse protected-files. Template repetition confirmed: 14 identical-shape claude commands + 9 identical-shape codex commands, all derivable from body+adapter. Dedup: CQ25-122 is a do-not-reopen on the LANDED shim-generation plan (arch-plans-2026-07/03, 3e9b28df) which the finding already carves out; the prior pack explicitly placed harness.controls.json internals OUT of scope (code-quality-2026-07-25/AUDIT-SUMMARY.md:123, 'absence of a leaf ... is not evidence that they are clean'), so no ruling or scheduled slice covers within-manifest binding factoring. Adjacent refusals CQ25-129 (no jsonc-parser scanner rewrite) and CQ25-130 (no pre-commit dispatcher split) constrain any fix's implementation but do not rule out this problem. Calibration doubt for the planner: post-3e9b28df the manifest is already the single authority with generated shims and a --check, so the 'provenance ambiguous' half is weaker than the high severityHint implies; the surviving substance is the dense per-adapter record repetition inside the manifest."
+  },
+  {
+   "candidateId": "C-009",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All measurements re-derived exactly at the pin: harness.controls.json is 2,859 lines with 179 controls, 12 control kinds, 8 distinct control-key signatures, and 4 root keys; no $schema URI or version field exists, and no JSON-Schema generation exists anywhere in scripts/ or package.json. The contract lives only in internal TypeScript (scripts/harness/harness-manifest-schema.ts Zod parser plus deep-facet owners per its header), which matches the finding's claim rather than refuting it. Dedup corpus touches the manifest only via CQ25-32 (smokeTest list widening — unrelated); live 2026-07-25 pack (leaf 31, HARNESS-CLUSTER-PLAN.md, CONSTRAINTS.md, AUDIT-SUMMARY.md) has no leaf or ruling on manifest schema publication/versioning. Severity note: 'external users cannot validate' presumes the repo's public-reference goal, which is a documented project aim, so the medium/dx framing is fair."
+  },
+  {
+   "candidateId": "C-010",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Evidence entries 2-4 cite path scripts/verify/lib/verify-steps-lib.sh, which does not exist; the actual file is scripts/verify/steps-lib.sh. All three cited line ranges match the real file's content exactly (205-211 musi_defer_dist_slot hard-codes lint|ratchet; 234-243 musi_drain_memory_pending_slots takes 13 positional parameters; 328-448 musi_run_parallel_verify_steps reconstructs scheduling/producer metadata), so this is a systematic path transcription error, not fabricated evidence.",
+    "Evidence 4 endLine 431 slightly undershoots: the function and its typecheck-producer/dist-deferral logic run through line 448 (dist logic at 396-440). Trivial drift."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem confirmed at the pin. steps.generated.sh (lines 11-21) declares consumers, step lists, and fastCommitSkip only; scripts/harness/verify-step-schema.ts and generate-verify-steps.ts contain no dependency/producer/resource concepts, so the typecheck-produces-dist relationship consumed by lint/ratchet, the memory-budget admission, and parallel scheduling all live in hand-coded bash in scripts/verify/steps-lib.sh — a newly generated slot carries no machine-readable ordering semantics. Dedup: no corpus record or live 2026-07-25 pack leaf/plan/constraint touches steps-lib.sh, steps.generated.sh, or a slot graph. Closest neighbors are distinct surfaces: CQ25-8/CQ25-130 (refused .husky/pre-commit dispatcher split — hook shim body, not slot metadata; note any fix touching pre-commit dispatch must respect that refusal's reopen conditions) and CQ25-124 (verify-metadata bash-facade-over-TS-core prior art, a supporting precedent, not coverage). Judged on the problem only; the proposed typed-slot-graph remedy was not evaluated."
+  },
+  {
+   "candidateId": "C-011",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four L01-011 evidence entries verified at the pin. scripts/suppression-ledger-emission.ts:1-21 defines the four-column TSV wire (RECORD_COLUMNS=4, '#scope'/'#path' headers) and its header comment states the format is 'deliberately dumb TSV so the scanners stay pure bash'. scripts/suppression-ledger-identity.ts:64-78 holds a second directive vocabulary (DIRECTIVE_PATTERNS regexes + NEXT_LINE/LINE keyword scope sets), and :197-204 is exactly the described fail-closed divergence check between 'independent vocabularies' of registers and DIRECTIVE_PATTERNS. scripts/eslint-disable-register.sh:128-147 recognizes directives with its own bash PATTERN and writes the TSV sink via emit_identity; scripts/suppression-register.sh:130-139 is a twin. Scanners are 441 and 481 lines ('large' is fair). Dedup: CQ25-40 (28-PLAN slice 28.7) is only a file-family relocation with the suppression-ledger.ts facade retained — the finding's novelty claim ('removes the dual-language parser and TSV seam') is accurate; no corpus record, HARNESS-CLUSTER-PLAN slice, or CONSTRAINTS entry rules out or schedules removing this seam. Nearest adjacents: CQ25-124/125 (measured bar for bash-facade-over-TS-core splits, applied to worktree-db.sh; precedent requires reading the 05-plan cost record before extending the split to a new cluster) and leaf 50 of lint-deep-dive-2026-07 (outside the checked dedup surfaces), whose landed step-2 design deliberately chose pure-bash scanners + dumb TSV because register smoke tests run lint-suppressions.sh in a bare temp repo with no node_modules and cannot invoke a TypeScript CLI, with the fail-closed check as the designed mitigation. These constrain the proposed direction (any typed core must survive the no-node_modules smoke context and the CQ25-124 measured bar) and argue the severity is partly a documented tradeoff rather than an oversight, but they do not refute the problem: the coordinated four-surface change cost on any spelling/scope change is real and undisputed. Judged on the problem lens, not the remedy: refuted=false."
+  },
+  {
+   "candidateId": "C-012",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor: worktree-seed-runtime-loader-validation.ts cited range 17-42 slightly undershoots the described loader-alias recognition, which extends to ~line 49 (element-access require forms); content of the claim is accurate."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three code citations verified at the pin: import-closure.ts:42-138 hand-codes extension probing (resolutionCandidates), @musi/* aliases (localImportBase), externalPackages skipping, and isWithin/realpath containment; runtime-loader-validation.ts models createRequire factories/namespaces/loader aliases; runtime-loaders.ts:72-142 runs a fixed-point while-changed loop of repeated full-AST walks (collectRuntimeLoaderAliases). Measurement exact: 5 non-test worktree-seed-*.ts modules = 289+47+132+215+210 = 893 lines. Dedup: CQ25-63 (HARNESS-CLUSTER-PLAN.md H12, status Open/blocked on 28.1) is purely a file relocation into scripts/worktree-db/ plus the MUSI_SEED_IMPORT_CLOSURE_CHECKER default-path update — it does not address the bespoke resolver; the finding's novelty claim is correct. Live-pack leaf 35 covers code-intel's internal resolver duplication, a different surface. Caveats for the planner (not defects): (1) CONSTRAINTS.md:48 / leaf 68 recently reused validateSeedImportClosure for the two lint-ratchet sandbox copy-set assertions, so the checker now has consumers beyond worktree seeding — any manifest/consolidation rework must carry them, supporting the needs-split sizing; (2) the still-open H12 move means sequencing interaction with the 2026-07-25 pack should be coordinated, but that is scheduling overlap on file location, not coverage of this problem."
+  },
+  {
+   "candidateId": "C-013",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin. (1) scripts/lint-coverage-map-check-patterns.ts:30-50 parseRows extracts cells by fixed column offsets (PATH_COLUMN=0, NORMAL_LINT_COLUMN=2, RATCHET_COLUMN=3, STATUS_COLUMN=6) from raw Markdown table lines. (2) :53-99 extractPathPatterns mutates a `base` string as code spans are consumed in order (stableBaseForPattern/shouldUpdateBase/resolvePatternSource) — a genuinely stateful, order-dependent grammar over code-span sequence. (3) :101-157 (finding says 101-150; trivial 7-line drift) implements a private brace-expansion + glob-to-regex engine (expandBraces, globVariantToRegExp, createMatcher), while lint-coverage-map-gen.ts imports the canonical matchesRatchet from @musi/lint-ratchet/kernel/ratchet-globs.js — confirming a parallel dialect exists. (4) scripts/lint-coverage-map-gen.ts:14-30 confirms the generator reads its own current output (readCurrentOutput) and splices only the drift-ai coverage block (spliceDriftAiCoverageBlock); the remaining ~227 table rows in docs/generated/lint-coverage-map.md are hand-maintained yet live under docs/generated/ and are parsed as policy input by the checker. Cited command docs:lint-coverage-map:generate exists in root package.json:123. Dedup: CQ25-44 (28-PLAN slice 28.11) is strictly a file-relocation slice — 'Retain both check and generator facades', update triggerPaths/fixture paths/subjects atomically — it does not touch source-of-truth, the Markdown-as-policy parsing, or the private glob dialect; 28-PLAN's caveats even reinforce facade preservation. No other corpus record (searched coverage/glob) or live-pack ruling covers or declines this problem. Sequencing note for the orchestrator: any fix here should land after or coordinate with 28.11 since that slice moves the same 13-file family."
+  },
+  {
+   "candidateId": "C-014",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "All path-bearing evidence entries cite scripts/verify/lib/verify-metadata.sh; the file is actually at scripts/lib/verify-metadata.sh (no file exists under scripts/verify/lib/). Line ranges and content match the real file, so this is a wrong-directory citation, not fabricated evidence.",
+    "Third evidence range (477-781) is noted as 'path policy and metadata validation'; marker validation proper starts at line 783 (musi_read_success_marker) — the range covers path policy plus staged-change/fingerprint validation, so the note is slightly loose but substantively right."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Measurements re-derived at the pin: scripts/lib/verify-metadata.sh is exactly 1,406 lines with 74 top-level function definitions (72 brace-bodied + 2 subshell-bodied), matching the claim. Function roster confirms the conflation claim: repo/worktree identity + state paths (121-306), commit-queue waiters (274-341), fast-commit provenance log/markers (354-475), path policy + staged fingerprints (477-781), success-marker codecs and verify-marker bridges (783-1057), and run-meta reporting/history persistence (1058-1406). Dedup: CQ25-124 (cited by the lane) is a do-not-reopen record for arch-plan 05's landed TS-core precedent — its dropped S3 was 'shrink the shell suite', not shell-library decomposition — so it is precedent, not coverage. Live pack leaf 29 (29-bash-to-ts-cores.md:43, :175) explicitly notes verify-metadata.sh is 'still 1,334 lines' post-core-split (now 1,406) and scopes the file OUT of its step-5 extraction; no leaf, plan row, or CONSTRAINTS ruling schedules or declines decomposing verify-metadata.sh itself. Caution for the planner (not a refutation): the nearest analogues were decomposition-skeptical rulings — CQ25-126 shrank the seven-seam worktree-db.sh decomposition to one seam and CQ25-125 dropped its TS-core extraction against the 05-plan measured bar — and the proposedDirection's 'typed modules' would face the same S2-record cost bar; the problem stands independent of that remedy."
+  },
+  {
+   "candidateId": "C-015",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor line drift: the tally counters PASS_COUNT/WARN_COUNT/FAIL_COUNT are declared at scripts/doctor.sh:57-59, just above the cited 61-178 range (the range itself starts at the JSON-mode plumbing comment); all other ambient-state claims in that range are accurate.",
+    "Partial-staleness in the problem statement: 'no common record shape' overstates the emission leg — H8 (landed, CQ25-119) added scripts/lib/harness-finding.sh, sourced at doctor.sh:55, giving JSON finding emission one shared shape; check definition, execution protocol, and aggregation remain ad hoc as claimed."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem is real and well-evidenced at the pin. scripts/doctor.sh (886 lines) matches every cited range: globals incl. CURRENT_CONTROL/CURRENT_HINT/DOCTOR_FINDINGS_NDJSON/DOCTOR_HARNESS_CHECK_FAILED (67-70) plus counters and REPORT_EXCERPT_MAX_BYTES; three runner variants with genuinely different implicit protocols at 198-342 (run_subcommand grep-tallies PASS:/WARN:/FAIL: prefixes; run_report_subcommand keys on rc 0/1/>=2; run_drift_report_subcommand parses 'WARN <name>:' lines); two special-case bypasses at 348-424 (run_migration_safety merges the scanner's own --json into NDJSON directly; run_harness_check uses a module path plus its own DOCTOR_HARNESS_CHECK_FAILED flag); imperative hand-assembled check sequence at 801-866 (eight bespoke check_* calls then ten runner invocations). The file self-documents the divergence at 172-177 ('Do NOT unify them without re-checking...'). Dedup: not covered by any scheduled slice and not ruled out. Two constraints any future leaf must honor (remedy-side, do not kill the problem): (1) HARNESS-CLUSTER-PLAN.md:401 records a FULL TypeScript rewrite of doctor.sh as a rejected alternative ('bash by design' for gate glue), while the Substrate Ruling (docs/ai-harness.md:280-298) simultaneously names doctor.sh as the cautionary example that should shed analysis logic to TS — so a descriptor-registry design must thread between 'no wholesale rewrite' and 'analysis belongs in TS'; 29-bash-to-ts-cores.md:175 also excludes doctor.sh from that leaf's TS-core extraction, scoped to that leaf only. (2) CQ25-144 (refused role-derived layout checker parsing doctor.sh) is a different problem and does not apply. severityHint medium / sizeHint L / needs-split all look calibrated."
+  },
+  {
+   "candidateId": "C-016",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Cited path scripts/migration-safety.sh does not exist; the actual file is scripts/migration-safety-scan.sh (filename drift, same script: 653 lines at the pin, matching the measurement, and all three cited line ranges match their claimed content on the real file: 270-376 scan_file awk lexer/sanitizer with four SQL detection rules, 468-539 --json emit branch, 542-651 human report and completion).",
+    "Candidate summary's 'hand-built JSON serialization' overstates: JSON escaping is delegated to jq via the shared scripts/lib/harness-finding.sh emit_harness_finding helper (landed CQ25 leaf 31/H8) and the envelope is produced by scripts/harness-emit-envelope.ts; the lane evidence's weaker claim ('JSON output construction is implemented in the same Bash program') does hold.",
+    "'Editing an embedded lexer and two output paths' is mildly overstated: both renderers consume the TSV findings generically; a new rule concretely requires editing the awk block plus the guidance_for case (which feeds both renderers), so the coupling claim stands in substance but not literally as 'two output paths'."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem survives both lenses. CQ25-124 (dedup corpus line 180) is a do-not-reopen on the verify-metadata TS-core plan itself; the underlying constraint (code-quality-2026-07-25/CONSTRAINTS.md:66-73) explicitly positions that plan as 'the precedent ... read both before extending the split to a new cluster' -- a prerequisite for exactly this kind of work, not a prohibition; its dropped S3 was shell-suite shrinkage, unrelated. Live leaf 29 (bash-to-ts-cores) scopes only worktree-db.sh/stop-policy.sh and its 'do not scope as blanket bash-to-TS migration' caveat is leaf-local. Leaf 31/H8 (landed e7462ee51) touched migration-safety-scan.sh only for the shared finding-emit helper, not analysis decomposition. No pack record schedules or declines decomposing this script. The 'jq stays a hook/CLI-local exception' ruling in CQ25-124 bears on the eventual fix shape (jq-based JSON emission is an accepted pattern), which slightly weakens the JSON-serialization prong of the problem but not the embedded-awk-lexer/coupled-analysis core of it. Orchestrator should normalize the member finding's evidence paths to scripts/migration-safety-scan.sh."
+  },
+  {
+   "candidateId": "C-017",
+   "evidenceHolds": false,
+   "evidenceDefects": [
+    "Evidence 2 path fabricated: scripts/git/baseline-merge-cli-table.sh does not exist. Real counterpart is scripts/baseline-merge-cli-table.ts (repo root scripts/, TypeScript), whose BASELINE_MERGE_CLI_TABLE at lines 22-39 matches the claimed per-family CLI table.",
+    "Evidence 3 path fabricated: scripts/git/conflict-recipes.sh does not exist. Per-family conflict-recipe text actually lives in scripts/git/baseline-merge-driver.sh:113-213 (print_conflict_recovery case arms), and a separate per-family key-to-baseline-path map lives in scripts/generate-baseline-conflict-recipes.ts:23-28 (the cited 19-28 range matches that file's comment+map).",
+    "Evidence 4 path wrong: scripts/git/post-merge-truth-up.sh does not exist. Real file is scripts/git/baseline-post-merge-truth-up.sh; its lines 24-45 exactly match the claimed per-key case registry (label + baseline file per family).",
+    "priorPackOverlap.kind is 'landed' but CQ25-83 is a standing ruling (CONSTRAINTS.md:18), not a landed leaf.",
+    "Problem text counts 'five registries' while the finding supplies only four evidence entries; the fifth (the merge implementation's own case statement, scripts/git/baseline-merge-driver.sh:29-55 with driver_label/semantic_driver/install_hint) exists but is uncited."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem independently CONFIRMED at the working tree despite the sloppy path transcription: adding/renaming a baseline family requires synchronized edits in at least five hand-maintained per-family registries — (1) scripts/git/baseline-drivers.sh:22-27 MUSI_BASELINE_DRIVERS names; (2) scripts/git/baseline-merge-driver.sh:29-55 case (driver_label/semantic_driver/install_hint) plus per-family recipe heredocs at 113-213; (3) scripts/baseline-merge-cli-table.ts:22-39 (displayLabel/cliPath); (4) scripts/generate-baseline-conflict-recipes.ts:23-28 BASELINE_PATH_BY_DRIVER_KEY (plus a runbook marker pair); (5) scripts/git/baseline-post-merge-truth-up.sh:24-45 case (label/baseline file) plus per-key handlers and shims. Display labels and baseline file paths are verbatim-duplicated across files. Dedup: CQ25-83 (CONSTRAINTS.md:18) rules only on parameterizing the merge-driver script family (installers over a shared body — already done); it does not rule on this residual metadata duplication, and no 2026-07-25 leaf/plan (checked 27/28/29/30/31, HARNESS-CLUSTER-PLAN, corpus CQ25-31/62) schedules it, so alreadyRuledOut=false. Caveats for any fix, not refutations: the installed merge driver must stay standalone and dependency-free (baseline-merge-driver.sh:4-9), so centralization must be generate-time, not runtime sourcing; several registries carry doc comments recording deliberate scope decisions (cli-table cites ready-2026-07 leaf 16; baseline-drivers.sh self-describes as SSOT for names only), so the leaf should carry the doc updates in scope."
+  },
+  {
+   "candidateId": "C-018",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "All three evidence entries cite scripts/git/post-merge-truth-up.sh, which does not exist; the actual file is scripts/git/baseline-post-merge-truth-up.sh (filename missing the 'baseline-' prefix). All three line ranges (156-175, 194-217, 240-259) match that file exactly, so the misnaming is clerical, not fabrication."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem substantively verified at the pin: lint-ratchet handler gates its stale-baseline verdict on grep '^lint:ratchet:' over captured tool output (line 170); knip handler branches three advisories on '^FAIL:'/'^WARN: baseline summary does not match the entries'/'^ERROR: baseline' (lines 205-212); near-duplicates greps '^FAIL:' (line 252). Three independent tools' presentation strings are load-bearing for classification. Severity nuance for prioritization: greps are paired with exit-code checks and mostly select which stderr repair advisory prints; the one state-mutating decision (marker consumption) keys off exit codes alone, and every handler exits 0 — so misrouting yields a wrong repair instruction, not a wrong gate outcome. Also, the shared skeleton is already unified into one keyed body (script header: 'One keyed body replaced four near-identical skeletons'), so the 'near-copy per new family' claim applies only to the per-key capture-grep-advise handlers. Dedup: CQ25-124 is a do-not-reopen on the bash-facade-over-TS-core prior-art precedent, not on this problem; finding's novelty claim is accurate. CONSTRAINTS.md ruling 'Parameterize the baseline merge-driver family — already parameterized' covers the installer family, a different surface. No 2026-07-25 leaf (checked 27, 29, 31, 32, HARNESS-CLUSTER-PLAN, CONSTRAINTS) schedules or declines truth-up output-parsing work. The existing harness-diagnostics envelope (emit_harness_finding / harness-diagnostics.ts) is adjacent prior art the fixer should reuse but does not cover this path."
+  },
+  {
+   "candidateId": "C-019",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three cited regions verified at the pin: ci.yml:83-128 is the lint-ratchet step-summary inline block (43 shell lines with fallback formatting and error handling), ci.yml:130-168 is inline gh-api sticky-comment logic (paginate/PATCH/dedup), slow-drift.yml:51-89 is the slow-drift summary block (36 shell lines). The 113-line measurement is accurate when counting the `run: |` lines (shell-only content is 110; spans total 124) — counting-convention tolerance, not a defect. `lint:ratchet:report` exists in package.json:96; blocks are CI-context-bound ($GITHUB_STEP_SUMMARY, github.* context, GH_TOKEN), so the not-locally-runnable claim holds. Dedup: no overlap — CQ25-8/leaf 32 covers .husky hooks not workflows, leaf 29 covers scripts/ bash cores, CQ25-144 (refused) was a workflow-parsing layout checker, a different problem; no ruling or scheduled slice touches workflow-shell extraction. Caveat for the fixer: ci.yml:72-74 comment documents that CI-only report steps intentionally stay hand-written around the generated verify core — that addresses generated-vs-hand-written, not inline-vs-extracted, but any leaf should update that comment in scope."
+  },
+  {
+   "candidateId": "C-020",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: .codex/skills/agent-cli/SKILL.md lines 23/27/43/48 and 64/70 invoke .claude/skills/agent-cli/scripts/{agent-run.sh,agent-wait.sh}; references/portability.md:74 (plus :16,:37) keeps the .claude ownership assumption; the '12 references' count reproduces exactly for SKILL.md (tree-wide it is 19, so if anything an undercount) and the codex tree owns zero executables (agent-run.sh/agent-wait.sh exist only under .claude/skills/agent-cli/scripts/). Dedup: not covered or ruled out — HARNESS-CLUSTER-PLAN.md:43,401 rejected only a full Bun REWRITE of agent-run.sh (substrate ruling, not relocation); CQ25-32's 'no shell relocation' is a scope exclusion within the smoke-subject routing slice (27.9), not an ownership ruling; CQ25-122 covers generated hook shims, not skill scripts. Caveat for weighing severity: harness.controls.json:2746 declares .claude/skills/agent-cli as canonical with .codex as generated mirror, and portability.md documents wholesale-copy porting, so the layout is a documented decision the finding is contesting rather than an accident; per documented-decision policy this is weighable, not a refutation."
+  },
+  {
+   "candidateId": "C-021",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the cited lines: layer-direction-check-config.ts:4-12 is an empty config (Record<string, never> via makeEmptyCheckConfig) while layer-direction.ts:33-63 hard-codes SERVER_SRC_PREFIX, the utils/services/routers rules, and an allowlist naming specific Musi files; overview-call-targets.ts:93-180 keys service/broadcast detection on '/services/', '/socket/', '/utils/character-campaign' path fragments, broadcast*/emit*/*Broadcast name heuristics, and literal io/to/emit spellings; triage-packet-group.ts:120-153 has a closed semgrep/dolos/drift source switch and a hard-coded Musi package + scripts/drift-ai path taxonomy. Dedup check: nearest prior-pack items are distinct — leaf 36/CQ25-12 (kernel/adapter Musi-specifics) covers tools/lint-ratchet only and is landed; leaf 34 (drift-ai/drift-triage) is about implicit typing contracts; leaf 35/CQ25-11/65/66 is code-intel context/cache structure; CQ25-35 schedules only a drift-ai MODULE.md doc with 'no restructuring'. No ruling in CONSTRAINTS.md declines policy-adapter extraction for these families; leaf 36's landed kernel/adapter cleanup is precedent that treats exactly this pattern as a defect. Heuristic-miss-looks-like-empty-result concern is plausible from the code (boolean path-fragment matching with no unmatched-case reporting). Problem survives both lenses."
+  },
+  {
+   "candidateId": "C-022",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Candidate problemSummary calls the correlation restorer a 'runtime assertion'; check-metadata.ts:62 is a compile-time type assertion (type-assertion-boundary: interop cast), not a runtime check. The lane finding's own wording ('an assertion') is accurate.",
+    "Finding omits that metadata/runtime order parity is already test-enforced (scripts/drift-ai/check-metadata.test.ts:17 asserts equal id orders; :20-32 pins defaults alignment), so mis-registration is test-caught, not purely convention-policed — 'compiler cannot verify' remains true, but the severityHint 'high' likely overstates practical drift risk."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at pin: 16-entry CHECK_METADATA (check-metadata.ts:29-46) with mirror-order comment, 16-entry CHECK_PLUGINS (check-registry.ts:23-40), 16-key hand-maintained DriftAiChecksConfig (config.ts:144-184), and the Object.fromEntries+cast (check-metadata.ts:59-62). DriftCheckId in types.ts:3 is a fourth hand-maintained id list, strengthening the finding. Dedup: CQ25-45..47 (leaf-34 scheduled slices) do not cover registration; the lane's novelty claim is accurate. Adjacent standing ruling: 34-drift-ai-typing.md:175-181 forbids collapsing check-metadata.ts and check-registry.ts into one registry (split deliberate, lightweight-import boundary, parity test on purpose) — that rules out only the merge remedy, which C-022's direction explicitly avoids; it does not cover the config.ts third authority or a compiler-verified keyed-record derivation. CQ25-35 (slice 28.2) only schedules MODULE.md documentation of the layering law ('no restructuring'). Any implementing leaf must preserve the lightweight-import boundary and honor the do-not-merge constraint; the ruling's status-quo-blessing language is a mitigating consideration for severity, not a refutation."
+  },
+  {
+   "candidateId": "C-023",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: shallow envelope parse + cast at scripts/code-intel/daemon-server.ts:155-200, string-membership narrowing to ExecutableCliCommand at daemon-commands.ts:18-42, discriminator-only response guard at daemon-protocol.ts:50-65, and ping/pong outside the declared protocol (server daemon-server.ts:130/211-218 fabricates a {kind:'results',header:'pong'} response; sender lifecycle-probe.ts:44-48 builds raw JSON outside CodeIntelDaemonRequest since 'ping' is not an ExecutableCliCommand kind). Dedup: CQ25-11/Leaf 35 landed H18 (internal result-arm narrowing) matching the claimed novelty; remaining slices CQ25-65/66 (context bag, cache extraction) do not cover the IPC boundary or lifecycle arm, so not ruled out. Two calibration caveats for the orchestrator: (a) leaf 35's 'Future note (unscheduled)' already acknowledges the command/result correlation gap as exceeding H18 — acknowledged-but-unscheduled, not a ruling; (b) the shallow-guard design is a deliberate documented decision — the 'avoiding a parallel schema' comment at daemon-protocol.ts:48-49 was introduced by H18 polish commit 42d877830 — which undercuts the 'hack' category and the high severity hint somewhat, since both endpoints are same-repo and protocolVersion-checked; residual skew risk is a long-lived daemon across a checkout change that alters types without bumping the protocol version."
+  },
+  {
+   "candidateId": "C-024",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "subcommand-args.ts:34-50 note says 'untyped callback records' — the records are typed (Record<string, (value: string) => void>); the accurate and substantive part of the claim is that they carry no connection to any parsed-result type. Wording imprecision only.",
+    "drift-triage-options.ts evidence range 46-158 omits the dependency list itself (PACKET_SELECTION_FLAGS at lines 12-18); the rescan that consumes it (118-124, used at 155) is in range. Trivial range drift."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four cited files exist and say what the finding claims at the cited lines: SubcommandSpec callback records disconnected from result shapes (subcommand-args.ts:34-50); mutable accumulators + callbacks + separate result interface + manual assembly in parseSemgrepCandidatesArgs (semgrep-candidates-args.ts:49-108, interface at 31-47); five-field post-parse-only contract (bounded-history-options.ts:9-20); and in drift-triage-options.ts each option (e.g. --packet-size) is spelled in help text (46-68), Zod schema (100-116), parseCli specs (134-146), PACKET_SELECTION_FLAGS dependency list (12-18), raw argv rescan firstPacketSelectionFlag (118-124/155), and result assembly (160-175). Dedup: CQ25-10's surviving slices CQ25-45..47 (34-PLAN) cover type-only-cycle keys, the knip env.reportCache memo, and zod narrowing of triage report-input contracts — none address CLI option registries, so the finding's novelty claim holds. Closest prior work: HARNESS-CLUSTER-PLAN H3 (landed, CQ25-119) established option-descriptor/usage ownership for code-intel ONLY and skipped the parser-skeleton step; CQ25-127/128 are do-not-reopen rulings about parseCli ADOPTION in hand-rolled walkers (including subcommand-args.ts:95) via converge-on-touch — a different problem from parallel option metadata within CLIs that already use the shared parsers (drift-triage-options.ts demonstrates the problem persists under full parseCli adoption). Caveat for planning, not refutation: a fix that migrates drift-ai subcommand parsing wholesale would brush against CQ25-127's converge-on-touch ruling, so scoping should acknowledge it."
+  },
+  {
+   "candidateId": "C-025",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: CliOptions (scripts/drift-ai/types.ts:148-179) mixes scope/output/chunking/adapter-override/gate fields; CheckServiceEnv (check-plugin.ts:41-51) passes the whole CliOptions to every plugin resolver; currentPrototypeCliOptions (prototype-command.ts:56-68) fabricates gate/check defaults for non-report commands; duplicates-check.ts:112-129 reads env.cli.jscpdBin, and grep shows the same env.cli.* bag-read pattern in import-cycles-check.ts, layer-direction-check.ts, and knip-pass-through-check.ts. Dedup: CQ25-10/leaf 34 superseded into CQ25-45..47 (typeOnly key, knip memo -> env.reportCache, triage-contract zod carve-out); none schedule or drop CliOptions decomposition, and 34-PLAN's permanently dropped steps (4/5/6) concern chunks arity, a subprocess kernel, and the barrel test, not this. Two caveats for the fixer, not refutations: (1) check-plugin.ts:38-40 documents the bag-read as an intentional 'small and stable' design, so this is a documented-decision conflict and the leaf should carry the doc/comment update; (2) CQ25-46 (scheduled) also edits CheckServiceEnv (adds reportCache threading), so sequence any split against that slice."
+  },
+  {
+   "candidateId": "C-026",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence citations verified exactly at the pin: drift-ai extractSpecifiers (import-cycles-graph.ts:233-297, raw ts AST) and code-intel collectImportEdges (import-graph.ts:39-110, ts-morph) independently implement the same three syntax families (import decl, export-from, dynamic import) with separate type-only/runtime classifiers; resolution policies are likewise separate (drift-ai ts.resolveModuleName per-tsconfig at :176-230 vs code-intel Musi workspace resolver at workspace-resolver.ts:58-71). Divergence risk is concrete, not hypothetical: inverse boolean semantics (typeOnly vs runtime) and code-intel filters vi.mock'd specifiers in test files while drift-ai does not, so the two graphs can classify the same file differently. Dedup: CQ25-11/Leaf 35 remaining work (H20=CQ25-65 context-bag reshape, H21=CQ25-66 ManifestGatedCache) is code-intel-internal cache/context structure; leaf 35's 'two resolvers' duplication is graphCache-vs-projectCache within code-intel, not this cross-analyzer seam. Leaves 34/31/28, HARNESS-CLUSTER-PLAN.md, and CONSTRAINTS.md neither schedule nor decline cross-analyzer import-edge unification. Caveat for planning (not a refutation): leaf 28's constraint 'do not restructure scripts/drift-ai/ into subdirectories' and leaf 34's structural-typing rule for the drift-ai/drift-triage seam should shape any extraction; needs-split leafability seems right."
+  },
+  {
+   "candidateId": "C-027",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor narrative imprecision in priorPackOverlap.novelty: it says newer analyzer families 'reintroduced' divergent classifiers after H9, but scripts/drift-ai/test-orphaning-mapping.ts was added 2026-06-04 (commit 54420003e), predating the 2026-07-25 pack — it was outside H9's scope rather than introduced after it. Does not affect the cited code evidence."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All five evidence citations verified at the pin: scripts/drift-ai/test-orphaning-mapping.ts:9-34 (private SOURCE_EXTENSIONS incl .mts/.cts, TEST_DIR_SEGMENTS, TEST_BASENAME /\\.(?:test|spec)\\.[mc]?[jt]sx?$/, DECLARATION_SUFFIXES); scripts/drift-ai/scope.ts:24-68 (BUILT_IN_SOURCE_EXTENSIONS without .mts/.cts plus buildSourceExtensions configured additions); scripts/drift-ai/hotspots-thrash.ts:172-174 (broad isTestPath matching any test/spec token anywhere in the path); scripts/drift-triage/triage-report-support.ts:30-31,108-111 (TEST_FILE incl -test-helper suffixes, TEST_DIRECTORY incl fixtures/test-support/examples); scripts/code-intel/test-files.ts:1-6 (only .test.ts/.test.tsx, no .spec, no directories). The classifiers demonstrably disagree on concrete paths (foo.spec.ts, fixtures/x.ts, foo.mts). Dedup: CQ25-119 (corpus line 175, do-not-reopen landed) covers the harness cluster where H9 (bdc120756) deleted only the drift-ai-internal SOURCE_LIKE_EXTS duplicate of BUILT_IN_SOURCE_EXTENSIONS (leaf 31 steps 4/5/8; 31-harness-shared-helpers.md:83-84); it never touched test-orphaning-mapping, hotspots-thrash, triage-report-support, or code-intel/test-files. Remaining open harness slices H15 (path-policy dead data), H20/H21 (code-intel context/cache, optional) do not schedule classifier unification, and neither the corpus nor CONSTRAINTS.md records a decision declining a shared source/test classification service. Problem stands as novel residual scope beyond the landed H9 tidy."
+  },
+  {
+   "candidateId": "C-028",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All five evidence citations verified accurate at the pin: hotspots-args.ts:10-31 (CONCRETE_LENSES / LENS_SELECTIONS / HOTSPOT_LENS_VALUES parallel declarations), hotspots-format.ts:17-23 (HotspotLens union repeats identity set), hotspots-format-sections.ts:14-36 (per-lens renderer if-chain), hotspots.ts:205-239 (reduceSection switch), hotspots-actionability.ts:178-289 (PATH_KEYED_LENSES set + rowKey + five-armed tagSection switch). The 'omissions can compile' claim is substantiated: PATH_KEYED_LENSES is ReadonlySet<string> and rowKey returns null for unregistered lenses, so a new lens missing there compiles and silently tags rows NEW. Dedup: CQ25-10 / leaf 34 (34-drift-ai-typing.md + 34-PLAN.md, slices CQ25-45..47) covers the drift-ai family but a different defect set (details records, Set<string> id sets, adapter spawn plumbing, positionals, hand-rolled guards); zero hotspot/lens mentions in leaf 34, its plan, CONSTRAINTS.md, or HARNESS-CLUSTER-PLAN.md. The finding's novelty claim over CQ25-10 holds. Problem survives both lenses."
+  },
+  {
+   "candidateId": "C-029",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin. (1) scripts/drift-ai/env-define-types.ts:8-16 EnvDefineMatrix hand-enumerates the five provider tables (env, processEnv, importMetaEnv, bunEnv, defines) and line 18 separately enumerates EnvDefineReadKind ('process.env' | 'import.meta.env' | 'Bun.env' | 'define'). (2) env-define-matrix-config.ts repeats the enumeration three ways within the cited 15-45 range: TABLE_KEYS const (line 15), MutableMatrix type (19-25), and five hand-written conditional assignments (33-45); the file-header prose (lines 2-3) enumerates the tables a fourth time. (3) env-branches-advisory.ts:257-266 matrixTables() hand-lists all five matrix properties (closing filter runs to 267, trivial 1-line drift). (4) env-define-reads.ts:209-223 readEnvAssumption() independently maps three read kinds to their tables plus the shared matrix.env fallback, with 'define' silently falling through to undefined. Nothing derives any site from another; no exhaustiveness enforcement links them, so the four-independent-sources claim is accurate (arguably an undercount). Dedup: corpus drift-ai records CQ25-10/45/46 (leaf 34 typing slices: cycle-detail key, knip memo), CQ25-72 (changed-path Set duplication), CQ25-146 (no subdirectory restructuring — does not bar an in-family descriptor table), CQ25-155/156/168 all cover different drift-ai problems; live-pack grep finds env-define only in 44-comment-archaeology.md:347, which touches env-define-matrix-config.ts solely for a stale task-number comment prefix, not this duplication. CONSTRAINTS.md has no relevant ruling. Problem stands."
+  },
+  {
+   "candidateId": "C-030",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence anchors verify exactly: parseKnipDuplicates (scripts/drift-ai/knip-duplicates.ts:31), parseKnipOrphanFiles (knip-orphan-files.ts:88), parseKnipUnusedExports (knip-unused-exports.ts:60) each repeat the same empty-output/JSON.parse/isRecord/issues-array envelope; knip-pass-through-check.ts:143 calls options.parseReport(result.reportJson) per selected check. Shared-report premise confirmed: resolveKnipRunner wraps memoizingDefaultKnipRunner (knip-runner.ts:273) keyed on includeCategories resolved once from the full check selection, so a check-all run is one spawn feeding three independent full reparses. Dedup: CQ25-46 (34-PLAN.md slice 34.2) is memo relocation into env.reportCache only, never touches the parsers — lane novelty note accurate. CQ25-155's dropped step 5 is a subprocess-runner kernel, not report parsing; CQ25-72 is changed-path Set construction; no CONSTRAINTS.md or cluster-plan coverage. Caveat for prioritization: the triple-reparse perf cost is marginal vs the knip spawn; the substantive live problem is the triplicated malformed-report/envelope policy that can drift per category."
+  },
+  {
+   "candidateId": "C-031",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial endLine drift only: cited 74-129 for the arm builders, parseRegistrySource actually closes at 130; cited 175-227 for the validation helpers, readOptionalBoolean actually closes at 228. Content of all four citations is otherwise exact."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: union arms declared in semgrep-rule-sources.ts:16-41; LOCAL_SOURCE_KEYS/REGISTRY_SOURCE_KEYS at semgrep-rule-manifest.ts:23-32 are untyped string arrays (not keyof-checked); parseLocalSource/parseRegistrySource manually rebuild both arms; assertManifestKeys + readRequiredString/readOptionalString/readOptionalBoolean are a bespoke strict-validation layer. The four-surface sync claim is accurate. Dedup: CQ25-47 (34-PLAN.md Step 7 carve-out) is explicitly scoped to the triage-contracts family only (triage-report-input.ts + triage-report-drift-input.ts); the semgrep manifest surface is outside it, and CQ25-155's permanently-dropped steps 4/5/6 do not cover it either. No live-pack slice or CONSTRAINTS entry touches this surface. Residual doubt on severity, not validity: the surface is small (2 arms, 11 keys, ~540 lines across both files), so severityHint medium / sizeHint M may be generous, but the problem itself stands."
+  },
+  {
+   "candidateId": "C-032",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial endLine drift: cited block 211-321 actually closes at 322 (closing brace of isSkippedSemgrepignoreProbeDir); the 111-line count matches the cited range as stated."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both evidence entries verify at the pin: scripts/drift-ai/semgrep-candidates-command.ts:211-322 owns a full second recursive walker (scopedProbeDirs root/ancestor expansion, hasTargetSemgrepignoreInDir recursion, directory-cycle seen set, matchesAnyGlob/excludeGlobsCoverPath exclusion pruning, readDirSafe, .git/node_modules/.tools skip policy), while scripts/drift-ai/source-walk.ts:35-84 already provides a recursive walk with a verbatim-duplicated readDirSafe, toPosix normalization, isPathIgnored handling, and a seen set. Nuance for scoping the fix (not a refutation): the walkers differ in purpose and semantics — source-walk enumerates source files under DriftAiIgnoreConfig with a file-dedup seen set and no explicit cycle guard, whereas the command probes for one filename under scan --exclude globs with ancestor-directory semantics and a directory-level cycle guard — so a shared primitive must parameterize both. Dedup check: no overlap. CQ25-19/leaf-71 (nested-write payload walkers), CQ25-6/CQ25-123/CQ25-127 (argv walkers, converge-on-touch policy), and CQ25-155 (dropped subprocess kernel across drift-ai runners) all concern different duplication; live pack leaves 34 (drift-ai typing/runner seams) and 28 (scripts layout) never touch the directory-walk layer, and CONSTRAINTS.md has no ruling on drift-ai traversal."
+  },
+  {
+   "candidateId": "C-033",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the cited lines: drift key grammar `drift:${inputPath}:${check}:${index}:${file}` published as id (triage-report.ts:132), separate semgrep grammar embedding JSON.stringify(row.ranges) also published as id (~172), addReviewItem uses the key as mutable map identity with merge-on-collision (triage-report-support.ts:115-134), and TriageVerdict.itemId is an unbranded string with no codec/version (triage-verdict-types.ts:11-20). The protocol claim is substantiated beyond the cited lines: triage-packets.ts copies item.id into packet.itemIds and triage-verdict-collect.ts hard-errors on unknown/mismatched verdict.itemId, so any key-format refactor invalidates externally authored verdict files; MODULE.md does not document the grammar. Dedup: CQ25-10 (leaf 34) was superseded by 34-PLAN into CQ25-45 (typeOnly key/predicate + triage set annotations), CQ25-46 (knip memo), and optional CQ25-47 (zod narrowing of the triage-report-input contracts family only, triage-verdict-input.ts explicitly excluded) — none cover merge-key/public-ID identity, so the finding's novelty claim holds and nothing in the live 2026-07-25 pack schedules or rules out this problem."
+  },
+  {
+   "candidateId": "C-034",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four L02-014 evidence entries verified exact at the pin: triage-report-types.ts:30-38 (TriageItem holds both locations: string[] and locationDetails: TriageLocation[]), triage-report-support.ts:115-134 (addReviewItem synchronizes both arrays via separate mergeUniqueLocations/mergeUniqueLocationDetails on merge and create paths), triage-report.ts:162-193 (processSemgrepRow builds line-only strings and column-aware details from the same row.ranges), triage-packet-staleness.ts:173-181 (formatLocation derives display strings from structured locations). Dedup: CQ25-10/leaf-34 and its 34-PLAN slices (CQ25-45 typeOnly predicate + set typing, CQ25-46 knip memo, CQ25-47 zod input-narrowing carve-out scoped to triage-report-input.ts/triage-report-drift-input.ts) cover contract typing, not the dual location model; 34-PLAN's permanently dropped steps 4-6 are unrelated (param objects, subprocess kernel, barrel test). Landed leaf 31/H10 touched mergeUniqueLocations but explicitly declared the locationDetails merge path out of scope (31-harness-shared-helpers.md:97), confirming the problem remains unaddressed rather than declined. Novelty claim in priorPackOverlap holds; problem survives both lenses."
+  },
+  {
+   "candidateId": "C-035",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial endLine drift only: auditBusinessEventFields spans 169-190 (cited 169-189) and auditEventFields spans 192-210 (cited 192-207); cited ranges still contain everything the notes claim."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three evidence entries verified at the pin: event-fields classifier (authz. prefix / socket.broadcast / implicit auditMutationFields fallback that imposes MUTATION_OUTCOME_POLICY + actor + reason-on-failure on unrecognized families), request-ids' independent non-script. business-event definition, and the repeated script. exclusion in auditEventFields. CQ25-119 overlap is correctly characterized as landed-with-novelty: H18/H19 (leaf 35) moved logs-audit core types out of the CLI entrypoint but did not centralize event-family classification; remaining open harness slices (H11/H12/H15/H20/H21) touch worktree-db, path-policy, and code-intel only. Leaf 46 and SERVER-COMMENTS-PLAN S14 note the adjacent fact that logs-audit carries no event literals but neither schedule nor decline taxonomy centralization; no CONSTRAINTS.md ruling applies. Severity is arguably modest (the duplication is one two-line predicate plus one repeated prefix test), but the problem is real and novel."
+  },
+  {
+   "candidateId": "C-036",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence citations verified exact at the pin: logs-audit-format.ts:14-24 selects remediation via finding.message.startsWith('sensitive query parameter'); logs-audit-redaction.ts:103-116 (inspectUrl) produces that exact phrase with no typed subtype on LogsAuditFinding; suppressions-check.ts:26-27 preflight returns the bare prose string 'only available in changed scope'; report-format.ts:68-82 (formatNothingToRun) branches on exact reason strings including 'check is not implemented' and the suppressions/changed-scope pair. reason is typed string in check-plugin.ts:16/81, so copy drift compiles silently — problem confirmed. Context for the fixer (not defects): the logs-audit prefix match is a commented deliberate choice (format.ts:15-17), and drift-ai already defines a bounded SkipReasonCode union (types.ts:45-50) that these sites simply do not use — the formatter still dispatches on prose. Dedup: CQ25-119 is landed-adjacent only — H18 removed the analogous header.startsWith sniffing in code-intel (not logs-audit/drift-ai) and H19 centralized logs-audit types without adding a redaction subtype; remaining harness slices H11/H12/H15/H20/H21 and 34-PLAN's surviving slices (typeOnly key, knip memo, zod carve-out) do not cover skip-reason or redaction-subtype discriminants; no CONSTRAINTS.md or corpus ruling declines this. Lane's priorPackOverlap novelty claim is accurate."
+  },
+  {
+   "candidateId": "C-037",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial span drift only: the sync-requirement comment sits at scripts/logs-audit/logs-audit-latest.ts:68-70 with the function at :71-74; evidence cites 68-73. Not a substantive defect."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Duplication is real and verbatim-verified on both sides: logs-audit-latest.ts:30-74 reimplements verify-metadata.sh:150-200's worktree sha256 key, MUSI_VERIFY_STATE_ROOT normalization (same /tmp default and root-slash special case), and <name>.<key> state-path scheme, with an explicit keep-in-sync comment naming musi_standard_state_path. CQ25-124 does not cover this: it do-not-reopens the 05-verify-metadata plan as facade-precedent, its dropped S3 was the shell test suite, and the landed verify-metadata-core.ts is a run-meta JSON codec that does not own state-path derivation — the finding's novelty claim checks out. Live 2026-07-25 pack touches logs-audit only for types (leaf 35, H18/H19 landed) and env-var prefix naming (leaf 33, which cites logs-audit-latest.ts:105-107 for a different concern). Fix-relevant constraint (not a refutation): verify-metadata-core.ts is deliberately self-contained because shell tests copy it into sandbox repos with no sibling imports; a single-owner design must respect that."
+  },
+  {
+   "candidateId": "C-038",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial endLine drift only: evidence cites 92-131 for the loader+guard; the guard function actually spans 127-132 (one line past the cited endLine). All counts (9 type imports, 11 forwarding functions, 9-module Promise.all) verified exact."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Fully verified at the pin. scripts/code-intel.ts:4-132 matches every structural claim; the 0-import-sites measurement re-derived two independent ways (git grep over *.ts/*.tsx and `bun run code:intel -- dependents scripts/code-intel.ts` returning 0 results); only non-import references are smoke-subject path strings and coverage-map fixture text. Prior pack overlap checked: leaf 35 / H18-H21 (CQ25-11, CQ25-65/66, CQ25-119) cover scripts/code-intel/ internals only; H19 fixed the analogous entrypoint-API problem for logs-audit.ts but nothing was scheduled or declined for the code-intel.ts root facade; 28-PLAN 'facade retained' rulings apply to other scripts and only pin entry paths during directory moves. One consideration for the fixer, not a refutation: the exports may exist to support the public-harness-reference goal (external copyability), which the finding's own proposedDirection already accommodates via a separate api.ts."
+  },
+  {
+   "candidateId": "C-039",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All cited lines verified at the pin: touchesByPath index built at test-orphaning-analysis.ts:30/48-62; rowForSource passes the full records array to recentSubjects with a per-record files.some predicate at lines 85-87; recentSubjects (hotspots-actionability.ts:100-112) linearly scans records with only an early break after `limit` matches, so low-churn sources scan everything; bounded-full-history.ts:28-29 defaults are exactly 5,000 commits / 20,000 files, and the advisory wires bounded-history records into this builder (test-orphaning-advisory.ts:53). The 100M measurement re-derives as 20,000 paths x 5,000 records, correctly framed as a cap-permitted worst case; the claim that touchesByPath already holds the record indexes needed to derive subjects directly is accurate. Calibration caveat only: real row count is the parseSourceParts-passing subset of paths and high-churn rows early-break, so 100M is a ceiling, not a typical run. Dedup: no corpus record or 2026-07-25 pack file mentions recentSubjects, hotspots-actionability, or test-orphaning-analysis; nearest records (CQ25-146 flat-layout ruling, CQ25-155 leaf-34 dropped steps, CQ25-119 H9/H10 tidies) are about different concerns."
+  },
+  {
+   "candidateId": "C-040",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified exactly at the pin: harness-freshness-io.ts:1-2 self-declares ratchet-motivated extraction; module-doc-paths.ts:22 imports defaultPathIgnored through the sensor module and :28-30 redeclares reader/probe types structurally identical to repo-io.ts:4-6; harness-freshness-io.ts:38,43 hard-code 'harness-freshness' error vocabulary that would misattribute a module-doc-paths failure. Dedup: no corpus or live-pack record touches harness-freshness-io/repo-io/module-doc-paths. Closest ruling CQ25-146 (drift-ai stays 344 flat files, no subdirectories) does not cover this — the candidate relocates behavior between existing flat files, not into subdirectories; any fix should still respect that flat-layout ruling. CQ25-72 (changed-path Set duplication) is a distinct problem in the same directory."
+  },
+  {
+   "candidateId": "C-041",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "L03-001 evidence[2] endLine 330 is off by one: deleteAccount's body runs through packages/server/src/routers/auth.ts:331 (procedure 301-331); trivial drift, note substance is accurate.",
+    "L03-001 priorPackOverlap=null understates real adjacency: the 2026-07-25 pack's leaf 05 / slice S6 (merge 08d9443ad) already reshaped this exact file's getRefreshTokenFromCookie helper, and SERVER-COMMENTS-PLAN.md explicitly discusses auth.ts's inline shapes as deliberate — the finding should have declared adjacent-overlap rather than none."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Lens 1 holds cleanly: auth.ts is exactly 342 lines; lines 42-98 are router-local helpers mixing cookie serialization, Prisma session.create, token generation, user-agent/ip capture, and response mapping; 100-238 are register/login/refresh sequencing persistence, credential policy (verifyPasswordOrDummy timing guard), $transaction session rotation, cookies, and logMutation; 271-331 are the changePassword (session-invalidate + re-issue) and deleteAccount (password re-verify + owned-campaign block) workflows; services/auth-service.ts (115 lines, lines 23-115) contains only bcrypt/JWT/HMAC/refresh-token primitives — the naming mismatch is real. Lens 2 is the judgment call and the reason for caution, not refutation: no dedup-corpus record, live-pack leaf, plan slice, or CONSTRAINTS.md row adjudicates moving the auth account/session lifecycle out of the router, BUT two adjacent adjudications bear directly on any plan built from this candidate. (1) SERVER-COMMENTS-PLAN.md section 'Ruling: the layering — sound' (live 2026-07-25 pack): both consults ruled the server layering sound, 'no god file to break up and no service to invent', explicitly blessed 'routers that keep straightforward request adaptation', said line count is not the rubric (services/README.md:253-265 is), and cited the then-current README as pre-answering auth.ts's batched $transaction as deliberate — however that ruling formally binds leaves 02-06 ('Do not plan any of these five leaves as an architecture correction'), was not carried into the frozen corpus as a standing record, and never examined the auth-service-name-vs-lifecycle discoverability claim this candidate leads with. (2) In-tree documented decision: services/README.md:186-187 points to docs/agent_notes/backlog/codebase-audit/08-router-inline-transaction-orchestration.md, whose Done status (refreshed 2026-07-25 after the C2 and F4 extraction passes) states 'auth.ts:223 is the only router $transaction that remains inline by design' under the trivial-batched-transaction exemption — auth.ts was considered for service extraction at least twice and deliberately left inline, though only on transaction-orchestration grounds, not on the lifecycle-concentration/naming grounds argued here. Verdict: not genuinely ruled out (the specific problem — misleading service name plus whole account/session workflow concentration in the transport file — was never itself adjudicated), so refuted=false; but any leaf cut from C-041 must be framed as a deliberate revisit of these two documented decisions (per repo practice, carry the README/leaf-08 doc updates in scope) rather than as an undisputed gap, and must argue past the codex framing that request-facing routers keeping adaptation are permitted by the documented model."
+  },
+  {
+   "candidateId": "C-042",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All six evidence entries verified at the pin: chat.ts:24-94 owns presence scan/DM lookup/preview truncation/offline notification, chat.ts:120-154 inlines persist+map+broadcast+notify, dice.ts:55-73 and cast-spell.ts:55-98 each rebuild the pipeline with their own failure policies, combat-chat.ts:46-95 is a fourth fire-and-forget policy, and the '6 production chatMessage.create sites' grep reproduces exactly (cast-spell, chat, dice, character-live-state/feature, rest-service, combat-chat). Nuance, not a defect: low-level primitives (mapChatMessage, MESSAGE_AUTHOR_INCLUDE, broadcastChatMessage) are already shared; the duplication is in the coordination/recipient/failure-policy layer, which is what the problem claims. Dedup: CQ25-75 is a deliberately-deferred 'future leaf' taxonomy question scoped to combat-chat.ts + character-campaign.ts placement only (SERVER-COMMENTS-PLAN.md explicitly declined to act, calling it 'worth its own leaf'); it is neither scheduled work nor a ruling, and the candidate's added scope (three router pipelines, six writers, presence/notification coupling) is genuinely novel. No chat-related CONSTRAINTS.md ruling; leaves 04/05 cover the broadcast registry and (closed) promotion-rubric drift, not chat coordination. Caveat for the eventual leaf: combat-chat.ts docstrings document the persist-vs-emit split as a deliberate auditable boundary, so a centralization must carry that doc decision in scope."
+  },
+  {
+   "candidateId": "C-043",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three evidence blocks verified exactly at the pin: routers/homebrew.ts:52-129 is a 78-line 'Import helpers' section owning size/byte checks, Zod issue formatting, per-entry validation, failure aggregation, preview limiting, and message budgeting; :389-406 is the importCollection procedure doing validate-then-delegate; services/homebrew-import-service.ts:9-37 JSDoc explicitly states the service assumes router-validated entries and owns only $transaction persistence. No corpus or live 2026-07-25 pack record covers this seam (nearest homebrew records CQ25-24/49/50/86/117/173/197 all target shared schemas, client code, or test fixtures). Caveat for the fixer, not a refutation: the split is a documented deliberate decision, not drift — commit a7dcbc292 extracted persistence per the services/README $transaction rubric and recorded the 'validation stays in the router' contract in the service JSDoc and homebrew-import-MODULE.md, so the finding's 'arbitrary split' framing overstates; any fix must carry the MODULE.md/services-README doc updates and the 17 homebrew-import.test.ts cases in scope."
+  },
+  {
+   "candidateId": "C-044",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "invite-service.ts evidence endLine 97 is slightly loose: previewInvite spans 54-92 and joinCampaign begins at 94, so the cited range clips the start of joinCampaign; the note's claim (service owns only preview and join) is nonetheless exactly correct."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three L03-004 citations verified at the pin: routers/invite.ts:31-59 holds generateInviteCode+mapInvite as router-local domain helpers; :65-147 implements create (inline expiry at :74, MAX_CODE_RETRIES collision-retry loop :76-92), list, and revoke inline while preview/join (:138-146) delegate to invite-service; invite-service.ts exports only previewInvite and joinCampaign. The split is independently corroborated by routers/routers-MODULE.md:53, which is a descriptive surface map, not a recorded decision. Dedup: corpus has no invite-lifecycle record (CQ25-222 touches InviteServiceContext only as a migration footnote; CQ25-167's dropped router/service promotions concern rest and srd, not invite); live 2026-07-25 pack greps for invite hit only incidental schema/test/mock mentions (leaves 12, 23, 39, 41, S1) and CONSTRAINTS.md/00-index.md have none; leaf 67 (done) rewrote services/README.md taxonomy prose without ruling on this seam. Caveat for merit weighing (not a refutation): services/README.md's 'pick the lightest structure' guidance could argue the current router-inline shape is acceptable for simple CRUD, but no prior record decides that for invite."
+  },
+  {
+   "candidateId": "C-045",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial endLine drift only: note.ts evidence range 165-249 vs router block actually 165-250, and npc.ts 41-95 vs helper block ending at 96 (buildUpdateData closes at :96). All substantive claims verified: note.ts helpers 35-159 do implement edit ownership (assertCanEditNote :35-39), dmOnly policy (assertDmOnlyVisibility :41-45), player visibility (buildPlayerVisibilityFilter :75-89), search filtering (:109-116), compound pinned/updatedAt/id cursors (:118-135), mapping (mapNote :47-73), and update payload construction (buildUpdateData :149-159); all four note procedures (:165-250) combine auth+persistence+mapping+pagination inline; npc.ts helpers (:41-96) implement DM-only notes redaction (mapNpc :50 `notes: isDm ? npc.notes : \"\"`), player visibility (isVisible filter :63-65), 4-field search (:71-80), and mutation field selection (:86-96); npc.ts :102-195 is the complete authorized CRUD lifecycle. No service exists for either domain under packages/server/src/services/."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem is real and not previously adjudicated for these two files: neither note.ts nor npc.ts is mentioned anywhere in the 2026-07-25 pack leaf 05 (router/service boundaries), SERVER-COMMENTS-PLAN, the dedup corpus, or the older codebase-audit leaf 08 (which was scoped to transaction-owning orchestration and is Done; note/npc routers own no transactions, so its 'auth.ts:223 only inline by design' closure does not cover them). Nearest rulings are adjacent, not covering: CQ25-167 dropped splitting routers/srd.ts and promoting rest; CQ25-75 parks the utils/-orchestration taxonomy question; leaf 05's 'rules the layering itself sound' verdict applies to leaf 05's own inventory, which never included note/npc. Two caveats for the planner (weigh, not refute, per documented-decision policy): (1) packages/server/src/services/README.md explicitly blesses 'a fully inline single-write procedure with no service call' (updatePersonality, :120-124) as a legitimate router shape, and its three-question rubric (:206-217) would likely route these helpers to utils/ or at most flat services — note/npc do simple single-write CRUD with no transactions, broadcasts, or concurrency invariants, so severityHint medium is arguably generous; (2) any extraction contradicts that README by construction, so the doc update belongs in scope. sizeHint L looks inflated for 445 total lines across both routers."
+  },
+  {
+   "candidateId": "C-046",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four L03-006 evidence entries verified exactly at the pin: 640-line total is precise (263+185+111+81), character-create.ts:11-13 imports the three siblings, character-create-helpers.ts:10 re-imports ValidatedSrdRefs from the entry file (real type-only cycle), and the $transaction at character-create.ts:230-254 calls createStartingInventory at :247. No character-create MODULE.md exists. Bonus corroboration: services/README.md:198 lists character-create as a flat service '(+ character-create-helpers.ts)' but omits character-create-spells.ts — the in-repo classification is itself drifted. Dedup: prior-pack mentions of these files (CQ25-185, leaves 18/55/58/61) target different problems; the closest structural rulings (CQ25-167 rest-promotion drop, S7's refusal of services/character-spells/) are per-service criteria decisions about other services and do not cover character-create. Caveat for planners: the promotion rubric at services/README.md:21-28 (esp. criterion 2, concurrency invariants) is a live in-repo decision the remedy must engage; the finding flags this conflict itself, and it bears on the fix, not the problem's existence."
+  },
+  {
+   "candidateId": "C-047",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three evidence entries verified exactly at the pin: MODULE.md:29-35 lists three external entry points and line 35 forbids internal-file imports; character-spell.ts:16 imports resolveCombatEligibility from combat-eligibility.js directly; production call sites at lines 94 and 213 confirmed. Structural cross-checks strengthen the finding: the facade spell-casting.ts exports only the three documented functions (no eligibility re-export), and the router is the sole cross-module importer of combat-eligibility.ts. Dedup: CQ25-118 (SERVER-COMMENTS, landed, do-not-reopen) mentions combat-eligibility.ts only as pre-existing context in the S7 row and no slice changed the router import; no live 2026-07-25 leaf/plan schedules or rules on this boundary (07-PLAN rulings cover other seams; SHARED-CLUSTER I3 changed only line 30 internals; leaf 59 is descriptive). Caveat for triage: 05-router-and-service-boundaries.md:141 and S7 approvingly call the extraction 'already extracted', implicitly accepting the current import shape without confronting the MODULE.md facade instruction — implicit acceptance, not a ruling, so not treated as ruled out."
+  },
+  {
+   "candidateId": "C-048",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor range drift only: the spellSlots fallback (`caster.spellSlots?.find`) cited as part of the resolve-character-spell.ts:144-163 fallback handling actually sits at line 130 inside assertSlot, reached via the call at line 163; the cited range does directly contain the `known.source ?? \"class\"` fallback (line 152) and the `known.prepared` pass-through (line 162), so the claim itself stands."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: load-participants.ts:10-20 CASTER_INCLUDE, :41-43 narrowCasterRaw(value: unknown) => value as CasterRaw with prisma boundary marker, resolve-spell.ts:31-48 CasterRaw declaring source?/prepared?/spellSlots? optional while schema.prisma (CharacterSpell.source SpellSource non-null, prepared Boolean non-null; spellSlots always included) makes them always present in the query result. Dedup: CQ25-22 / live 07-PLAN slice 07.2 covers ABILITY_FULL_NAMES, narrowed combat, and getTargetParticipantIds typing only; the sole CasterRaw item in the plan is dropped Step 8, whose ruling rejects relocating the hand-mirrored types to types.ts ('relocates ownership debt rather than retiring it') — that is a ruling against the relocation fix, not against the mirror/assertion problem itself, and dropped-step rulings must not kill the problem. Slices 07.3-07.5 and live leaf 01 (prisma-boundary-type-erosion: where-clauses + RawTxClient casts) do not cover narrowCasterRaw. Finding's novelty claim on CQ25-22 is accurate. Problem stands: query shape and CasterRaw can drift independently while compiling, and the manufactured optionals force dead fallback branches."
+  },
+  {
+   "candidateId": "C-049",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "map-types.ts evidence note lists 'detail' and 'relation' shapes loosely: there is no MapDetailRow — MapRow (line 50) is the detail shape and MapTokenCharacterData (line 16) is presumably the 'relation' shape; substance holds but the shape names do not match the note one-for-one.",
+    "The cited map-types.ts range 16-95 also spans lines 80-83 (MapTokenResult/MapLayerResult/MapDetailResult/MapSummaryResult), which are z.input-derived, not handwritten; the 14-count correctly excludes them but the range over-covers.",
+    "priorPackOverlap is null in L03-009, yet landed CQ25 leaf 01 (01-prisma-boundary-type-erosion.md) covers the same files under the same 'hand-written parallel type model vs Prisma generated types' framing — a missed dedup annotation, though not a fabrication."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Evidence re-derives cleanly at the pin: encounter-query.ts:44-138 has exactly 4 row interfaces (EncounterRow, CharacterStatsRow, ParticipantRow, CombatLogRow) plus PARTICIPANT_INCLUDE/ENCOUNTER_DETAIL_INCLUDE constants maintained separately; homebrew-helpers.ts:25-94 has 4 (CollectionRow, EntryRow, OwnedCollectionRow, OwnedEntryRow); map-types.ts:16-95 has 6 (MapTokenCharacterData, MapTokenRow, MapLayerRow, MapRow, MapSummaryRow, MapWithContext); 4+4+6=14 matches the measurement. character-mapping.ts:25-27 is genuinely the in-repo Prisma.CharacterGetPayload counter-convention. Dedup: significant PARTIAL overlap with landed prior-pack leaf 01 (Done 2026-07-26, merge 028a21d5; corpus CQ25-202 records only its step-2 skip). Leaf 01 fixed enum widening and the map-types Result duplication but deliberately KEPT the handwritten row interfaces: its step 5 says keep the map-types.ts server-only remainder (MapTokenRow, MapRow, MapSummaryRow, ...) 'exactly as it is', and its caveat rules that a straight Prisma.EncounterParticipantGetPayload swap cannot express ParticipantRow's optional mapToken?/character? dual-projection (summary vs detail include, fail-closed null). These read as step-scoping and a per-shape constraint, not a do-not-propose ruling: CONSTRAINTS.md (the designated ledger) has no entry against GetPayload-derived row types, leaf 01 step 1 itself offers 'derive via Prisma.EncounterGetPayload<...>[\"state\"]' as an acceptable mechanism, and the homebrew-helpers.ts row shapes were never ruled on by any prior leaf (leaf 01 touched homebrew only for router where/update payloads; 26-shared-dead-and-vestigial.md touches only toISOString pairs). No open scheduled slice covers this. Not refuted — but any scheduled leaf must carry leaf 01's landed caveats: ParticipantRow's optional relations must survive (the finding's own carve-out for multi-projection mappers accommodates this), and leaf 46/S19's 'do not restructure the Prisma.*GetPayload row types in srd.ts' scope guard is adjacent, not conflicting."
+  },
+  {
+   "candidateId": "C-050",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "map-helpers.ts mapLayer body actually spans 106-116 (closing brace at 116, cited endLine 115) — trivial one-line drift, all cited content present"
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three evidence entries verified at the pin: map-helpers.ts:106-116 uses unchecked fromJson with Record<string,unknown> and returns raw Date fields through MapLayerResult = z.input<typeof mapLayerSchema> (map-types.ts:81); routers/map-layer.ts:20-31 has an independent mapLayer using fromJsonValidated against a local z.record schema plus .toISOString() on both timestamps; prisma-json.ts:8-16 documents the fromJsonValidated convention that the map-helpers path violates. Dedup: prior-pack leaf 01 (CQ25 prisma boundary type erosion) touched MapLayerResult typing but is landed (Done 2026-07-26) and never unified the two mappers — the duplication persists post-landing; leaves 22 (socket schema shapes) and 60 (write-side JSON guard) do not cover read-mapper consolidation; no corpus record or CONSTRAINTS entry rules it out. Caveat for severity calibration only: both routers enforce mapLayerSchema via .output(), so the wire-level date format likely converges after tRPC output transform — the divergence is in code-level contracts and malformed-JSON handling, which is still a real maintenance/consistency problem."
+  },
+  {
+   "candidateId": "C-051",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Evidence verified exactly at the pin. (1) packages/server/src/utils/encounter-participant-helpers.ts:7-40: buildAddParticipantData takes discriminated AddParticipantInput, branches on input.type into three distinct shapes, and declares its return as Record<string, unknown>, discarding the union it just built. (2) packages/server/src/services/encounter-combat/participant-action.ts:205-230: the caller mutates data.conditions via `existing as unknown[]` (line 223, prisma-marked) and re-stamps the whole record with `data as Parameters<typeof ctx.prisma.encounterParticipant.create>[0][\"data\"]` (marker :227, cast :229). The claim that assertions replace compiler checks for future required fields is accurate: a new required column would not fail typecheck at either site. Dedup: the prior pack knows this cast — 01-prisma-boundary-type-erosion.md (Status: Done, landed 2026-07-26) § Scope/caveats states the :229 cast 'is unrelated to the builders and survives all of the above' and 'do not scope it into step 6'. That is an explicit carve-out from leaf 01's scope, not a decline or a scheduled slice: buildAddParticipantData is absent from leaf 01's 21-site where/update list and its copy-defined-builders list (create payloads were out of scope), no corpus record covers it (CQ25-202 records only leaf 01's step-2 skip as do-not-reopen), and no live-pack leaf or plan schedules it. So the problem remains open and the candidate stands; the lane's priorPackOverlap: null modestly undersells the adjacency — the orchestrator may want to link leaf 01's caveat as known-adjacent context, since any fix should heed leaf 01's landed conventions (e.g. buildBlindData -> BlindParticipantFields at participant-action.ts:150 as the house counter-example, which the proposedDirection is consistent with)."
+  },
+  {
+   "candidateId": "C-052",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All three evidence entries verified exact at the pin: spell-slot-mutations.ts:43-71 and :79-107 are 29-line near-identical Pattern B protocols (lookup/NOT_FOUND, bound check/BAD_REQUEST, updateMany CAS on {id, used}, count===0 CONFLICT, findUniqueOrThrow refetch) differing only in bound, increment vs decrement, and messages; the InTx import alias collision at services/character-live-state/spell-slot.ts:8-12 vs the service export at :35 is real. No prior-pack coverage: CQ25-1 (leaf-01 step 8, cast collapse) already landed as the rawWrites helper and addressed casts, not body duplication; CQ25-103 protects the file HEADER comments only; CQ25-205 rejects CAS for prepared-spell-limit (different table); CQ25-167/223 refuse merging assertTurnLock branches in encounter-state-mutations.ts, explicitly scoped to that function. Fixer constraints (not rule-outs): CQ25-103 means the sanctioned-escape header stays verbatim, and CQ25-167/223 is adjacent precedent that a panel once preferred two flat auditable branches over a parameterized merge in a sibling mutations file — the direction should keep the CAS primitive private/table-local, which the proposal already does."
+  },
+  {
+   "candidateId": "C-053",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Trivial anchor drift only: DbClient type is declared at prisma-types.ts:168-171 (doc comment :163-167), within but not exactly the cited 163-180 window; all substantive claims verified."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four evidence entries verified at the pin: presence-service.ts:5 imports raw PrismaClient, factory :72-86 uses only campaignMember.updateMany (:80); session-cleanup.ts:1-8 uses only session.deleteMany; prisma-types.ts DbClient omits restricted delegates/$transaction/$extends and its toDbClient doc names trpc/context.ts and routes/upload-routes.ts as the only production narrowings, confirming these two sites bypass the compile-time boundary. Runtime-guard claim accurate: both callers (app.ts:247, socket/index.ts:61) pass the guarded singleton from createPrismaClient, so only the static type is over-wide. Dedup: CQ25-102 concerns Fastify request/socket ports (BroadcastHost), correctly cited as analog not overlap; leaves 50/60 (both Done) fixed delegate gating and construction-site factories but never narrowed these consumer signatures; CQ25-101 bans a raw-client factory/bypass (opposite direction); CQ25-97 (characterSpell gating) unrelated. No scheduled slice or ruling covers this. Problem stands: real compile-time boundary gap in two production paths, medium/S/single-leaf plausible."
+  },
+  {
+   "candidateId": "C-054",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both evidence entries verified at the pin. map-cascade.ts:50-66 and character-delete.ts:36-58 each implement the in-tx snapshot-linked-participants -> cascade-delete -> clearTurnOriginsForParticipants sequence; the trailing findMany/delete/clear block including the flatMap null-filter is character-for-character identical between the two files, and the read-before-cascade ordering constraint is documented only in per-file comments, matching the 'comments as synchronization mechanism' claim. Prior-pack check: dedup corpus has no related record; live pack leaf 67 (landed) only rechecked deleteCharacterWithCascade against README taxonomy, SERVER-COMMENTS S2 (landed) only retyped map-cascade's context, leaf 45 (landed) deduplicated the doc/comment copies of the turn-origin invariant (CONCURRENCY.md vs utils/*-mutations.ts headers) but not this executable duplication, and CONSTRAINTS.md's keep-the-duplication ruling applies only to the destructive DB-guard alphabets. Problem stands. Adjacent context for the planner: leaf 45's landed direction (single-sourcing the turn-origin invariant prose) is complementary, and any coordinator extraction must preserve the writer-class-3 semantics ruled in docs/CONCURRENCY.md (residual origin-without-token window is accepted)."
+  },
+  {
+   "candidateId": "C-055",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All L03-015 evidence verified at the pin: chat-broadcast.ts:27-46 requires concrete AppSocketServer + caller room while all four sibling facades (map/encounter/character/campaign-broadcast) accept AppSocketServer | null; CHAT_MESSAGE_CONTRACT at broadcast-registry.ts:139-143 already owns campaign-room derivation; broadcast/broadcastToUsers at :296-338 accept null and own skipped-outcome logging. Measurement re-derived exactly: 7 production call expressions in 6 caller functions (cast-spell.ts:91, dice.ts:70, chat.ts:51, rest-service.ts:121, combat-chat.ts:84+:90, character-live-state/feature.ts:96), each passing campaignRoom(...)/room and each guarded by if(io) or if(!params.io) return — so the registry's no_socket_server skipped log genuinely never fires for chat. Dedup: CQ25-118 (leaf 04 / SERVER-COMMENTS S1-S16, landed, do-not-reopen) landed the adjacent registry split and CHAT_MESSAGE_CONTRACT, but neither leaf 04, plan slices S3/S4, the Second-landing-outcome's four do-not-reschedule decisions, nor CONSTRAINTS.md schedules or declines changing the chat facade signature; leaf 04's only chat-specific rulings were test-thinning exclusion and dual-half registration. The registry JSDoc at broadcast-registry.ts:237-242 ('broadcastChatMessage always supplies the room today; the shared resolver is a defensive default') describes current state and would need updating by any fix, but is not a ruling against the change. Caveat for the implementer, not a refutation: leaf 04's do-not list declined signature churn on the four one-expression wrappers ('changing it means changing every call site'), and this fix touches all 7 chat call sites — but that ruling explicitly scoped chat-broadcast out as 'not a one-expression wrapper', and the problem here (policy duplication + lost skipped logging) differs from the declined interchangeable-strings complaint."
+  },
+  {
+   "candidateId": "C-056",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All five L03-016 evidence entries verified at the pin: upload-routes.ts:34/43 binds toDbClient(prisma) at module load; trpc/context.ts:3-5 imports the prisma singleton and verifyAccessToken at module scope; campaign-room-handler.ts:14+39 uses the global prisma for membership re-validation while taking PresenceService as an injected param; app.ts:153-159 BuildServerOptions is feature-flags-only (logger/enableSessionCleanup/enableRateLimit/enableSocketIO/corsOrigin) with no dependency slots; socket/index.ts:61-72 composes presenceService (with global prisma) and connection-handler.ts:22 forwards only presenceService to registerCampaignRoomHandlers. Dedup: CQ25-118 (SERVER-COMMENTS, landed do-not-reopen) covered socket typing + BroadcastHost port, not composition-root DI; no ruling in SERVER-COMMENTS-PLAN rejected-alternatives or CONSTRAINTS.md against injecting prisma/auth at buildServer/setupSocketIO; leaves 01 and 05 of the live pack do not cover module-load global capture. Finding's novelty claim vs CQ25-118 is accurate. Caveat for planners, not a defect: socket/index.ts itself also reaches for the global prisma (line 61), so the composition seam the direction proposes must cover that site too."
+  },
+  {
+   "candidateId": "C-057",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four cited files verified at the cited lines: generate-srd-spells.ts:36-52 and generate-srd-rules-glossary.ts:67-82 catch per-record parse exceptions into a warnings array and still writeFileSync the partial output; generate-subclasses.ts:131-158 warns on a null parseSubclass and writes the reduced set; generate-class-features.ts:169-205 warns on missing descriptions but emits them as empty strings. The '4 of 4 entry points' measurement is exact (the seed directory has exactly four generate-*.ts files, all warn-then-write). Dedup: CQ25-172 is a recorded decision about the byte-identical-regeneration/attestation-vs-drift-gate tradeoff, not about the generators' internal fail-open error policy; the claimed novelty holds. Also checked CQ25-171 (parks leaf 06 steps 5-8: prettier, layout, renames, table-driving — error policy not among them), CQ25-220 (rules out a :check script idiom — not what this proposes), leaf 52 (cwd paths, Done), and CONSTRAINTS.md; 'warn' appears nowhere in the prior-pack seed docs. Caveat for planning, not a refutation: end-to-end verification of any fix needs a provisioned docs/refs/ checkout (the constraint that parked leaf 06 steps 5-8), though validate-before-write is unit-testable with fixtures."
+  },
+  {
+   "candidateId": "C-058",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All five evidence entries verified at the pin: readSeedJson returns unknown via explicit 'as unknown' (seed-data-loader.ts:27-49); backgrounds Zod-parse at seed-srd-backgrounds.ts:118-119; unchecked generic 'as T[]' with an explicit 'No runtime validation here' marker at seed-srd-reference-tables.ts:47-50; double assertion 'as unknown as SpellcastingJson' at seed-srd-monsters.ts:183 plus corpus-wide 'JSON.parse(raw) as MonsterJson[]' at :201. The 9-module count reproduces exactly (grep readSeedJson|JSON.parse in packages/server/src/seed, non-test, excluding the loader): 3 schema-parse (backgrounds, equipment, magic-items) vs 6 assertion-based (seed-srd, monsters, reference-tables, spells, backfill-srd-monster-actions, backfill-srd-spell-combat). Not covered by prior pack: leaf 06 (seed pipeline) addresses provenance/generators/table-driving, not validation policy; CQ25-171 parks adjacent seed steps (table-driving, prefix rename) but not this problem; no corpus ruling or CONSTRAINTS.md row touches the narrowing boundary. Caveats for the planner: (1) the reference-tables assertion carries a deliberate documented rationale (fail at Prisma upsert, operator-driven runs), so one arm of the inconsistency is a recorded per-site decision — weigh it rather than steamroll it; (2) any fix must not re-file the CQ25-171-parked steps (table-driving the eight reference-table seeders, seed-srd-* rename) that live in the same directory."
+  },
+  {
+   "candidateId": "C-059",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Minor characterization drift only: line 3 imports the `core` namespace from zod's public entry point, and Zod 4 documents `zod/v4/core` as a semi-public surface, so 'Zod core internals' overstates half the instability claim; the tRPC `unstable-core-do-not-import` import (line 2) is unambiguously an unstable-internal dependency. All cited lines, the 19-45 recursive-cast block, and the '5 type-assertion-boundary markers in the 16-line variant-rewrite block' measurement (markers at lines 30, 33, 38, 41, 44 within lines 30-45) verify exactly."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Problem is real and novel. packages/server/src/trpc/trpc.ts matches every evidence claim at the pin. Dedup corpus (CQ25-1..223) has no record on the error formatter, sanitization, or this file's assertion density; the live 2026-07-25 pack touches trpc/trpc.ts only for the mergeRouters/_def reach-in (leaf 05, landed in SERVER-COMMENTS-PLAN S6 commit 08d9443ad) and as background in leaf 59 (Prisma error mapping) — distinct concerns, no ruling or scheduled slice covers sanitization's dependence on framework internals. Counterweight for prioritization (not refutation): the block is deliberate and well-annotated — each cast carries a reasoned marker and comments explain why recursion over invalid_union/invalid_key/invalid_element variants is required — so this is a consciously-managed seam rather than an accidental hack; the upgrade-fragility risk claimed by the finding still stands."
+  },
+  {
+   "candidateId": "C-060",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "L03-020 evidence[0] note says lines 26-40 classify isVisible as blind non-racing metadata, but the header at 35-41 only lists 'initiative, sort order, action flags, name, etc.'; the explicit isVisible classification lives at participant-stats-mutations.ts:188 (BlindParticipantFields) and participant-action.ts:64 (PARTICIPANT_FIELD_KIND) — substance confirmed, citation slightly imprecise"
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both misstatements verified against the pin. (1) Header line 32 claims updateParticipantStatsLockedWithExpectedVersion closes DM visibility edits, but isVisible is classified non-racing and is blind-written via blindUpdateParticipant/buildBlindData on the encounter.updateParticipant path when expectedVersion is absent (participant-action.ts:64,142,153); the blind-helper description ('fields that don't come from the DM override UI') is contradicted by the same path. (2) Field contract at lines 171-174 says encounter.updateParticipant writes conditions via updateParticipantStatsLocked, but conditions is 'racing' and routes through updateParticipantStatsLockedWithExpectedVersion (participant-action.ts:72,133); the plain locked helper's callers are spell-casting/damage/turn-transaction, not this path. Dedup: CQ25-103 (CONSTRAINTS.md:38) refuses TRIMMING these headers and SERVER-COMMENTS-PLAN's do-not-touch list marks 6-56 keep-verbatim, but neither identifies nor declines these factual errors — a targeted accuracy correction is not the refused trim, and the ruling's 'highest-value comments' rationale strengthens the case for fixing false statements. Constraint for the fix leaf: preserve header structure per CQ25-103, change only the false statements (and mirror-check docs/CONCURRENCY.md:94-102, which restates the conditions paragraph nearly verbatim)."
+  }
+ ]
+}

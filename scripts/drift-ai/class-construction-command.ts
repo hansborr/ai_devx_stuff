@@ -12,6 +12,7 @@ import {
   parseClassConstructionArgs,
   type ParsedClassConstructionArgs,
 } from "./class-construction-args.js";
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import { loadKnipUnusedExportsReport } from "./knip-unused-exports-report.js";
@@ -36,10 +37,7 @@ export type ClassConstructionRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type ClassConstructionRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type ClassConstructionRunResult = DriftAiCommandResult;
 
 export function runClassConstruction(
   options: ClassConstructionRunOptions,

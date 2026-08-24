@@ -1,5 +1,9 @@
 import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
-import { DEFAULT_BASELINE_FILENAME, DEFAULT_DEBT_LOG_FILENAME } from "../kernel/engine-context.js";
+import {
+  DEFAULT_BASELINE_FILENAME,
+  DEFAULT_DEBT_LOG_FILENAME,
+  type LintRatchetWorkflowVocabulary,
+} from "../kernel/engine-context.js";
 import { ConfigError } from "../kernel/metrics-types.js";
 import { hasAccountingEntry } from "./baseline-debt-accounting-chains.js";
 import {
@@ -46,6 +50,7 @@ export interface BaselineDebtAccountingOptions {
   // baseline/debt-log paths surfaces its own names.
   readonly baselineDisplayName?: string;
   readonly debtLogDisplayName?: string;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 interface ItemIncreaseContext {
@@ -56,8 +61,17 @@ interface ItemIncreaseContext {
   readonly currentItem: BaselineItem;
 }
 
-function parseBaseline(label: string, text: string): LintRatchetBaseline {
-  const parsed = parseLintRatchetBaselineStructure(text);
+function parseBaseline(
+  label: string,
+  text: string,
+  options: Pick<BaselineDebtAccountingOptions, "baselineDisplayName" | "workflowVocabulary">,
+): LintRatchetBaseline {
+  const parsed = parseLintRatchetBaselineStructure(
+    text,
+    options.workflowVocabulary,
+    undefined,
+    options.baselineDisplayName,
+  );
   if (parsed.baseline === undefined) {
     throw new ConfigError(
       `${label} is not a valid lint-ratchet baseline:\n${parsed.failures.join("\n")}`,
@@ -219,8 +233,8 @@ export function checkBaselineDebtAccounting(
 ): BaselineDebtAccountingResult {
   const baselineName = options.baselineDisplayName ?? DEFAULT_BASELINE_FILENAME;
   const debtLogName = options.debtLogDisplayName ?? DEFAULT_DEBT_LOG_FILENAME;
-  const baseBaseline = parseBaseline(`${baselineName} at base`, options.baseBaselineText);
-  const currentBaseline = parseBaseline(baselineName, options.currentBaselineText);
+  const baseBaseline = parseBaseline(`${baselineName} at base`, options.baseBaselineText, options);
+  const currentBaseline = parseBaseline(baselineName, options.currentBaselineText, options);
   const increases = collectBaselineIncreases(baseBaseline, currentBaseline);
   const addedEntries = addedDebtLogEntries(
     options.baseDebtLogText,

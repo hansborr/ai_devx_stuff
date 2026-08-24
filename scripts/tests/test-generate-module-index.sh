@@ -6,7 +6,8 @@
 # smoke-subjects: scripts/harness-emit-envelope.ts
 # smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: scripts/lib/harness-finding.sh
+# smoke-subjects: tools/harness-diagnostics/
 # Pure-shell tests for MODULE-INDEX.md generation and drift checks.
 
 set -euo pipefail
@@ -49,18 +50,16 @@ chmod +x "$stub_bin/mv"
 PATH="$stub_bin:$PATH"
 
 repo="$SANDBOX/repo"
-mkdir -p "$repo/scripts/harness" "$repo/scripts/lib" "$repo/packages/example" "$repo/packages/later" "$repo/packages/shared/src/schemas"
+mkdir -p "$repo/scripts/harness" "$repo/scripts/lib" "$repo/packages/example" "$repo/packages/later"
 git -C "$SANDBOX" init -q "$repo"
 cp "$GENERATOR" "$repo/scripts/generate-module-index.sh"
 cp "$SCRIPT_DIR/../harness-emit-envelope.ts" "$repo/scripts/harness-emit-envelope.ts"
 cp "$SCRIPT_DIR/../lib/atomic-write.ts" "$repo/scripts/lib/atomic-write.ts"
+cp "$SCRIPT_DIR/../lib/harness-finding.sh" "$repo/scripts/lib/harness-finding.sh"
 # The emitter routes its envelope through the shared emission kernel.
 cp "$SCRIPT_DIR/../harness/harness-diagnostics-output.ts" \
   "$repo/scripts/harness/harness-diagnostics-output.ts"
-cp "$REPO_ROOT/packages/shared/src/schemas/harness-diagnostics.ts" \
-  "$repo/packages/shared/src/schemas/harness-diagnostics.ts"
 ln -s "$REPO_ROOT/node_modules" "$repo/node_modules"
-ln -s "$REPO_ROOT/packages/shared/node_modules" "$repo/packages/shared/node_modules"
 
 assert_no_module_index_temp() {
   local temp_file
@@ -124,6 +123,22 @@ ASSERT_FILE="$JSON_OUT" bun -e '
   }
 ' || fail "--json fresh envelope shape is wrong"
 ok "json mode emits a valid empty envelope when index is current"
+
+no_jq_bin="$SANDBOX/no-jq-bin"
+mkdir -p "$no_jq_bin"
+for command_name in bun cmp dirname git mktemp perl rg rm sed sort; do
+  ln -s "$(command -v "$command_name")" "$no_jq_bin/$command_name"
+done
+set +e
+PATH="$no_jq_bin" /usr/bin/bash "$repo/scripts/generate-module-index.sh" --json \
+  >"$SANDBOX/no-jq.stdout" 2>"$SANDBOX/no-jq.stderr"
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] || fail "--json should fail eagerly when jq is unavailable"
+[ ! -s "$SANDBOX/no-jq.stdout" ] || fail "missing-jq failure should not emit an empty envelope"
+grep -qF 'module:index: jq is required for --json mode but is not installed' \
+  "$SANDBOX/no-jq.stderr" || fail "missing-jq failure should explain the dependency"
+ok "json mode fails clearly and eagerly when jq is unavailable"
 
 perl -0pi -e 's/# Example Module/# Renamed Example Module/; s/Concepts: presence, campaign rooms, socket broadcasts/Concepts: initiative, campaign rooms, socket broadcasts/' \
   "$repo/packages/example/MODULE.md"

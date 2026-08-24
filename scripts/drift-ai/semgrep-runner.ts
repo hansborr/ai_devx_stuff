@@ -10,8 +10,8 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { isRecord } from "../lib/records.js";
 import { globsForIgnoredPaths, matchesAnyGlob } from "./config-match.js";
-import { isRecord } from "./config-readers.js";
 import { parseSemgrepScanOutput, parseSemgrepVersionOutput } from "./semgrep-output.js";
 import type {
   DefaultSemgrepRunnerOptions,

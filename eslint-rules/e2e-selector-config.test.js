@@ -1,38 +1,16 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
-
-/** @returns {Promise<{ rules?: Record<string, unknown> }>} */
-async function configFor(/** @type {string} */ filePath) {
-  const config = await eslint.calculateConfigForFile(filePath);
-  return { rules: config.rules };
-}
-
-/** @param {{ rules?: Record<string, unknown> }} config */
-function severityOf(config, /** @type {string} */ ruleId) {
-  const entry = config.rules?.[ruleId];
-  if (Array.isArray(entry)) return entry[0];
-  return entry;
-}
+import { configFor, severityOf } from "./repo-config-harness.js";
 
 describe("e2e selector lint config", () => {
   it(
     "keeps selector rules enabled on clean e2e files",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const config = await configFor(resolve(repoRoot, "e2e/auth-refresh.spec.ts"));
+      const config = await configFor("e2e/auth-refresh.spec.ts");
 
       expect(severityOf(config, "local/e2e-prefer-role-selectors")).toBe(2);
       expect(severityOf(config, "playwright/no-nth-methods")).toBe(2);
@@ -54,7 +32,7 @@ describe("e2e selector lint config", () => {
       `keeps selector rules at error on drained debt file ${drainedFile}`,
       { timeout: resolvedConfigTestTimeoutMs },
       async () => {
-        const config = await configFor(resolve(repoRoot, drainedFile));
+        const config = await configFor(drainedFile);
 
         expect(severityOf(config, "local/e2e-prefer-role-selectors")).toBe(2);
         expect(severityOf(config, "playwright/no-nth-methods")).toBe(2);

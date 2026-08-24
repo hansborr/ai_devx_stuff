@@ -1,6 +1,8 @@
+import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
+import { isNonEmptyString } from "./control-field-validation.js";
 import {
   type ControlFailures,
-  isNonEmptyString,
   type ManifestCheckContext,
   pushFailure,
 } from "./harness-check-validation.js";
@@ -109,65 +111,126 @@ export function parseHarnessParityConfig(
   };
 }
 
-interface CiGateBinding {
-  readonly controlId: string;
+// CI gate parity: contract as data, not as a comment this module re-parses.
+//
+// A workflow step declares which harness control it runs by carrying
+// `env: { HARNESS_CI_GATE: <control id> }` — structured workflow data read with
+// the runtime's real YAML parser. The previous reader anchored on a
+// `# harness-ci-gate:` comment and reconstructed the following step with
+// per-line regexes over `- name:`/`- uses:`/`run:`, so any formatting those
+// regexes did not anticipate silently changed what this check believed.
+//
+// Deliberately NOT generated: `ciGateControlIds` holds one entry today, so
+// generating `ci.yml`, a marker-bounded region inside it, or a composite action
+// would add a generator, a freshness surface, and a GitHub-owned artifact to
+// remove one binding's worth of duplication. Revisit whole-file or
+// composite-action generation only if `ciGateControlIds` grows to roughly 3+
+// entries.
+
+/** Step-level workflow env key binding a CI step to its harness control id. */
+export const CI_GATE_ENV_KEY = "HARNESS_CI_GATE";
+
+const CI_PARITY_FAILURE_ID = "(CI parity)";
+const CI_WORKFLOW_PATH = ".github/workflows/ci.yml";
+
+export interface CiGateBinding {
+  /**
+   * The step's raw `HARNESS_CI_GATE` value. Validation belongs to
+   * {@link checkCiGateBindings}, not to the projection: a step that carries the
+   * reserved key with an unusable value (empty, whitespace, `null`, non-scalar)
+   * is a malformed gate declaration to report, not an ordinary CI step to
+   * project away — dropping it here would let an added gate escape parity while
+   * the gates that are declared keep the check green.
+   */
+  readonly controlId: unknown;
   readonly invocation?: string;
 }
 
-function findMarkedStepInvocation(
-  lines: readonly string[],
-  markerIndex: number,
-): string | undefined {
-  let sawStep = false;
-  for (let cursor = markerIndex + 1; cursor < lines.length; cursor += 1) {
-    const candidate = (lines[cursor] ?? "").trimStart();
-    if (candidate.startsWith("# harness-ci-gate:")) return undefined;
-    if (/^- (?:name|uses):/u.test(candidate)) {
-      if (sawStep) return undefined;
-      sawStep = true;
-    } else if (candidate.startsWith("run:")) {
-      return candidate.slice("run:".length).trim();
-    }
-  }
-  return undefined;
+/**
+ * `Bun.YAML` is the runtime's own parser; the repo installs no Bun type
+ * package, so the global is declared for this module rather than cast at the
+ * use site. Every caller of {@link checkCiGateParity} runs under `bun run` —
+ * the manifest declares the invocation and package.json holds the script — so
+ * there is no availability branch: on any other runtime this throws and
+ * {@link checkCiGateParity} turns it into a parity failure, the same
+ * fail-closed outcome a tailored message would have produced.
+ */
+declare const Bun: { readonly YAML: { readonly parse: (source: string) => unknown } };
+
+function parseWorkflowWithBunYaml(source: string): unknown {
+  return Bun.YAML.parse(source);
 }
 
-function extractCiGateBindings(workflowSource: string): readonly CiGateBinding[] {
-  const lines = workflowSource.split("\n");
+function workflowSteps(workflow: unknown): readonly unknown[] {
+  if (!isRecord(workflow) || !isRecord(workflow.jobs)) return [];
+  const steps: unknown[] = [];
+  for (const job of Object.values(workflow.jobs)) {
+    if (!isRecord(job)) continue;
+    const jobSteps: unknown = job.steps;
+    if (Array.isArray(jobSteps)) steps.push(...(jobSteps as readonly unknown[])); // type-assertion-boundary: interop - Array.isArray widens the unknown job.steps to any[]; the elements stay unknown to callers
+  }
+  return steps;
+}
+
+/**
+ * Pure projection of a parsed workflow document into {control id, run} pairs.
+ * Steps without the env key are ordinary CI steps and are ignored; presence of
+ * the reserved key is what makes a step a gate declaration, whatever its value.
+ * A gate step whose `run` is absent or not a scalar yields a binding with no
+ * invocation, so the comparison below reports it rather than silently passing.
+ */
+export function collectCiGateBindings(workflow: unknown): readonly CiGateBinding[] {
   const bindings: CiGateBinding[] = [];
-  for (const [index, line] of lines.entries()) {
-    const controlId = /^\s*# harness-ci-gate:\s*(\S+)\s*$/u.exec(line)?.[1];
-    if (controlId === undefined) continue;
-    const invocation = findMarkedStepInvocation(lines, index);
-    bindings.push({ controlId, ...(invocation === undefined ? {} : { invocation }) });
+  for (const step of workflowSteps(workflow)) {
+    if (!isRecord(step) || !isRecord(step.env)) continue;
+    if (!Object.hasOwn(step.env, CI_GATE_ENV_KEY)) continue;
+    const run = step.run;
+    bindings.push({
+      controlId: step.env[CI_GATE_ENV_KEY],
+      ...(typeof run === "string" ? { invocation: run.trim() } : {}),
+    });
   }
   return bindings;
 }
 
-export function checkCiGateParity(
-  workflowSource: string,
+/** Pure comparison of parsed gate bindings against the manifest's expectation. */
+export function checkCiGateBindings(
+  bindings: readonly CiGateBinding[],
   expectedGates: ReadonlyMap<string, string>,
   failures: Map<string, ControlFailures>,
 ): void {
   const actualIds = new Set<string>();
-  for (const binding of extractCiGateBindings(workflowSource)) {
-    if (actualIds.has(binding.controlId)) {
-      pushFailure(failures, "(CI parity)", `CI duplicates harness-ci-gate ${binding.controlId}`);
+  for (const binding of bindings) {
+    const controlId = binding.controlId;
+    if (!isNonEmptyString(controlId)) {
+      pushFailure(
+        failures,
+        CI_PARITY_FAILURE_ID,
+        `a CI step carries ${CI_GATE_ENV_KEY} with an unusable control id: ${JSON.stringify(controlId)}`,
+      );
       continue;
     }
-    actualIds.add(binding.controlId);
-    const expectedInvocation = expectedGates.get(binding.controlId);
+    if (actualIds.has(controlId)) {
+      pushFailure(
+        failures,
+        CI_PARITY_FAILURE_ID,
+        `CI duplicates the ${CI_GATE_ENV_KEY} binding for ${controlId}`,
+      );
+      continue;
+    }
+    actualIds.add(controlId);
+    const expectedInvocation = expectedGates.get(controlId);
     if (expectedInvocation === undefined) {
       pushFailure(
         failures,
-        "(CI parity)",
-        `CI marks ${binding.controlId} as a gate, but ciGateControlIds does not declare it`,
+        CI_PARITY_FAILURE_ID,
+        `CI marks ${controlId} as a gate, but ciGateControlIds does not declare it`,
       );
     } else if (binding.invocation !== expectedInvocation) {
       pushFailure(
         failures,
-        "(CI parity)",
-        `${binding.controlId} runs ${JSON.stringify(binding.invocation ?? "(missing run)")} in CI, expected manifest invocation ${JSON.stringify(expectedInvocation)}`,
+        CI_PARITY_FAILURE_ID,
+        `${controlId} runs ${JSON.stringify(binding.invocation ?? "(missing run)")} in CI, expected manifest invocation ${JSON.stringify(expectedInvocation)}`,
       );
     }
   }
@@ -175,8 +238,33 @@ export function checkCiGateParity(
     if (actualIds.has(controlId)) continue;
     pushFailure(
       failures,
-      "(CI parity)",
-      `ciGateControlIds declares ${controlId}, but CI has no harness-ci-gate marker for it`,
+      CI_PARITY_FAILURE_ID,
+      `ciGateControlIds declares ${controlId}, but no CI step carries ${CI_GATE_ENV_KEY}: ${controlId}`,
     );
   }
+}
+
+/**
+ * Parse the workflow, then compare. Both halves are pinned end-to-end against
+ * the real parser by scripts/tests/test-harness-check.sh, which drives a
+ * well-formed fixture workflow and a truncated one; the unit tests here cover
+ * {@link collectCiGateBindings} and {@link checkCiGateBindings} directly.
+ */
+export function checkCiGateParity(
+  workflowSource: string,
+  expectedGates: ReadonlyMap<string, string>,
+  failures: Map<string, ControlFailures>,
+): void {
+  let workflow: unknown;
+  try {
+    workflow = parseWorkflowWithBunYaml(workflowSource);
+  } catch (error) {
+    pushFailure(
+      failures,
+      CI_PARITY_FAILURE_ID,
+      `${CI_WORKFLOW_PATH} could not be parsed as YAML: ${errorMessage(error)}`,
+    );
+    return;
+  }
+  checkCiGateBindings(collectCiGateBindings(workflow), expectedGates, failures);
 }

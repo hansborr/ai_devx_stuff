@@ -1,18 +1,28 @@
 import type { EslintReachChecker } from "./lint-coverage-map-check-eslint-reach.js";
+import type { CoverageEntry, CoverageStatusPart } from "./lint-coverage-map-manifest-schema.js";
 
-export interface TableRow {
-  readonly line: number;
-  readonly pathGroup: string;
-  readonly normalLint: string;
-  readonly ratchets: string;
-  readonly status: string;
+/** One explicit repo-rooted glob of a coverage entry, compiled for matching. */
+export interface CoveragePattern {
+  readonly entryId: string;
+  readonly glob: string;
+  readonly matcher: (file: string) => boolean;
 }
 
-export interface PathPattern {
-  readonly line: number;
-  readonly source: string;
-  readonly pattern: string;
-  readonly matcher: (file: string) => boolean;
+/**
+ * A manifest entry reduced to the fields the drift checks act on. Rows are
+ * identified by their stable entry id — never by a Markdown line number — so a
+ * finding survives reordering the document.
+ */
+export interface CoverageRow {
+  readonly id: string;
+  readonly patterns: readonly CoveragePattern[];
+  /** `Existing ratchet/floor` prose; empty for rows whose ratchets are derived. */
+  readonly ratchetProse: string;
+  /** Asserted `Files` cell; `undefined` for rows whose count is rendered. */
+  readonly filesProse: string | undefined;
+  /** Set when this row declares why its `Files` count is not derivable. */
+  readonly filesCountNote: string | undefined;
+  readonly statusParts: readonly CoverageStatusPart[];
 }
 
 export interface ConfigSurfaceCoverageEntry {
@@ -24,14 +34,14 @@ export interface CheckFinding {
   readonly kind:
     | "stale-path"
     | "unknown-ratchet"
-    | "invalid-status"
-    | "status-consistency-mismatch"
     | "ratchet-membership-mismatch"
     | "conflicting-coverage"
     | "config-surface-coverage-mismatch"
     | "unaccounted-file"
-    | "eslint-reach-missing";
-  readonly line?: number;
+    | "files-count-stale"
+    | "eslint-reach-missing"
+    | "eslint-reach-unexpected";
+  readonly entry?: string;
   readonly value: string;
 }
 
@@ -44,9 +54,8 @@ export interface LintCoverageMapCheckResult {
 
 export interface LintCoverageMapCheckOptions {
   readonly cwd?: string;
-  readonly mapPath?: string;
-  readonly mapText?: string;
-  readonly staged?: boolean;
+  /** Coverage entries to check. Defaults to the real manifest. */
+  readonly entries?: readonly CoverageEntry[];
   readonly trackedFiles?: readonly string[];
   readonly ratchetIds?: ReadonlySet<string>;
   /**
@@ -61,8 +70,8 @@ export interface LintCoverageMapCheckOptions {
   readonly eslintReachChecker?: EslintReachChecker;
   readonly configSurfaceEntries?: readonly ConfigSurfaceCoverageEntry[];
   /**
-   * When set, append ready-to-paste coverage-map rows for every unaccounted file
-   * to stderr (scaffold for A1/A6). Does not change exit codes.
+   * When set, append ready-to-paste manifest entries for every unaccounted file
+   * to stderr. Does not change exit codes.
    */
   readonly suggest?: boolean;
   /**

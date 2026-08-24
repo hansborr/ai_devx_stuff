@@ -1,7 +1,8 @@
 # 16. Client query plumbing is hand-rolled where TanStack Query and existing seams already cover it
 
-Status: Open under [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slices
-**Q1, Q2 and Q3**. All six steps remain, split across three independently
+Status: **Landed 2026-07-27 on branch `feat/cq-slice-h` (merge
+`d539cfdbd`)** through [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slices
+**Q1, Q2 and Q3**. All six steps landed across three independently
 landable slices; read the plan rather than scheduling this leaf as one session.
 Theme: Client data layer · Area: client · Severity: low · Size: M
 

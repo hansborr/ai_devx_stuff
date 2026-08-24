@@ -5,20 +5,20 @@ import { pathToFileURL } from "node:url";
 
 import type { Project, SourceFile } from "ts-morph";
 
+import { moduleSource } from "./lib/codemod-imports.js";
 import {
   runSharedSchemaCodemod,
   runSharedSchemaCodemodCli,
   type SharedSchemaCodemodConfig,
   type SharedSchemaTargetContext,
 } from "./lib/trpc-shared-engine.js";
+import { collectExportedTopLevelIdentifiers } from "./lib/trpc-shared-schema-identifiers.js";
 import {
-  collectExportedTopLevelIdentifiers,
   getSourceFileAtPath,
-  moduleSource,
-  SHARED_SCHEMA_PREFIX,
   targetPathFromSource,
   validateSharedSchemaSource,
-} from "./lib/trpc-shared-schema.js";
+} from "./lib/trpc-shared-schema-paths.js";
+import { SHARED_SCHEMA_PREFIX } from "./lib/trpc-shared-schema-types.js";
 import {
   assertConstSchemaIsOnlyInputReference,
   CODEMOD_NAME,

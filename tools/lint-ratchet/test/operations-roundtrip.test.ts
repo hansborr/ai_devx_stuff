@@ -10,6 +10,8 @@ import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.j
 import { createLintRatchetEngineContext } from "@musi/lint-ratchet/kernel/engine-context.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "./fixture-workflow-vocabulary.js";
+
 // The update operation's fail-closed round-trip guard: the rendered generated
 // baseline is re-parsed before the gated apply, so formatter/parser drift (the
 // engine bug class the Musi adapter guarded against and the demo used to lack)
@@ -40,7 +42,10 @@ function makeFixtureRepo(): string {
   cleanups.push(() => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
-  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "dir");
+  // "junction" is ignored on POSIX and avoids the Windows Developer-Mode
+  // privilege a "dir" symlink needs; junction targets must be absolute, and
+  // realRepoRoot is.
+  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "junction");
   mkdirSync(join(repoRoot, "src"), { recursive: true });
   writeFileSync(
     join(repoRoot, "package.json"),
@@ -62,7 +67,6 @@ const roundtripRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Round-trip fixture: keep debugger statements out of the fixture source.",
 } satisfies LintRatchetConfig;
 const registry: readonly LintRatchetConfig[] = [roundtripRatchet];
@@ -70,7 +74,10 @@ const registry: readonly LintRatchetConfig[] = [roundtripRatchet];
 describe("update round-trip validation (simulated formatter drift)", () => {
   it("rejects a rendered baseline that fails re-parse and writes nothing", async () => {
     const repoRoot = makeFixtureRepo();
-    const context = createLintRatchetEngineContext({ repoRoot });
+    const context = createLintRatchetEngineContext({
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      repoRoot,
+    });
     const binding = { repoRoot, thirdPartyPluginAllowlist: [] };
     const rel = "src/a.ts";
     writeFileSync(

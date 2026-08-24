@@ -1,19 +1,17 @@
 // Per-file aggregation + shared date/number math for the coldspot lens. Split out
 // of `coldspots-coldspot.ts` so the reducer (gate + assembly) and the amplifiers
 // each stay focused. The walk is the SAME windowed history hotspots collects; this
-// only reduces it. The first-seen/last-touched fold is the shared
-// `updateTouchDates` from `hotspots-history.ts` (also used by the thrash lens).
+// only reduces it. Coldspots need only the newest touch for age; the thrash lens's
+// shared `updateTouchDates` fold retains both bounds independently.
 
-import { type CommitRecord, updateTouchDates } from "./hotspots-history.js";
+import { type CommitRecord } from "./hotspots-history.js";
 import { DAY_MS } from "./time-constants.js";
 
-// Per-file aggregate over the windowed walk. `oldestTouchMs`/`newestTouchMs` follow
-// the thrash first-seen/last-touched pattern. `churnLines` is the size proxy.
+// Per-file aggregate over the windowed walk. `newestTouchMs` drives age, while the
+// independent birth fields track the earliest commit. `churnLines` is the size proxy.
 export type FileAggregate = {
   revisions: number;
   churnLines: number; // accumulated added + deleted (the large-file-cold size proxy)
-  added: number;
-  oldestTouchMs: number | null;
   newestTouchMs: number | null;
   birthFileCount: number; // files touched by this file's earliest in-window commit
   birthLinesAdded: number; // COMMIT-WIDE lines added by that birth commit (the scaffold size)
@@ -33,12 +31,11 @@ export function aggregateFiles(records: readonly CommitRecord[]): Map<string, Fi
       const aggregate = byPath.get(file.path) ?? newAggregate();
       if (!seen.has(file.path)) {
         aggregate.revisions += 1;
-        updateTouchDates(aggregate, record);
+        updateNewestTouch(aggregate, record);
         recordBirth(aggregate, record, recordFileCount, recordLinesAdded);
         seen.add(file.path);
       }
       aggregate.churnLines += file.added + file.deleted;
-      aggregate.added += file.added;
       byPath.set(file.path, aggregate);
     }
   }
@@ -49,13 +46,18 @@ function newAggregate(): FileAggregate {
   return {
     revisions: 0,
     churnLines: 0,
-    added: 0,
-    oldestTouchMs: null,
     newestTouchMs: null,
     birthFileCount: 0,
     birthLinesAdded: 0,
     birthMs: null,
   };
+}
+
+function updateNewestTouch(aggregate: FileAggregate, record: CommitRecord): void {
+  const timestamp = Date.parse(record.authorDate);
+  if (!Number.isFinite(timestamp)) return;
+  aggregate.newestTouchMs =
+    aggregate.newestTouchMs === null ? timestamp : Math.max(aggregate.newestTouchMs, timestamp);
 }
 
 // Track the EARLIEST in-window commit for this file (the birth). `git log` is

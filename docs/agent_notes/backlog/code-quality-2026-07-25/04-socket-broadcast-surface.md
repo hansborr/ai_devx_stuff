@@ -1,6 +1,25 @@
 # 04. Socket broadcast boundary left half-migrated: a stale migration recipe, per-family tests that outlived the wrapper bodies and now re-test the registry, a sentinel registry entry, and triplicated room-exit emits
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-29** in
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md) slices **S4, S3 and S5**, on
+branch `feat/cq-broadcast-registry-cleanup`, merge `08d9443ad`; step 1 had
+already landed 2026-07-28 inside S1 (merge `672cef373`), which made
+`packages/server/src/socket/socket-types.ts` the one home for the socket types.
+See [Landed](./00-index.md#landed). **All five scheduled steps landed; step 6 was
+dropped permanently by the plan** — do not extract the room-exit tail, and do not
+re-derive a sixth step from this leaf. The plan shrank this leaf M→S and **never
+adopted its "half a boundary" framing** — the registry *is* the boundary, and
+what was left was scaffolding a finished migration never took down.
+**Three outcomes are recorded decisions, not oversights**: the optional step 3
+(S4) was **taken**, because it turns two post-commit runtime throws into compile
+errors; the split is `ROOM_BROADCAST_REGISTRY` plus
+`USER_TARGETED_BROADCAST_REGISTRY` with `chat:newMessage` single-sourced through
+a spread `CHAT_MESSAGE_CONTRACT` rather than duplicated; and step 5's surviving
+broadcaster went to a new neutral `services/encounter-hp-attribution.ts` rather
+than into `character-live-state/`. See
+[Second landing outcome](./SERVER-COMMENTS-PLAN.md#second-landing-outcome), and
+the durable scanning-guard ruling the split produced in
+[CONSTRAINTS.md](./CONSTRAINTS.md).
 Theme: socket emission boundary · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

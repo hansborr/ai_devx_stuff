@@ -18,8 +18,7 @@ take-home; those guides are the manual.
 | --- | --- |
 | `src/app.ts` | The code under lint. Ships with **two** pre-existing `console.log` calls — the accepted debt the ratchet freezes. |
 | `scripts/lint-ratchet.ts` | **The adapter you write.** A minimal CLI that wires the demo's registry/binding to the package's kernel + governance operations and renders its *own* result envelope (proving the engine dictates neither the CLI surface nor the output format). |
-| `scripts/lint-ratchet/adapter.ts` | The demo's whole binding to the engine: its repo paths, its one-ratchet registry, and the `LintRatchetEngineContext`/`LintRatchetEngineBinding` the kernel operations receive. |
-| `scripts/lint-ratchet/*.ts`, `scripts/git/*` | The git-rail adapter: fixed-path CLI wrappers + the merge-driver install/driver/truth-up shells the installed Git driver dispatches. They consume the package's *pure* git-rail ops. |
+| `scripts/lint-ratchet/adapter.ts` | The demo's whole binding to the engine: its repo paths, one-ratchet registry, `LintRatchetEngineContext`/`LintRatchetEngineBinding`, and the typed git-rail binding consumed by the package executable. |
 | `lint-ratchet.baseline.json` | The committed per-file baseline: `src/app.ts` → 2 findings. Generated, never hand-edited. |
 | `eslint.config.js` + `eslint-rules/no-console-log.js` | The demo-local rule and its flat-config registration. The rule's diagnostic names only repairs available in any JavaScript project. |
 | `.gitattributes` | Committed merge semantics for the two generated files: `merge=union` for the debt log (built into git) and `merge=lint-ratchet-baseline` for the baseline (the installed clone-local driver). |
@@ -32,6 +31,9 @@ there is no copied-in engine mirror and no sync manifest to keep in step.
 - [Bun](https://bun.sh) (the runtime; the ratchet is a Bun/TypeScript program).
 - A `git`-tracked checkout: the collector enumerates files with `git ls-files`,
   so the demo files must be committed (they are, in this repo).
+- util-linux `flock` for the optional merge-driver step 4. It is present on
+  stock Linux; on macOS, install it with `brew install flock` (or install
+  util-linux).
 
 ## The ten-minute path
 
@@ -82,8 +84,10 @@ improvement too (the ratchet is symmetric), so lock it in:
 bun run lint:ratchet:update
 ```
 
-The baseline returns to 2 and the gate is green again. Debt can only trend down,
-and every move is a committed diff.
+The baseline returns to 2 and the gate is green again. Debt cannot change
+silently: an increase requires `--allow-worse`, a recorded reason, and a
+committed acceptance record; a decrease requires updating and committing the
+tighter baseline.
 
 ## Make it yours
 
@@ -91,16 +95,29 @@ and every move is a committed diff.
    whole portable engine, no pruning.
 2. Write a thin adapter like `scripts/lint-ratchet.ts` + `scripts/lint-ratchet/adapter.ts`:
    construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo
-   root, declare your registry (pick a rule you have real debt in, scope it to a
+   root and a `LintRatchetWorkflowVocabulary` naming your repository's actual
+   recovery commands—including distinct regression and debt-accounting commands
+   when their human-facing reason placeholders differ—declare your registry (pick a rule you have real debt in, scope it to a
    file glob, write a one-line `principle`), and render whatever result envelope
-   your CI wants.
-3. `bun run lint:ratchet:update` to generate your first baseline (it pins your
-   installed eslint/typescript-eslint versions), commit it, and wire
-   `bun run lint:ratchet` into your CI and pre-commit.
-4. For the semantic baseline merge driver, copy `scripts/git/*` and
-   `bun run lint:ratchet:install-merge-driver` in each clone; `.gitattributes`
-   names both generated files' merge semantics so a collaborator's fresh clone
-   gets them even before the driver is installed.
+   your CI wants. The binding defaults local rules to `eslint-rules` and generated
+   configs/caches to `node_modules/.cache/eslint-ratchet`; set its optional
+   repository-relative `localRulesDirectory` and `cacheDirectory` fields when
+   your project uses another layout.
+3. Before `bun run lint:ratchet:update`, prove the installed dependency tree
+   matches the lockfile, because the generated baseline pins the installed
+   eslint/typescript-eslint versions. Keep that check in the adapter (or inject
+   an optional adapter hook) so the portable engine does not inherit one package
+   manager's lockfile convention. Musi's adapter invokes its existing
+   `scripts/dependency-freshness.sh` signal and refuses stale or missing installs;
+   equivalent adapters should fail with an install-and-retry instruction. Then
+   generate and commit the first baseline and wire `bun run lint:ratchet` into
+   CI and pre-commit.
+4. Add the package-owned git-rail scripts from this demo's `package.json`, then
+   run `bun run lint:ratchet:install-merge-driver` once in each clone. The
+   installer reads the typed binding exported by your adapter and generates the
+   fixed Git-command shim in the common Git directory; no `scripts/git/*` copy
+   is needed. Keep the two `.gitattributes` rows so a fresh clone names both
+   generated files' merge semantics before its local driver is installed.
 
 `smoke.sh` proves this whole path in genuine isolation: it copies the package and
 this demo into a throwaway Bun workspace off the Musi checkout, installs, and

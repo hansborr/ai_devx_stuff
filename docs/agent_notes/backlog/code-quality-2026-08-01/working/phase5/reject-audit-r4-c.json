@@ -1,0 +1,437 @@
+{
+  "contractVersion": 1,
+  "consult": "R4C",
+  "step": "1b-round-4",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[6]",
+      "lane": "lane-06-tests",
+      "disposition": "promote",
+      "reasoning": "Opened packages/server/src/app.test.ts and found six one-off Fastify instances whose close calls occur only after requests and assertions. The socket-enabled case at lines 219-230 skips both close and the onClose socket cleanup wired at packages/server/src/app.ts:264-268 if its regression assertions fail. The failure-safe lifecycle in packages/server/src/test/app-helper.ts does not cover these custom per-test apps.",
+      "promotionIds": [
+        "R4C-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[1]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/shared/src/rules/class-identity.ts:45-66, packages/client/src/components/sheet/add-spell-dialog.tsx:31-34,132-136, and add-spell-dialog.test.tsx:152-160. The downstream label and test title are exact and explain a load-bearing distinction: undefined preserves the client's all-classes fallback rather than meaning no spells. CQ25-177 explicitly retained each caller's behavior during the class-identity work, so the detailed JSDoc is justified despite its editorial coupling.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[3]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reasoning": "Opened tools/lint-ratchet/src/kernel/rule-source-import-guard.ts:17-68 and confirmed that REGEX_LITERAL_SOURCE is included in the masking expression while the comment at lines 52-61 says regex literals are not tracked. Authored leaf 148 owns this exact partial-lexer boundary, cites the same masking code, and directs deletion of the guard plus rewriting the affected comments. There is no residual separate from that leaf.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[7]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened docs/guides/per-worktree-dev.md:14-29,64-109 and scripts/worktree-db.sh:14-20,1536-1565. The guide documents only current-worktree diagnostics, including in its multi-lane section, while the script exposes --all for cross-worktree provisioning and --lanes [--base <ref>] for ahead/behind, staged/unstaged, and commit-age summaries.",
+      "promotionIds": [
+        "R4C-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[9]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened README.md:26-67,173-177, docs/README.md:3-9, AGENTS.md:44-51, docs/public-release-notes.md:1-5, and .github/pull_request_template.md:1-22. Human onboarding stops at setup and sends readers to an agent-control file for full standards. Branch, commit, gate, and integration expectations live only there, despite the repository's intended public state, and the pinned tree has no CONTRIBUTING entrypoint.",
+      "promotionIds": [
+        "R4C-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[2]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/src/app.ts:198-215, packages/server/src/routers/health.ts:10-25, packages/shared/src/schemas/health.ts:5-15, packages/server/src/routers/health.test.ts:15-40, and packages/server/src/routes/MODULE.md:7-10. The plain Fastify deployment probe intentionally exposes status/version, while the tRPC probe adds a call timestamp and echo transport check. Both share the stable fields, tests pin them separately, and no runtime client consumes either contract, so convergence has no demonstrated benefit.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[3]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/logs-audit/logs-audit-latest.ts:30-74,92-108 and scripts/lib/verify-metadata.sh:121-153,181-204; the duplicated protocol and edge-case divergence are real. Authored leaf 141 owns the exact files, silent --latest miss mechanism, divergence, and shell-shim direction, leaving no residual.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[4]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reasoning": "Opened packages/shared/src/constants.ts:52-60, the campaign and homebrew input schemas, and the three client Textareas. The shared contracts deliberately allow 10,000-character descriptions, but campaign creation, campaign settings, and homebrew collection editing all hard-code maxLength 5000, preventing users from entering otherwise-valid values.",
+      "promotionIds": [
+        "R4C-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[7]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened docs/guides/lint-ratchet-adoption.md:62-86,88-147,157-269, examples/lint-ratchet-demo/README.md:88-107, tools/lint-ratchet/README.md:19-33, and the --propose implementation. The existing command already prints a complete candidate configuration without writing. A broader initializer lacks a stable contract because adopters must choose copy versus dependency, repository-specific globs, output behavior, optional merge rails, and runtime assumptions; leaves 081 and 112 already own the concrete documentation and distribution defects.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[4]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened eslint-config/package-dependency-configs.js:16-112. The six blocks are three adjacent production/test pairs with differing selectors, package roots, ignores, and devDependency policy; the server production tier also has a unique seed-generator exception at lines 60-65. A factory would replace explicit policy with parameters without eliminating a meaningful drift boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::coverage.cut[1]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened the three files behind the reported 643 lines. The original total improperly combined an unrelated 182-line tRPC reference classifier with a cohesive 461-line expand-barrel resolver. Within the narrower subsystem, export-map.ts maintains whole-graph and per-symbol recursive traversals, export-bindings.ts manually classifies TypeScript declarations, and paths.ts supplies private module resolution.",
+      "promotionIds": [
+        "R4C-005"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::coverage.cut[3]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/codemods/structured-logging-fix.ts, structured-logging-fix-transforms.ts, structured-logging-fix-ast.ts, eslint-rules/structured-logging.js, the codemod import helpers, expand-barrel/import-groups.ts, and leaf 149. The codemod is already split into orchestration, rewrite policy, and AST primitives. The ESLint checks activate as one policy, while the apparent import-normalization overlap is either generic infrastructure already owned by leaf 149 or domain-specific barrel regrouping.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::coverage.cut[4]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened eslint-config/config-surfaces.js:7-77, config-surface-manifest.json:3-129, scripts/lint-coverage-map-check-findings.ts:245-303, and the adoption guide at lines 385-425. Although coverageStatus currently accepts only linted, the field makes each manifest entry's cross-inventory assertion explicit and drives forward mismatch diagnostics. Removing it would merely relocate that invariant into the checker and declarations while causing broad schema, fixture, and documentation churn without a failure mechanism to fix.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R4C-001",
+      "title": "Ad-hoc Fastify tests skip teardown when assertions fail",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": 42,
+          "endLine": 57,
+          "measurement": null,
+          "note": "The rate-limit app is created and readied, then closed only after request execution and the assertion; either failure bypasses close."
+        },
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": 219,
+          "endLine": 230,
+          "measurement": null,
+          "note": "The Socket.IO-enabled variant reaches close only after its decorator assertions."
+        },
+        {
+          "path": "packages/server/src/app.ts",
+          "line": 264,
+          "endLine": 268,
+          "measurement": null,
+          "note": "Fastify close is the lifecycle boundary that invokes Socket.IO cleanup."
+        },
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "6 ad-hoc Fastify instance/close pairs (`rg -n 'const (rateLimitApp|testApp|customApp|socketApp|socketlessApp) =|await (rateLimitApp|testApp|customApp|socketApp|socketlessApp)\\.close\\(\\)' packages/server/src/app.test.ts`)",
+          "note": "All six constructions have a tail-position close and no failure-safe per-test cleanup registration."
+        }
+      ],
+      "problem": "Six app tests create custom Fastify instances but close them only after all requests and assertions. A failure skips teardown; the socket-enabled case also skips its registered Socket.IO cleanup, leaving resources alive during the failure run.",
+      "proposedDirection": "Register every custom instance for per-test cleanup immediately after construction, before ready, injection, or assertions; keep the custom configurations local rather than forcing them through the suite-scoped helper.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[6]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Ad-hoc Fastify app failure-safe teardown",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-121",
+          "residual": "The prior pack landed the failure-safe useTestApp lifecycle for suite-scoped apps, but app.test.ts's custom per-test instances remain outside that lifecycle."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 164 — hint only; both concern test-resource cleanup, but leaf 164 covers drift-AI temporary roots"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R4C-002",
+      "title": "Document the two cross-worktree status modes in the per-worktree guide",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 14,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The command table describes only the current-worktree worktree:status behavior."
+        },
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 64,
+          "endLine": 109,
+          "measurement": null,
+          "note": "The multi-lane orchestration and recovery sections never mention either cross-worktree mode."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The authoritative header defines --all provisioning blocks and --lanes [--base <ref>] Git-work summaries."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 1536,
+          "endLine": 1565,
+          "measurement": null,
+          "note": "The dispatcher implements both modes, validates their exclusivity, and restricts --base to --lanes."
+        }
+      ],
+      "problem": "Operators following the dedicated guide cannot discover the read-only commands designed to inspect every worktree's provisioning or coordinate parallel lanes. The omission is especially costly in the guide's multi-lane workflow, where ahead/behind and staged/unstaged state are the useful overview.",
+      "proposedDirection": "Expand the command table and multi-lane section with worktree:status --all and worktree:status --lanes [--base <ref>], distinguishing provisioning diagnostics from Git-work coordination.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[7]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The per-worktree guide omits worktree:status --all and --lanes.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 096 — hint only; that leaf covers a different prerequisite omission in the same guide"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R4C-003",
+      "title": "Add a human-focused contribution entrypoint",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line": 173,
+          "endLine": 177,
+          "measurement": null,
+          "note": "The development section offers two assertions and sends readers to AGENTS.md for full standards."
+        },
+        {
+          "path": "docs/README.md",
+          "line": 3,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The documentation landing page explicitly assigns README.md to humans and AGENTS.md to agents."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 44,
+          "endLine": 51,
+          "measurement": null,
+          "note": "Branch naming, commit format, verification, push, and integration rules are present inside agent workflow instructions."
+        },
+        {
+          "path": "docs/public-release-notes.md",
+          "line": 1,
+          "endLine": 5,
+          "measurement": null,
+          "note": "The repository records public publication as an intended supported state."
+        },
+        {
+          "path": "README.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 tracked CONTRIBUTING files (`git ls-tree -r --name-only ebf096580b31f604861fadb3d4cbd4079da4f017 | rg -i '(^|/)CONTRIBUTING(?:\\.[^/]*)?$' | wc -l`)",
+          "note": "The pinned repository has no conventionally discoverable human contribution guide."
+        }
+      ],
+      "problem": "A human can set up Musi but cannot find a human-owned contribution workflow. The public README routes standards into an agent control file, so branch, commit, gate, and review expectations are easy to miss until a hook or review rejects prepared work.",
+      "proposedDirection": "Add a concise CONTRIBUTING.md linked from README.md, covering the human branch, commit, focused-verification, commit-gate, and PR workflow while linking to existing task guides instead of duplicating them.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[9]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The repository lacks a human-focused CONTRIBUTING entrypoint.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 103 — hint only; that leaf repairs a host prerequisite in primary onboarding"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R4C-004",
+      "title": "Three description controls cap valid input at half the shared contract limit",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 55,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The canonical constant explicitly unifies description fields at 10,000 characters."
+        },
+        {
+          "path": "packages/shared/src/schemas/campaign-inputs.ts",
+          "line": 9,
+          "endLine": 52,
+          "measurement": null,
+          "note": "Campaign creation and updates validate descriptions against MAX_DESCRIPTION_LENGTH."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew-inputs.ts",
+          "line": 15,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Homebrew collection creation and updates use the same 10,000-character contract."
+        },
+        {
+          "path": "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx",
+          "line": 60,
+          "endLine": 71,
+          "measurement": null,
+          "note": "The campaign creation form independently hard-codes maxLength 5000."
+        },
+        {
+          "path": "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx",
+          "line": 91,
+          "endLine": 101,
+          "measurement": null,
+          "note": "The campaign settings form repeats the 5,000-character cap."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/collections/collection-form-fields.tsx",
+          "line": 48,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The shared create/edit collection control also repeats maxLength 5000."
+        }
+      ],
+      "problem": "Campaign and homebrew collection authoring surfaces prevent users from entering descriptions longer than 5,000 characters even though their canonical create and update schemas deliberately accept 10,000. The duplicated HTML literals silently make valid input unavailable and can drift again when the shared contract changes.",
+      "proposedDirection": "Use MAX_DESCRIPTION_LENGTH for all three Textarea limits and add focused UI assertions that the controls expose the shared contract.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-1/lane-08.json::coverage.cut[4]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "HTML maxLength duplication was routed to bugsSideList because the observed 5,000 versus 10,000 mismatch is behavior-shaped.",
+          "rejectionReason": "coverage.cut; routed to bugsSideList because the mismatch was behavior-shaped"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 189 — hint only; that leaf consolidates seven other downstream copies of shared authorities but does not include description limits"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R4C-005",
+      "title": "Expand-barrel maintains two hand-written traversals of TypeScript's export graph",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/expand-barrel/export-bindings.ts",
+          "line": 10,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The codemod manually enumerates variable, function, class, interface, type-alias, and enum declaration forms to identify top-level exports."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": 109,
+          "endLine": 124,
+          "measurement": null,
+          "note": "One recursive traversal constructs a complete export map with path-stack cycle handling."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": 167,
+          "endLine": 220,
+          "measurement": null,
+          "note": "A second recursive path resolves one symbol through local, named, namespace, and star re-exports with a separate seen-key scheme."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/paths.ts",
+          "line": 20,
+          "endLine": 47,
+          "measurement": null,
+          "note": "The feature also maintains restricted module resolution from JavaScript specifiers to ts/tsx files and index modules."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "461 total lines across the export graph and binding implementations (`wc -l scripts/codemods/expand-barrel/export-map.ts scripts/codemods/expand-barrel/export-bindings.ts`)",
+          "note": "The narrowed barrel-resolution subsystem remains substantial after excluding the unrelated 182-line tRPC identifier classifier."
+        }
+      ],
+      "problem": "The codemod uses ts-morph but separately models declaration exports, module paths, complete export-map traversal, and single-symbol traversal. TypeScript syntax or resolution changes require synchronized edits across this private semantic machinery, while the graph paths can diverge in alias, star-export, ambiguity, or cycle behavior.",
+      "proposedDirection": "Establish one export-resolution boundary backed where practical by ts-morph or TypeScript semantic APIs. If source-path rewriting requires a custom projection, derive complete-map and single-symbol queries from one memoized traversal.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-09-topup.json::coverage.cut[1]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "Codemods maintain a 643-line shadow TypeScript symbol model — cut because the candidate combined distinct reference-classification and barrel-resolution concerns without a sufficiently narrow shared boundary.",
+          "rejectionReason": "coverage.cut; the wave combined distinct reference-classification and barrel-resolution concerns without a narrow shared boundary"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 149 — hint only; that leaf extracts generic codemod infrastructure from a tRPC-named module but does not address expand-barrel's export graph"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly the 13 assigned cut rows across lanes 06, 07, 08, and 09; no other reject-pile items were assessed.",
+    "No tests or builds were run, and no files were modified. A read-only diff confirmed the cited source and documentation files are identical to AUDIT_TARGET_SHA.",
+    "The reported 643-line codemod population reconstructs as 182 lines of tRPC identifier classification plus 461 lines of expand-barrel export resolution; only the cohesive 461-line partition was promoted.",
+    "The singleton coverageStatus cut was upheld after tracing the field through manifest validation, forward coverage assertions, reverse discovery, diagnostics, and adoption documentation; its current single value is an explicit invariant rather than an independently material defect."
+  ]
+}

@@ -328,6 +328,7 @@ export function decideLintRatchetUpdate(
 ): LintRatchetUpdateDecision {
   return decideLintRatchetUpdateWithComparator(
     { committed, generated, ratchets, options },
-    compareCurrentToBaselineImpl,
+    (baseline, registry, currentById) =>
+      compareCurrentToBaselineImpl(baseline, registry, currentById, options.workflowVocabulary),
   );
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { DRIFT_SCHEMA_VERSION } from "../drift-ai/types.js";
 import { buildTriageReport, type NamedTriageInput, parseTriageInput } from "./triage-report.js";
 import { parseOptionalScanProvenance } from "./triage-report-support.js";
 
@@ -57,6 +58,8 @@ describe("swarm-ready triage items", () => {
       }),
     ]);
 
+    expect(report.items[0]?.locations).toHaveLength(1);
+    expect(report.items[0]?.locationDetails).toHaveLength(1);
     expect(report.items[0]).toMatchObject({
       locations: ["src/query.ts:42-42"],
       locationDetails: [
@@ -78,7 +81,7 @@ describe("swarm-ready triage items", () => {
   it("parses drift and Dolos ranges into structured locations", () => {
     const report = buildTriageReport([
       input("drift.json", {
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         skippedChecks: [],
         findings: [
           {
@@ -120,6 +123,9 @@ describe("swarm-ready triage items", () => {
         { path: "src/b.ts", startLine: 5, startCol: null, endLine: 32, endCol: null },
       ]),
     );
+    expect(
+      report.items.find((item) => item.evidence[0]?.source === "drift:comments")?.locations,
+    ).toEqual(["src/commented.ts:12-12"]);
   });
 
   it("reserves review-first for strong Semgrep metadata", () => {
@@ -166,7 +172,7 @@ describe("swarm-ready triage items", () => {
   it("defers test-only duplicate type and schema shapes", () => {
     const report = buildTriageReport([
       input("drift.json", {
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         skippedChecks: [],
         findings: [
           {
@@ -193,18 +199,22 @@ describe("swarm-ready triage items", () => {
 });
 
 describe("swarm-ready completeness disclosure", () => {
-  it("separates an expected current-scope skip from a partial scan", () => {
+  it("separates a code-tagged current-scope skip from a partial scan even when the reason prose is reworded", () => {
+    // The reason is presentation-only (drift-ai types.ts): a copy edit must not
+    // flip a clean full-scope packet from complete-with-inapplicable-checks to
+    // partial. Only the machine-readable code may drive classification, so this
+    // case deliberately carries a reason the producer has never emitted.
     const report = buildTriageReport([
       input("drift.json", {
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         scopeMode: "current",
         roots: ["."],
         enabledChecks: ["duplicates", "ghost-files", "comments", "suppressions"],
         skippedChecks: [
           {
             check: "suppressions",
-            reason: "only available in changed scope",
-            code: "scope-inapplicable",
+            reason: "needs a changed-file diff",
+            code: "changed-scope-only",
           },
         ],
         findings: [],

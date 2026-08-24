@@ -9,6 +9,9 @@
  */
 
 const LINK_PATTERN = /\[[^\]]*\]\(([^)\s]+)(?:\s+"[^"]*")?\)/gu;
+const CATALOG_REGION_BEGIN = "<!-- BEGIN GENERATED LEAF CATALOG ROUTING -->";
+const CATALOG_REGION_END = "<!-- END GENERATED LEAF CATALOG ROUTING -->";
+const CATALOG_DECLARATION_PATTERN = /^<!-- backlog-lint-catalog: ([^/<>\s]+\.md) -->$/gmu;
 const TABLE_ROW_PREFIX = "|";
 const SEPARATOR_CELL_PATTERN = /^:?-+:?$/u;
 // A markdown table's data rows begin two lines after the header (header row +
@@ -45,6 +48,20 @@ export function indexLinkedBases(text: string): Set<string> {
     if (base !== undefined) bases.add(base);
   }
   return bases;
+}
+
+/** Direct sibling catalog basenames explicitly declared by the canonical index. */
+export function declaredIndexCatalogBases(text: string): Set<string> {
+  const begin = text.indexOf(CATALOG_REGION_BEGIN);
+  const end = text.indexOf(CATALOG_REGION_END);
+  if (begin < 0 || end < 0 || begin >= end) return new Set();
+  const region = text.slice(begin + CATALOG_REGION_BEGIN.length, end);
+  return new Set(
+    [...region.matchAll(CATALOG_DECLARATION_PATTERN)].flatMap((match) => {
+      const base = match[1];
+      return base === undefined ? [] : [base];
+    }),
+  );
 }
 
 function splitTableCells(line: string): string[] {

@@ -1,0 +1,234 @@
+{
+  "step": "2a",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "numberingBase": 204,
+  "entries": [
+    {
+      "promotionId": "B-001",
+      "ruling": "new-leaf",
+      "leafFile": "204-decompose-the-stateful-bash-verification-engine.md",
+      "leafNumber": "204",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-002",
+      "ruling": "new-leaf",
+      "leafFile": "205-rename-auth-service-to-reflect-its.md",
+      "leafNumber": "205",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-003",
+      "ruling": "new-leaf",
+      "leafFile": "206-single-source-memory-wait-timeout-validation-across.md",
+      "leafNumber": "206",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-005",
+      "ruling": "new-leaf",
+      "leafFile": "207-encode-ghost-files-mode-dependencies-as.md",
+      "leafNumber": "207",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-006",
+      "ruling": "new-leaf",
+      "leafFile": "208-converge-drift-ai-command-result-and-sentinel-error.md",
+      "leafNumber": "208",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-007",
+      "ruling": "new-leaf",
+      "leafFile": "209-remove-the-unused-repository-root-parameter-from.md",
+      "leafNumber": "209",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-008",
+      "ruling": "new-leaf",
+      "leafFile": "210-load-metamagics-only-after-level-up-applicability-is.md",
+      "leafNumber": "210",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-009",
+      "ruling": "new-leaf",
+      "leafFile": "211-reuse-validated-class-references-during.md",
+      "leafNumber": "211",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-010",
+      "ruling": "new-leaf",
+      "leafFile": "212-give-initiative-orchestration-layers.md",
+      "leafNumber": "212",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-011",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "182-logging-producers-their-auditor-separately.md",
+      "leafNumber": "182",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-013",
+      "ruling": "new-leaf",
+      "leafFile": "213-make-character-wizard-step-validation-exhaustive.md",
+      "leafNumber": "213",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-016",
+      "ruling": "new-leaf",
+      "leafFile": "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md",
+      "leafNumber": "214",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "B-017",
+      "ruling": "new-leaf",
+      "leafFile": "215-converge-destructive-client-actions-on-one.md",
+      "leafNumber": "215",
+      "mergedPromotionIds": [
+        "B-015"
+      ]
+    },
+    {
+      "promotionId": "B-018",
+      "ruling": "new-leaf",
+      "leafFile": "216-route-npc-mutations-through-the-campaign.md",
+      "leafNumber": "216",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-001",
+      "ruling": "new-leaf",
+      "leafFile": "217-correct-the-architecture-plan-s-unsupported-level-up.md",
+      "leafNumber": "217",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-002",
+      "ruling": "new-leaf",
+      "leafFile": "218-replace-the-coverage-cadence-guide-s-deleted.md",
+      "leafNumber": "218",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-004",
+      "ruling": "new-leaf",
+      "leafFile": "219-give-repository-workflows-cwd-stable-scope-bearing.md",
+      "leafNumber": "219",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-005",
+      "ruling": "new-leaf",
+      "leafFile": "220-add-a-joined-explain-view-for-harness-control.md",
+      "leafNumber": "220",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-007",
+      "ruling": "new-leaf",
+      "leafFile": "221-rename-metamagic-slot-terminology-to-options-known.md",
+      "leafNumber": "221",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-008",
+      "ruling": "new-leaf",
+      "leafFile": "222-make-multiclass-prerequisite-table-states-exclusive.md",
+      "leafNumber": "222",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-009",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "025-spellcastingts-contains-five-independently.md",
+      "leafNumber": "025",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-011",
+      "ruling": "new-leaf",
+      "leafFile": "223-remove-the-fulfilled-shared-rules-mutation-gap-from.md",
+      "leafNumber": "223",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-014",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "082-devcontainer-quick-start-depends.md",
+      "leafNumber": "082",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-016",
+      "ruling": "new-leaf",
+      "leafFile": "224-remove-lint-ratchet-compatibility-apis-used-only-by.md",
+      "leafNumber": "224",
+      "mergedPromotionIds": [
+        "C-017"
+      ]
+    },
+    {
+      "promotionId": "C-018",
+      "ruling": "new-leaf",
+      "leafFile": "225-use-the-canonical-markdown-table-escaper-in.md",
+      "leafNumber": "225",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-019",
+      "ruling": "new-leaf",
+      "leafFile": "226-signal-overflow-when-token-conditions-exceed-the.md",
+      "leafNumber": "226",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "C-020",
+      "ruling": "new-leaf",
+      "leafFile": "227-make-legal-license-and-srd-attribution-available.md",
+      "leafNumber": "227",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "D-01-001",
+      "ruling": "new-leaf",
+      "leafFile": "228-align-shared-export-guidance-with-adr-0005-s.md",
+      "leafNumber": "228",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "D-01-002",
+      "ruling": "new-leaf",
+      "leafFile": "229-standardize-datetimefield-backed-mapper-result.md",
+      "leafNumber": "229",
+      "mergedPromotionIds": []
+    }
+  ],
+  "rejected": [
+    "B-004",
+    "B-012",
+    "B-014",
+    "C-003",
+    "C-006",
+    "C-010",
+    "C-012",
+    "C-013",
+    "C-015",
+    "D-02-001",
+    "D-04-001",
+    "D-05-001",
+    "D-05-002",
+    "D-05-003",
+    "D-06-001",
+    "D-07-001",
+    "D-07-002",
+    "D-08-001"
+  ]
+}

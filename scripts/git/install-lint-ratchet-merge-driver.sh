@@ -1,22 +1,14 @@
 #!/usr/bin/env bash
 # Install local Git config for the lint-ratchet baseline merge driver.
 #
-# Thin per-metric entry point: the metric strings live here, the expected
-# state lives in lint-ratchet-merge-driver-lib.sh, and the shared orchestration
-# body lives in install-baseline-merge-driver.sh.
+# Thin per-metric entry point retained for the shared root dispatcher. The
+# versioned package owns the installer implementation.
 set -uo pipefail
 
-MERGE_DRIVER_METRIC_LABEL="lint-ratchet"
-MERGE_DRIVER_CHECK_COMMAND="bun run lint:ratchet:merge-driver:check"
-# shellcheck disable=SC2034 # Consumed by the sourced shared installer body.
-MERGE_DRIVER_INSTALL_COMMAND="bun run lint:ratchet:install-merge-driver"
-MERGE_DRIVER_LIB_BASENAME="lint-ratchet-merge-driver-lib.sh"
+# Git GUI hook environments can omit Bun from PATH. Installation is advisory;
+# the presence checker remains the operator-facing tripwire once Bun is available.
+command -v bun >/dev/null 2>&1 || exit 0
 
-shim_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) || {
-  printf '%s merge driver install: WARN: %s %s or bun run doctor will report this until fixed.\n' \
-    "$MERGE_DRIVER_METRIC_LABEL" "could not resolve the installer directory" \
-    "$MERGE_DRIVER_CHECK_COMMAND" >&2
-  exit 0
-}
-# shellcheck source=scripts/git/install-baseline-merge-driver.sh
-. "$shim_dir/install-baseline-merge-driver.sh"
+exec bun -e 'import("@musi/lint-ratchet/git-rail/executable-cli.js").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- install \
+  --adapter scripts/lint-ratchet/engine-binding.ts \
+  --repair-command 'bun run lint:ratchet:install-merge-driver'

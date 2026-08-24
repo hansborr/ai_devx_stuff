@@ -2,9 +2,13 @@ import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
-import { evaluateLintMessageTrace, lintMessageVariantsFor } from "./lint-message-eval/evaluator.js";
+import type { GitRunner } from "./lib/git.js";
+import {
+  armFor,
+  evaluateLintMessageTrace,
+  lintMessageVariantsFor,
+} from "./lint-message-eval/evaluator.js";
 import { formatLintMessageEvalMarkdown } from "./lint-message-eval/reporter.js";
-import { parseLintMessageTrace } from "./lint-message-eval/trace.js";
 
 const filename = "packages/server/src/services/lint-message-eval-fixture.ts";
 const nestedSource = [
@@ -31,7 +35,7 @@ function fixtureEntry(
   controlAttempts: readonly string[],
   treatmentAttempts: readonly string[],
   treatmentMessage?: string,
-): unknown {
+): Record<string, unknown> {
   const variants = lintMessageVariantsFor(nestedSource, filename, "max-depth");
   return {
     id,
@@ -53,6 +57,20 @@ function fixtureEntry(
       },
     ],
   };
+}
+
+const matchingGit: GitRunner = (args) => {
+  if (args[0] === "show" && args[1] === "0123456789abcdef0123456789abcdef01234567:" + filename) {
+    return nestedSource;
+  }
+  throw new Error(`unexpected git invocation: ${args.join(" ")}`);
+};
+
+function evaluateTestTrace(
+  input: unknown,
+  git: GitRunner = matchingGit,
+): ReturnType<typeof evaluateLintMessageTrace> {
+  return evaluateLintMessageTrace(input, { git });
 }
 
 function traceWithFixtures(fixtures: readonly unknown[]): unknown {
@@ -77,10 +95,22 @@ function traceWithArms(
 }
 
 describe("lint message eval", () => {
+  it("rejects a result whose requested arm is missing", () => {
+    expect(() =>
+      armFor(
+        {
+          id: "missing-control",
+          sourceLocation: "src/example.ts:1",
+          targetRuleId: "max-depth",
+          arms: [],
+        },
+        "control",
+      ),
+    ).toThrow("missing-control is missing its control arm");
+  });
+
   it("compares iterations-to-green for the same violation in both arms", () => {
-    const result = evaluateLintMessageTrace(
-      traceWithArms([nestedSource, flatSource], [flatSource]),
-    );
+    const result = evaluateTestTrace(traceWithArms([nestedSource, flatSource], [flatSource]));
 
     expect(result.fixtures[0]?.arms).toEqual([
       {
@@ -119,7 +149,7 @@ describe("lint message eval", () => {
     // slowly (3 iterations). Independently averaging resolved arms would fold
     // that slow, treatment-exclusive solve into the treatment mean and hide the
     // real paired improvement — the misleading comparison this pins against.
-    const result = evaluateLintMessageTrace(
+    const result = evaluateTestTrace(
       traceWithFixtures([
         fixtureEntry("paired", [nestedSource, flatSource], [flatSource]),
         fixtureEntry(
@@ -146,7 +176,7 @@ describe("lint message eval", () => {
   it("classifies stuck, oscillating, and cascading rule interactions", () => {
     const tooManyParams =
       "export function canAct(ready, valid, allowed, open, extra) { return extra; }";
-    const result = evaluateLintMessageTrace(
+    const result = evaluateTestTrace(
       traceWithArms(
         [nestedSource, tooManyParams, nestedSource, tooManyParams],
         [nestedSource, nestedSource],
@@ -176,9 +206,7 @@ describe("lint message eval", () => {
   it("does not label a cascading rule's first appearance as a return", () => {
     const tooManyParams =
       "export function canAct(ready: boolean, valid: boolean, allowed: boolean, open: boolean, extra: boolean): boolean { return extra; }";
-    const result = evaluateLintMessageTrace(
-      traceWithArms([tooManyParams, tooManyParams], [flatSource]),
-    );
+    const result = evaluateTestTrace(traceWithArms([tooManyParams, tooManyParams], [flatSource]));
 
     expect(result.fixtures[0]?.arms[0]).toMatchObject({
       oscillatingRules: [],
@@ -188,24 +216,44 @@ describe("lint message eval", () => {
 
   it("rejects recorded messages that no longer match the current lint surface", () => {
     expect(() =>
-      evaluateLintMessageTrace(traceWithArms([flatSource], [flatSource], "stale treatment")),
+      evaluateTestTrace(traceWithArms([flatSource], [flatSource], "stale treatment")),
     ).toThrow(/stale treatment message/u);
+  });
+
+  it("rejects a fixture when its commit blob cannot be read", () => {
+    const missingGit: GitRunner = () => {
+      throw new Error("unknown revision");
+    };
+
+    expect(() => evaluateTestTrace(traceWithArms([flatSource], [flatSource]), missingGit)).toThrow(
+      /could not read nested-guards source from 0123456789abcdef0123456789abcdef01234567:/u,
+    );
+  });
+
+  it("rejects a fixture whose inclusive source range is outside the commit blob", () => {
+    const fixture = {
+      ...fixtureEntry("out-of-range", [flatSource], [flatSource]),
+      sourceLine: 2,
+      sourceEndLine: nestedSource.split("\n").length + 1,
+    };
+
+    expect(() => evaluateTestTrace(traceWithFixtures([fixture]))).toThrow(
+      /out-of-range source range 2-11 exceeds/u,
+    );
+  });
+
+  it("rejects copied source that does not exactly match the named commit range", () => {
+    const mismatchedGit: GitRunner = () => nestedSource.replace("return false", "return true");
+
+    expect(() =>
+      evaluateTestTrace(traceWithArms([flatSource], [flatSource]), mismatchedGit),
+    ).toThrow(/nested-guards source does not match/u);
   });
 
   it("replays the committed pilot trace and renders its null result", () => {
     const input: unknown = JSON.parse(
       readFileSync("scripts/fixtures/lint-message-eval/2026-07-15-codex-pilot.json", "utf8"),
     );
-    const trace = parseLintMessageTrace(input);
-    for (const fixture of trace.fixtures) {
-      const attributedSource = readFileSync(fixture.filename, "utf8")
-        .split("\n")
-        .slice(fixture.sourceLine - 1, fixture.sourceEndLine)
-        .join("\n");
-      expect(fixture.source, `${fixture.filename}:${String(fixture.sourceLine)} provenance`).toBe(
-        attributedSource,
-      );
-    }
     const result = evaluateLintMessageTrace(input);
 
     expect(result.summary).toEqual({

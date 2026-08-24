@@ -5,7 +5,8 @@ import { pathToFileURL } from "node:url";
 // script, so user arguments start at index 2. CLI entry guards slice with this
 // constant instead of respelling it (`PROCESS_ARG_OFFSET`,
 // `nodeArgvUserArgumentOffset`, ...), which had defeated symbol search for one
-// concept. Existing CLIs converge opportunistically; new CLIs import it.
+// concept. A file being edited for any reason converges its offset; new CLIs
+// import it. The remaining bulk sweep is deliberately not scheduled.
 export const PROCESS_ARGV_USER_ARGS_START = 2;
 
 const PROCESS_ARGV_ENTRY_SCRIPT = 1;

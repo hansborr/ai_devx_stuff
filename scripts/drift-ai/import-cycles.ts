@@ -9,8 +9,8 @@
 import type { PathProbe } from "./adapter-support.js";
 import type { CheckRunContext } from "./check-plugin.js";
 import type { ModuleGraph, ModuleGraphRunner } from "./import-cycles-graph.js";
-import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type { ConfigSource, DriftFinding, FindingProvenance, SkipReasonCode } from "./types.js";
 
 // Services the import-cycles adapter resolves for itself (plugin-owned setup): the

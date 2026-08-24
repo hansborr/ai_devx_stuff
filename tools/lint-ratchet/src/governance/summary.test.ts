@@ -1,5 +1,11 @@
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
+import { customWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import { currentById, FIXTURE_HASH } from "../../test/support/lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
@@ -16,6 +22,7 @@ import {
   formatLintRatchetDirectorySummary,
   formatLintRatchetSummary,
   type LintRatchetSummaryRow,
+  runLintRatchetSummaryCli,
   summarizeLintRatchetBaseline,
   summarizeLintRatchetBaselineByDirectory,
 } from "./summary.js";
@@ -30,7 +37,6 @@ const messageRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture message ratchet principle.",
 };
 
@@ -42,7 +48,6 @@ const maxLinesRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "effective-line-count",
-  repairKind: "manual",
   principle: "Fixture max-lines ratchet principle.",
 };
 
@@ -56,7 +61,6 @@ const complexityRatchet: LintRatchetConfig = {
   ruleOptions: [{ max: 10 }],
   mode: "no-new",
   metric: "complexity-severity",
-  repairKind: "manual",
   principle: "Fixture complexity ratchet principle.",
 };
 
@@ -88,10 +92,29 @@ function fixtureBaseline(): LintRatchetBaseline {
       [maxLinesRatchet.id, [["packages/app/src/large.ts", { count: 1, lines: 340 }]]],
     ]),
     ruleSourceHashes,
+    { workflowVocabulary: fixtureWorkflowVocabulary },
   );
 }
 
 describe("lint ratchet summary", () => {
+  it("uses the actual custom baseline filename in conflict-marker remediation", () => {
+    const root = mkdtempSync(join(tmpdir(), "lint-ratchet-summary-"));
+    const baselinePath = join(root, "custom-floor.json");
+    writeFileSync(
+      baselinePath,
+      '<<<<<<< ours\n{"version":2}\n=======\n{"version":2}\n>>>>>>> theirs\n',
+    );
+    try {
+      expect(() => {
+        runLintRatchetSummaryCli(baselinePath, [], undefined, customWorkflowVocabulary);
+      }).toThrow(
+        "custom-floor.json is generated; Git conflict markers mean its semantic merge driver was not installed",
+      );
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
   it("reduces a parsed baseline and matching registry to per-ratchet rows", () => {
     expect(
       summarizeLintRatchetBaseline(fixtureBaseline(), [messageRatchet, maxLinesRatchet]),
@@ -145,7 +168,10 @@ describe("lint ratchet summary", () => {
   });
 
   it("formats an empty baseline as a header plus no-ratchets body", () => {
-    const regenerate = lintRatchetBaselineRegenerateForVersion(LINT_RATCHET_BASELINE_WRITE_VERSION);
+    const regenerate = lintRatchetBaselineRegenerateForVersion(
+      LINT_RATCHET_BASELINE_WRITE_VERSION,
+      fixtureWorkflowVocabulary.updateCommand,
+    );
     const emptyBaseline: LintRatchetBaseline = {
       version: LINT_RATCHET_BASELINE_WRITE_VERSION,
       ...(regenerate === undefined ? {} : { regenerate }),
@@ -170,6 +196,7 @@ describe("lint ratchet summary", () => {
         ],
       ]),
       ruleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
 
     expect(summarizeLintRatchetBaselineByDirectory(baseline, [messageRatchet], 3)).toEqual([
@@ -256,6 +283,7 @@ describe("lint ratchet summary", () => {
         ],
       ]),
       ruleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
 
     expect(summarizeLintRatchetBaseline(baseline, [complexityRatchet])).toEqual([

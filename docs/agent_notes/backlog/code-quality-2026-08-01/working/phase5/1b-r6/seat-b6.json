@@ -1,0 +1,427 @@
+{
+  "contractVersion": 1,
+  "step": "1b-round-6",
+  "seat": "B6",
+  "audited": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[0]",
+      "originalTitle": "Four verify:steps artifacts are rendered and compared through overlapping generation paths.",
+      "reconstruction": "The title points to the four outputs owned by check/verify-steps-generator. I traced their path-to-renderer registrations through the producer, the in-process registration checker, the preflight coverage guard, and the generic generated-surface check loop.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "B6-01",
+        "title": "The four verify:steps outputs have no shared generation/freshness descriptor",
+        "area": "harness",
+        "category": "duplication",
+        "severityHint": "medium",
+        "sizeHint": "M",
+        "evidence": [
+          {
+            "path": "scripts/harness/generate-verify-steps.ts",
+            "line": 402,
+            "endLine": 433,
+            "measurement": null,
+            "note": "The producer separately registers four output paths and renderers; the final three registrations independently reload the generated-surface model."
+          },
+          {
+            "path": "scripts/harness/registration-generated-checks.ts",
+            "line": 95,
+            "endLine": 131,
+            "measurement": null,
+            "note": "The registration checker independently enumerates the same four path-to-renderer pairs for freshness comparison."
+          },
+          {
+            "path": "scripts/harness/registration-preflight-wiring.ts",
+            "line": 22,
+            "endLine": 30,
+            "measurement": null,
+            "note": "A third hard list names the four output paths; its later check covers checker-source occurrences and manifest membership, not producer descriptor coverage."
+          },
+          {
+            "path": "scripts/harness-check.ts",
+            "line": 87,
+            "endLine": 98,
+            "measurement": null,
+            "note": "After in-process freshness comparison, the full gate also invokes this record's checkScript through the generic generated-surface loop."
+          }
+        ],
+        "problem": "The path-to-renderer contract is duplicated between the writer and registration checker, while full harness checking compares the record again through verify:steps:check. Adding an output requires synchronized edits, and the current preflight can accept a checker/manifest entry whose advertised refresh command never writes that output.",
+        "proposedDirection": "Define one typed projection descriptor or rendered-output collection shared by generation and registration freshness checks, load the manifest models once, and derive coverage parity from its paths. Preserve granular malformed-manifest diagnostics and the standalone verify:steps:check command.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "B6",
+            "sourceItemId": "wave-1/lane-01.json::coverage.cut[0]",
+            "lane": "lane-01-harness-core",
+            "originalTitle": "Four verify:steps artifacts are rendered and compared through overlapping generation paths.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [
+          "Looks close to leaf 115 — it removes the four-output preflight hard list and source fingerprint, but does not explicitly consolidate the independently duplicated render orchestration.",
+          "Looks close to leaf 114 — it addresses generator/checker raw-control field walks, not generated-output descriptors.",
+          "Looks close to leaf 116 — it addresses trigger/fixture dependency echoes, not path-to-renderer ownership."
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[1]",
+      "originalTitle": "Manifest facets use several incompatible manual validation dialects.",
+      "reconstruction": "The title points at generatedSurface, hookWiring, skillWiring, and slots. The broad consumer-owned validation split is documented and deliberate, but opening all four owners exposed a narrower residual: hookWiring alone lacks exact-key enforcement at both the facet and per-command levels.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "B6-02",
+        "title": "hookWiring is the only manifest facet that silently accepts unknown keys",
+        "area": "harness",
+        "category": "idiom",
+        "severityHint": "low",
+        "sizeHint": "S",
+        "evidence": [
+          {
+            "path": "scripts/harness/harness-manifest-schema.ts",
+            "line": 30,
+            "endLine": 43,
+            "measurement": null,
+            "note": "The canonical parser intentionally treats facet interiors as loose objects and delegates their deep contracts to consumers."
+          },
+          {
+            "path": "scripts/harness/generated-surfaces.ts",
+            "line": 29,
+            "endLine": 56,
+            "measurement": null,
+            "note": "generatedSurface uses strict Zod objects for the facet and nested bunHook object, explicitly treating unknown keys as registration typos."
+          },
+          {
+            "path": "scripts/harness/skill-inventory-schema.ts",
+            "line": 44,
+            "endLine": 52,
+            "measurement": null,
+            "note": "skillWiring's manual validator rejects unsupported fields through assertExactKeys."
+          },
+          {
+            "path": "scripts/harness/verify-step-schema.ts",
+            "line": 186,
+            "endLine": 203,
+            "measurement": null,
+            "note": "The slots validator compares every key against SLOT_KEYS and reports unsupported keys."
+          },
+          {
+            "path": "scripts/harness/hook-wiring-schema.ts",
+            "line": 233,
+            "endLine": 256,
+            "measurement": null,
+            "note": "Per-harness commands read known fields but never compare the raw object's keys with an allowed inventory."
+          },
+          {
+            "path": "scripts/harness/hook-wiring-schema.ts",
+            "line": 332,
+            "endLine": 370,
+            "measurement": null,
+            "note": "resolveHookWiring reads and returns only known facet fields without exact-key validation of the hookWiring object."
+          },
+          {
+            "path": "harness.controls.json",
+            "line": null,
+            "endLine": null,
+            "measurement": "18 controls carry hookWiring, derived with jq '[.controls[] | select(has(\"hookWiring\"))] | length' harness.controls.json",
+            "note": "The inconsistent typo policy applies to a substantial live facet family."
+          }
+        ],
+        "problem": "Because the typed parser deliberately leaves facet interiors loose, each consumer is the only enforcement point for its facet. Three facet families reject unsupported keys, but hookWiring silently ignores them at both the facet and command levels. Misspelled or obsolete fields can therefore survive validation and disappear from generated configuration.",
+        "proposedDirection": "Add explicit allowed-key inventories and focused rejection checks for the hookWiring object and each harness command. Preserve consumer-owned semantic validation; do not unify the facet validators or move their deep contracts into the whole-manifest schema.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "B6",
+            "sourceItemId": "wave-1/lane-01.json::coverage.cut[1]",
+            "lane": "lane-01-harness-core",
+            "originalTitle": "Manifest facets use several incompatible manual validation dialects.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [
+          "Looks close to leaf 114 — it addresses duplicated raw non-lint field walks but explicitly leaves hookWiring resolution untouched.",
+          "Looks close to leaf 127 — it inventories the non-Zod facet validators and binds against unifying them; this residual preserves separate ownership.",
+          "Looks close to leaf 126 — both touch hookWiring, but leaf 126 addresses repeated derived command and matcher content rather than parser acceptance."
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[2]",
+      "originalTitle": "harness:check serially launches generated-surface subprocesses despite already having in-process models.",
+      "reconstruction": "I followed harness:check from runRegistrationChecks into the generated-surface loop. It performs twelve blocking check-script launches after already comparing the verify-step and skill-artifact projections in process; the broader assertion that every generator has an in-process model was narrowed to the two proven duplicates.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "B6-03",
+        "title": "harness:check serializes twelve freshness subprocesses and reruns two projections already checked in process",
+        "area": "harness",
+        "category": "dx",
+        "severityHint": "low",
+        "sizeHint": "M",
+        "evidence": [
+          {
+            "path": "scripts/harness-check.ts",
+            "line": 66,
+            "endLine": 70,
+            "measurement": null,
+            "note": "Every generated-surface freshness command is executed with blocking spawnSync."
+          },
+          {
+            "path": "scripts/harness-check.ts",
+            "line": 87,
+            "endLine": 98,
+            "measurement": null,
+            "note": "A plain for loop runs every registered check script serially; main invokes it after runRegistrationChecks."
+          },
+          {
+            "path": "harness.controls.json",
+            "line": null,
+            "endLine": null,
+            "measurement": "12 controls carry generatedSurface, derived with jq '[.controls[] | select(.generatedSurface != null)] | length' harness.controls.json",
+            "note": "One full harness check launches twelve serialized freshness subprocesses."
+          },
+          {
+            "path": "scripts/harness/registration-generated-checks.ts",
+            "line": 95,
+            "endLine": 130,
+            "measurement": null,
+            "note": "Registration checking already renders and compares the four verify:steps outputs in process."
+          },
+          {
+            "path": "scripts/harness/generate-verify-steps.ts",
+            "line": 402,
+            "endLine": 433,
+            "measurement": null,
+            "note": "The subsequently spawned verify:steps:check command renders those same four outputs with the same renderer functions."
+          },
+          {
+            "path": "scripts/harness/generate-skill-artifacts.ts",
+            "line": 46,
+            "endLine": 85,
+            "measurement": null,
+            "note": "The in-process skill collector and spawned harness:skills:check command compute and compare the same projections."
+          }
+        ],
+        "problem": "The contributor-facing harness gate pays sequential child-process startup and generator work for twelve independent freshness families, while two families repeat exact projections and comparisons just completed in process. This lengthens the validation path and maintains two diagnostic routes for the same drift without adding coverage.",
+        "proposedDirection": "Treat the already-executed verify-step and skill-artifact checks as satisfying their generatedSurface records, then run remaining independent check scripts through a bounded async collector while preserving stable aggregate diagnostics.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "B6",
+            "sourceItemId": "wave-1/lane-01.json::coverage.cut[2]",
+            "lane": "lane-01-harness-core",
+            "originalTitle": "harness:check serially launches generated-surface subprocesses despite already having in-process models.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [
+          "Looks adjacent to leaf 116 — both touch generatedSurface and harness:check, but leaf 116 owns manual trigger/fixture dependency declarations while this residual owns freshness-check execution and duplicate work."
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[9]",
+      "originalTitle": "Verify portability claims conflict with nameref, GNU-tool, Linux-procfs, and workspace-path assumptions.",
+      "reconstruction": "I traced the portability language in docs/ai-harness.md and scripts/ai-hooks/README.md against generated verify steps and the verification runtime. The documentation scopes portability to selected generator and copy-boundary machinery and explicitly labels actual gate orchestration as repo-local Bash with porting knobs.",
+      "disposition": "dismiss",
+      "dismissReason": "Opened docs/ai-harness.md:185-214 and :280-293: the verify-step generator/schema are listed in the portable core, while verify.sh, pre-commit, and land.sh are explicitly repo-local Bash orchestration. Opened scripts/ai-hooks/README.md:178-230: it identifies /workspace fallbacks, Bun invocation, fixed verify consumers/layout, Bash, and jq as replacement points or structural assumptions. The runtime does use associative arrays (scripts/verify/steps.generated.sh:19-21), namerefs (scripts/verify/steps-lib.sh:66,215-217), realpath -m and flock (scripts/lib/verify-engine.sh:278-282,403-413), Linux procfs (scripts/verify/memory-budget.sh:166-191), and /workspace fallbacks (scripts/lib/verify-metadata.sh:121-135; scripts/verify-logs.sh:31-32), but these belong to the documented repo-local adapter side. The memory fallback explicitly names the Linux requirement and override at scripts/verify/memory-budget.sh:468-472. The Bash 3.2 remark at scripts/verify/steps-lib.sh:160-162 describes one empty-array set-u guard, not whole-runtime compatibility.",
+      "candidate": null
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[10]",
+      "originalTitle": "verify-logs.sh duplicates marker validation already present in verify-metadata.sh.",
+      "reconstruction": "scripts/verify-logs.sh sources scripts/lib/verify-metadata.sh but defines read_wrapper_marker_ts for the same LAST_TS/LAST_HEAD/LAST_HASH schema already decoded by musi_read_success_marker. The local reader has four call sites and has drifted by accepting duplicate fields.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "B6-04",
+        "title": "Route verify:logs wrapper-marker reads through the canonical marker codec",
+        "area": "harness",
+        "category": "duplication",
+        "severityHint": "low",
+        "sizeHint": "S",
+        "evidence": [
+          {
+            "path": "scripts/verify-logs.sh",
+            "line": 33,
+            "endLine": 44,
+            "measurement": null,
+            "note": "verify-logs already sources verify-metadata.sh and obtains all wrapper-marker paths through that library."
+          },
+          {
+            "path": "scripts/verify-logs.sh",
+            "line": 190,
+            "endLine": 215,
+            "measurement": null,
+            "note": "A local reader independently validates and decodes the LAST_TS/LAST_HEAD/LAST_HASH wrapper-marker schema."
+          },
+          {
+            "path": "scripts/lib/verify-metadata.sh",
+            "line": 783,
+            "endLine": 830,
+            "measurement": null,
+            "note": "The sourced library already exposes the canonical success-marker reader, including duplicate-field rejection absent from the local copy."
+          },
+          {
+            "path": "scripts/tests/test-verify-logs.sh",
+            "line": 194,
+            "endLine": 240,
+            "measurement": null,
+            "note": "The viewer suite repeats a subset of marker-shape validation cases instead of exercising one codec through viewer behavior."
+          }
+        ],
+        "problem": "One wrapper-marker format has two Bash validators even though the viewer already sources the canonical library. Protocol changes require parallel implementation and test edits, and the copies already disagree about duplicate fields, allowing reporting to interpret marker validity differently from the gate.",
+        "proposedDirection": "Delete read_wrapper_marker_ts and add a small viewer adapter over musi_read_success_marker that computes age and returns its exported timestamp. Keep viewer integration cases while the canonical suite owns marker-shape validation.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "B6",
+            "sourceItemId": "wave-1/lane-01.json::coverage.cut[10]",
+            "lane": "lane-01-harness-core",
+            "originalTitle": "verify-logs.sh duplicates marker validation already present in verify-metadata.sh.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [
+          {
+            "kind": "do-not-reopen",
+            "ref": "CQ25-124",
+            "residual": "The prior analytical-core ruling keeps success-marker and TTL parsing in Bash; this residual consolidates two Bash readers through the already-sourced function and does not reopen the TypeScript-port decision."
+          }
+        ],
+        "existingLeafHints": [
+          "Looks close to leaf 117 — that leaf decomposes verify-metadata.sh behind a byte-identical aggregator and consumer surface, leaving verify-logs.sh's second parser intact.",
+          "Looks close to leaf 141 — that leaf covers TypeScript state-path derivation in logs-audit-latest.ts, not wrapper-marker validation in verify-logs.sh."
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[20]",
+      "originalTitle": "backlog-lint implements a 1,393-line heuristic note language while calling it front matter.",
+      "reconstruction": "The title points to the nine non-test scripts/backlog-lint*.ts modules, totaling exactly 1,393 lines. The contributor guide describes the command only as front-matter lint, but the implementation also infers dates from paths and Status prose, interprets free-form lifecycle sentences, guesses pack indexes, and parses a local Markdown table/link dialect.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "B6-05",
+        "title": "backlog:lint hides a repository-specific note and pack grammar behind “front matter”",
+        "area": "harness",
+        "category": "dx",
+        "severityHint": "medium",
+        "sizeHint": "M",
+        "evidence": [
+          {
+            "path": "docs/guides/lint-overview.md",
+            "line": 53,
+            "endLine": null,
+            "measurement": null,
+            "note": "The contributor guide describes backlog-lint only as front-matter lint for backlog notes."
+          },
+          {
+            "path": "scripts/backlog-lint-metadata.ts",
+            "line": 22,
+            "endLine": 27,
+            "measurement": null,
+            "note": "The supposed front matter is an undelimited 30-line scan with a private accepted-field vocabulary."
+          },
+          {
+            "path": "scripts/backlog-lint-core.ts",
+            "line": 80,
+            "endLine": 87,
+            "measurement": null,
+            "note": "A note date may be inferred from Status prose or its pathname, outside the advertised header contract."
+          },
+          {
+            "path": "scripts/backlog-lint-status.ts",
+            "line": 61,
+            "endLine": 103,
+            "measurement": null,
+            "note": "Free-form Status prose is interpreted through custom clause, negation, terminal-token, and substring rules."
+          },
+          {
+            "path": "scripts/backlog-lint-packs.ts",
+            "line": 106,
+            "endLine": 147,
+            "measurement": null,
+            "note": "The command guesses pack indexes from filename keywords and Status prose."
+          },
+          {
+            "path": "scripts/backlog-lint-index-table.ts",
+            "line": 97,
+            "endLine": 108,
+            "measurement": null,
+            "note": "The tool treats the first Markdown table with a Status column as another implicit format contract."
+          },
+          {
+            "path": "scripts/backlog-lint.ts",
+            "line": null,
+            "endLine": null,
+            "measurement": "1,393 production lines across nine non-test scripts/backlog-lint*.ts modules, derived with wc -l and excluding *.test.ts",
+            "note": "The advertised narrow lint is a substantial repository-specific note and pack analyzer."
+          }
+        ],
+        "problem": "Contributors are told they are satisfying front matter, but the tool interprets undelimited header-like lines, dates embedded in paths or Status prose, free-form lifecycle sentences, filenames, index names, Markdown links, and a first-Status-table convention. Innocuous prose or layout changes can affect classification, while maintainers must reconstruct the accepted language from nine modules.",
+        "proposedDirection": "Name and document the full backlog-note and pack contract, then expose one explicit parsed model at the linter boundary. Preserve compatibility with existing notes while isolating fallback heuristics from the canonical format before extending the classifier.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "B6",
+            "sourceItemId": "wave-1/lane-01.json::coverage.cut[20]",
+            "lane": "lane-01-harness-core",
+            "originalTitle": "backlog-lint implements a 1,393-line heuristic note language while calling it front matter.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [
+          {
+            "kind": "plan-slice",
+            "ref": "CQ25-39",
+            "residual": "CQ25-39 only relocates backlog-lint internals beneath an owner directory while retaining the facade; it does not name or formalize the implicit note, status, index, and Markdown grammar."
+          }
+        ],
+        "existingLeafHints": [
+          "Looks close to leaf 084 — that leaf extends backlog-lint with a generated catalog and classifier and acknowledges free-form-status heuristic risk, but does not make the existing input grammar explicit."
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[29]",
+      "originalTitle": "Sensor facade/core conventions remain inconsistent across blob-size and context-budget tools.",
+      "reconstruction": "The title points at the two top-level command/test pairs and their differing exported test seams. I opened both complete sources and tests, searched their importers, and checked the scripts layout contract, manifest and doctor call sites, current leaves, the dedup corpus, and the pinned prior-pack layout ruling.",
+      "disposition": "dismiss",
+      "dismissReason": "scripts/sensor-blob-size.ts:83-109,316-320 and scripts/sensor-context-budget.ts:346-372 use the same import-safe CLI envelope. Their only TypeScript importers are their colocated tests (sensor-blob-size.test.ts:7 and sensor-context-budget.test.ts:7-14); context-budget's additional pure exports support fine-grained parser, traversal, and reporting tests, while blob-size's Git-backed contract is exercised through its runner. scripts/README.md:11-30 explicitly permits command/direct-companion pairs, and the pinned prior 28-PLAN.md:129 rules both as sanctioned companions. Their different doctor treatment follows their contracts—blob-size can block while context-budget is report-only—as shown by harness.controls.json:467-484 and scripts/doctor.sh:854-862. No concrete maintenance harm justifies a core split or API normalization.",
+      "candidate": null
+    }
+  ],
+  "bugsNoticed": [
+    {
+      "path": "scripts/verify-logs.sh",
+      "line": 201,
+      "note": "The local wrapper-marker reader accepts duplicate LAST_TS/LAST_HEAD/LAST_HASH fields that musi_read_success_marker rejects, so a corrupt duplicate-key marker may be treated as valid by verify:logs."
+    }
+  ],
+  "notes": [
+    "No assigned title was unresolved.",
+    "Read-only audit completed without running tests/builds or modifying files."
+  ]
+}

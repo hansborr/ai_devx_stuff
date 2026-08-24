@@ -1,6 +1,8 @@
 # 29. worktree-db.sh and stop-policy.sh hold seven copies of the same state codec, and the copies have drifted
 
-Status: Proposed — not promoted
+Status: Partially landed 2026-08-01 on `fix/cq-harness-h1-h2` (merge
+`2667ee8e0`) — H1 and H2 landed; H11 and H12 remain blocked on unlanded
+28-PLAN slice 28.1
 Theme: duplicated persistence codecs in bash · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

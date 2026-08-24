@@ -104,6 +104,12 @@ if (failures.length > 0) {
   || fail "repo Vitest configs should set 30000ms testTimeout: $timeout_check_output"
 ok "repo Vitest configs set a 30000ms per-test timeout"
 
+# The import-closure walker moved from top-level scripts/*.ts into its owner
+# directory, so keep the production family in the scripts coverage denominator.
+grep -qF '"import-closure/**/*.ts"' scripts/vitest.config.ts \
+  || fail "scripts/vitest.config.ts should collect import-closure production coverage"
+ok "scripts Vitest coverage includes the import-closure module"
+
 # --- 1. Every package config carries the slow-tier exclude -----------------
 # The shared package gets the runtime checks below via the sentinel. For
 # server and client we don't keep production sentinel fixtures, so a static

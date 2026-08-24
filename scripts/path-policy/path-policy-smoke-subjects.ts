@@ -2,6 +2,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 import { SCRIPT_SMOKE_SUBJECTS } from "./path-policy-smoke-subjects-data.js";
+import { isSmokeTestBasename } from "./smoke-test-files.js";
 
 function discoverScriptSmokeTestNames(): readonly string[] {
   const testsDir = join(process.cwd(), "scripts", "tests");
@@ -10,7 +11,7 @@ function discoverScriptSmokeTestNames(): readonly string[] {
 
   const discovered = new Set(
     readdirSync(testsDir)
-      .filter((entry) => /^test-.+\.sh$/u.test(entry))
+      .filter(isSmokeTestBasename)
       .map((entry) => entry.slice(0, -".sh".length)),
   );
   const ordered = subjectNames.filter((name) => discovered.has(name));

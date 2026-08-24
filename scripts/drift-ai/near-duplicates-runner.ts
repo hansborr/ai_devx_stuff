@@ -28,6 +28,12 @@ import { isExactCloneFileEligible } from "./near-duplicates-exact-config.js";
 import { toPosix } from "./path-util.js";
 import { walkSourceFiles } from "./source-walk.js";
 
+const SIMILARITY_TS_SUPPORTED_RELEASE = "0.5.0";
+const SIMILARITY_TS_OUTPUT_DIAGNOSTIC_LIMIT = 160;
+const SIMILARITY_TS_RESULT_RULE = "-".repeat(60);
+const SIMILARITY_TS_NO_SOURCE_FILES_SENTINEL =
+  "No TypeScript/JavaScript files found in the specified paths.";
+
 // The subprocess seam for the optional similarity-ts engine. The return is
 // narrowed to the fields runSimilarityTs reads so a test fake need not construct
 // a full SpawnSyncReturns; node's real spawnSync stays directly assignable.
@@ -52,7 +58,7 @@ type NearDuplicateRunnerInput = {
   readonly minLines: number;
   readonly minTokens: number;
   readonly similarityThreshold: number;
-  readonly includeExactTokens?: boolean;
+  readonly includeExactTokens: boolean;
 };
 
 export type NearDuplicateSourceInventoryInput = Pick<
@@ -114,8 +120,7 @@ export function collectNearDuplicateSourceFiles(
 function runTsMorph(input: NearDuplicateRunnerInput): NearDuplicateRunnerResult {
   try {
     const functions = collectNearDuplicateSourceFiles(input).flatMap((filePath) => {
-      const includeExactTokens =
-        input.includeExactTokens === true && isExactCloneFileEligible(filePath);
+      const includeExactTokens = input.includeExactTokens && isExactCloneFileEligible(filePath);
       return extractNearDuplicateFunctions(
         filePath,
         readFileSync(path.join(input.repoRoot, filePath), "utf8"),
@@ -153,9 +158,19 @@ function runSimilarityTs(
       error: message,
     };
   }
-  const pairs = parseSimilarityTsOutput(result.stdout);
-  if (result.status === 0 || pairs.length > 0) {
-    return { ok: true, engine: SIMILARITY_TS_TOOL, pairs };
+  const parsed = parseSimilarityTsOutput(result.stdout);
+  if (parsed.kind === "pairs") {
+    return { ok: true, engine: SIMILARITY_TS_TOOL, pairs: parsed.pairs };
+  }
+  if (result.status === 0 && parsed.kind === "zero-pairs") {
+    return { ok: true, engine: SIMILARITY_TS_TOOL, pairs: [] };
+  }
+  if (result.status === 0) {
+    return {
+      ok: false,
+      reason: "run-failed",
+      error: unsupportedSimilarityTsOutput(result.stdout),
+    };
   }
   return {
     ok: false,
@@ -169,54 +184,93 @@ function similarityTsArgs(input: NearDuplicateRunnerInput, files: readonly strin
     ...files,
     "--threshold",
     String(input.similarityThreshold),
-    "--min-lines",
-    String(input.minLines),
     "--min-tokens",
     String(input.minTokens),
-    "--cross-file",
+    "--no-types",
   ];
 }
 
-function parseSimilarityTsOutput(output: string): NearDuplicatePair[] {
-  const pairs: NearDuplicatePair[] = [];
-  let pending: {
-    readonly left: NearDuplicateFunctionRef;
-    readonly right: NearDuplicateFunctionRef;
-  } | null = null;
-  for (const line of output.split(/\r?\n/u)) {
-    const parsedPair = parseSimilarityPairLine(line);
-    if (parsedPair !== null) {
-      pending = parsedPair;
-      continue;
-    }
-    const similarity = parseSimilarityScoreLine(line);
-    if (similarity !== null && pending !== null) {
-      pairs.push(buildNearDuplicatePair(pending.left, pending.right, similarity));
-      pending = null;
-    }
+type SimilarityTsOutput =
+  | { readonly kind: "pairs"; readonly pairs: readonly NearDuplicatePair[] }
+  | { readonly kind: "zero-pairs" }
+  | { readonly kind: "unsupported" };
+
+// similarity-ts 0.5.0 prints fixed run/function headers followed by either a
+// no-source-files sentinel, or a checking header and its zero-pair sentinel or
+// declared count and score-first three-line records.
+// Blank separator lines are presentation-only; every non-blank line must be
+// consumed so output drift cannot certify a clean scan merely because the
+// process still exits zero.
+function parseSimilarityTsOutput(output: string): SimilarityTsOutput {
+  const lines = output.split(/\r?\n/u).filter((line) => line.trim().length > 0);
+  if (isSimilarityTsNoSourceFilesOutput(lines)) return { kind: "zero-pairs" };
+  const body = similarityTsProtocolBody(lines);
+  if (body === null) return { kind: "unsupported" };
+  if (isSimilarityTsZeroPairSentinel(body[0] ?? "")) {
+    return body.length === 1 ? { kind: "zero-pairs" } : { kind: "unsupported" };
   }
-  return sortNearDuplicatePairs(pairs);
+  return parseSimilarityTsPairOutput(body);
 }
 
-function parseSimilarityPairLine(
-  line: string,
-): { readonly left: NearDuplicateFunctionRef; readonly right: NearDuplicateFunctionRef } | null {
-  const [leftRaw, rightRaw] = splitPairLine(line);
-  if (leftRaw === undefined || rightRaw === undefined) return null;
-  const left = parseSimilaritySide(leftRaw);
-  const right = parseSimilaritySide(rightRaw);
-  if (left === null || right === null) return null;
-  return {
-    left,
-    right,
-  };
+function similarityTsProtocolBody(lines: readonly string[]): readonly string[] | null {
+  if (
+    lines[0] !== "Analyzing code similarity..." ||
+    lines[1] !== "=== Function Similarity ===" ||
+    !/^Checking [1-9]\d* files for duplicates\.\.\.$/u.test(lines[2] ?? "")
+  ) {
+    return null;
+  }
+  return lines.slice(3);
 }
 
-function splitPairLine(line: string): readonly [string | undefined, string | undefined] {
-  const marker = " <-> ";
-  const index = line.indexOf(marker);
-  if (index < 0) return [undefined, undefined];
-  return [line.slice(0, index).trim(), line.slice(index + marker.length).trim()];
+function isSimilarityTsNoSourceFilesOutput(lines: readonly string[]): boolean {
+  return (
+    lines.length === 3 &&
+    lines[0] === "Analyzing code similarity..." &&
+    lines[1] === "=== Function Similarity ===" &&
+    lines[2] === SIMILARITY_TS_NO_SOURCE_FILES_SENTINEL
+  );
+}
+
+function parseSimilarityTsPairOutput(body: readonly string[]): SimilarityTsOutput {
+  const expectedPairCount = parseSimilarityTsPairCount(body[0]);
+  if (expectedPairCount === null) return { kind: "unsupported" };
+  if (body[1] !== SIMILARITY_TS_RESULT_RULE) return { kind: "unsupported" };
+  const pairs: NearDuplicatePair[] = [];
+  for (let index = 2; index < body.length; index += 3) {
+    const pair = parseSimilarityTsPairRecord(body, index);
+    if (pair === null) return { kind: "unsupported" };
+    pairs.push(pair);
+  }
+  if (pairs.length !== expectedPairCount) return { kind: "unsupported" };
+  return { kind: "pairs", pairs: sortNearDuplicatePairs(pairs) };
+}
+
+function parseSimilarityTsPairCount(line: string | undefined): number | null {
+  if (line === undefined) return null;
+  const match = line.match(/^Found ([1-9]\d*) duplicate pairs:$/u);
+  if (match?.[1] === undefined) return null;
+  return Number(match[1]);
+}
+
+function parseSimilarityTsPairRecord(
+  lines: readonly string[],
+  index: number,
+): NearDuplicatePair | null {
+  const similarity = parseSimilarityScoreLine(lines[index]);
+  const left = parseSimilarityFunctionLine(lines[index + 1]);
+  const right = parseSimilarityFunctionLine(lines[index + 2]);
+  if (similarity === null || left === null || right === null) return null;
+  return buildNearDuplicatePair(left, right, similarity);
+}
+
+function isSimilarityTsZeroPairSentinel(line: string): boolean {
+  return line === "No duplicate functions found!";
+}
+
+function parseSimilarityFunctionLine(line: string | undefined): NearDuplicateFunctionRef | null {
+  if (line === undefined || !line.startsWith("  ") || line.startsWith("   ")) return null;
+  return parseSimilaritySide(line.slice(2));
 }
 
 function parseSimilaritySide(raw: string): NearDuplicateFunctionRef | null {
@@ -224,26 +278,32 @@ function parseSimilaritySide(raw: string): NearDuplicateFunctionRef | null {
   if (colon < 0) return null;
   const filePath = raw.slice(0, colon);
   const afterColon = raw.slice(colon + 1).trim();
-  const firstSpace = afterColon.indexOf(" ");
-  if (firstSpace < 0) return null;
-  const range = afterColon.slice(0, firstSpace);
-  const dash = range.indexOf("-");
-  if (dash < 0) return null;
-  const startLine = Number.parseInt(range.slice(0, dash), 10);
-  const endLine = Number.parseInt(range.slice(dash + 1), 10);
+  const match = afterColon.match(/^(\d+)-(\d+) (.+)$/u);
+  if (match === null) return null;
+  const startLine = Number(match[1]);
+  const endLine = Number(match[2]);
   if (!Number.isFinite(startLine) || !Number.isFinite(endLine)) return null;
-  return similarityRef(filePath, startLine, endLine, afterColon.slice(firstSpace + 1));
+  return similarityRef(filePath, startLine, endLine, match[3] ?? "");
 }
 
-function parseSimilarityScoreLine(line: string): number | null {
-  const prefix = "Similarity:";
-  const trimmed = line.trim();
-  if (!trimmed.startsWith(prefix)) return null;
-  const percentIndex = trimmed.indexOf("%", prefix.length);
-  if (percentIndex < 0) return null;
-  const value = Number.parseFloat(trimmed.slice(prefix.length, percentIndex).trim());
+function parseSimilarityScoreLine(line: string | undefined): number | null {
+  if (line === undefined) return null;
+  const match = line.match(
+    /^Similarity: (\d+(?:\.\d+)?)%, Score: \d+(?:\.\d+)? points \(lines \d+~\d+, avg: \d+(?:\.\d+)?\)$/u,
+  );
+  if (match === null) return null;
+  const value = Number(match[1]);
   if (!Number.isFinite(value)) return null;
   return value / 100;
+}
+
+function unsupportedSimilarityTsOutput(output: string): string {
+  const singleLine = output.replace(/\s+/gu, " ").trim();
+  const excerpt =
+    singleLine.length > SIMILARITY_TS_OUTPUT_DIAGNOSTIC_LIMIT
+      ? `${singleLine.slice(0, SIMILARITY_TS_OUTPUT_DIAGNOSTIC_LIMIT)}…`
+      : singleLine;
+  return `similarity-ts stdout did not match the similarity-ts ${SIMILARITY_TS_SUPPORTED_RELEASE} text protocol; expected complete score/function records or the zero-pair sentinel, received ${JSON.stringify(excerpt)}`;
 }
 
 function similarityRef(

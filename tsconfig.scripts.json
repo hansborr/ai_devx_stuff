@@ -2,7 +2,28 @@
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "composite": false,
-    "noEmit": true
+    "noEmit": true,
+    // scripts/*.ts imports plain-JavaScript policy from eslint-config/*.js and
+    // rule helpers from eslint-rules/{max-lines,shared-schema-prefix}.js.
+    // `allowJs` lets those imports bind to the real modules, so consumers get
+    // the types the JSDoc already declares — no declaration shadow in between.
+    //
+    // `checkJs: false` does NOT keep those bodies out: every one of them opens
+    // with `// @ts-check`, and that pragma is honored regardless of the flag.
+    // The imported bodies are therefore checked here, under this project's
+    // strict settings — stricter than the deliberately loose
+    // tsconfig.eslint-js.json lane, which is what actually gates the full
+    // eslint-config/*.js surface. The flag only governs any imported .js that
+    // carries no pragma.
+    //
+    // That makes this project the only lane that gates eslint-rules/max-lines.js
+    // at all — the wider eslint-rules `@ts-check` surface is still unenforced
+    // (harness-sweep-2026-07 leaf 22c). The one thing it cannot express is the
+    // harness metadata every local rule puts on `meta.docs`, which ESLint's
+    // `RulesMetaDocs` (in the transitive @eslint/core) does not declare; that
+    // single spot carries a `@ts-expect-error` in the rule file.
+    "allowJs": true,
+    "checkJs": false
     // No `paths` aliases for @musi/lint-ratchet here: TypeScript `paths`
     // bypasses `package.json#exports`, so a wildcard alias would let scripts
     // typecheck private package subpaths that fail at runtime. Scripts resolve

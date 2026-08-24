@@ -1,0 +1,124 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-05-client",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L05-101",
+      "title": "RollModeToggle is a complete production-orphan component",
+      "area": "client",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/combat/roll-mode-toggle.tsx",
+          "line": 1,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The file contains a standalone exported three-button component and no other production behavior."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/roll-mode-toggle.tsx",
+          "line": null,
+          "endLine": null,
+          "measurement": "Zero production imports or references outside the definition, measured by fixed-symbol and path git grep across 389 pinned production client TypeScript/TSX files, excluding tests, specs, test helpers, and src/test.",
+          "note": "No shipped client path can render the component."
+        }
+      ],
+      "problem": "A 60-line UI component remains in the production tree despite having no production consumer. Its focused implementation, test presence, and module listing make it appear to be an active combat surface and create maintenance work disconnected from shipped behavior.",
+      "proposedDirection": "Remove the orphan production component. Banked L07-106 owns the misleading MODULE entry, while lane 06 owns the test-only surface.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-102",
+      "title": "Character key hook constructs three filter objects no production caller reads",
+      "area": "client",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": 8,
+          "endLine": 24,
+          "measurement": null,
+          "note": "QueryFilter exists solely to type characterFilter, spellsFilter, and inventoryFilter on every CharacterKeys result."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": 27,
+          "endLine": 40,
+          "measurement": null,
+          "note": "Every useCharacterKeys invocation constructs all three query-filter wrappers alongside the consumed exact keys."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "Each filter member has exactly two matches across 389 pinned production client TypeScript/TSX files—its declaration and initializer—and therefore zero production reads. Nine production modules call useCharacterKeys; their usage lines consume only characterKey, spellsKey, or inventoryKey.",
+          "note": "The abandoned broad-invalidation API is constructed repeatedly but never observed."
+        }
+      ],
+      "problem": "The shared hook presents an abandoned invalidation API and allocates three filter wrappers for every caller even though production code cannot observe them. This enlarges a central cache-key contract and makes contributors reason about two invalidation representations when only exact keys are consumed here.",
+      "proposedDirection": "Delete the three filter members and the now-unused QueryFilter interface, leaving useCharacterKeys focused on its three consumed exact keys. Banked L07-108 owns the associated comment correction.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The completed client query-layer cluster left these three members in place; the pinned production reference graph now establishes that all three are unread."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Cancelled homebrew import reopens with the previous file and error",
+      "paths": [
+        "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx",
+        "packages/client/src/pages/homebrew-page.tsx"
+      ],
+      "whySuspectedBug": "Dialog state at import-collection-dialog.tsx:41-42 clears only on successful import at lines 46-52; Cancel at lines 125-130 only closes the still-mounted dialog rendered by homebrew-page.tsx:210.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "The complete dedup corpus, the lane-05 wave-1 banked result, relevant findings from all banked lanes, and lane-07 top-up L07-106/L07-108.",
+      "Routed shard: packages/client/src/hooks/character-sheet/character-keys.ts and packages/client/src/components/campaign/combat/roll-mode-toggle.tsx, their nearest MODULE.md files, and all nine production useCharacterKeys consumer usage sites.",
+      "Homebrew/creation shard: packages/client/src/components/homebrew/** and packages/client/src/components/character-create/** excluding tests — 63 pinned production source files plus all 13 nearest homebrew MODULE.md files.",
+      "Sheet/VTT focal reads: all nearest MODULE.md files, every effect-bearing production file in the shard, and the complete sheet/VTT ability, saving-throw, and skill implementations.",
+      "Campaign focal reads: all 10 nearest MODULE.md files plus the character-picker, map-toolbar, token, NPC, encounter, and combat files selected by the secondary scans.",
+      "Remainder focal reads: hooks/MODULE.md, pages/MODULE.md, docs/guides/client-effects.md, use-campaign-presence.ts, root socket/effect candidates, representative pages and entrypoints, and the non-test client package configuration."
+    ],
+    "sampled": [
+      "Routed consumer validation — exhaustive fixed-symbol/path searches across all 389 pinned production client TypeScript/TSX files.",
+      "Sheet/VTT shard: packages/client/src/components/{sheet,vtt}/**, hooks/{character-sheet,vtt-drawer,canvas-input}/**, hooks/use-surface-reset.ts, pages/character-sheet/**, pages/character-sheet-page.tsx, and stores/**, excluding the routed character-keys.ts — all 122 owned non-test paths scanned by manifest, line-count, effect, marker, and production-reference rules; focal candidates read fully.",
+      "Campaign shard: packages/client/src/components/campaign/** excluding tests and roll-mode-toggle.tsx — all 102 production source files scanned for effects, cache operations, assertions, suppressions, native confirmations, unknown/record boundaries, and cross-feature imports; focal candidates read fully.",
+      "Remainder shard: components/** outside campaign, sheet, VTT, homebrew, and character-create; root hooks outside the three feature hook trees and use-surface-reset.ts; lib/**; remaining pages/**; routes/**; root client sources; and non-test package config — targeted rereads and exhaustive effect/dead-export scans, relying on wave-1's full same-pin read for baseline coverage.",
+      "Relevant prior-pack records and same-pin banked findings were checked before every promotion or cut."
+    ],
+    "skipped": [
+      "342 pinned client test/spec/test-helper/src/test/vitest-config paths — lane 06 ownership, not treated as clean.",
+      "Test suite and build — prohibited by the user and not run."
+    ],
+    "pointers": [
+      "Lane 07 banked L07-106/L07-108 own the MODULE/comment drift attached to the two production-dead surfaces.",
+      "Lane 06 owns RollModeToggle's test-only consumer and all other test-shaped observations.",
+      "Lane 08 already owns the banked cross-package homebrew typed-read-adapter and shared-rule mirror observations."
+    ],
+    "cut": [
+      "Sheet and VTT stats independently derive the same roll rows — plausible medium duplication, but this final top-up limited secondary promotion to skipped or thin wave-1 scope, and wave 1 recorded this same-pin shard as read fully.",
+      "Campaign presence hides room leasing, reconnect, heartbeat, roster subscriptions, and StrictMode cleanup inside one effect — remains the explicit wave-1 cut because the effect is cohesive external-system synchronization and the remainder shard had no thin coverage gap.",
+      "Campaign character pickers discard inferred tRPC output types — two adjacent assertion sites add evidence to the wave-1 CharacterTab assertion cut, but the fully read campaign shard was not eligible for a fresh secondary finding.",
+      "Legacy DeathSaves remains production-dead — only 61 isolated lines and lower leverage than the two routed dead surfaces.",
+      "Map/token native confirmations, NPC invalidation, GridType widening, and enable-only toggle names remain wave-1 cuts with no novelty delta.",
+      "Homebrew and character-create form, codec, picker, and dialog duplication remained banked findings/cuts or lacked a stable shared abstraction.",
+      "Login/register form duplication and parallel homebrew CRUD page state machines remained low-leverage abstractions with domain-specific state."
+    ]
+  }
+}

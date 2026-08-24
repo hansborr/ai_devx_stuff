@@ -3,18 +3,10 @@ import type {
   MessageEvalArmResult,
   MessageEvalFixtureResult,
 } from "./evaluator.js";
+import { armFor } from "./evaluator.js";
 
 function displayNumber(value: number | null): string {
   return value === null ? "unresolved" : String(value);
-}
-
-function armFor(
-  fixture: MessageEvalFixtureResult,
-  mode: "control" | "treatment",
-): MessageEvalArmResult {
-  const arm = fixture.arms.find((entry) => entry.mode === mode);
-  if (arm === undefined) throw new Error(`${fixture.id} is missing its ${mode} arm`);
-  return arm;
 }
 
 function patternText(arm: MessageEvalArmResult): string {

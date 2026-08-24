@@ -1,6 +1,8 @@
 #!/bin/bash
 
-# Shared cache state for verification hooks.
+# Shared cache state for verification hooks, and the reading of a wrapped
+# `bun run`'s outcome: marker read/write, exit-code inference from bun's own
+# output text, and the failure summaries the hook bodies emit.
 
 AI_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # common.sh centralizes the repo-specific state-path defaults this file reads
@@ -165,6 +167,42 @@ ai_write_bun_marker() {
     rm -f "$tmp"
     return 1
   fi
+}
+
+# Read a wrapped run's exit code back out of bun's own output, for the payload
+# dialects that carry no usable exit code of their own. Text parsing of one
+# specific tool's report, not a payload accessor, so it lives with the rest of
+# the bun marker family rather than in common.sh's adapter-shared layer.
+#
+# The footer form is anchored at the start of a line: bun prints it itself, so
+# an indented or quoted mention is the script's own output and must not be read
+# as its exit. The wrapper form matches anywhere in the line, and the last
+# reading wins so a re-run's tail is what gets recorded.
+ai_bun_exit_code_from_output() {
+  local script="$1"
+  local output="$2"
+
+  printf '%s\n' "$output" | awk -v script="$script" '
+    index($0, "error: script \"" script "\" exited with code ") == 1 {
+      print $NF
+    }
+    /Process exited with code [0-9]+/ {
+      print $NF
+    }
+  ' | tail -n 1
+}
+
+# Whether bun reported this script as failed at all. The caller uses it to tell
+# "no exit code because the run succeeded" from "no exit code because the report
+# is present but unparseable", which stay different outcomes.
+ai_bun_output_has_error_footer() {
+  local script="$1"
+  local output="$2"
+
+  printf '%s\n' "$output" | awk -v script="$script" '
+    index($0, "error: script \"" script "\"") == 1 { found=1 }
+    END { exit found ? 0 : 1 }
+  '
 }
 
 ai_bun_cached_failure_summary() {

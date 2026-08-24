@@ -1,45 +1,9 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
-
-/** @returns {Promise<{ rules?: Record<string, unknown> }>} */
-async function configFor(/** @type {string} */ relPath) {
-  const config = await eslint.calculateConfigForFile(resolve(repoRoot, relPath));
-  return { rules: config.rules };
-}
-
-/** @param {{ rules?: Record<string, unknown> }} config */
-function severityOf(config, /** @type {string} */ ruleId) {
-  const entry = config.rules?.[ruleId];
-  if (Array.isArray(entry)) return entry[0];
-  return entry;
-}
-
-async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ code) {
-  return eslint.lintText(code, { filePath: resolve(repoRoot, relPath) });
-}
-
-/**
- * @param {Awaited<ReturnType<typeof lintTextFor>>} results
- * @param {string} ruleId
- */
-function messagesFor(results, ruleId) {
-  return results.flatMap((result) =>
-    result.messages.filter((message) => message.ruleId === ruleId),
-  );
-}
+import { configFor, lintTextFor, messagesFor, severityOf } from "./repo-config-harness.js";
 
 describe("eval-family security fences", () => {
   it(

@@ -25,8 +25,79 @@ The root scripts expose the worktree command surface:
 | `bun run worktree:template-refresh` | Rebuild the fingerprinted `musi_template_<hash>` DB via Prisma migrate deploy plus `seedSrd`; pass `--from-musi` when intentionally seeding from the primary DB. |
 | `bun run worktree:refresh-data` | Recover from SRD seed drift by rebuilding the template, then applying migrations and SRD seed in place on dev/test/e2e DBs; pass `--destructive` to reclone those DBs from the template and discard local dev data. |
 
+The template fingerprint and Prisma deploy must read the same migration tree.
+Keep `prisma.config.ts`'s `migrations.path` as the literal
+`"prisma/migrations"`, written as the file's one line-leading `path:`
+assignment and as the first line of the `migrations: {` block; worktree
+provisioning fails closed on a different, computed, competing, or misplaced
+value instead of caching a template whose migration inputs are only partially
+hashed. The check reads formatted code only, so neither a commented-out mention
+nor a canonical `path:` under some other key can vouch for the real one.
+
 This mirrors the command headers in `scripts/worktree-db.sh:4-36` and the thin
 `worktree:new` wrapper in `scripts/worktree-new.sh:1-20`.
+
+Template seeding runs from `packages/server`, so a package-local
+`packages/server/bunfig.toml` is a seed fingerprint input when present. A
+top-level Bun `preload` is rejected until its runtime closure is explicitly
+covered; otherwise Bun could execute seed inputs before `seed-template.ts`
+that the derived import closure never sees. Test-only `[test].preload` settings
+do not affect template seeding.
+
+External dependencies are fingerprinted at whole-lockfile granularity: `bun.lock`
+and the root `package.json` are hashed as ordinary inputs. Bumping a dependency
+the seed never imports therefore rebuilds the template — a deliberate trade,
+since deriving the seed's exact dependency subgraph means re-implementing Bun's
+private lockfile and store layout, while the extra rebuild is a one-time cost
+amortized across every worktree that shares the fingerprinted template.
+
+Seed code may read only statically named, allowlisted environment keys;
+`DATABASE_URL` is the current allowlist and is intentionally not fingerprinted
+because it selects the per-worktree database rather than seed content. Adding a
+new environment-dependent seed branch fails the derived closure check until the
+key and its invalidation policy are reviewed and added to the allowlist in
+`scripts/worktree-db.sh`. The check is a coarse token scan for
+`process.env.<KEY>`, `Bun.env.<KEY>`, and `import.meta.env.<KEY>` reads with a
+literal key. It resolves no aliases, so it closes the aliasing routes by
+rejecting the tokens themselves: `process`, `Bun`, and `globalThis` may only be
+read as a direct static member access, and the process module may only be
+loaded as `import * as process from "node:process"` (the form Prisma's
+generated client emits). Storing, destructuring, spreading, passing, renaming,
+or computed-key-indexing any of them fails closed — and so does an unrelated
+local binding that happens to be named `process`. Rename the binding or read the
+key directly; the analyzer is not meant to grow to understand it.
+
+The closure's whole policy is the same shape. Every runtime import needs a
+static string specifier; a dynamic `import()` must carry exactly that one
+argument, so a load that needs import attributes has to be written as a static
+import. Bun's loader taxonomy is not modelled at all: the walker resolves
+`.ts`, `.tsx`, `.js`, `.mjs`, and `.json`, treats `.json` as a terminal data
+input, and hashes-but-never-parses it. The only accepted import attribute is
+`with { type: "json" }` on a `.json` specifier — the legacy `assert { type:
+"json" }` spelling, any other attribute, and any extension outside that list
+fail the walk closed. A seed that needs another
+Bun loader should read the file with an explicit filesystem read under a
+blanket-hashed root instead.
+
+CommonJS is rejected on sight rather than analyzed: the identifiers `require`
+and `createRequire` anywhere in value space, an import of `module`/`node:module`,
+an import-equals declaration, a `.cjs`/`.cts` specifier or filename, and any
+`import.meta` use outside a direct allowlisted member access
+(`url`, `dirname`, `env`, …) all fail closed. Because this is a token scan and
+not a scope analysis, an innocent binding named `require` is rejected too. The
+blast radius of a missed input is a stale local template DB recoverable with
+`worktree:template-refresh`, so the policy buys that safety with false
+positives instead of with escape analysis.
+
+The derived import closure cannot see arbitrary filesystem reads such as
+`readFileSync`. To cover the seed's normal data locations, fingerprinting also
+hashes every file under `packages/server/src/seed/data` regardless of extension
+and every direct sibling of `packages/server/prisma/seed-template.ts`.
+Developer Markdown and test files elsewhere in the broader seed/shared source
+roots remain excluded. Before adding a seed-time filesystem read outside those
+hashed locations, move the input under the seed data or Prisma entry directory,
+or extend the appropriate blanket root; otherwise the read will not invalidate
+a cached template database.
 
 ## Teardown
 

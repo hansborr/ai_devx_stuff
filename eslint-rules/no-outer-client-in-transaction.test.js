@@ -33,6 +33,16 @@ describe("no-outer-client-in-transaction", () => {
           ].join("\n"),
         },
         {
+          // An outer-client call in a declaration outside a transaction is
+          // ordinary code and must remain outside this rule's scope.
+          code: [
+            "async function writeOutsideTransaction() {",
+            "  await prisma.character.update({ where: { id }, data });",
+            "}",
+            "await writeOutsideTransaction();",
+          ].join("\n"),
+        },
+        {
           code: [
             "await prisma.$transaction(async (tx) => {",
             "  async function write(prisma) {",
@@ -49,6 +59,9 @@ describe("no-outer-client-in-transaction", () => {
             "  ctx.prisma.session.create({ data }),",
             "]);",
           ].join("\n"),
+        },
+        {
+          code: "await prisma.$transaction();",
         },
         {
           code: [
@@ -125,6 +138,8 @@ describe("no-outer-client-in-transaction", () => {
           errors: [{ messageId: "outerClientInTransaction" }],
         },
         {
+          // A nested declaration inherits the transaction state explicitly in
+          // this rule; the shared tracker must preserve that behavior.
           code: [
             "await ctx.prisma.$transaction(async (tx) => {",
             "  async function writeOutsideTx() {",

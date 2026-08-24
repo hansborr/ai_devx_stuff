@@ -7,9 +7,11 @@
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
@@ -17,9 +19,7 @@
 # smoke-subjects: scripts/tests/test-format-changed.sh
 # smoke-subjects: eslint-config/config-surface-manifest.json
 # smoke-subjects: eslint-config/config-surfaces.js
-# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
-# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
-# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: eslint-config/path-glob-policy.js
 # Pure-shell smoke tests for scripts/format-changed.sh selection behavior.
 
 set -euo pipefail
@@ -33,9 +33,11 @@ FORMAT_CHANGED="$SCRIPT_DIR/../format-changed.sh"
 CHANGED_BASE="$SCRIPT_DIR/../lib/changed-base.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+SMOKE_TEST_FILES="$SCRIPT_DIR/../path-policy/smoke-test-files.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 RECORDS="$SCRIPT_DIR/../lib/records.ts"
@@ -43,7 +45,7 @@ LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
-SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
+PATH_GLOB_POLICY="$REPO_ROOT/eslint-config/path-glob-policy.js"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -77,10 +79,12 @@ new_repo() {
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$SMOKE_TEST_FILES" "$repo/scripts/path-policy/smoke-test-files.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   # harness-manifest.ts narrows the manifest JSON through the shared record
@@ -94,9 +98,7 @@ new_repo() {
   [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
-  cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
+  cp "$PATH_GLOB_POLICY" "$repo/eslint-config/path-glob-policy.js"
   printf 'const base = true;\n' > "$repo/packages/server/src/app.ts"
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test

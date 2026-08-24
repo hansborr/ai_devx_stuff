@@ -1,16 +1,6 @@
 // @ts-check
 
-const FUNCTION_NODE_TYPES = new Set([
-  "ArrowFunctionExpression",
-  "FunctionDeclaration",
-  "FunctionExpression",
-]);
-
-/** @param {import('estree').Node} node */
-export function parentOf(node) {
-  const parent = /** @type {import('estree').Node | null | undefined} */ (node.parent);
-  return parent ?? undefined;
-}
+import { isFunctionNode, parentOf } from "./ast-helpers.js";
 
 /**
  * @param {import('estree').Node} node
@@ -21,11 +11,6 @@ function isDescendantOf(node, ancestor) {
     if (current === ancestor) return true;
   }
   return false;
-}
-
-/** @param {import('estree').Node} node */
-function isFunctionNode(node) {
-  return FUNCTION_NODE_TYPES.has(node.type);
 }
 
 /**

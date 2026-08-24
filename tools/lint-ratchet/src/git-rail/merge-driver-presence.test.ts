@@ -54,6 +54,18 @@ describe("forwardMissingMergeDriverWarning", () => {
     expect(warnings).toEqual(["WARN: merge drivers are not installed"]);
   });
 
+  it("can invoke a packaged checker command without a repository script", () => {
+    const checker = scriptWith('echo "WARN: packaged checker"');
+    forwardMissingMergeDriverWarning({
+      checkCommand: ["bash", checker],
+      cwd: dir,
+      env: {},
+      warn,
+    });
+
+    expect(warnings).toEqual(["WARN: packaged checker"]);
+  });
+
   it("stays silent when the checker reports no warning", () => {
     forwardMissingMergeDriverWarning({
       checkScriptPath: scriptWith('echo "OK: merge drivers present"'),

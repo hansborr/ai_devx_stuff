@@ -5,7 +5,16 @@
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/verify.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
+# smoke-subjects: scripts/lib/verify-evidence-transaction.sh
+# smoke-subjects: scripts/lib/verify-lifecycle.sh
+# smoke-subjects: scripts/lib/verify-policy-validation.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
 # test-verify-async.sh — pure-shell smoke tests for scripts/verify-async.sh.
 #
@@ -448,6 +457,119 @@ grep -qF 'verify:async: pruned 2 old run(s)' <<< "$output" \
 [ ! -e "$OLD_FINISHED" ] || fail "GC did not prune old finished run"
 [ ! -e "$OLD_DEAD" ] || fail "GC did not prune old dead run"
 ok "status marks dead state and prunes old runs"
+
+# --- status never clobbers a recorded exit code on a dead controller --------
+# A retained finished run whose controller pid is gone must keep its recorded
+# exit code through a status pass (which runs refresh_dead_state via GC over
+# every state), never have it rewritten to -1.
+RECENT_DONE="$REPO_STATE/runs/recent-done"
+mkdir -p "$RECENT_DONE/logs"
+recent_epoch=$(( $(date +%s) - 60 ))
+recent_iso="$(date -Iseconds -d "@$recent_epoch")"
+cat > "$RECENT_DONE/state" <<EOF_STATE
+pid=999993
+started_epoch=$recent_epoch
+started_at=$recent_iso
+command=recent done
+head=none
+worktree_fingerprint=$(printf 'c%.0s' {1..64})
+log_dir=$RECENT_DONE/logs
+exit_code=124
+finished_epoch=$recent_epoch
+finished_at=$recent_iso
+EOF_STATE
+output=$(
+  MUSI_VERIFY_ASYNC_STATE_ROOT="$STATE_ROOT" \
+  MUSI_VERIFY_LOCK="$LOCK" \
+  MUSI_VERIFY_ASYNC_RETENTION_SECONDS=3600 \
+    bash "$ASYNC" status
+)
+grep -qF 'exit_code=124' "$RECENT_DONE/state" \
+  || fail "status clobbered recorded exit code on dead controller: $(cat "$RECENT_DONE/state")"
+rm -rf "$RECENT_DONE"
+ok "status keeps recorded exit codes on dead controllers"
+
+# --- dead-state repair confirms death before it reads exit_code -------------
+# Regression guard for the "timeout ignore status missing exit_code 124" flake.
+# refresh_dead_state used to read exit_code first, so a poll could see it empty,
+# lose the CPU while the controller recorded 124 and exited, then overwrite the
+# recorded code with -1. No static state file can express that interleave, so
+# the harness below sources verify-async.sh, models the controller as a
+# liveness flag, and finishes it from inside the exit_code read. Ordered
+# correctly the read never happens while the controller is alive, so the
+# interleave has nowhere to land and the state is left untouched.
+RACE_ROOT="$SANDBOX/race-root"
+RACE_WORK="$SANDBOX/race"
+RACE_RUN="$RACE_WORK/runs/only"
+mkdir -p "$RACE_ROOT" "$RACE_RUN/logs"
+RACE_STATE="$RACE_RUN/state"
+RACE_ALIVE="$RACE_WORK/controller-alive"
+RACE_EARLY_READ="$RACE_WORK/exit-code-read-while-alive"
+race_epoch=$(date +%s)
+cat > "$RACE_STATE" <<EOF_STATE
+pid=999994
+started_epoch=$race_epoch
+started_at=$(date -Iseconds -d "@$race_epoch")
+command=race
+head=none
+worktree_fingerprint=$(printf 'd%.0s' {1..64})
+log_dir=$RACE_RUN/logs
+exit_code=
+finished_epoch=
+finished_at=
+EOF_STATE
+
+RACE_HARNESS="$SANDBOX/race-harness.sh"
+cat > "$RACE_HARNESS" <<'RACE_SCRIPT'
+#!/usr/bin/env bash
+set -u
+async="$1"; state="$2"; alive_flag="$3"; early_read_flag="$4"
+
+# Sourcing with `status` against an empty state root only prints "status: none"
+# and returns, which leaves the functions under test defined here.
+. "$async" status >/dev/null
+eval "$(declare -f state_get | sed '1s/^state_get/orig_state_get/')"
+
+# Model the controller's lifetime as a flag so the interleave is exact instead
+# of scheduler-dependent; real pid liveness is covered by the GC test above.
+pid_alive() { [ -e "$alive_flag" ]; }
+
+finish_controller() {
+  local now
+  now=$(date +%s)
+  update_finished_state "$state" 124 "$now" "$(iso_at "$now")"
+  rm -f "$alive_flag"
+}
+
+state_get() {
+  if [ "$2" = exit_code ] && [ -e "$alive_flag" ]; then
+    # The read the fix forbids. Record it (via a file, so the flag survives the
+    # command substitution), then finish and exit the controller inside the
+    # window the read opened.
+    : > "$early_read_flag"
+    local value=""
+    value=$(orig_state_get "$@") || true
+    finish_controller
+    printf '%s' "$value"
+    [ -n "$value" ]
+    return
+  fi
+  orig_state_get "$@"
+}
+
+: > "$alive_flag"
+refresh_dead_state "$state" || true
+RACE_SCRIPT
+
+MUSI_VERIFY_ASYNC_STATE_ROOT="$RACE_ROOT" MUSI_VERIFY_LOCK="$LOCK" \
+  bash "$RACE_HARNESS" "$ASYNC" "$RACE_STATE" "$RACE_ALIVE" "$RACE_EARLY_READ" \
+  || fail "dead-state race harness failed to run"
+[ ! -e "$RACE_EARLY_READ" ] \
+  || fail "refresh_dead_state read exit_code before confirming the controller was dead"
+! grep -qF 'exit_code=-1' "$RACE_STATE" \
+  || fail "refresh_dead_state clobbered a live controller's state: $(cat "$RACE_STATE")"
+rm -rf "$RACE_WORK" "$RACE_ROOT"
+ok "dead-state repair confirms death before reading exit_code"
 
 # --- async success promotes private markers to standard paths ----------------
 PROMO_MARKER_SCRIPT="$SANDBOX/write-changed-marker.sh"

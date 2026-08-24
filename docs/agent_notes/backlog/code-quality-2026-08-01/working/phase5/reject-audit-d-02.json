@@ -1,0 +1,332 @@
+{
+  "contractVersion": 1,
+  "consult": "D-02",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-201",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/38-eslint-rule-helpers.md",
+      "coverage": "partial",
+      "reason": "The live outcome rejects relocating the config suites and the caveats reject a shared plain-data mock registry, but lines 43-47 and 287-292 explicitly leave the viable rule-load AST extraction unshipped and requiring its own promotion.",
+      "promotionIds": [
+        "D-02-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-201",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/38-eslint-rule-helpers.md",
+      "coverage": "none",
+      "reason": "The live document does not reject extracting the table from the rule: it says only a shared data module is invalid, identifies rule-load read-and-parse extraction as viable, and says that unshipped work needs an explicit future promotion.",
+      "promotionIds": [
+        "D-02-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-62",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Slices table keeps the shared state-codec concern as H11, a blocked one-seam extraction into scripts/worktree-db/state.sh, while expressly stopping further decomposition.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-63",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice H12 exactly owns moving the five worktree-seed modules and two tests beneath scripts/worktree-db and updating the checker default.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-127",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Substrate verdict and Per-leaf disposition explicitly decline the remaining bulk argv-walker sweep and require classification and convergence on touch.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-129",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Per-leaf disposition and Rejected alternatives close the generate-hook-wiring JSON scanner rewrite onto jsonc-parser as won't-do.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-130",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Operational risk section refuses an unconditional pre-commit dispatcher split and records five mandatory conditions for reconsideration.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-131",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Per-leaf disposition keeps only the naming rule in H17 and explicitly drops Leaf 33's centralized inventory and enforcement steps.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-135",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live out-of-scope ruling names the remaining cache.sh, throttle-state.sh, and verify-async.sh writers and says wider atomic-writer consolidation is not scheduled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[25]",
+      "ref": "CQ25-126",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Per-leaf disposition drops the seven-seam worktree-db decomposition, retaining only H11's proven seam and H12's owner-directory move.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-65",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live optional slice H20 exactly specifies replacing the seven-optional CodeIntelContext bag with command-specific contexts or a resolver.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-66",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live optional slice H21 exactly owns extracting ManifestGatedCache while preserving both entry shapes and rebuild seams.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-132",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Per-leaf disposition and Rejected alternatives explicitly drop payload merging until an alternating warm-daemon workload is measured.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-131",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf 33 disposition and H17 scope explicitly exclude both environment-prefix inventory and enforcement machinery.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-134",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf 49 disposition and Rejected alternatives record that both consults declined splitting fixture-shell-dependencies.test.ts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-126",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan rejects decomposition of the worktree-db monolith as a broad programme and narrows eligible work to H11 and H12.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-63",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live blocked slice H12 exactly schedules the worktree-seed family beneath scripts/worktree-db after H11.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-127",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan records the remaining bulk argument-walker conversion as unscheduled converge-on-touch work rather than a schedulable sweep.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-119",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live landed slice H7 converted the dense errorMessage sites and explicitly rejected sweeping the remaining tail in favor of a converge-on-touch rule.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-65",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live document owns both halves separately: optional H20 reshapes CodeIntelContext and optional H21 extracts the cache gate, exactly as the claimant's rejection reason notes.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-64",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live blocked slice H15 names all four items: sourceRelevant removal, excluded-directory hoisting, format-predicate resolution, and lazy memoized smoke-name discovery.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-119",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live landed slices H13 and H14 respectively add the path-policy MODULE composition map and unify and document its annotation vocabulary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-134",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf 49 ruling expressly declines splitting the fixture-shell suite along analyzer seams because it moves assertions without adding coverage or improving selection.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-67",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live H15 follow-up note records this exact static-import-closure sensor as a separate optional migration with roughly 47 pre-existing rows.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-74",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf 36 disposition drops the roughly 170-occurrence testId-to-ratchetId rename to its own future leaf.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-133",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Corrections and Rejected alternatives sections record moving allowEmpty out of the kernel as wrong because it is adopter-facing kernel behavior.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-64",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Live H15 exactly owns the dead sourceRelevant field, duplicated excluded directories, constant-true predicate, and eager smoke-name discovery.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-127",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live H4 ruling and out-of-scope record deliberately leave remaining local argv spellings and walkers to converge on touch instead of authorizing a bulk conversion.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-74",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf 36 disposition and Rejected alternatives record the testId-to-ratchetId migration as a distinct future leaf, not uncovered work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-133",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan explicitly refuses this direction: allowEmpty remains in the lint-ratchet kernel because the adoption guides and standalone demo expose it as kernel contract.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-02-001",
+      "title": "Derive the central-mock factory registry from client test setup at rule load",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-rules/no-redundant-central-mock.js",
+          "line": 69,
+          "endLine": 127,
+          "measurement": null,
+          "note": "The production rule maintains a hard-coded module-to-factory table separately from the authoritative vi.mock calls in client setup."
+        },
+        {
+          "path": "eslint-rules/no-redundant-central-mock.test.js",
+          "line": 170,
+          "endLine": 205,
+          "measurement": null,
+          "note": "The drift test already reads setup.ts, parses it with the TypeScript ESLint parser, and extracts each vi.mock factory—the viable mechanism the live prior leaf says could replace the production table."
+        },
+        {
+          "path": "packages/client/src/test/setup.ts",
+          "line": 109,
+          "endLine": 111,
+          "measurement": null,
+          "note": "The authoritative setup explicitly requires every central mock to be copied into CANONICAL_FACTORY_SOURCES, preserving a lockstep two-file maintenance obligation."
+        }
+      ],
+      "problem": "The ESLint rule duplicates every central vi.mock factory from client setup in a hard-coded registry. The bidirectional drift test detects omissions, but every central-mock addition or edit still requires a synchronized second edit, and the production rule retains a large copy of data its test already knows how to derive.",
+      "proposedDirection": "Move the existing setup.ts read/parse/extract logic into rule initialization with an explicit non-throwing failure policy, then remove the hard-coded factory table and the now-redundant lockstep test. Keep the ruled-out shared data-module and config-test relocation directions closed.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-02",
+          "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[7]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "Centralize config factory sources and relocate parked config tests",
+          "rejectionReason": "The prior decision keeps the suites in place and rejects the hoisting-incompatible central mock."
+        },
+        {
+          "source": "reject-audit",
+          "consult": "D-02",
+          "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[0]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "Extract central-mock factory sources from the ESLint rule",
+          "rejectionReason": "The recorded decision rejects the extraction and related config-test relocation."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-201",
+          "residual": "The shared plain-data registry and config-test relocation are closed, but the live leaf expressly leaves rule-load AST extraction viable, unshipped, and in need of a separate promotion."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent 1: docs/agent_notes/backlog/code-quality-2026-07-25/38-eslint-rule-helpers.md (2 claimants)",
+      "subagent 2: docs/agent_notes/backlog/code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md (28 claimants)"
+    ],
+    "notes": [
+      "CQ25-201 conflates two extraction designs: Vitest hoisting rules out a shared iterable data module, while the live prior leaf expressly preserves read-and-extract at ESLint rule load as viable residue.",
+      "No matching central-mock ruling was found in batch1-rejected.json, batch2-rejected.json, or batch2-directions.json.",
+      "All 28 HARNESS-CLUSTER-PLAN claimants are fully covered by the live document: open or optional slices still own their exact work, while broad sweeps and contrary directions have explicit recorded rulings.",
+      "The CodeIntelContext-and-cache claimant cites CQ25-65 as its primary ref but its authoritative rejection reason also names CQ25-66; the same live document's H20 and H21 jointly cover the complete title.",
+      "CQ25-119's unknown-error claimant is full because H7 expressly adjudicates the unswept tail as converge-on-touch, not because every ternary landed."
+    ]
+  }
+}

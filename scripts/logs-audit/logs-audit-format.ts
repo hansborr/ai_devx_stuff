@@ -1,28 +1,20 @@
-import type { LogsAuditReport } from "../logs-audit.js";
+import type { LogsAuditFinding, LogsAuditReport } from "./logs-audit-types.js";
 
 const JSON_FORMAT_INDENT_SPACES = 2;
-// A URL query-param finding sets `field` to `<urlField>?<param>` (e.g.
-// `req.url?refresh_token`); LOGGER_REDACT_PATHS cannot touch strings inside a
-// URL, so those must route through redactUrlForLogs — which may itself need
-// extending for the flagged spelling. Object-field findings use dotted paths
-// and are fixed by adding the path to LOGGER_REDACT_PATHS.
+// LOGGER_REDACT_PATHS cannot touch strings inside a URL value, so a sensitive
+// query parameter must route through redactUrlForLogs — which may itself need
+// extending for the flagged spelling. Object-field findings use dotted `field`
+// paths and are fixed by adding the path to LOGGER_REDACT_PATHS. The remedy is
+// selected on the producer's typed `redactionKind`, never on message prose.
 const REDACTION_REMEDY_URL =
   "Fix: redact this URL via redactUrlForLogs in packages/server/src/app.ts (extend it to cover this parameter spelling if it slips through).";
 const REDACTION_REMEDY_FIELD =
   "Fix: add this field path to LOGGER_REDACT_PATHS in packages/server/src/app.ts.";
 
-type LogsAuditFinding = LogsAuditReport["findings"][number];
-
-function isUrlParamFinding(finding: LogsAuditFinding): boolean {
-  // Discriminate on the producer's stable message shape rather than the field
-  // string: inspectUrl is the only source of "sensitive query parameter"
-  // findings, so this cannot be tripped by an object key that contains "?".
-  return finding.message.startsWith("sensitive query parameter");
-}
-
 function formatFindingMessage(finding: LogsAuditFinding): string {
   if (finding.check !== "redaction") return finding.message;
-  const remedy = isUrlParamFinding(finding) ? REDACTION_REMEDY_URL : REDACTION_REMEDY_FIELD;
+  const remedy =
+    finding.redactionKind === "url-param" ? REDACTION_REMEDY_URL : REDACTION_REMEDY_FIELD;
   return `${finding.message}. ${remedy}`;
 }
 

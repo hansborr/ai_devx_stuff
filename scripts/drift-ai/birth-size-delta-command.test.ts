@@ -1,10 +1,11 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { commitBlock as buildCommitBlock } from "./git-log-fixture.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 import { runDriftAi } from "./runner.js";
 
@@ -13,6 +14,8 @@ type MetaFields = {
   readonly authorDate: string;
   readonly subject: string;
 };
+
+const tmpRepo = registerTempRootCleanup();
 
 // These cases only vary hash/date/subject, so wrap the shared git-log builder
 // with the fixed author identity this file uses (committer date == author date).
@@ -67,10 +70,7 @@ describe("birth-size-delta subcommand", () => {
         "--blob-timeout-ms",
         "56",
       ],
-      git: (args) => {
-        if (args[0] === "rev-parse") return "/repo\n";
-        return "";
-      },
+      git: currentRepoGit("/repo"),
       gitBuffer: (args) => {
         calls.push([...args]);
         return nulDelimited(["src/widget.ts"]);
@@ -119,7 +119,7 @@ describe("birth-size-delta subcommand", () => {
   it("prints birth-size-delta usage on help", () => {
     const result = runDriftAi({
       argv: ["birth-size-delta", "--help"],
-      git: (args) => (args[0] === "rev-parse" ? "/repo\n" : ""),
+      git: currentRepoGit("/repo"),
     });
 
     expect(result.exitCode).toBe(0);
@@ -129,7 +129,7 @@ describe("birth-size-delta subcommand", () => {
   });
 
   it("honors configured roots and ignore paths during current inventory and history collection", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "drift-birth-size-config-"));
+    const dir = tmpRepo.makeTempRepo("drift-birth-size-config-");
     const configPath = path.join(dir, "drift-ai.config.json");
     writeFileSync(
       configPath,
@@ -143,7 +143,7 @@ describe("birth-size-delta subcommand", () => {
 
     const result = runDriftAi({
       argv: ["birth-size-delta", "--config", configPath, "--format", "json"],
-      git: (args) => (args[0] === "rev-parse" ? `${dir}\n` : ""),
+      git: currentRepoGit(dir),
       gitBuffer: () => nulDelimited(["generated/ignored.ts", "src/kept.ts", "test/out.ts"]),
       stat: statFor(["generated/ignored.ts", "src/kept.ts", "test/out.ts"]),
       readFile: (filePath) => `export const path = ${JSON.stringify(filePath)};\n`,

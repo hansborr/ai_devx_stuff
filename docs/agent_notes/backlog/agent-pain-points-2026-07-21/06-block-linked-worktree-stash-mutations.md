@@ -4,7 +4,9 @@ Status: Implemented — 2026-07-22
 Date: 2026-07-21
 Priority: P1
 Size: S–M
-Source: `pain_points.log` — foreign stash applied after failed stash creation
+Source:
+`/home/node/persist/musi/pain_points/git-hooks-and-commit-workflow.md` — foreign
+stash applied after failed stash creation
 
 ## Problem
 

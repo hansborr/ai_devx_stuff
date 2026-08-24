@@ -1,9 +1,19 @@
-import { readNonEmptyPath, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { nonEmptyPathValue, positiveIntValue } from "./arg-readers.js";
 import {
   COVERAGE_UNUSED_SUBCOMMAND,
   DEFAULT_COVERAGE_UNUSED_TOP,
 } from "./coverage-unused-correlation-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const COVERAGE_UNUSED_USAGE = [
   "Usage:",
@@ -24,20 +34,30 @@ export type ParsedCoverageUnusedArgs = {
   readonly reportPath: string | null;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+  { name: "--unused-exports-report", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_COVERAGE_UNUSED_TOP),
+  "--unused-exports-report": nonEmptyPathValue("--unused-exports-report").optional(),
+});
+
 export function parseCoverageUnusedArgs(argv: readonly string[]): ParsedCoverageUnusedArgs {
-  let top = DEFAULT_COVERAGE_UNUSED_TOP;
-  let reportPath: string | null = null;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: COVERAGE_UNUSED_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--unused-exports-report": (value) => {
-        reportPath = readNonEmptyPath(value, "--unused-exports-report");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, top, reportPath };
+  return {
+    base: subcommandBaseFromOptions(options),
+    top: options["--top"],
+    reportPath: options["--unused-exports-report"] ?? null,
+  };
 }

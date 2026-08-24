@@ -1,4 +1,4 @@
-import type { ImportSpecifierInfo } from "../lib/trpc-shared-schema.js";
+import type { ImportSpecifierInfo } from "../lib/codemod-imports.js";
 
 export type BarrelContext = {
   readonly barrelPath: string;

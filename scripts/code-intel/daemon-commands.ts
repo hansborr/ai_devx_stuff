@@ -1,13 +1,14 @@
+import type { DaemonRoutableCommand } from "./daemon-protocol.js";
 import type { ExecutableCliCommand } from "./types.js";
 
-const DAEMON_ROUTABLE_COMMAND_KINDS: readonly string[] = [
+const DAEMON_ROUTABLE_COMMAND_KINDS = [
   "def",
   "defName",
   "exports",
   "refs",
   "dependents",
   "tests",
-];
+] as const satisfies readonly DaemonRoutableCommand["kind"][];
 
 export type GraphDaemonCommand = Extract<ExecutableCliCommand, { kind: "dependents" | "tests" }>;
 export type SymbolDaemonCommand = Extract<
@@ -15,13 +16,9 @@ export type SymbolDaemonCommand = Extract<
   { kind: "def" | "defName" | "exports" | "refs" }
 >;
 
-export function isDaemonRoutableCommand(command: {
-  kind: string;
-}): command is ExecutableCliCommand {
-  return isDaemonRoutableCommandKind(command.kind);
-}
-
-export function isDaemonRoutableExecutableCommand(command: ExecutableCliCommand): boolean {
+export function isDaemonRoutableExecutableCommand(
+  command: ExecutableCliCommand,
+): command is DaemonRoutableCommand {
   return isDaemonRoutableCommandKind(command.kind);
 }
 
@@ -38,6 +35,6 @@ export function isSymbolCommand(command: ExecutableCliCommand): command is Symbo
   );
 }
 
-function isDaemonRoutableCommandKind(kind: string): boolean {
-  return DAEMON_ROUTABLE_COMMAND_KINDS.includes(kind);
+function isDaemonRoutableCommandKind(kind: ExecutableCliCommand["kind"]): boolean {
+  return DAEMON_ROUTABLE_COMMAND_KINDS.some((routableKind) => routableKind === kind);
 }

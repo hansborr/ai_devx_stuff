@@ -1,4 +1,5 @@
 import type { TriageCategory, TriageItem, TriageReport } from "./triage-report-types.js";
+import type { TriageVerdictContract } from "./triage-verdict-types.js";
 
 export type TriagePacketFilters = {
   readonly priorities: readonly TriageItem["priority"][];
@@ -32,17 +33,10 @@ export type TriagePacket = {
   readonly kind: "drift-triage-packet";
   readonly packetId: string;
   readonly lane: TriagePacketLane;
-  readonly oversized: boolean;
   readonly splitPathComponent: boolean;
   readonly itemIds: readonly string[];
   readonly task: string;
-  readonly verdictContract: {
-    readonly verdicts: readonly string[];
-    readonly severities: readonly string[];
-    readonly confidences: readonly string[];
-    readonly requiredFields: readonly string[];
-    readonly duplicateOfRequires: "canonicalItemId";
-  };
+  readonly verdictContract: TriageVerdictContract;
   readonly disclosures: Pick<TriageReport, "policy" | "summary" | "inputs" | "deferred"> & {
     readonly staleAdvisories: readonly StaleAdvisoryDisclosure[];
   };
@@ -75,7 +69,6 @@ type TriagePacketManifestEntry = {
   readonly itemCount: number;
   readonly itemIds: readonly string[];
   readonly lane: TriagePacketLane;
-  readonly oversized: boolean;
   readonly splitPathComponent: boolean;
   readonly sha256: string;
 };
@@ -110,6 +103,5 @@ export type SelectedTriageItems = {
 export type PacketItemGroup = {
   readonly lane: TriagePacketLane;
   readonly items: readonly TriageItem[];
-  readonly oversized: boolean;
   readonly splitPathComponent: boolean;
 };

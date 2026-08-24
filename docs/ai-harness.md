@@ -77,7 +77,10 @@ Codex and Copilot; Claude uses direct Bash adapters for the same policy
 surfaces. Copilot shims translate through
 `scripts/ai-hooks/copilot-adapter.sh` because Copilot's payloads, response
 schema, and native matcher behavior differ, with adapter-side toolName filters
-kept as defense in depth.
+kept as defense in depth. The agent-cli dispatch executables follow the same
+neutral-home rule as hooks: `agent-run.sh` and `agent-wait.sh` live in
+`scripts/agent-cli/`, and the per-provider skill directories are
+documentation-only projections that invoke them repo-root-anchored.
 
 Hook registration is generated from `harness.controls.json`. The generator at
 `scripts/harness/generate-hook-wiring.ts` replaces the `hooks` key in
@@ -90,6 +93,75 @@ manifest entry is removed. `bun run harness:check` runs the generator's
 type and executable bits. Deliberate harness gaps must be recorded in the
 manifest notes, which render into `docs/generated/harness-controls.md`, not
 explained only by leaving an adapter unwired.
+
+The command policy those Bash hooks enforce is registered in the same manifest:
+the root `commandPolicy` array holds one row per ordered hard-deny rule, and
+`bun run harness:command-policy` renders it into the committed
+`scripts/ai-hooks/policy-rules.generated.sh` fragment that `policy.sh` sources.
+Each row also declares whether it projects into Claude's native
+`permissions.deny` array or is deliberately shared-policy-only with a recorded
+reason, so the two policy representations stop being independently maintained:
+`permissions.deny` is derived from the projected rows and freshness-checked
+against them by `harness:check`. Only context-free rules project — a rule whose
+verdict depends on the resolved target checkout, or whose contextual reason a
+native deny would preempt, stays a parity-covered non-projection. Enforcement
+itself remains bash+awk+jq: the generator runs at build time and the hooks
+source committed bytes, never a runtime projection. The shared dispatcher walks
+the generated records in manifest order; the first matching soft row is
+provisional advice, while the first matching hard row takes precedence. It uses
+the existing command matcher for regex rows and the named shell functions for
+procedural predicates. Those predicates are defined across the command-policy
+shell module set. Four extracted responsibility groups live in bounded modules that
+`policy.sh` sources as siblings — `command-normalize.sh` (the heredoc-aware
+command-text stripper), `command-paths.sh` (write-path extraction),
+`git-classify.sh` (the commit lexer, checkout target resolution, and the git
+deny predicates), and `policy-eval.sh` (the rule loop and its verdict) — while
+the predicates and helpers outside those groups stay defined in `policy.sh`
+itself. `policy.sh` is the facade over the modules and keeps every entry point
+it always had. `common.sh` did not keep its: the git classification helpers
+moved out to `git-classify.sh`, and the readers that infer a wrapped `bun run`'s
+exit code from its output text moved to `cache.sh`. Neither move repointed a
+caller, because every caller of those helpers already sourced the file that now
+defines them. The two Claude-native response emitters moved to a new
+`claude-adapter.sh` beside `copilot-adapter.sh` and did need a source line added
+to their four callers, so that move landed as a wiring commit followed by a
+code-only one — the corpus stays green at each step. `common.sh` keeps the
+vendor payload boundary, the response emissions every adapter uses, and small
+primitives no other file owns, and sources none of the modules: it has to stay
+standalone-sourceable, since hand-maintained fixture copy sets drop it into fake
+repos with only the siblings that fixture needs and never `policy.sh` or its
+modules. Four of those sets live in the ai-hooks corpus and a fifth outside it,
+in `scripts/tests/test-verify.sh`, so a corpus-only sweep before adding a
+`source` line here would miss one. The whole module set is what the generator
+scans for manifest-named predicates, and
+`policy.sh` fails closed at its foot when any module does not load: a partial
+policy would otherwise degrade to "command not found" and let the command
+through. Manifest validation constrains the shell-expanded pattern tokens to
+the positions the dispatcher supports: `${AI_POLICY_GIT_CMD}` once at the start
+and `$AI_POLICY_CMD_END` once at the end. The checkout-scoped
+`git-commit-on-main` rule deliberately remains last so command-specific
+violations win first. The aggregate hook corpus covers every native matcher at
+record level and every intentional non-projection, including the explicit stash
+and staged-only-restore exclusions. The generated command-policy reference in
+`docs/generated/harness-controls.md` lists every rule and its projection
+disposition.
+
+All command-policy consumers cross one shell boundary:
+`ai_policy_decision <record-name> <command> [work-root]`. It replaces the named
+associative array with `{verdict, ruleId, message}`; names beginning with
+`__ai_policy_boundary_` are reserved for its implementation. `verdict` is
+exactly `block`, `advise`, or `allow`; `ruleId` is the first matched hard id, or
+the first matched soft id when no hard row matches (empty for `allow`); and
+`message` is the predicate-owned or generated message (empty for `allow`). The
+reserved ids `policy-rule-data-error` and `policy-module-data-error` identify
+the two fail-closed block records. A consumer that sees any other verdict fails
+closed with the rule-data error. This is the interface a future typed policy
+model must reproduce, including hard-over-soft precedence and those recovery
+records. No soft-guidance row is active today, so formalizing `soft` → `advise`
+changes no rule or emitted hook JSON.
+
+Git lifecycle hooks under `.husky/` are repo-local gate and policy entrypoints
+outside this generated adapter-shim convention.
 
 Cursor is a checked exclusion from that hook inventory. Cursor currently has
 no repository `PreToolUse` (or equivalent policy) API, while
@@ -141,6 +213,27 @@ entries in `harness.controls.json` (or the per-adapter templates in
 body is intentionally harness-specific, keep that fact in
 `harness.controls.json` so the generated wiring and docs stay aligned.
 
+## Environment Variable Naming
+
+New harness environment variables follow this chosen, prospective taxonomy:
+
+- `HARNESS_` names cross-tool protocol surfaces on which a producer and
+  consumer must agree. `HARNESS_DIAGNOSTICS_OUTPUT` is the existing model.
+- `MUSI_` names repo-local operator and CI knobs.
+- `AI_` names AI-hook implementation controls and their test controls.
+
+Existing unprefixed variables are frozen legacy: do not add new unprefixed
+names or extend those families. This rule does not require renaming existing
+variables, and the current inventory is not evidence for changing the
+taxonomy.
+
+Test-only fakes and sandbox overrides are not user-facing operator knobs.
+`AI_BUN_FAKE_STARTED` and `AI_FAKE_NOW` are test controls under the `AI_`
+family; `AGENT_FAKE_*` is the explicit test-only family for existing and new
+`agent-run` controls. Keep new AI-hook test controls under `AI_`, make their
+test-only role visible in the name, and do not document these fakes as operator
+or CI configuration.
+
 ## Public Archive Boundary
 
 Public source archives include the copyable harness config that
@@ -158,15 +251,19 @@ packs, recent-history notes, or decision logs.
 
 ## Portable Core And Adapters
 
-This map describes the current copy boundary. It is not a package boundary yet:
-the files below still live in Musi's repo, and later behavior-preserving splits
-are deferred until an external adopter needs them.
+This map describes the current copy boundary. Most of it is not a package
+boundary yet: most files below still live in Musi's repo, and later
+behavior-preserving splits are deferred until an external adopter needs them.
+The diagnostics envelope is the first exception — `@musi/harness-diagnostics`
+(`tools/harness-diagnostics/`) is a real package with its own `package.json`,
+export map, and ESLint import boundary, so adopters copy that directory rather
+than picking a single file out of `packages/shared`.
 
 **Portable core** is the harness machinery that should carry to another
 TypeScript repo with limited policy edits:
 
-- The diagnostics envelope and fusion path:
-  `packages/shared/src/schemas/harness-diagnostics.ts`,
+- The diagnostics envelope and fusion path: the portable
+  `@musi/harness-diagnostics` package (`tools/harness-diagnostics/`),
   `scripts/harness/harness-diagnostics-output.ts`,
   `scripts/harness-audit.ts`, and
   `scripts/harness/harness-audit-report.ts` — plus the CLI substrate
@@ -184,6 +281,7 @@ TypeScript repo with limited policy edits:
 - The hook and control wiring machinery:
   `scripts/harness/generate-hook-wiring.ts`,
   `scripts/harness/hook-wiring-schema.ts`,
+  `scripts/harness/hook-wiring-doc.ts`,
   `scripts/harness/generate-harness-controls.ts`,
   `scripts/harness/generate-verify-steps.ts`, and
   `scripts/harness/verify-step-schema.ts`.
@@ -200,10 +298,12 @@ as examples to replace, not portable policy:
 - Concrete ratchet registry entries and path globs in
   `scripts/lint-ratchet/lint-ratchet-config.ts`,
   `scripts/lib/max-lines-policy.ts`, and
-  `eslint-config/shared-policy.js`.
+  `eslint-config/path-glob-policy.js`.
 - The concrete controls manifest in `harness.controls.json` and its generated
   output in `docs/generated/harness-controls.md`.
-- Repo-specific hook policy files such as `scripts/ai-hooks/policy.sh`,
+- Repo-specific hook policy files such as `scripts/ai-hooks/policy.sh` and the
+  modules it sources (`command-normalize.sh`, `command-paths.sh`,
+  `git-classify.sh`, `policy-eval.sh`),
   `scripts/ai-hooks/protected-files.sh`, `scripts/ai-hooks/no-direct-db.sh`,
   `scripts/ai-hooks/prisma-generate.sh`,
   `scripts/ai-hooks/bun-run-quiet.sh`,
@@ -219,8 +319,8 @@ the harness running.
 
 Minimal starter:
 
-1. Copy the diagnostics envelope schema plus
-   `scripts/harness/harness-diagnostics-output.ts`,
+1. Copy the `tools/harness-diagnostics` package (`@musi/harness-diagnostics`)
+   plus `scripts/harness/harness-diagnostics-output.ts`,
    `scripts/harness-audit.ts`, and
    `scripts/harness/harness-audit-report.ts`.
 2. Add one producer that writes `HARNESS_DIAGNOSTICS_OUTPUT`, either by
@@ -228,8 +328,8 @@ Minimal starter:
    an envelope and hands it to `emitHarnessDiagnostics(envelope, route,
    { source })` — the one emission kernel in
    `scripts/harness/harness-diagnostics-output.ts`, which validates against the
-   shared schema before writing a byte and then routes by one of four explicit
-   modes: `stdout-only` (the envelope is the tool's report), `sidecar-only`
+   `@musi/harness-diagnostics` schema before writing a byte and then routes by
+   one of four explicit modes: `stdout-only` (the envelope is the tool's report), `sidecar-only`
    (the tool already has its own stdout report), `stdout-and-sidecar`, or
    `output-path` (an operator-named `--output`). Validation runs for every
    envelope on every route, so no producer can emit an unchecked envelope, and
@@ -257,10 +357,13 @@ use a full clone for `docs/agent_notes/backlog/**`.
 The bash/TS boundary is a ruling, not author preference. New or reworked
 harness tools pick their substrate by these rules:
 
-- **Portable-skill surfaces stay single-file, dependency-free bash.** Anything
-  under `.claude/skills/**` meant to be copied into another repo (for example
-  `agent-run.sh`) must run before `bun install` in a fresh worktree or a
-  foreign repo, so it cannot depend on the TS toolchain.
+- **Portable dispatch surfaces stay single-file, dependency-free bash.** Any
+  executable meant to be copied into another repo alongside a skill
+  projection — today the dispatch wrappers under `scripts/agent-cli/` (for
+  example `agent-run.sh`) — must run before `bun install` in a fresh worktree
+  or a foreign repo, so it cannot depend on the TS toolchain. Skill trees
+  under `.claude/skills/**` and `.codex/skills/**` are documentation-only
+  projections and ship no executables.
 - **Repo-local gate orchestration stays bash, sharing engine libraries.**
   `scripts/verify.sh`, `.husky/pre-commit`, `scripts/land.sh`, and the hook
   entrypoints under `scripts/ai-hooks/` are process glue — traps, locks,
@@ -270,7 +373,17 @@ harness tools pick their substrate by these rules:
   evaluation, and data transformation belong under `scripts/` in TS, reachable
   from bash via `bun` entrypoints. A bash tool that grows analysis logic (the
   831-line `doctor.sh` is the cautionary example) should shed that logic to
-  TS.
+  TS. `scripts/lib/verify-metadata-core.ts` and
+  `scripts/lib/migration-safety-core.ts` are the two worked precedents for
+  that move, and they differ in how much bash was left behind.
+  `scripts/lib/verify-metadata.sh` stayed a sourced aggregator library whose
+  run-meta shims shell out to the codec once per operation, because its
+  callers are hooks and gate scripts that source it for process glue.
+  `scripts/migration-safety-scan.sh` had no process glue to keep, so it became
+  a thin exec-forwarder at the exact path callers and smokes invoke. Prefer
+  the forwarder: per-operation spawns and delimiter-framed intermediates are
+  fragility to shed, not a shape to copy. Either way the lexing, policy, and
+  rendering move into TS modules with unit tests.
 - **Duplicates across the boundary are defects.** One substrate owns a
   behavior; the other calls it. The DB-status diagnostic was the known
   shell/TS duplicate; arch-review leaf 17 retired the shell copy and kept the
@@ -285,12 +398,72 @@ queries, and `scripts/ai-hooks/stop-policy.sh`'s awk readers
 `docs/agent_notes/backlog/arch-plans-2026-07/05-verify-metadata-ts-analytical-core.md`
 (S2 record). Revisit all three together only if a defect is traced to one.
 
-Recorded rejection: a full Bun/TS rewrite of
-`.claude/skills/agent-cli/scripts/agent-run.sh` was considered and rejected
-(2026-07-07) under the copyability lens — a `.sh` must run before
-`bun install` in a fresh worktree, and the skill stays self-contained. The
-backend-adapter-table work shrank the bash instead. Do not re-litigate the
+Recorded rejection: a full Bun/TS rewrite of `agent-run.sh` (now at
+`scripts/agent-cli/`; it lived inside the Claude skill tree at the time) was
+considered and rejected (2026-07-07) under the copyability lens — a `.sh`
+must run before `bun install` in a fresh worktree.
+The backend-adapter-table work shrank the bash instead. Do not re-litigate the
 rewrite without a new constraint that defeats the copyability argument.
+Amendment (2026-08): the rejection's original "the skill stays self-contained"
+placement clause is retired — the dispatch executables live in the
+provider-neutral `scripts/agent-cli/` home and the skill directories are
+documentation-only projections (see Adapter Boundary). The no-rewrite,
+no-build-step, pre-`bun install` plain-bash constraint remains binding.
+
+## Generate What Is Data; Fingerprint Only Behavioral Invariants
+
+A harness check either compares data to data or matches source text. Text
+matching is not automatically a smell and generation is not automatically an
+improvement — the two answer different questions, and the ruling is which
+question a given check is asking.
+
+- **If the check asserts a value, single-source the value.** Two copies of a
+  number, a path, a script name, or a slot list will drift, and a check that
+  restates one copy only proves the copies still agree. Move it into the
+  manifest, a generated fragment, a shared constant, or a typed descriptor, and
+  compare the two data views instead. A check written this way keeps working
+  when the surface is reformatted, because formatting was never its subject.
+- **If the check asserts a behavior an editor could quietly remove,
+  fingerprint the source — and say so.** Ordering, reachability, and "this call
+  actually happens before that decision" are not values, and any surface that
+  described its own wiring could be rewritten by the same edit that broke it.
+  Reading the real text is the point: the evidence is credible precisely
+  because the tampering edit does not author it. Label such a check a tamper
+  tripwire in its own header so the next reader does not "modernize" it into a
+  self-report.
+- **Narrow every fingerprint to an anchor.** Match a function name, an
+  assignment, or a call, scoped to the block it belongs to — never a
+  multi-line, whitespace-sensitive slab. A tripwire that fires on reflow trains
+  people to weaken it.
+- **Scope structurally, match normalized.** Find the block by its structure —
+  an opening line for the construct, then the first line that is only its
+  terminator — not by a literal `name() {` / `\n}\n` pair, and match the
+  anchors inside it against a view with line continuations joined and
+  whitespace runs collapsed. Re-indenting, rewrapping, or restyling the file
+  then cannot fire the tripwire; only the anchored tokens can, and those tokens
+  are what the tripwire is for. Name that residual sensitivity in the file
+  header: a labelled tripwire says which formatting it still pins on purpose.
+
+Worked example — `scripts/harness/registration-preflight-wiring.ts`. It
+guards that `.husky/pre-commit` really reaches registration admission before
+the gate may skip work. Under this rule its data-shaped parts were removed
+from the fingerprint: the admission timeout default is now one shared
+`MUSI_GATE_PRECOMMIT_REGISTRATION_TIMEOUT_DEFAULT` constant in
+`scripts/lib/verify-state-paths.sh` that the check anchors on by name rather
+than by seconds, and the set of files `bun run verify:steps` writes is the
+typed `VERIFY_STEP_PROJECTIONS` descriptor in
+`scripts/harness/generate-verify-steps.ts`, which the check compares to
+`check/verify-steps-generator`'s `generatedSurface.outputPaths` for exact
+agreement in both directions instead of restating the list. Agreement between
+two path lists is not by itself proof that anything writes those paths, so each
+projection also declares which context inputs its renderer needs and the check
+rejects one whose declared checker never supplies them — otherwise a mis-tagged
+output would be skipped by the pass that offers it, never selected by the
+other, and lose its writer and its freshness check with every gate green. What
+survives is
+behavioral and stays text: the under-lock fast-mode snapshot, the
+unstaged/NUL/source-selection ordering ahead of gate dispatch, and the
+engine's admission-before-marker-before-bridge sequence.
 
 ## Green-Output Policy
 
@@ -340,7 +513,7 @@ needs them.
 | `docs/adr/README.md` and accepted ADRs | Architecture fitness, behavior | Inferential | Non-obvious architectural gates losing their stable rationale, lifecycle, or deterministic cross-links | Architecture decisions and gate changes | `bun run adr:check` |
 | `docs/authorization.md` | Architecture fitness, behavior | Inferential | Auth mismatch semantics, especially intentional `NOT_FOUND`, being reimplemented incorrectly | Area-specific | ADR-0002, auth/router tests |
 | `docs/socket-architecture.md` | Architecture fitness, behavior | Inferential | Socket.io being used for writes, unregistered broadcast behavior, or broadcasts before commit | Area-specific | ADR-0003, broadcast registry tests, `local/socket-registry-broadcasts`, `local/no-broadcast-in-transaction` |
-| `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | ADR-0001, restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
+| `docs/CONCURRENCY.md` | Architecture fitness, behavior | Inferential | Race-sensitive writes bypassing locked mutation helpers | Area-specific | ADR-0007, restricted Prisma types, `local/concurrency-guard`, RawTxClient lint |
 | `MODULE.md` / `*-MODULE.md` files | Maintainability, architecture fitness | Inferential | Agents editing a module without its local interface, flows, and invariants | Area-specific | `module:index:check`, future doc-freshness sensor |
 | `docs/module-docs.md` | Maintainability | Inferential | Module notes drifting into inconsistent shape | When adding or refreshing module docs | `bun run module:index:check` |
 | `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/tests/test-generate-module-index.sh` |
@@ -366,9 +539,9 @@ needs them.
 | `bun run codemod:trpc-shared-input -- --check` / `-- [--target <schema.js>] <router-file>` | Architecture fitness | Computational | Agents hand-editing simple router-local tRPC input schema moves | Manual, before edit | `local/trpc-shared-input-schema` |
 | `bun run codemod:trpc-shared-output -- --check` / `-- [--target <schema.js>] <router-file>` / `-- --all` | Architecture fitness | Computational | Agents hand-editing simple router-local tRPC output schema moves | Manual, before edit | `local/trpc-shared-output-schema` |
 | `bun run codemod:structured-logging-fix -- --check` / `-- [--dry-run] <file>` / `-- --all` | Maintainability, architecture fitness | Computational | Agents guessing safe structured log rewrites or leaving seed scripts on direct console output | Manual, before edit | `local/structured-logging` |
-| `bun run codemod:concurrency-guard -- --check` / `--all` / `<file>` | Architecture fitness, behavior | Computational | Agents bypassing existing race-sensitive helper boundaries or drifting helper internals; name-based only, so aliases/destructuring still need review | Manual, after concurrency-sensitive edits | Restricted Prisma delegate types, `RawTxClient` lint |
+| `bun run codemod:concurrency-guard -- --check` / `--all` / `<file>` | Architecture fitness, behavior | Computational | Agents bypassing existing race-sensitive helper boundaries or drifting helper internals; read-only and name-based, with one-hop aliases/destructuring covered but deeper indirection still manual | Manual, after concurrency-sensitive edits | Restricted Prisma delegate types, `RawTxClient` lint |
 | Future codemods in `scripts/codemods/` | Maintainability, architecture fitness | Computational | Agents hand-editing known migration shapes | Manual, before edit | Matching lint with repair command |
-| `bun run code:intel -- ...` (`docs/guides/code-intel.md`, skill `ts-graph`) | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, references, and nearby tests | Manual, during exploration | Future graph/drift sensors |
+| `bun run code:intel -- ...` (`docs/guides/code-intel.md`) | Maintainability, architecture fitness | Computational | Noisy `rg` archaeology for definitions, dependents, exports, references, and nearby tests (application `src/` trees and `scripts/` only; see the guide's supported-scope decision) | Manual, during exploration; not advertised to agents (the `ts-graph` skill was removed — see `docs/guides/code-intel.md`) | Future graph/drift sensors |
 
 ## Sensors
 
@@ -404,9 +577,9 @@ needs them.
 | `local/test-file-location` | Maintainability | Computational | Unit-test files with an empty feature prefix or no `describe`/`it`/`test` block | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Shared schema barrel import ban | Architecture fitness | Computational | Imports from removed `@musi/shared/schemas` barrel | `bun run lint`, `bun run lint:changed` | ADR-0005, `codemod:expand-barrel` |
 | Shared/client socket import restrictions | Architecture fitness | Computational | `packages/shared` depending on app/runtime adapters, or client code constructing a second Socket.io client outside `SocketProvider` | `bun run lint`, `bun run lint:changed` | ADR-0006, `AGENTS.md`, `docs/socket-architecture.md` |
-| `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates outside mutation helpers | `bun run lint`, `bun run lint:changed` | ADR-0001, `docs/guides/add-race-sensitive-mutation.md` |
-| `RawTxClient` restricted import | Architecture fitness, behavior | Computational | Race-sensitive Prisma write escape outside `utils/*-mutations.ts` | `bun run lint`, `bun run lint:changed` | ADR-0001, `docs/CONCURRENCY.md` |
-| Restricted Prisma delegate types | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` on gated tables | `bun run typecheck` | ADR-0001, `docs/CONCURRENCY.md` |
+| `local/concurrency-guard` | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` calls on concurrency-gated Prisma delegates, plus literal nested relation writes that reach those delegates | `bun run lint`, `bun run lint:changed` | ADR-0007, `docs/guides/add-race-sensitive-mutation.md` |
+| `RawTxClient` restricted import | Architecture fitness, behavior | Computational | Race-sensitive Prisma write escape outside `utils/*-mutations.ts` | `bun run lint`, `bun run lint:changed` | ADR-0007, `docs/CONCURRENCY.md` |
+| Restricted Prisma delegate types | Architecture fitness, behavior | Computational | Direct `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert` on gated tables | `bun run typecheck` | ADR-0007, `docs/CONCURRENCY.md` |
 | App-router output coverage test | Architecture fitness | Computational | tRPC queries/mutations missing non-permissive `.output(schema)` | `bun run test:server`, `bun run verify:changed` when selected | ADR-0004, `docs/guides/add-trpc-procedure.md` |
 | Vitest test-structure lint (`vitest/no-focused-tests`, `vitest/no-disabled-tests`, `vitest/no-identical-title`, `vitest/no-commented-out-tests`, `vitest/valid-describe-callback`, `vitest/valid-title`) | Maintainability, behavior | Computational | Focused, disabled, duplicate, commented-out, malformed, or ambiguously named Vitest tests in non-e2e unit/integration files | `bun run lint`, `bun run lint:changed` | Rule diagnostic |
 | Vitest assertion/import lint (`vitest/expect-expect`, `vitest/valid-expect`, `vitest/valid-expect-in-promise`, `vitest/no-standalone-expect`, `vitest/no-unneeded-async-expect-function`, `vitest/no-import-node-test`, `vitest/no-mocks-import`, `vitest/no-interpolation-in-snapshots`, `vitest/require-local-test-context-for-concurrent-snapshots`, `vitest/prefer-called-exactly-once-with`, `vitest/prefer-comparison-matcher`, `vitest/prefer-equality-matcher`, `vitest/prefer-to-contain`) | Behavior, maintainability | Computational | Vitest tests with missing or invalid assertions, unsafe standalone/async expect usage, wrong test imports, mock/snapshot footguns, weak single-call assertions, and zero-baseline matcher drift | `bun run lint`, `bun run lint:changed` | Rule diagnostic and local test helpers |
@@ -444,7 +617,7 @@ needs them.
 | `drift:ai` runtime import-cycle floor | Architecture fitness, maintainability | Computational | New runtime import cycles anywhere in the module graph (cycles that survive when type-only edges are removed); type-only cycles stay report-only evidence and never gate | `bun run lint`, `bun run lint:changed` — the "import cycles" lane runs `drift:ai --scope current --check import-cycles --fail-on-runtime-cycles` and fails closed if the check skips | `scripts/drift-ai/README.md`, `scripts/lint.sh` |
 | `drift:ai hotspots` | Maintainability | Computational | Advisory git-history hotspots: churn, coupling, fragmentation, suppression-churn, and thrash lenses; areas to inspect, not defects | Manual advisory: `bun run drift:ai hotspots --lens all` | `scripts/drift-ai/README.md` |
 | `drift:ai coldspots` | Maintainability | Computational | Advisory git-history coldspots: low-churn source files and stale-marker lines that may need a human look; areas to inspect, not defects | Manual advisory: `bun run drift:ai coldspots --lens all` | `scripts/drift-ai/README.md` |
-| `harness:audit` fusion | Maintainability | Computational | Read-only fusion of `HarnessDiagnostics` envelope files (`lint:ratchet`, `drift:ai`, `logs:audit`) into one bounded report grouped by tool, with totals and per-control counts; an artifact generator for scheduled/manual review, not an edit-loop gate (findings never gate; only unreadable/malformed envelopes exit non-zero) | Manual: run a producer with `HARNESS_DIAGNOSTICS_OUTPUT=<path>`, then `bun run harness:audit <path...>` (`--format text\|json`, `--output <file>`). Scheduled weekly: `.github/workflows/slow-drift.yml` runs `bash scripts/slow-drift-audit.sh` and uploads fused artifacts. | `scripts/harness-audit.ts`, `scripts/slow-drift-audit.sh`, `packages/shared/src/schemas/harness-diagnostics.ts` |
+| `harness:audit` fusion | Maintainability | Computational | Read-only fusion of `HarnessDiagnostics` envelope files (`lint:ratchet`, `drift:ai`, `logs:audit`) into one bounded report grouped by tool, with totals and per-control counts; an artifact generator for scheduled/manual review, not an edit-loop gate (findings never gate; only unreadable/malformed envelopes exit non-zero) | Manual: run a producer with `HARNESS_DIAGNOSTICS_OUTPUT=<path>`, then `bun run harness:audit <path...>` (`--format text\|json`, `--output <file>`). Scheduled weekly: `.github/workflows/slow-drift.yml` runs `bash scripts/slow-drift-audit.sh` and uploads fused artifacts. | `scripts/harness-audit.ts`, `scripts/slow-drift-audit.sh`, `tools/harness-diagnostics/src/schema.ts` |
 | Lint message eval | Maintainability | Inferential + computational grader | Treatment/control agent repairs over identical structural-rule violations; iterations to green plus stuck, oscillating, and cascading interactions | Manual capture and `bun run eval:lint-messages`; weekly replay in `.github/workflows/slow-drift.yml`, report-only and outside commit gates | `docs/guides/lint-message-evals.md` |
 | Future approved behavior fixtures | Behavior | Computational | Generated tests proving the wrong shape or missing reviewed scenario data | Targeted Vitest suites | Domain docs, SRD reference |
 | Future slow drift reports | Maintainability, architecture fitness | Computational | Stale module docs, flake trends, layer drift, and other drift reports not already covered by `drift:ai` or existing sensors | `doctor`, CI, scheduled, or manual | This map |
@@ -562,7 +735,14 @@ newline-separated runtime JSONL paths through `MUSI_SLOW_DRIFT_LOG_FILES`; the
 scheduled CI job skips it by default because that job does not collect runtime
 server logs.
 Automation should use `bun run logs:audit --latest` only after its no-log path
-has been proven quiet in that environment.
+has been proven quiet in that environment. `--latest` must go through the
+package script: `scripts/logs-audit.sh` sources `scripts/lib/verify-metadata.sh`
+— the public entry point for the per-worktree state-path protocol that
+`scripts/lib/verify-state-paths.sh` owns — and exports
+`MUSI_STANDARD_VERIFY_LOG_DIR` and `MUSI_STANDARD_BUN_LOG_DIR` for the
+TypeScript CLI. A raw `bun scripts/logs-audit.ts --latest` no longer derives
+those directories and exits `2` saying so; that missing-env exit is distinct
+from the no-log exit `0` above, which stays graceful degradation.
 
 Findings are report-only. Producer exit `1` still produces artifacts and
 continues to fusion; unreadable envelopes, missing sidecars, and setup/tool

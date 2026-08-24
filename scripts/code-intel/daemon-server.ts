@@ -1,13 +1,13 @@
 import { createServer, type Server, type Socket } from "node:net";
 import { pathToFileURL } from "node:url";
 
-import { isDaemonRoutableCommand } from "./daemon-commands.js";
 import {
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   type CodeIntelDaemonError,
-  type CodeIntelDaemonRequest,
+  type CodeIntelDaemonQueryRequest,
   type CodeIntelDaemonResponse,
   DAEMON_FALLBACK_ERROR_NAME,
+  decodeDaemonRequest,
 } from "./daemon-protocol.js";
 import { executeDaemonQuery } from "./daemon-query.js";
 import {
@@ -20,10 +20,7 @@ import {
   writeDaemonMetadata,
 } from "./daemon-state.js";
 import { GraphCache } from "./graph-cache.js";
-import { isRecord } from "./json-utils.js";
 import { ProjectCache } from "./project-cache.js";
-
-const FALLBACK_RESPONSE_ID = "unknown";
 
 export type RunDaemonOptions = {
   paths: DaemonStatePaths;
@@ -114,89 +111,21 @@ function handleRequestPayload(
   graphCache: GraphCache,
   projectCache: ProjectCache,
 ): CodeIntelDaemonResponse {
-  const parseOutcome = parseEnvelope(payload);
+  const parseOutcome = decodeDaemonRequest(payload);
   if (parseOutcome.kind === "error") {
-    return errorResponse(parseOutcome.id, parseOutcome.error);
-  }
-  const parsed = parseOutcome.envelope;
-  if (parsed.protocolVersion !== CODE_INTEL_DAEMON_PROTOCOL_VERSION) {
-    return errorResponse(parsed.id, {
-      message: `Unsupported protocol version ${String(parsed.protocolVersion)}; expected ${String(
-        CODE_INTEL_DAEMON_PROTOCOL_VERSION,
-      )}.`,
+    return errorResponse(parseOutcome.id, {
+      message: parseOutcome.reason,
       name: DAEMON_FALLBACK_ERROR_NAME,
     });
   }
+  const parsed = parseOutcome.request;
   if (parsed.command.kind === "ping") return pongResponse(parsed.id);
-  if (!isDaemonRoutableCommand(parsed.command)) {
-    return errorResponse(parsed.id, {
-      message: `Daemon does not handle ${parsed.command.kind} queries.`,
-      name: DAEMON_FALLBACK_ERROR_NAME,
-    });
-  }
-  const envelope: CodeIntelDaemonRequest = {
+  const envelope: CodeIntelDaemonQueryRequest = {
     command: parsed.command,
     id: parsed.id,
     protocolVersion: CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   };
   return executeDaemonQuery(envelope, repoRoot, graphCache, projectCache);
-}
-
-type ParsedRequestEnvelope = {
-  command: { kind: string };
-  id: string;
-  protocolVersion: number;
-};
-
-type ParsedEnvelopeOutcome =
-  | { kind: "ok"; envelope: ParsedRequestEnvelope }
-  | { kind: "error"; id: string; error: CodeIntelDaemonError };
-
-function parseEnvelope(payload: string): ParsedEnvelopeOutcome {
-  if (payload.length === 0) {
-    return {
-      kind: "error",
-      id: FALLBACK_RESPONSE_ID,
-      error: { message: "Empty request payload.", name: "Error" },
-    };
-  }
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(payload);
-  } catch (error) {
-    return {
-      kind: "error",
-      id: FALLBACK_RESPONSE_ID,
-      error: {
-        message: `Invalid JSON request: ${error instanceof Error ? error.message : String(error)}`,
-        name: "Error",
-      },
-    };
-  }
-  if (!isRecord(parsed)) {
-    return {
-      kind: "error",
-      id: FALLBACK_RESPONSE_ID,
-      error: { message: "Request must be a JSON object.", name: "Error" },
-    };
-  }
-  const id = typeof parsed.id === "string" ? parsed.id : FALLBACK_RESPONSE_ID;
-  if (typeof parsed.protocolVersion !== "number") {
-    return {
-      kind: "error",
-      id,
-      error: { message: "Request envelope is missing a numeric protocolVersion.", name: "Error" },
-    };
-  }
-  if (!isRecord(parsed.command) || typeof parsed.command.kind !== "string") {
-    return {
-      kind: "error",
-      id,
-      error: { message: "Request envelope is missing a command.", name: "Error" },
-    };
-  }
-  // type-assertion-boundary: json - request envelope parsed from JSON and shape-validated above (isRecord + command/protocolVersion checks); cast just narrows to the validated envelope type
-  return { kind: "ok", envelope: parsed as unknown as ParsedRequestEnvelope };
 }
 
 function errorResponse(id: string, error: CodeIntelDaemonError): CodeIntelDaemonResponse {
@@ -213,7 +142,7 @@ function pongResponse(id: string): CodeIntelDaemonResponse {
     id,
     ok: true,
     protocolVersion: CODE_INTEL_DAEMON_PROTOCOL_VERSION,
-    result: { kind: "results", header: "pong", results: [] },
+    result: { kind: "pong" },
   };
 }
 

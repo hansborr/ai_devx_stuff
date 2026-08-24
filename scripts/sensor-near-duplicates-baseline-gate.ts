@@ -14,6 +14,8 @@ type MergeTruthResult = {
   readonly entries?: readonly NearDuplicateBaselineEntry[];
 };
 
+const UNREVIEWED_BASELINE_GROWTH_EXIT_CODE = 6;
+
 export function scopedNearDuplicateEntries(
   entries: readonly NearDuplicateBaselineEntry[],
   changedFiles: readonly string[],
@@ -60,6 +62,8 @@ export function resolveNearDuplicatesMergeTruth(options: {
     };
   }
   const exactTruth = gateEntries(options.proposed, options.current).status === "ok";
-  if (!truthUp.ok || !exactTruth) return { exitCode: 1, stdout: proposedGrowth ?? "" };
+  if (!truthUp.ok || !exactTruth) {
+    return { exitCode: UNREVIEWED_BASELINE_GROWTH_EXIT_CODE, stdout: proposedGrowth ?? "" };
+  }
   return undefined;
 }

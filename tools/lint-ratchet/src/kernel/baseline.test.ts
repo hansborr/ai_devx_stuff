@@ -2,16 +2,15 @@ import { createHash } from "node:crypto";
 
 import { describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
-  computeCoreLintRatchetRuleSourceHash,
   computeLintRatchetConfigHash,
   currentByIdFromBaseline,
   decideLintRatchetUpdate,
   formatLintRatchetBaseline,
   formatZeroToNonzeroWarnings,
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetBaseline,
   type LintRatchetComparison,
   type LintRatchetCurrentById,
@@ -23,8 +22,11 @@ import {
 } from "./baseline.js";
 import {
   createLintRatchetBaselineVersionPolicy,
-  LINT_RATCHET_BASELINE_REGENERATE,
+  LINT_RATCHET_CONFIG_HASH_PREFIX,
 } from "./baseline-constants.js";
+import { computeCoreLintRatchetRuleSourceHash } from "./baseline-hash.js";
+
+const LINT_RATCHET_BASELINE_REGENERATE = fixtureWorkflowVocabulary.updateCommand;
 import { normalizeStringList } from "./baseline-hash.js";
 import type { LintRatchetConfig } from "./config-types.js";
 import { itemsFromResults } from "./current-collector.js";
@@ -50,7 +52,6 @@ const baseRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture base ratchet principle.",
 };
 
@@ -67,7 +68,6 @@ const thirdPartyRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture third-party ratchet principle.",
 };
 
@@ -81,7 +81,6 @@ const coreRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture core ratchet principle.",
 };
 
@@ -93,7 +92,6 @@ const maxLinesRatchet = {
   ruleOptions: [{ max: 300, skipBlankLines: true, skipComments: true }],
   mode: "no-new",
   metric: "effective-line-count",
-  repairKind: "manual",
   principle: "Fixture max-lines ratchet principle.",
 } as unknown as LintRatchetConfig;
 
@@ -107,7 +105,6 @@ const complexityRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "complexity-severity",
-  repairKind: "manual",
   principle: "Fixture complexity ratchet principle.",
 };
 
@@ -202,6 +199,7 @@ function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaselin
     [baseRatchet],
     current([[baseRatchet.id, paths.map(([path, count]) => [path, count])]]),
     fixtureRuleSourceHashes,
+    { workflowVocabulary: fixtureWorkflowVocabulary },
   );
 }
 
@@ -210,6 +208,7 @@ function maxLinesBaseline(path: string, lines: number, count = 1): LintRatchetBa
     [maxLinesRatchet],
     current([[maxLinesRatchet.id, [[path, count, 301, lines]]]]),
     fixtureRuleSourceHashes,
+    { workflowVocabulary: fixtureWorkflowVocabulary },
   );
 }
 
@@ -234,6 +233,7 @@ function complexityBaseline(
       ],
     ]),
     fixtureRuleSourceHashes,
+    { workflowVocabulary: fixtureWorkflowVocabulary },
   );
 }
 
@@ -524,6 +524,7 @@ const COMPARATOR_CHARACTERIZATION_CASES: readonly ComparatorCharacterizationCase
           ],
         ]),
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ),
     ratchet: baseRatchet,
     current: () =>
@@ -606,7 +607,14 @@ describe("lint ratchet comparison", () => {
   it.each(COMPARATOR_CHARACTERIZATION_CASES)(
     "characterizes $name for the kernel migration oracle",
     ({ baseline, ratchet, current: currentFixture, expected }) => {
-      expect(compareCurrentToBaseline(baseline(), [ratchet], currentFixture())).toEqual(expected);
+      expect(
+        compareCurrentToBaseline(
+          baseline(),
+          [ratchet],
+          currentFixture(),
+          fixtureWorkflowVocabulary,
+        ),
+      ).toEqual(expected);
     },
   );
 
@@ -616,6 +624,7 @@ describe("lint ratchet comparison", () => {
       baseline,
       [baseRatchet],
       current([[baseRatchet.id, [["packages/server/src/new.ts", 1, 7]]]]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -637,12 +646,14 @@ describe("lint ratchet comparison", () => {
       [maxLinesRatchet],
       current([[maxLinesRatchet.id, []]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const generated = maxLinesBaseline(path, 350);
     const comparison = compareCurrentToBaseline(
       baseline,
       [maxLinesRatchet],
       currentByIdFromBaseline(generated),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -664,6 +675,7 @@ describe("lint ratchet comparison", () => {
       [complexityRatchet],
       current([[complexityRatchet.id, []]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const generated = complexityBaseline(path, [
       complexityFunction(10, "Function 'newBranch'", 25),
@@ -672,6 +684,7 @@ describe("lint ratchet comparison", () => {
       baseline,
       [complexityRatchet],
       currentByIdFromBaseline(generated),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -694,6 +707,7 @@ describe("lint ratchet comparison", () => {
       [complexityRatchet],
       current([[complexityRatchet.id, []]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const comparison = compareCurrentToBaseline(
       baseline,
@@ -716,6 +730,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions[0]).toMatchObject({
@@ -734,11 +749,17 @@ describe("lint ratchet comparison", () => {
       [complexityRatchet],
       current([[complexityRatchet.id, []]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const currentById: LintRatchetCurrentById = new Map([
       [complexityRatchet.id, new Map([[path, { count: 1, maxComplexity: 33 }]])],
     ]);
-    const comparison = compareCurrentToBaseline(baseline, [complexityRatchet], currentById);
+    const comparison = compareCurrentToBaseline(
+      baseline,
+      [complexityRatchet],
+      currentById,
+      fixtureWorkflowVocabulary,
+    );
 
     expect(comparison.regressions[0]).toMatchObject({
       testId: complexityRatchet.id,
@@ -755,6 +776,7 @@ describe("lint ratchet comparison", () => {
       baseline,
       [baseRatchet],
       current([[baseRatchet.id, [["packages/server/src/app.ts", 3]]]]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toHaveLength(1);
@@ -782,6 +804,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -1090,6 +1113,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1135,6 +1159,7 @@ describe("lint ratchet comparison", () => {
         ],
       ]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const comparison = compareCurrentToBaseline(
       baseline,
@@ -1156,6 +1181,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1194,6 +1220,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.infos).toEqual([]);
@@ -1206,6 +1233,7 @@ describe("lint ratchet comparison", () => {
       baseline,
       [maxLinesRatchet],
       current([[maxLinesRatchet.id, [[path, 1, 301, 321]]]]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -1230,6 +1258,7 @@ describe("lint ratchet comparison", () => {
       baseline,
       [maxLinesRatchet],
       current([[maxLinesRatchet.id, [[path, 1, 301, 321]]]]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -1254,6 +1283,7 @@ describe("lint ratchet comparison", () => {
       maxLinesBaseline(path, 320),
       [maxLinesRatchet],
       current([[maxLinesRatchet.id, [[path, 1, 301, 319]]]]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1286,6 +1316,7 @@ describe("lint ratchet comparison", () => {
           [[path, 1, 14, undefined, [complexityFunction(14, "Function 'current'", 25)]]],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -1319,6 +1350,7 @@ describe("lint ratchet comparison", () => {
           [[path, 1, 12, undefined, [complexityFunction(12, "Function 'first'", 20)]]],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1349,6 +1381,7 @@ describe("lint ratchet comparison", () => {
           [[path, 1, 12, undefined, [complexityFunction(12, "Function 'first'", 18)]]],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1375,6 +1408,7 @@ describe("lint ratchet comparison", () => {
           [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 12)]]],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([
@@ -1417,6 +1451,7 @@ describe("lint ratchet comparison", () => {
           ],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions[0]).toMatchObject({
@@ -1463,6 +1498,7 @@ describe("lint ratchet comparison", () => {
           [[path, 1, 12, undefined, [complexityFunction(12, "Function 'choose'", 11)]]],
         ],
       ]),
+      fixtureWorkflowVocabulary,
     );
 
     expect(comparison.regressions).toEqual([]);
@@ -1513,9 +1549,10 @@ describe("lint ratchet baseline parsing", () => {
         ],
       ]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
 
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
 
     expect(rendered).not.toContain("Type assertion escaped");
     expect(rendered).not.toContain("unexpectedAssertion");
@@ -1523,14 +1560,18 @@ describe("lint ratchet baseline parsing", () => {
       `"messagesFingerprint": "${expectedMessageFingerprint(["unexpectedAssertion"])}"`,
     );
     expect(
-      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).baseline,
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).baseline,
     ).toEqual(baseline);
   });
 
   it("round-trips deterministic baseline JSON", () => {
     const baseline = oneTestBaseline([["packages/shared/src/schema.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline);
-    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+    });
 
     expect(parsed.failures).toEqual([]);
     expect(parsed.baseline).toEqual(baseline);
@@ -1542,22 +1583,27 @@ describe("lint ratchet baseline parsing", () => {
       [baseRatchet],
       current([[baseRatchet.id, []]]),
       fixtureRuleSourceHashes,
-      writeV2,
+      { workflowVocabulary: fixtureWorkflowVocabulary, versionPolicy: writeV2 },
     );
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
 
     expect(rendered).toContain('"version": 2');
     expect(rendered).toContain(`"regenerate": "${LINT_RATCHET_BASELINE_REGENERATE}"`);
 
     const staleCommand = "bun run lint:ratchet:legacy-update";
     const stale = rendered.replace(LINT_RATCHET_BASELINE_REGENERATE, staleCommand);
-    const parsed = parseLintRatchetBaseline(stale, [baseRatchet], fixtureRuleSourceHashes, writeV2);
+    const parsed = parseLintRatchetBaseline(stale, [baseRatchet], fixtureRuleSourceHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      versionPolicy: writeV2,
+    });
 
     expect(parsed.failures).toEqual([]);
     expect(parsed.warnings).toEqual([
       `baseline regenerate annotation is stale; regenerate with \`${LINT_RATCHET_BASELINE_REGENERATE}\` (committed ${JSON.stringify(staleCommand)})`,
     ]);
-    expect(formatLintRatchetBaseline(parsed.baseline ?? generated)).toBe(stale);
+    expect(formatLintRatchetBaseline(parsed.baseline ?? generated, fixtureWorkflowVocabulary)).toBe(
+      stale,
+    );
   });
 
   it("tolerates a missing v2 regenerate annotation", () => {
@@ -1567,41 +1613,50 @@ describe("lint ratchet baseline parsing", () => {
         [baseRatchet],
         current([[baseRatchet.id, []]]),
         fixtureRuleSourceHashes,
-        writeV2,
+        { workflowVocabulary: fixtureWorkflowVocabulary, versionPolicy: writeV2 },
       ),
+      fixtureWorkflowVocabulary,
     ).replace(/^ {2}"regenerate": .*\n/mu, "");
-    const parsed = parseLintRatchetBaseline(
-      rendered,
-      [baseRatchet],
-      fixtureRuleSourceHashes,
-      writeV2,
-    );
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      versionPolicy: writeV2,
+    });
 
     expect(parsed.failures).toEqual([]);
     expect(parsed.warnings).toEqual([]);
-    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(rendered);
+    expect(
+      formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]), fixtureWorkflowVocabulary),
+    ).toBe(rendered);
   });
 
   it("rejects unknown version, missing tests, bad ids, negative counts, and non-deterministic output", () => {
     expect(
-      parseLintRatchetBaseline('{"version":3,"tests":{}}\n', [baseRatchet], fixtureRuleSourceHashes)
-        .failures,
+      parseLintRatchetBaseline(
+        '{"version":3,"tests":{}}\n',
+        [baseRatchet],
+        fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
+      ).failures,
     ).toContain("baseline version must be one of 1, 2");
     expect(
       parseLintRatchetBaseline(
         '{"version":2,"tool":"fixture","metric":"count","entries":[]}\n',
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("baseline has wrong document family: expected 'tests', found 'entries'");
     expect(
-      parseLintRatchetBaseline('{"version":1}\n', [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline('{"version":1}\n', [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain("baseline tests must be an object");
     expect(
       parseLintRatchetBaseline(
         '{"version":1,"tests":{"bad":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"message-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("bad: id must match ratchet/<name>");
     expect(
@@ -1609,29 +1664,44 @@ describe("lint ratchet baseline parsing", () => {
         '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"message-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{"packages/a.ts":{"count":-1}}}}}\n',
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain(
       "ratchet/local-type-assertion-boundary.items.packages/a.ts: count must be a non-negative integer",
     );
 
-    const rendered = formatLintRatchetBaseline(oneTestBaseline([])).trimEnd();
+    const rendered = formatLintRatchetBaseline(
+      oneTestBaseline([]),
+      fixtureWorkflowVocabulary,
+    ).trimEnd();
     expect(
-      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain("baseline JSON is not deterministic; run bun run lint:ratchet:update");
   });
 
   it("requires effective-line-count items to carry lines in strict parse", () => {
     const path = "packages/server/src/large.ts";
-    const rendered = formatLintRatchetBaseline(maxLinesBaseline(path, 320));
+    const rendered = formatLintRatchetBaseline(
+      maxLinesBaseline(path, 320),
+      fixtureWorkflowVocabulary,
+    );
     expect(
-      parseLintRatchetBaseline(rendered, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(rendered, [maxLinesRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toEqual([]);
 
     const countOnly = rendered.replace(/,\n\s+"lines": 320/u, "");
     expect(
-      parseLintRatchetBaseline(countOnly, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(countOnly, [maxLinesRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain(`${maxLinesRatchet.id}.items.${path}.lines is required for effective-line-count`);
-    expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
+    expect(
+      parseLintRatchetBaselineStructure(countOnly, fixtureWorkflowVocabulary).failures,
+    ).toEqual([]);
   });
 
   it("validates message fingerprints only on message-count items", () => {
@@ -1651,27 +1721,36 @@ describe("lint ratchet baseline parsing", () => {
         ],
       ]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
-    const renderedMessageBaseline = formatLintRatchetBaseline(messageBaseline);
+    const renderedMessageBaseline = formatLintRatchetBaseline(
+      messageBaseline,
+      fixtureWorkflowVocabulary,
+    );
     expect(
-      parseLintRatchetBaseline(renderedMessageBaseline, [baseRatchet], fixtureRuleSourceHashes)
-        .failures,
+      parseLintRatchetBaseline(renderedMessageBaseline, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toEqual([]);
 
     const invalidFingerprint = renderedMessageBaseline.replace(fingerprint, "sha256:not-a-hash");
     expect(
-      parseLintRatchetBaseline(invalidFingerprint, [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(invalidFingerprint, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain(
       `${baseRatchet.id}.items.${messagePath}: messagesFingerprint must be a sha256 hash`,
     );
 
     const linePath = "packages/server/src/large.ts";
-    const lineBaseline = formatLintRatchetBaseline(maxLinesBaseline(linePath, 320)).replace(
-      /"count": 1,/u,
-      `"count": 1,\n          "messagesFingerprint": "${fingerprint}",`,
-    );
+    const lineBaseline = formatLintRatchetBaseline(
+      maxLinesBaseline(linePath, 320),
+      fixtureWorkflowVocabulary,
+    ).replace(/"count": 1,/u, `"count": 1,\n          "messagesFingerprint": "${fingerprint}",`);
     expect(
-      parseLintRatchetBaseline(lineBaseline, [maxLinesRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(lineBaseline, [maxLinesRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain(
       `${maxLinesRatchet.id}.items.${linePath}.messagesFingerprint is only valid for message-count`,
     );
@@ -1681,9 +1760,12 @@ describe("lint ratchet baseline parsing", () => {
     const path = "packages/server/src/branchy.ts";
     const rendered = formatLintRatchetBaseline(
       complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]),
+      fixtureWorkflowVocabulary,
     );
     expect(
-      parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(rendered, [complexityRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toEqual([]);
 
     const countOnly = rendered.replace(
@@ -1691,22 +1773,27 @@ describe("lint ratchet baseline parsing", () => {
       "",
     );
     expect(
-      parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(countOnly, [complexityRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toEqual([
       `${complexityRatchet.id}.items.${path}.maxComplexity is required for complexity-severity`,
       `${complexityRatchet.id}.items.${path}.perFunction is required for complexity-severity`,
     ]);
-    expect(parseLintRatchetBaselineStructure(countOnly).failures).toEqual([]);
+    expect(
+      parseLintRatchetBaselineStructure(countOnly, fixtureWorkflowVocabulary).failures,
+    ).toEqual([]);
   });
 
   it("rejects stale config identity, unknown metrics, missing files, missing ruleOptions, and unknown registry ids", () => {
     const baseline = oneTestBaseline([]);
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
     expect(
       parseLintRatchetBaseline(
         rendered.replace("message-count", "line-count"),
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("ratchet/local-type-assertion-boundary: metric is unknown");
     expect(
@@ -1714,6 +1801,7 @@ describe("lint ratchet baseline parsing", () => {
         '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"message-count","ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("ratchet/local-type-assertion-boundary: files is required");
     expect(
@@ -1721,6 +1809,7 @@ describe("lint ratchet baseline parsing", () => {
         rendered.replace('"ruleOptions": [],', ""),
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("ratchet/local-type-assertion-boundary: ruleOptions is required");
     expect(
@@ -1728,6 +1817,7 @@ describe("lint ratchet baseline parsing", () => {
         rendered.replace(baseRatchet.id, "ratchet/unknown"),
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("ratchet/unknown: baseline has no matching ratchet registry entry");
     expect(
@@ -1738,6 +1828,7 @@ describe("lint ratchet baseline parsing", () => {
         ),
         [baseRatchet],
         fixtureRuleSourceHashes,
+        { workflowVocabulary: fixtureWorkflowVocabulary },
       ).failures,
     ).toContain("ratchet/local-type-assertion-boundary.configHash is stale");
   });
@@ -1760,9 +1851,11 @@ describe("lint ratchet update decisions", () => {
       [narrowedRatchet],
       new Map([[narrowedRatchet.id, new Map([["packages/server/src/a.ts", { count: 1 }]])]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
 
     const refused = decideLintRatchetUpdate(committed, generated, [narrowedRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
     expect(refused.allowed).toBe(false);
@@ -1775,6 +1868,7 @@ describe("lint ratchet update decisions", () => {
     ]);
 
     const accepted = decideLintRatchetUpdate(committed, generated, [narrowedRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "exclude generated compatibility code from this floor",
     });
@@ -1795,9 +1889,11 @@ describe("lint ratchet update decisions", () => {
       [changedRatchet],
       new Map([[changedRatchet.id, new Map([["packages/server/src/a.ts", { count: 1 }]])]]),
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
 
     const decision = decideLintRatchetUpdate(committed, generated, [changedRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
     expect(decision.allowed).toBe(true);
@@ -1818,6 +1914,7 @@ describe("lint ratchet update decisions", () => {
     const generated = oneTestBaseline([["packages/server/src/a.ts", 1]]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
     expect(decision.allowed).toBe(true);
@@ -1835,6 +1932,7 @@ describe("lint ratchet update decisions", () => {
     const generated = oneTestBaseline([["packages/server/src/a.ts", 2]]);
 
     const refused = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
     expect(refused.allowed).toBe(false);
@@ -1842,6 +1940,7 @@ describe("lint ratchet update decisions", () => {
     expect(refused.failures[0]).toContain(`--reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}"`);
 
     const missingReason = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: " ",
     });
@@ -1849,6 +1948,7 @@ describe("lint ratchet update decisions", () => {
     expect(missingReason.failures).toContain("--allow-worse requires a non-empty --reason");
 
     const placeholderReason = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: RATCHET_REGRESSION_REASON_PLACEHOLDER,
     });
@@ -1858,6 +1958,7 @@ describe("lint ratchet update decisions", () => {
     );
 
     const accepted = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "intentional migration boundary",
     });
@@ -1869,6 +1970,7 @@ describe("lint ratchet update decisions", () => {
     const committed = maxLinesBaseline(path, 320);
     const generated = maxLinesBaseline(path, 321);
     const refused = decideLintRatchetUpdate(committed, generated, [maxLinesRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
 
@@ -1877,6 +1979,7 @@ describe("lint ratchet update decisions", () => {
     expect(refused.regressions[0]?.reason).toBe("increased-lines");
 
     const accepted = decideLintRatchetUpdate(committed, generated, [maxLinesRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "intentional max-lines migration",
     });
@@ -1888,6 +1991,7 @@ describe("lint ratchet update decisions", () => {
     const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 11)]);
     const generated = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
     const refused = decideLintRatchetUpdate(committed, generated, [complexityRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
 
@@ -1896,6 +2000,7 @@ describe("lint ratchet update decisions", () => {
     expect(refused.regressions[0]?.reason).toBe("increased-complexity");
 
     const accepted = decideLintRatchetUpdate(committed, generated, [complexityRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "intentional complexity migration",
     });
@@ -1910,6 +2015,7 @@ describe("lint ratchet update decisions", () => {
     ]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
 
@@ -1944,6 +2050,7 @@ describe("lint ratchet update decisions", () => {
     ]);
 
     const refused = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
     });
     expect(refused.allowed).toBe(false);
@@ -1956,6 +2063,7 @@ describe("lint ratchet update decisions", () => {
     expect(refused.warnings[0]).toContain("packages/server/src/b.ts: 2");
 
     const accepted = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "intentional new boundary",
     });
@@ -1972,6 +2080,7 @@ describe("lint ratchet update decisions", () => {
     ]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "already had findings",
     });
@@ -2002,7 +2111,7 @@ describe("lint ratchet update decisions", () => {
 describe("lint ratchet structural parsing", () => {
   it("accepts a deterministic baseline with stale registry metadata so update can recover", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
 
     // Mutate a registry-identity field that would fail the strict parse but
     // not the structural shape (configHash, files, ruleOptions, etc.).
@@ -2011,9 +2120,14 @@ describe("lint ratchet structural parsing", () => {
       `sha256:${"f".repeat(64)}`,
     );
     expect(
-      parseLintRatchetBaseline(staleConfigHash, [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(staleConfigHash, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain("ratchet/local-type-assertion-boundary.configHash is stale");
-    const structuralStale = parseLintRatchetBaselineStructure(staleConfigHash);
+    const structuralStale = parseLintRatchetBaselineStructure(
+      staleConfigHash,
+      fixtureWorkflowVocabulary,
+    );
     expect(structuralStale.failures).toEqual([]);
     expect(structuralStale.baseline?.tests[baseRatchet.id]?.configHash).toBe(
       `sha256:${"f".repeat(64)}`,
@@ -2025,12 +2139,15 @@ describe("lint ratchet structural parsing", () => {
 
   it("rejects malformed config and rule-source hashes in structural parsing", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
     for (const field of ["configHash", "ruleSourceHash"] as const) {
       const valid = baseline.tests[baseRatchet.id]?.[field] ?? "";
       for (const malformed of ["sha256:", "sha256:not-a-hash"]) {
         expect(
-          parseLintRatchetBaselineStructure(rendered.replace(valid, malformed)).failures,
+          parseLintRatchetBaselineStructure(
+            rendered.replace(valid, malformed),
+            fixtureWorkflowVocabulary,
+          ).failures,
         ).toContain(`${baseRatchet.id}: ${field} must be a sha256 hash`);
       }
     }
@@ -2038,43 +2155,50 @@ describe("lint ratchet structural parsing", () => {
 
   it("accepts a structural baseline with an unknown registry id so update can drop it", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline).replace(
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary).replace(
       baseRatchet.id,
       "ratchet/old-removed-rule",
     );
     expect(
-      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain("ratchet/old-removed-rule: baseline has no matching ratchet registry entry");
-    const structural = parseLintRatchetBaselineStructure(rendered);
+    const structural = parseLintRatchetBaselineStructure(rendered, fixtureWorkflowVocabulary);
     expect(structural.failures).toEqual([]);
     expect(Object.keys(structural.baseline?.tests ?? {})).toEqual(["ratchet/old-removed-rule"]);
   });
 
   it("accepts a non-deterministic but well-formed JSON layout so update can re-emit canonical text", () => {
     const baseline = oneTestBaseline([]);
-    const rendered = formatLintRatchetBaseline(baseline).trimEnd();
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary).trimEnd();
     expect(
-      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes).failures,
+      parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }).failures,
     ).toContain("baseline JSON is not deterministic; run bun run lint:ratchet:update");
-    expect(parseLintRatchetBaselineStructure(rendered).failures).toEqual([]);
+    expect(parseLintRatchetBaselineStructure(rendered, fixtureWorkflowVocabulary).failures).toEqual(
+      [],
+    );
   });
 
   it("rejects malformed JSON in structural parse as a hard error", () => {
-    expect(parseLintRatchetBaselineStructure("{not-json}\n").failures).toEqual([
-      expect.stringMatching(/^baseline is not valid JSON: /u),
-    ]);
-    expect(parseLintRatchetBaselineStructure('"a string"\n').failures).toContain(
-      "baseline must be a JSON object",
-    );
-    expect(parseLintRatchetBaselineStructure('{"version":1}\n').failures).toContain(
-      "baseline tests must be an object",
-    );
+    expect(
+      parseLintRatchetBaselineStructure("{not-json}\n", fixtureWorkflowVocabulary).failures,
+    ).toEqual([expect.stringMatching(/^baseline is not valid JSON: /u)]);
+    expect(
+      parseLintRatchetBaselineStructure('"a string"\n', fixtureWorkflowVocabulary).failures,
+    ).toContain("baseline must be a JSON object");
+    expect(
+      parseLintRatchetBaselineStructure('{"version":1}\n', fixtureWorkflowVocabulary).failures,
+    ).toContain("baseline tests must be an object");
   });
 
   it("replaces a generic JSON error with merge-driver recovery for conflict markers", () => {
     expect(
       parseLintRatchetBaselineStructure(
         '<<<<<<< ours\n{"version":1}\n=======\n{"version":1}\n>>>>>>> theirs\n',
+        fixtureWorkflowVocabulary,
       ).failures,
     ).toEqual([
       "lint-ratchet.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run lint:ratchet:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours lint-ratchet.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then resolve by regenerating with `bun run lint:ratchet:update`; never hand-merge this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.",
@@ -2084,6 +2208,7 @@ describe("lint ratchet structural parsing", () => {
   it("rejects structurally-invalid test entries even when the outer shape is fine", () => {
     const bad = parseLintRatchetBaselineStructure(
       '{"version":1,"tests":{"ratchet/local-type-assertion-boundary":{"ruleId":"local/type-assertion-boundary","mode":"no-new","target":0,"metric":"line-count","files":["packages/**/*.ts"],"ignores":[],"ruleOptions":[],"configHash":"sha256:x","items":{}}}}\n',
+      fixtureWorkflowVocabulary,
     );
     expect(bad.failures).toContain("ratchet/local-type-assertion-boundary: metric is unknown");
   });
@@ -2130,7 +2255,7 @@ describe("lint ratchet structural parsing", () => {
       2,
     )}\n`;
 
-    const parsed = parseLintRatchetBaselineStructure(text);
+    const parsed = parseLintRatchetBaselineStructure(text, fixtureWorkflowVocabulary);
 
     expect(parsed.baseline).toBeUndefined();
     expect(parsed.failures).toEqual([
@@ -2150,11 +2275,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
     // Renames bypass count protection silently (the new id has no committed
     // floor); update must require the operator to acknowledge that risk.
     const committedStale = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const stale = formatLintRatchetBaseline(committedStale).replace(
+    const stale = formatLintRatchetBaseline(committedStale, fixtureWorkflowVocabulary).replace(
       baseRatchet.id,
       "ratchet/old-removed-rule",
     );
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
 
     const generated = oneTestBaseline([["packages/server/src/a.ts", 2]]);
@@ -2162,7 +2287,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? generated,
       generated,
       [baseRatchet],
-      { allowWorse: false },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: false,
+      },
     );
     expect(refused.allowed).toBe(false);
     expect(refused.failures.some((f) => f.includes("ratchet/old-removed-rule"))).toBe(true);
@@ -2172,7 +2300,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? generated,
       generated,
       [baseRatchet],
-      { allowWorse: true, reason: "renamed ratchet/local-foo to ratchet/local-bar" },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: true,
+        reason: "renamed ratchet/local-foo to ratchet/local-bar",
+      },
     );
     expect(accepted.allowed).toBe(true);
   });
@@ -2181,11 +2313,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
     // The debt log needs the dropped baseline evidence, not just the id, so the
     // removal snapshot is always computed; --allow-worse only flips the gate.
     const committedStale = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const stale = formatLintRatchetBaseline(committedStale).replace(
+    const stale = formatLintRatchetBaseline(committedStale, fixtureWorkflowVocabulary).replace(
       baseRatchet.id,
       "ratchet/old-removed-rule",
     );
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
     const generated = oneTestBaseline([["packages/server/src/a.ts", 1]]);
 
@@ -2203,6 +2335,7 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       generated,
       [baseRatchet],
       {
+        workflowVocabulary: fixtureWorkflowVocabulary,
         allowWorse: false,
       },
     );
@@ -2214,6 +2347,7 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       generated,
       [baseRatchet],
       {
+        workflowVocabulary: fixtureWorkflowVocabulary,
         allowWorse: true,
         reason: "removed ratchet/old-removed-rule after deleting the rule",
       },
@@ -2234,11 +2368,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       ["packages/server/src/alpha.ts", 1],
       ["packages/server/src/Zeta.ts", 1],
     ]);
-    const stale = formatLintRatchetBaseline(committedStale).replace(
+    const stale = formatLintRatchetBaseline(committedStale, fixtureWorkflowVocabulary).replace(
       baseRatchet.id,
       "ratchet/old-removed-rule",
     );
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
     const generated = oneTestBaseline([["packages/server/src/alpha.ts", 1]]);
 
@@ -2246,7 +2380,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? generated,
       generated,
       [baseRatchet],
-      { allowWorse: true, reason: "removed ratchet/old-removed-rule after deleting the rule" },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: true,
+        reason: "removed ratchet/old-removed-rule after deleting the rule",
+      },
     );
     expect(decision.allowed).toBe(true);
     expect(decision.orphanRemovals[0]?.baselineItems.map((item) => item.path)).toEqual([
@@ -2259,11 +2397,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
     // Two orphans at once still produce one failure entry; sort order is
     // deterministic so smoke tests and operator output stay stable.
     const committed = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const stale = formatLintRatchetBaseline(committed).replace(
+    const stale = formatLintRatchetBaseline(committed, fixtureWorkflowVocabulary).replace(
       `"${baseRatchet.id}": {`,
       `"ratchet/old-zeta": ${JSON.stringify(committed.tests[baseRatchet.id])},\n  "ratchet/old-alpha": {`,
     );
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
 
     const generated = oneTestBaseline([["packages/server/src/a.ts", 1]]);
@@ -2271,7 +2409,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? generated,
       generated,
       [baseRatchet],
-      { allowWorse: false },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: false,
+      },
     );
     expect(refused.allowed).toBe(false);
     const orphanFailure = refused.failures.find((f) => f.includes("rename or removal"));
@@ -2283,11 +2424,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
 
   it("still rejects worse counts via structural parse when both ids match", () => {
     const committed = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(committed).replace(
+    const rendered = formatLintRatchetBaseline(committed, fixtureWorkflowVocabulary).replace(
       committed.tests[baseRatchet.id]?.configHash ?? "",
       `sha256:${"e".repeat(64)}`,
     );
-    const structural = parseLintRatchetBaselineStructure(rendered);
+    const structural = parseLintRatchetBaselineStructure(rendered, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
 
     const generated = oneTestBaseline([["packages/server/src/a.ts", 2]]);
@@ -2295,7 +2436,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? generated,
       generated,
       [baseRatchet],
-      { allowWorse: false },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: false,
+      },
     );
 
     expect(decision.allowed).toBe(false);
@@ -2305,11 +2449,11 @@ describe("lint ratchet update mode with stale committed baseline", () => {
   it("allows complexity-severity structural count-only migration while still rejecting worse counts", () => {
     const path = "packages/server/src/branchy.ts";
     const committed = complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 12)]);
-    const countOnly = formatLintRatchetBaseline(committed).replace(
+    const countOnly = formatLintRatchetBaseline(committed, fixtureWorkflowVocabulary).replace(
       /,\n\s+"maxComplexity": 12,\n\s+"perFunction": \[(?:[^\n]*\n)*?[ \t]+\]/u,
       "",
     );
-    const structural = parseLintRatchetBaselineStructure(countOnly);
+    const structural = parseLintRatchetBaselineStructure(countOnly, fixtureWorkflowVocabulary);
     expect(structural.failures).toEqual([]);
     expect(structural.baseline?.tests[complexityRatchet.id]?.items[path]).toEqual({ count: 1 });
 
@@ -2317,7 +2461,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
       structural.baseline ?? committed,
       complexityBaseline(path, [complexityFunction(12, "Function 'choose'", 50)]),
       [complexityRatchet],
-      { allowWorse: false },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: false,
+      },
     );
     expect(sameCount.allowed).toBe(true);
 
@@ -2328,7 +2475,10 @@ describe("lint ratchet update mode with stale committed baseline", () => {
         complexityFunction(32, "Function 'other'", 11),
       ]),
       [complexityRatchet],
-      { allowWorse: false },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: false,
+      },
     );
     expect(worseCount.allowed).toBe(false);
     expect(worseCount.regressions[0]?.reason).toBe("increased-count");
@@ -2341,11 +2491,11 @@ describe("lint ratchet retire-ratchet path", () => {
   // is a strict improvement, not accepted debt, so it must not be forced through
   // --allow-worse + the debt log — but only once promotion is machine-proven.
   function zeroOrphanBaseline(): LintRatchetBaseline {
-    const stale = formatLintRatchetBaseline(oneTestBaseline([])).replace(
+    const stale = formatLintRatchetBaseline(oneTestBaseline([]), fixtureWorkflowVocabulary).replace(
       baseRatchet.id,
       "ratchet/old-promoted-rule",
     );
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
     return structural.baseline ?? oneTestBaseline([]);
   }
@@ -2355,6 +2505,7 @@ describe("lint ratchet retire-ratchet path", () => {
     const generated = oneTestBaseline([]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
       retire: { id: "ratchet/old-promoted-rule", normalErrorProven: true },
     });
@@ -2371,6 +2522,7 @@ describe("lint ratchet retire-ratchet path", () => {
     const generated = oneTestBaseline([]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
       retire: { id: "ratchet/old-promoted-rule", normalErrorProven: false },
     });
@@ -2388,13 +2540,15 @@ describe("lint ratchet retire-ratchet path", () => {
   it("refuses to retire a nonzero-finding orphan even with proof", () => {
     const stale = formatLintRatchetBaseline(
       oneTestBaseline([["packages/server/src/a.ts", 1]]),
+      fixtureWorkflowVocabulary,
     ).replace(baseRatchet.id, "ratchet/old-promoted-rule");
-    const structural = parseLintRatchetBaselineStructure(stale);
+    const structural = parseLintRatchetBaselineStructure(stale, fixtureWorkflowVocabulary);
     expect(structural.baseline).toBeDefined();
     const committed = structural.baseline ?? oneTestBaseline([]);
     const generated = oneTestBaseline([]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
       retire: { id: "ratchet/old-promoted-rule", normalErrorProven: true },
     });
@@ -2411,6 +2565,7 @@ describe("lint ratchet retire-ratchet path", () => {
     const generated = oneTestBaseline([]);
 
     const decision = decideLintRatchetUpdate(committed, generated, [baseRatchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: false,
       retire: { id: "ratchet/not-in-baseline", normalErrorProven: true },
     });
@@ -2424,11 +2579,13 @@ describe("lint ratchet retire-ratchet path", () => {
 describe("lint ratchet rule source hash binding", () => {
   it("rejects a baseline whose ruleSourceHash does not match the current rule source", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
     const driftedHashes: LintRatchetRuleSourceHashesById = new Map([
       [baseRatchet.id, `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"b".repeat(64)}`],
     ]);
-    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], driftedHashes);
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], driftedHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+    });
     expect(parsed.baseline).toBeUndefined();
     expect(parsed.failures).toContain(
       'ratchet/local-type-assertion-boundary.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)',
@@ -2442,14 +2599,15 @@ describe("lint ratchet rule source hash binding", () => {
 
   it("requires ruleSourceHash to be present in the committed baseline", () => {
     const baseline = oneTestBaseline([]);
-    const renderedWithoutRuleSourceHash = formatLintRatchetBaseline(baseline).replace(
-      /^\s*"ruleSourceHash": "[^"]+",\n/mu,
-      "",
-    );
+    const renderedWithoutRuleSourceHash = formatLintRatchetBaseline(
+      baseline,
+      fixtureWorkflowVocabulary,
+    ).replace(/^\s*"ruleSourceHash": "[^"]+",\n/mu, "");
     const parsed = parseLintRatchetBaseline(
       renderedWithoutRuleSourceHash,
       [baseRatchet],
       fixtureRuleSourceHashes,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     expect(parsed.baseline).toBeUndefined();
     expect(parsed.failures).toContain(
@@ -2465,21 +2623,26 @@ describe("lint ratchet rule source hash binding", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", -1]]);
     const baselineTest = baseline.tests[baseRatchet.id];
     if (baselineTest === undefined) throw new Error("missing base ratchet fixture");
-    const rendered = formatLintRatchetBaseline({
-      ...baseline,
-      tests: {
-        [baseRatchet.id]: {
-          ...baselineTest,
-          configHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"c".repeat(64)}`,
-          ruleSourceHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"d".repeat(64)}`,
-        },
-        "ratchet/orphan": {
-          ...baselineTest,
-          ruleId: "local/orphan",
+    const rendered = formatLintRatchetBaseline(
+      {
+        ...baseline,
+        tests: {
+          [baseRatchet.id]: {
+            ...baselineTest,
+            configHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"c".repeat(64)}`,
+            ruleSourceHash: `${LINT_RATCHET_CONFIG_HASH_PREFIX}${"d".repeat(64)}`,
+          },
+          "ratchet/orphan": {
+            ...baselineTest,
+            ruleId: "local/orphan",
+          },
         },
       },
+      fixtureWorkflowVocabulary,
+    );
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
     });
-    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
 
     expect(parsed.baseline).toBeUndefined();
     expect(parsed.validationFailures.map((failure) => failure.message)).toEqual(parsed.failures);
@@ -2488,27 +2651,31 @@ describe("lint ratchet rule source hash binding", () => {
 
   it("emits ruleSourceHash deterministically and round-trips it", () => {
     const baseline = oneTestBaseline([["packages/shared/src/x.ts", 2]]);
-    const rendered = formatLintRatchetBaseline(baseline);
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
     expect(rendered).toContain(`"ruleSourceHash": "${FIXTURE_RULE_SOURCE_HASH}"`);
-    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes);
+    const parsed = parseLintRatchetBaseline(rendered, [baseRatchet], fixtureRuleSourceHashes, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+    });
     expect(parsed.failures).toEqual([]);
     expect(parsed.baseline?.tests[baseRatchet.id]?.ruleSourceHash).toBe(FIXTURE_RULE_SOURCE_HASH);
   });
 
   it("structural parse accepts a baseline missing ruleSourceHash so update can fill it in", () => {
     const baseline = oneTestBaseline([["packages/server/src/a.ts", 1]]);
-    const rendered = formatLintRatchetBaseline(baseline).replace(
+    const rendered = formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary).replace(
       /^\s*"ruleSourceHash": "[^"]+",\n/mu,
       "",
     );
-    const structural = parseLintRatchetBaselineStructure(rendered);
+    const structural = parseLintRatchetBaselineStructure(rendered, fixtureWorkflowVocabulary);
     expect(structural.failures).toEqual([]);
     expect(structural.baseline?.tests[baseRatchet.id]?.ruleSourceHash).toBe("");
   });
 
   it("buildLintRatchetBaseline throws when a ratchet has no rule source hash", () => {
     expect(() =>
-      buildLintRatchetBaseline([baseRatchet], current([[baseRatchet.id, []]]), new Map()),
+      buildLintRatchetBaseline([baseRatchet], current([[baseRatchet.id, []]]), new Map(), {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }),
     ).toThrow(/missing rule source hash/u);
   });
 });
@@ -2516,7 +2683,9 @@ describe("lint ratchet rule source hash binding", () => {
 describe("lint ratchet registry validation", () => {
   it("accepts the valid fixture registry and hashes normalized config deterministically", () => {
     expect(
-      validateLintRatchetRegistry([baseRatchet], new Set(["local/type-assertion-boundary"])),
+      validateLintRatchetRegistry([baseRatchet], {
+        localRuleIds: new Set(["local/type-assertion-boundary"]),
+      }),
     ).toEqual([]);
 
     const sameConfigDifferentOptionKeyOrder: LintRatchetConfig = {
@@ -2543,10 +2712,9 @@ describe("lint ratchet registry validation", () => {
   it("rejects a registry entry whose dedicated principle is empty", () => {
     const blankPrincipleRatchet: LintRatchetConfig = { ...baseRatchet, principle: "   " };
     expect(
-      validateLintRatchetRegistry(
-        [blankPrincipleRatchet],
-        new Set(["local/type-assertion-boundary"]),
-      ).join("\n"),
+      validateLintRatchetRegistry([blankPrincipleRatchet], {
+        localRuleIds: new Set(["local/type-assertion-boundary"]),
+      }).join("\n"),
     ).toContain(`${baseRatchet.id}: principle must be a non-empty string`);
   });
 
@@ -2637,11 +2805,13 @@ describe("lint ratchet registry validation", () => {
       [coreRatchet],
       current([[coreRatchet.id, [["packages/shared/src/core.ts", 1]]]]),
       new Map([[coreRatchet.id, ruleSourceHash]]),
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const parsed = parseLintRatchetBaseline(
-      formatLintRatchetBaseline(baseline),
+      formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary),
       [coreRatchet],
       new Map([[coreRatchet.id, ruleSourceHash]]),
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     expect(parsed.failures).toEqual([]);
   });
@@ -2732,7 +2902,7 @@ describe("lint ratchet registry validation", () => {
           metric: "line-count",
         } as unknown as LintRatchetConfig,
       ],
-      new Set(["local/type-assertion-boundary"]),
+      { localRuleIds: new Set(["local/type-assertion-boundary"]) },
     );
 
     expect(failures).toContain("ratchet ids must be sorted (by codepoint) and unique");

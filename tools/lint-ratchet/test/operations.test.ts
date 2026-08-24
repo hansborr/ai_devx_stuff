@@ -30,6 +30,8 @@ import {
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "./fixture-workflow-vocabulary.js";
+
 // Leaf 13 "In scope now" acceptance: the neutral gate/update application
 // operations own the ordering invariants both adapters used to hand-copy —
 // rule-source hashes → collect current → build/compare → round-trip-validate the
@@ -48,8 +50,10 @@ function makeFixtureRepo(): string {
     rmSync(repoRoot, { recursive: true, force: true });
   });
   // Borrow the installed store so the generated ESLint config resolves its
-  // engine deps; nothing imports @musi from the fixture.
-  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "dir");
+  // engine deps; nothing imports @musi from the fixture. "junction" is ignored
+  // on POSIX and avoids the Windows Developer-Mode privilege a "dir" symlink
+  // needs; junction targets must be absolute, and realRepoRoot is.
+  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "junction");
   mkdirSync(join(repoRoot, "src"), { recursive: true });
   writeFileSync(
     join(repoRoot, "package.json"),
@@ -77,7 +81,6 @@ const operationsRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Operations fixture: keep debugger statements out of the fixture source.",
 } satisfies LintRatchetConfig;
 const registry: readonly LintRatchetConfig[] = [operationsRatchet];
@@ -92,7 +95,10 @@ function makeFixtureEngine(): FixtureEngine {
   const repoRoot = makeFixtureRepo();
   return {
     repoRoot,
-    context: createLintRatchetEngineContext({ repoRoot }),
+    context: createLintRatchetEngineContext({
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      repoRoot,
+    }),
     binding: { repoRoot, thirdPartyPluginAllowlist: [] },
   };
 }

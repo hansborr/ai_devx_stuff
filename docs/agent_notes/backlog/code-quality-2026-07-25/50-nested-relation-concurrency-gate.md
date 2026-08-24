@@ -5,12 +5,12 @@ Status: **Done 2026-07-27** on branch `feat/cq-server-cluster`, merge
 — the nested branch of `local/concurrency-guard`, an unratcheted hard error,
 paired with a matching codemod finding and a schema-derived relation map. The
 type closure (direction 3's alternative) stays refused for the reason in
-`## Scope / caveats`. **The lint is defense in depth, not closure**: a payload
-assembled through a helper call or a spread still escapes it, and
-[leaf 60](./60-nested-write-runtime-guard.md) owns the runtime `$extends` guard
-that would not. Read the Landed row before re-deriving any of this — the leaf's
-six-name relation list and its "accept the false-positive rate" option were both
-superseded during implementation.
+`## Scope / caveats`. The lint remains a non-authoritative author-time
+diagnostic, but [leaf 60](./60-nested-write-runtime-guard.md) has now landed the
+runtime `$extends` closure for the four gated nested update/upsert operations,
+including helper/spread and multi-hop payloads. Read both Landed records before
+re-deriving this — the leaf's six-name relation list and its "accept the
+false-positive rate" option were superseded during implementation.
 Theme: Concurrency gate completeness · Area: server · Severity: medium · Size: M
 
 Source: code-quality audit follow-up, 2026-07-26 (surfaced by the slice C review of leaf 01 step 8) · Confidence: high

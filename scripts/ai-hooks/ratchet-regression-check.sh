@@ -28,6 +28,8 @@ REPO_ROOT=$(realpath -m "$REPO_ROOT")
 . "$SCRIPT_DIR/cache.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/throttle-state.sh"
+# shellcheck source=edit-check-protocol.sh
+. "$SCRIPT_DIR/edit-check-protocol.sh"
 
 # Disable entirely with: touch <repo>/.no-edit-lint (mirrors the stop-policy
 # .no-stop-uncommitted kill-switch pattern).
@@ -111,14 +113,14 @@ ai_ratchet_regression_content_token() {
 ai_ratchet_regression_identities_for_path() {
   local relpath="$1"
   shift
-  local row rrel testid identity out=""
+  local row out=""
   for row in "$@"; do
-    IFS=$'\t' read -r _ rrel testid _ identity <<< "$row"
-    [ "$rrel" = "$relpath" ] || continue
-    if [ -n "$identity" ]; then
-      out+="$identity"$'\n'
+    edit_check_read_target_row "$row"
+    [ "$EDIT_CHECK_TARGET_ROW_PATH" = "$relpath" ] || continue
+    if [ -n "$EDIT_CHECK_TARGET_ROW_CACHE_IDENTITY" ]; then
+      out+="$EDIT_CHECK_TARGET_ROW_CACHE_IDENTITY"$'\n'
     else
-      out+="legacy:$testid"$'\n'
+      out+="legacy:$EDIT_CHECK_TARGET_ROW_TEST_ID"$'\n'
     fi
   done
   printf '%s' "$out" | sort -u | paste -sd, -
@@ -217,8 +219,10 @@ ai_ratchet_regression_main() {
   # guard below compares this against what the engine actually checked, so a file
   # with any capped (or otherwise unlinted) target can never be cached as complete.
   for row in "${all_target_rows[@]}"; do
-    IFS=$'\t' read -r kind relpath _ _ <<< "$row"
-    [ "$kind" = "target" ] || continue
+    edit_check_read_target_row "$row"
+    kind="$EDIT_CHECK_TARGET_ROW_KIND"
+    relpath="$EDIT_CHECK_TARGET_ROW_PATH"
+    [ "$kind" = "$EDIT_CHECK_TARGET_KIND" ] || continue
     matched[$relpath]=$(( ${matched[$relpath]:-0} + 1 ))
   done
 
@@ -230,8 +234,11 @@ ai_ratchet_regression_main() {
   # its last lint is skipped whole; for the rest, each target is dropped if its
   # tier would currently suppress.
   for row in "${exec_target_rows[@]}"; do
-    IFS=$'\t' read -r kind relpath _ ruleid _ <<< "$row"
-    [ "$kind" = "target" ] || continue
+    edit_check_read_target_row "$row"
+    kind="$EDIT_CHECK_TARGET_ROW_KIND"
+    relpath="$EDIT_CHECK_TARGET_ROW_PATH"
+    ruleid="$EDIT_CHECK_TARGET_ROW_RULE_ID"
+    [ "$kind" = "$EDIT_CHECK_TARGET_KIND" ] || continue
     if [ -z "${fresh_token[$relpath]+x}" ]; then
       # Token identity spans the full matched set so a capped file's later
       # identical save still misses (it was never fully linted -> never cached).
@@ -278,18 +285,24 @@ ai_ratchet_regression_main() {
   # regressions. Parse with a non-whitespace separator (\x1f) so an empty `line`
   # field is preserved instead of collapsed by tab-as-IFS-whitespace. The 9th
   # `repair` column (mechanical repair command, empty when none) is optional so
-  # older 8-column rows still parse; the trailing sink keeps a future 10th
-  # column out of `repair`.
+  # older 8-column rows still parse; the shared reader's trailing sink keeps
+  # a future 10th column out of `repair`.
   unit=$'\x1f'
   while IFS= read -r row; do
     [ -n "$row" ] || continue
     converted=${row//$'\t'/$unit}
-    IFS="$unit" read -r kind relpath _ ruleid reason line _ _ repair _ <<< "$converted"
+    edit_check_read_result_row "$unit" "$converted"
+    kind="$EDIT_CHECK_RESULT_KIND"
+    relpath="$EDIT_CHECK_RESULT_PATH"
+    ruleid="$EDIT_CHECK_RESULT_RULE_ID"
+    reason="$EDIT_CHECK_RESULT_REASON"
+    line="$EDIT_CHECK_RESULT_LINE"
+    repair="$EDIT_CHECK_RESULT_REPAIR_COMMAND"
     case "$kind" in
-      checked)
+      "$EDIT_CHECK_CHECKED_KIND")
         checked_count[$relpath]=$(( ${checked_count[$relpath]:-0} + 1 ))
         ;;
-      regression)
+      "$EDIT_CHECK_REGRESSION_KIND")
         tier=$(ai_ratchet_regression_tier "$relpath" "$ruleid")
         # Confirm the emit only now that a regression is real, burning one slot
         # and advancing/resetting the per-(file,rule) throttle counter.

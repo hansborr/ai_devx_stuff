@@ -28,9 +28,10 @@ import {
   defaultProcessIdentityProbe,
 } from "./lifecycle-probe.js";
 
-type ServerCliCommand = "restart" | "start" | "status" | "stop";
+type ServerCliCommand = "restart" | "status" | "stop";
 
 const PROCESS_ARG_OFFSET = 2;
+const DAEMON_OUTPUT_PREFIX = "code-intel daemon: ";
 
 export type ServerCliOptions = {
   daemonScriptPath?: string;
@@ -47,6 +48,15 @@ export type ServerCliResult = {
   exitCode: number;
   output: string;
 };
+
+type StopCommandResult = {
+  exitCode: number;
+  message: string;
+};
+
+function daemonResult(exitCode: number, message: string): ServerCliResult {
+  return { exitCode, output: `${DAEMON_OUTPUT_PREFIX}${message}` };
+}
 
 export async function runServerCli(
   args: string[] = process.argv.slice(PROCESS_ARG_OFFSET),
@@ -77,7 +87,10 @@ export async function runServerCliCommand(
   const repoRoot = options.repoRoot ?? process.cwd();
   const paths = resolveDaemonStatePaths(repoRoot, options.state);
   if (command === "status") return statusCommand(repoRoot, paths, options);
-  if (command === "stop") return stopCommand(repoRoot, paths, options);
+  if (command === "stop") {
+    const stop = await stopCommand(repoRoot, paths, options);
+    return daemonResult(stop.exitCode, stop.message);
+  }
   return restartCommand(repoRoot, paths, options);
 }
 
@@ -112,58 +125,46 @@ async function statusCommand(
   const state = readLifecycleMetadata(paths);
   if (state.kind === "absent") {
     if (existsSync(paths.pidPath) || existsSync(paths.socketPath)) {
-      return {
-        exitCode: 0,
-        output: `code-intel daemon: stale partial state (${paths.stateDir})`,
-      };
+      return daemonResult(0, `stale partial state (${paths.stateDir})`);
     }
-    return { exitCode: 0, output: `code-intel daemon: absent (${paths.stateDir})` };
+    return daemonResult(0, `absent (${paths.stateDir})`);
   }
   if (state.kind === "invalid") {
-    return {
-      exitCode: 0,
-      output: `code-intel daemon: invalid state (${state.reason}, state ${paths.stateDir})`,
-    };
+    return daemonResult(0, `invalid state (${state.reason}, state ${paths.stateDir})`);
   }
   const validation = await validateLifecycleDaemon(repoRoot, paths, state.metadata, options);
   if (validation.kind === "stale") {
-    return {
-      exitCode: 0,
-      output: `code-intel daemon: stale (pid ${String(state.metadata.pid)} ${validation.reason}, state ${paths.stateDir})`,
-    };
+    return daemonResult(
+      0,
+      `stale (pid ${String(state.metadata.pid)} ${validation.reason}, state ${paths.stateDir})`,
+    );
   }
   if (validation.kind === "unverified") {
-    return {
-      exitCode: 0,
-      output: `code-intel daemon: busy or unverified (pid ${String(state.metadata.pid)} ${validation.reason}, state ${paths.stateDir})`,
-    };
+    return daemonResult(
+      0,
+      `busy or unverified (pid ${String(state.metadata.pid)} ${validation.reason}, state ${paths.stateDir})`,
+    );
   }
-  return {
-    exitCode: 0,
-    output: `code-intel daemon: running (pid ${String(state.metadata.pid)}, socket ${paths.socketPath})`,
-  };
+  return daemonResult(0, `running (pid ${String(state.metadata.pid)}, socket ${paths.socketPath})`);
 }
 
 async function stopCommand(
   repoRoot: string,
   paths: DaemonStatePaths,
   options: ServerCliOptions,
-): Promise<ServerCliResult> {
+): Promise<StopCommandResult> {
   const state = readLifecycleMetadata(paths);
   if (state.kind === "absent") return stopAbsentState(paths);
   if (state.kind === "invalid") {
     clearDaemonState(paths);
-    return {
-      exitCode: 0,
-      output: `code-intel daemon: cleared invalid state (${state.reason})`,
-    };
+    return { exitCode: 0, message: `cleared invalid state (${state.reason})` };
   }
   const validation = await validateLifecycleDaemon(repoRoot, paths, state.metadata, options);
   if (validation.kind === "stale") {
     clearDaemonState(paths);
     return {
       exitCode: 0,
-      output: `code-intel daemon: cleared stale state (pid ${String(state.metadata.pid)} ${validation.reason})`,
+      message: `cleared stale state (pid ${String(state.metadata.pid)} ${validation.reason})`,
     };
   }
   if (validation.kind === "unverified") {
@@ -182,7 +183,7 @@ async function stopRunningDaemon(
   metadata: DaemonMetadata,
   options: ServerCliOptions,
   suffix: string,
-): Promise<ServerCliResult> {
+): Promise<StopCommandResult> {
   const isAlive = options.isAlive ?? isProcessAlive;
   const stopProcess = options.stopProcess ?? stopDaemonProcess;
   const stopped = await stopProcess({ isAlive, pid: metadata.pid });
@@ -190,13 +191,10 @@ async function stopRunningDaemon(
   if (!stopped) {
     return {
       exitCode: 0,
-      output: `code-intel daemon: cleared stale state (pid ${String(metadata.pid)} exited before stop)`,
+      message: `cleared stale state (pid ${String(metadata.pid)} exited before stop)`,
     };
   }
-  return {
-    exitCode: 0,
-    output: `code-intel daemon: stopped (pid ${String(metadata.pid)})${suffix}`,
-  };
+  return { exitCode: 0, message: `stopped (pid ${String(metadata.pid)})${suffix}` };
 }
 
 async function stopUnverifiedDaemon(
@@ -204,7 +202,7 @@ async function stopUnverifiedDaemon(
   paths: DaemonStatePaths,
   daemon: UnverifiedDaemon,
   options: ServerCliOptions,
-): Promise<ServerCliResult> {
+): Promise<StopCommandResult> {
   const { metadata, reason } = daemon;
   const verifyProcessIdentity = options.verifyProcessIdentity ?? defaultProcessIdentityProbe;
   const scriptPath = options.daemonScriptPath ?? defaultDaemonScriptPath();
@@ -212,7 +210,7 @@ async function stopUnverifiedDaemon(
   if (identity.kind !== "verified") {
     return {
       exitCode: 1,
-      output: `code-intel daemon: state preserved (pid ${String(metadata.pid)} ${reason}; ${identity.reason})`,
+      message: `state preserved (pid ${String(metadata.pid)} ${reason}; ${identity.reason})`,
     };
   }
   return stopRunningDaemon(paths, metadata, options, " after verifying process identity");
@@ -225,10 +223,7 @@ async function restartCommand(
 ): Promise<ServerCliResult> {
   const stop = await stopCommand(repoRoot, paths, options);
   if (stop.exitCode !== 0) {
-    return {
-      exitCode: stop.exitCode,
-      output: `code-intel daemon: restart skipped; ${stop.output}`,
-    };
+    return daemonResult(stop.exitCode, `restart skipped; ${stop.message}`);
   }
   const spawner = options.spawner ?? defaultDaemonSpawner;
   const scriptPath = options.daemonScriptPath ?? defaultDaemonScriptPath();
@@ -239,10 +234,7 @@ async function restartCommand(
     pid: handle.pid,
     socketPath: paths.socketPath,
   });
-  return {
-    exitCode: 0,
-    output: `code-intel daemon: started (pid ${String(handle.pid)}, socket ${paths.socketPath})`,
-  };
+  return daemonResult(0, `started (pid ${String(handle.pid)}, socket ${paths.socketPath})`);
 }
 
 type LifecycleMetadataRead =
@@ -265,16 +257,13 @@ function readLifecycleMetadata(paths: DaemonStatePaths): LifecycleMetadataRead {
   }
 }
 
-function stopAbsentState(paths: DaemonStatePaths): ServerCliResult {
+function stopAbsentState(paths: DaemonStatePaths): StopCommandResult {
   const pid = readDaemonPid(paths);
   if (pid === undefined && !existsSync(paths.pidPath) && !existsSync(paths.socketPath)) {
-    return { exitCode: 0, output: `code-intel daemon: no state to stop (${paths.stateDir})` };
+    return { exitCode: 0, message: `no state to stop (${paths.stateDir})` };
   }
   clearDaemonState(paths);
-  return {
-    exitCode: 0,
-    output: `code-intel daemon: cleared partial state (${paths.stateDir})`,
-  };
+  return { exitCode: 0, message: `cleared partial state (${paths.stateDir})` };
 }
 
 async function validateLifecycleDaemon(

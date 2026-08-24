@@ -1,16 +1,16 @@
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import type { LintRatchetConfig } from "./config-types.js";
 import type { LintRatchetEngineBinding } from "./engine-context.js";
 import {
   CACHE_HASH_PREFIX_LENGTH,
   cacheKeyHashFor,
-  typeAwareProjectFor,
+  eslintCachePathFor,
   usesEslintCache,
   writeEslintConfig,
 } from "./eslint-config.js";
@@ -23,7 +23,6 @@ const minimalRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Keep the cache-key unit test fixture small and deterministic.",
 } satisfies LintRatchetConfig;
 
@@ -91,19 +90,13 @@ describe("cacheKeyHashFor", () => {
   });
 });
 
-describe("typeAwareProjectFor", () => {
-  it("prefers an explicit typeAwareProject override", () => {
-    expect(
-      typeAwareProjectFor({ ...minimalRatchet, typeAwareProject: "./tsconfig.custom.json" }),
-    ).toBe("./tsconfig.custom.json");
-  });
-
-  it("infers the scripts tsconfig for a scripts/-only ratchet with no override", () => {
-    expect(typeAwareProjectFor(minimalRatchet)).toBe("./tsconfig.scripts.json");
-  });
-
-  it("returns undefined (projectService default) otherwise", () => {
-    expect(typeAwareProjectFor({ ...minimalRatchet, files: ["packages/**/*.ts"] })).toBeUndefined();
+describe("LintRatchetConfig", () => {
+  it("rejects typeAwareProject on a minimal-ts ratchet", () => {
+    expectTypeOf({
+      ...minimalRatchet,
+      typeAwareProject: "./tsconfig.custom.json",
+    }).not.toExtend<LintRatchetConfig>();
+    expect(minimalRatchet).not.toHaveProperty("typeAwareProject");
   });
 });
 
@@ -114,7 +107,58 @@ describe("usesEslintCache", () => {
   });
 });
 
+describe("eslintCachePathFor", () => {
+  it("keeps the default cache path and supports a repository-relative override", () => {
+    const defaultPath = eslintCachePathFor(minimalRatchet, "sha256:rule-source-a", binding);
+    const explicitDefaultPath = eslintCachePathFor(minimalRatchet, "sha256:rule-source-a", {
+      ...binding,
+      cacheDirectory: "node_modules/.cache/eslint-ratchet",
+    });
+    const overridePath = eslintCachePathFor(minimalRatchet, "sha256:rule-source-a", {
+      ...binding,
+      cacheDirectory: ".cache/custom-ratchet",
+    });
+
+    expect(explicitDefaultPath).toBe(defaultPath);
+    expect(defaultPath).toContain("/node_modules/.cache/eslint-ratchet/");
+    expect(overridePath).toContain("/.cache/custom-ratchet/");
+  });
+});
+
 describe("writeEslintConfig", () => {
+  it("renders projectService by default and an explicit type-aware project when configured", () => {
+    const defaultPath = writeEslintConfig(typeAwareRatchet, "sha256:rule-source-a", binding);
+    const explicitRatchet = {
+      ...typeAwareRatchet,
+      typeAwareProject: "./tsconfig.custom.json",
+    } satisfies LintRatchetConfig;
+    const explicitPath = writeEslintConfig(explicitRatchet, "sha256:rule-source-a", binding);
+    const defaultRendered = readFileSync(defaultPath, "utf8");
+    const explicitRendered = readFileSync(explicitPath, "utf8");
+
+    expect(defaultRendered).toContain("        projectService: true,");
+    expect(explicitRendered).toContain("        projectService: false,");
+    expect(explicitRendered).toContain('        project: "./tsconfig.custom.json",');
+  });
+
+  it("loads named plugin exports without requiring a default export", () => {
+    const configPath = writeEslintConfig(typeAwareRatchet, "sha256:rule-source-a", {
+      ...binding,
+      thirdPartyPluginAllowlist: [
+        {
+          pluginModule: "typescript-eslint",
+          ruleNamespace: "@typescript-eslint",
+          pluginExport: "plugin",
+        },
+      ],
+    });
+    const rendered = readFileSync(configPath, "utf8");
+
+    expect(rendered).toContain('import * as ratchetedPluginModule from "typescript-eslint";');
+    expect(rendered).toContain("const ratchetedPlugin = ratchetedPluginModule.plugin;");
+    expect(rendered).not.toContain('import ratchetedPluginModule from "typescript-eslint";');
+  });
+
   it("disables inline config comments for local, third-party, and core ratchets", () => {
     for (const ratchet of [minimalRatchet, typeAwareRatchet, coreRatchet]) {
       const configPath = writeEslintConfig(ratchet, "sha256:rule-source-a", binding);
@@ -142,6 +186,47 @@ describe("writeEslintConfig", () => {
       expect(statSync(configPath).ino).toBe(repairedInode);
     } finally {
       rmSync(configDirectory, { recursive: true, force: true });
+    }
+  });
+
+  it("writes generated configs beneath an overridden cache directory", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-layout-"));
+    try {
+      const configPath = writeEslintConfig(coreRatchet, "sha256:rule-source-a", {
+        ...binding,
+        repoRoot,
+        cacheDirectory: ".cache/custom-ratchet",
+      });
+
+      expect(configPath).toContain(`${repoRoot}/.cache/custom-ratchet/configs/`);
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
+  });
+
+  it("renders a local rule import URL from the overridden rules directory", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-local-rules-"));
+    const configDirectory = join(repoRoot, "generated-configs");
+    try {
+      const configPath = writeEslintConfig(
+        minimalRatchet,
+        "sha256:rule-source-a",
+        {
+          ...binding,
+          repoRoot,
+          localRulesDirectory: "build/lint-rules",
+        },
+        { configDirectory },
+      );
+      const expectedRuleUrl = pathToFileURL(
+        join(repoRoot, "build/lint-rules/cache-key-test.js"),
+      ).href;
+
+      expect(readFileSync(configPath, "utf8")).toContain(
+        `import ratchetedRule from ${JSON.stringify(expectedRuleUrl)};`,
+      );
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
     }
   });
 });

@@ -68,7 +68,7 @@ function createFixture(): string {
   );
   write(
     root,
-    "eslint-config/local-plugin.js",
+    "eslint-config/local-plugin.generated.js",
     'import concurrencyGuard from "../eslint-rules/concurrency-guard.js";\nexport const localPlugin = { rules: { "concurrency-guard": concurrencyGuard } };\n',
   );
   write(
@@ -234,6 +234,49 @@ describe("adr:check", () => {
     expect(check(root).stderr).toContain(
       "rawTxClientBoundaryConfigs must be imported and spread into eslint.config.js",
     );
+  });
+
+  // The generated plugin quotes a rule key only when the id is not already an
+  // identifier: scripts/harness/generate-local-plugin.ts emits a single-word id
+  // as a BARE key so the render stays a prettier fixed point (pinned against
+  // real prettier in generate-local-plugin.test.ts). Registration is therefore
+  // read structurally — a `"<name>"` byte match would report a correctly
+  // generated registration as unresolved for exactly the id shape the generator
+  // is written to support.
+  it("resolves a plugin registration whose generated key is unquoted", () => {
+    const root = createFixture();
+    write(root, "eslint-rules/complexity.js", "export default {};\n");
+    write(
+      root,
+      "eslint-config/local-plugin.generated.js",
+      `import complexity from "../eslint-rules/complexity.js";
+import concurrencyGuard from "../eslint-rules/concurrency-guard.js";
+
+export const localPlugin = {
+  rules: {
+    complexity: complexity,
+    "concurrency-guard": concurrencyGuard,
+  },
+};
+`,
+    );
+    write(
+      root,
+      "eslint-config/complexity-configs.js",
+      'export const complexityConfigs = [{ rules: { "local/complexity": "error" } }];\n',
+    );
+    write(
+      root,
+      "docs/adr/0001-race-sensitive-writes.md",
+      acceptedAdr().replace("eslint-rule:local/concurrency-guard", "eslint-rule:local/complexity"),
+    );
+
+    expect(check(root)).toEqual({
+      exitCode: 0,
+      stdout: "adr:check OK — 1 ADR(s), 5 gate locator(s) checked.\n",
+      stderr: "",
+      failures: [],
+    });
   });
 
   it("validates supersession targets and rejects active references to superseded ADRs", () => {

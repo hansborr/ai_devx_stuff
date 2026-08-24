@@ -1,6 +1,10 @@
 # 36. lint-ratchet's portable kernel still speaks the vocabulary of a system it is not: `testId`/`tests` for ratchets, a dead single-valued `repairKind`, and Musi-specific inference
 
-Status: Proposed — not promoted
+Status: Scheduled work landed 2026-08-01 on `fix/cq-harness-h22-h23` (merge
+`e2dc60cb9`) — step 1 `ec7a47b2a` (hardened `f70388d75`, `4eb000a1f`); step 2
+`425c0a3cb` (hardened `4eb000a1f`) as a justified inference deletion requiring
+explicit `typeAwareProject`; steps 3 and 4 were dropped by the harness cluster
+plan
 Theme: vestigial vocabulary and config surface in the lint-ratchet kernel · Area: harness · Severity: low · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
@@ -22,19 +26,19 @@ schemas still say `testId`. The result is 170 `testId` occurrences against 38
 `ratchetId` across the same non-test source tree, so a reader has to learn that the two
 words mean one thing.
 
-Separately, the config surface carries a required field nobody reads and two
-Musi-specific behaviours that live on the portable side of the boundary.
-`LintRatchetConfig.repairKind` is declared as a one-value type, is not exported, is
-required on every registry entry, and has zero readers anywhere. It is also actively
-confusing: the same word names three unrelated fields, and the other two live inside
+At audit time, the config surface carried a required field nobody read and one
+Musi-specific behaviour on the portable side of the boundary.
+`LintRatchetConfig.repairKind` was a one-value, unexported type required on every
+registry entry despite having zero readers. It was also actively confusing: the same
+word names three unrelated fields, and the other two live inside
 `scripts/lint-ratchet/` itself — the lint-rule-docs `repairKind`, whose domain is
 really `manual|codemod|autofix|suggestion` (read in `diagnostics.ts`, `modes.ts` and
 `local-rule-fix-text.ts`), and the harness-finding `repairKind` (written in
 `diagnostics.ts` and `info-diagnostics.ts`, validated by
-`packages/shared/src/schemas/harness-diagnostics.ts:55-72`). Meanwhile the kernel infers
-`./tsconfig.scripts.json` for any ratchet whose globs all start `scripts/`, with a
-comment admitting this is "a Musi-registry convenience, not a portable default", and
-declares `allowEmpty` in the kernel although only the Musi adapter reads it.
+`packages/shared/src/schemas/harness-diagnostics.ts:55-72`). The kernel also inferred
+`./tsconfig.scripts.json` for scripts-only ratchets, under a comment calling it a
+Musi-registry convenience. H22 deleted the dead field and H23 deleted that inference;
+`allowEmpty` remains in the kernel by plan ruling although only the Musi adapter reads it.
 
 ## Evidence
 
@@ -48,10 +52,10 @@ declares `allowEmpty` in the kernel although only the Musi adapter reads it.
 - The Musi adapter carries the same vocabulary: `scripts/lint-ratchet/diagnostics.ts` (13 occurrences, `:87-105` in message text and `:190,216,237,239,255` in finding construction), `info-diagnostics.ts:7,15`, `check-registry.ts:167`.
 - `tools/lint-ratchet/src/kernel/baseline-spec.ts:49` and `:79` — `` `${context.testId}.items.${path}` `` and `` `${testId}.items` `` — user-visible diagnostic paths, which are baseline-JSON pointers (compat boundary, see caveats).
 - `docs/guides/lint-ratchet.md:140` — the guide speaks of a regression entry for the same `(testId, path)`; it is the only `testId` in `docs/` outside `agent_notes/`, and it moves with the rename.
-- `tools/lint-ratchet/src/kernel/config-types.ts:19` — `type LintRatchetRepairKind = "manual";` — single-valued and not exported; `:49` — `readonly repairKind: LintRatchetRepairKind;` — required on every entry.
-- Written on 17 registry entries (`scripts/lint-ratchet/lint-ratchet-config.ts:108,124,140,156,196,221,234,247,265,282,316,350,384,401,419,441,458`), two registry factories (`scripts/lint-ratchet/registry-builders.ts:24,41`), two governance probe configs (`tools/lint-ratchet/src/governance/retire-promotion-proof.ts:37`, `propose.ts:120,134`), the `propose.ts` scaffold template (`:220`, with the field named in the comment at `:203`), the standalone adopter demo (`examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts:41`), four guide examples, and about 32 test sites — and read by nothing.
+- Before H22, `tools/lint-ratchet/src/kernel/config-types.ts:19` declared the single-valued, unexported `type LintRatchetRepairKind = "manual";`, and `:49` required `readonly repairKind: LintRatchetRepairKind;` on every entry.
+- It was written on 16 direct registry entries (`scripts/lint-ratchet/lint-ratchet-config.ts:108,124,140,196,221,234,247,265,282,316,350,384,401,419,441,458`), two registry factories (`scripts/lint-ratchet/registry-builders.ts:24,41`), two governance probe configs (`tools/lint-ratchet/src/governance/retire-promotion-proof.ts:37`, `propose.ts:120,134`), the `propose.ts` scaffold template (`:220`, with the field named in the comment at `:203`), the standalone adopter demo (`examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts:41`), four guide examples, and about 32 test sites — and read by nothing.
 - `scripts/lib/lint-rule-docs.ts:28` defines the unrelated `RuleDocsEntry.repairKind` (`autofix|suggestion|codemod|manual`), which is read live by `scripts/generate-lint-guidance.ts:54`, `scripts/lint-agent-envelope.ts:167,174,196`, `scripts/lint-ratchet/diagnostics.ts:140,146,149,201`, `scripts/lint-ratchet/modes.ts:277-278` and `scripts/lint-ratchet/local-rule-fix-text.ts:63,71,76`.
-- `tools/lint-ratchet/src/kernel/eslint-config.ts:108-119` — `typeAwareProjectFor` returns `"./tsconfig.scripts.json"` when `ratchet.files.every(p => p.startsWith("scripts/"))`, under a comment calling it "a Musi-registry convenience".
+- Before H23, `tools/lint-ratchet/src/kernel/eslint-config.ts:108-119` made `typeAwareProjectFor` return `"./tsconfig.scripts.json"` when `ratchet.files.every(p => p.startsWith("scripts/"))`, under a comment calling it "a Musi-registry convenience".
 - `tools/lint-ratchet/src/kernel/config-types.ts:57` — `readonly allowEmpty?: boolean;` declared in the kernel; its only consumers are `scripts/lint-ratchet/check-registry.ts:119` and `:141`, both in the Musi adapter.
 
 ## Proposed direction
@@ -101,12 +105,12 @@ and should land last, in one sweep, so the tree is never half-renamed for long.
    `examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts:41`. The demo is a
    separate workspace package with no typecheck script, so a missed edit there surfaces
    only when `bun --filter lint-ratchet-demo smoke` runs.
-2. **Move the scripts-tsconfig inference to the Musi adapter.** Keep
-   `typeAwareProjectFor` in the kernel honouring an explicit `typeAwareProject`, and move
-   the `startsWith("scripts/")` default out of `eslint-config.ts:108-119` into
-   `scripts/lint-ratchet` — either as an explicit `typeAwareProject` on the affected
-   registry entries or as an adapter-side default applied before the kernel sees the
-   config. Keep the explanatory comment with the logic wherever it lands.
+2. **Delete the scripts-tsconfig inference from the portable kernel.** Keep
+   `typeAwareProjectFor` honouring an explicit `typeAwareProject`, but remove the
+   `startsWith("scripts/")` default from `eslint-config.ts`. The live registry has no
+   scripts-only type-aware ratchet, so moving the default into the adapter would retain
+   unused convenience logic. A future entry with a custom TypeScript project must set
+   `typeAwareProject` explicitly.
 3. **Move `allowEmpty` to the adapter's config type.** It is declared at
    `config-types.ts:57` and read only at `scripts/lint-ratchet/check-registry.ts:119,141`;
    push it into the adapter's registry-entry type (or, if the kernel's config type is not
@@ -127,6 +131,19 @@ and should land last, in one sweep, so the tree is never half-renamed for long.
 
 ## Scope / caveats
 
+- **H23 changes the default for external scripts-only type-aware entries.** A
+  pre-H23 entry without `typeAwareProject` used `./tsconfig.scripts.json`; the
+  same entry now uses `projectService: true`. No live Musi type-aware entry is
+  scripts-only, so Musi's results are unchanged. The implicit strategy was
+  already absent from `configHash` before H23, making this a pre-existing blind
+  spot rather than a hash regression introduced by the deletion. H23 does not
+  churn every baseline hash to cover a hypothetical adopter; the adoption guide
+  instead requires affected upgrades to set `typeAwareProject` explicitly and
+  update their baseline. An explicit `typeAwareProject` is hashed, so that
+  migration invalidates the old baseline identity and cannot silently retain
+  it. Any future implicit project-selection strategy must
+  either enter the effective config hash or ship with an equally explicit
+  migration contract.
 - **The baseline JSON key must keep saying `tests`.** The `"tests"` key in
   `lint-ratchet.baseline.json:4` is committed data; renaming it changes the on-disk
   schema and requires a baseline version bump plus a regenerated 67 KB baseline. Step 4

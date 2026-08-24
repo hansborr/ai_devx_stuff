@@ -1,16 +1,19 @@
 import { join } from "node:path";
 
-import { REGRESSION_RECOVERY_FOOTER } from "@musi/lint-ratchet/kernel/recovery-command.js";
-import { describe, expect, it } from "vitest";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   type HarnessFinding,
   summarizeHarnessFindings,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+import { regressionRecoveryFooter } from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { describe, expect, it } from "vitest";
+
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { formatHarnessDiagnosticsReport, runLintRatchetReport } from "./report.js";
+
+const REGRESSION_RECOVERY_FOOTER = regressionRecoveryFooter(musiLintRatchetWorkflowVocabulary);
 
 const tmpRepo = registerTempRootCleanup();
 const IMPROVEMENT_RECOVERY_LINE = "Run `bun run lint:ratchet:update` to lock in the improvement.";

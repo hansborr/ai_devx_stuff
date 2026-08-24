@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/harness-finding.sh
+. "$SCRIPT_DIR/lib/harness-finding.sh"
+
 repo_root="$(git rev-parse --show-toplevel)"
 cd "$repo_root"
 
@@ -18,6 +22,11 @@ for arg in "$@"; do
       ;;
   esac
 done
+
+if [ "$emit_json" -eq 1 ] && ! command -v jq >/dev/null 2>&1; then
+  printf 'module:index: jq is required for --json mode but is not installed\n' >&2
+  exit 1
+fi
 
 tmp_file="$(mktemp "$repo_root/.MODULE-INDEX.md.tmp.XXXXXX")"
 trap 'rm -f "$tmp_file"' EXIT
@@ -79,9 +88,19 @@ if [ "$mode" = "check" ]; then
     if [ "$fresh" = "true" ]; then
       finding=""
     elif [ -f MODULE-INDEX.md ]; then
-      finding='{"control":"doc-generator/module-index","severity":"warn","path":"MODULE-INDEX.md","why":"MODULE-INDEX.md is out of date.","howToFix":"Run `bun run module:index` to regenerate.","repairKind":"manual"}'
+      finding="$(emit_harness_finding \
+        "doc-generator/module-index" \
+        "warn" \
+        "MODULE-INDEX.md is out of date." \
+        'Run `bun run module:index` to regenerate.' \
+        "MODULE-INDEX.md")"
     else
-      finding='{"control":"doc-generator/module-index","severity":"warn","path":"MODULE-INDEX.md","why":"MODULE-INDEX.md is missing.","howToFix":"Run `bun run module:index` to generate it.","repairKind":"manual"}'
+      finding="$(emit_harness_finding \
+        "doc-generator/module-index" \
+        "warn" \
+        "MODULE-INDEX.md is missing." \
+        'Run `bun run module:index` to generate it.' \
+        "MODULE-INDEX.md")"
     fi
     printf '%s\n' "$finding" \
       | bun run scripts/harness-emit-envelope.ts --tool module:index:check

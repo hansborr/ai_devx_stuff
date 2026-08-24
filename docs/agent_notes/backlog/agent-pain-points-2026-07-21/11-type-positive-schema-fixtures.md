@@ -70,7 +70,7 @@ wrapper contracts instead of banning the latter.
   invariant into TypeScript gives earlier feedback without changing that
   policy.
 
-Source: `/home/node/persist/musi/pain_points.log` and
+Source: `/home/node/persist/musi/pain_points/focused-verification-gaps.md` and
 `/home/node/.claude/projects/-workspace/memory/autonomous-drain-lane-recipe.md`.
 No existing backlog leaf owns this fixture boundary.
 

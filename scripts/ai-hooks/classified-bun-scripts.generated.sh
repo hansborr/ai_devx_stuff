@@ -5,16 +5,25 @@
 # facets); regenerate with `bun run verify:steps`.
 
 AI_GENERATED_WRAPPED_BUN_SCRIPTS='
+concurrency:relation-graph:check
 docs:baseline-conflict-recipes:check
 docs:harness-controls:check
 docs:lint-coverage-map:generate:check
 docs:lint-guidance:check
+harness:command-policy:check
 harness:config-surfaces
 harness:config-surfaces:check
 harness:hook-timeouts:check
+harness:lint-rule-controls
+harness:lint-rule-controls:check
+harness:manifest-schema
+harness:manifest-schema:check
+harness:pre-push-trigger:check
 harness:skills:check
 harness:skills:refresh
 harness:wiring:check
+lint:local-plugin
+lint:local-plugin:check
 lint:restricted-disable-rules
 lint:restricted-disable-rules:check
 mutation:survivors
@@ -25,11 +34,14 @@ verify:steps:check
 '
 
 AI_GENERATED_BYPASS_BUN_SCRIPTS='
+concurrency:relation-graph
 docs:baseline-conflict-recipes
 docs:harness-controls
 docs:lint-coverage-map:generate
 docs:lint-guidance
+harness:command-policy
 harness:hook-timeouts
+harness:pre-push-trigger
 harness:wiring
 verify:steps
 '

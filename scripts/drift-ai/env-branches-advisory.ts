@@ -11,6 +11,7 @@
 // or unresolved prediction can never be mistaken for a promoted finding.
 
 import { plural, positiveInt } from "./advisory-format-helpers.js";
+import { ENV_DEFINE_MATRIX_KEYS, ENV_DEFINE_PROVIDERS } from "./env-define-provider-metadata.js";
 import type {
   EnvDefineAssumedValue,
   EnvDefineAssumption,
@@ -91,10 +92,11 @@ const UNRESOLVED_EMPTY_REASON = "no unresolved env/define conditions detected.";
 
 // Reads a typical define-substituting bundler inlines statically; a process.env /
 // Bun.env read is folded only when the bundler is configured to inline env.
-const STATIC_INLINE_KINDS: ReadonlySet<EnvDefineReadKind> = new Set<EnvDefineReadKind>([
-  "define",
-  "import.meta.env",
-]);
+const STATIC_INLINE_KINDS: ReadonlySet<EnvDefineReadKind> = new Set<EnvDefineReadKind>(
+  ENV_DEFINE_PROVIDERS.filter((provider) => provider.staticInline).map(
+    (provider) => provider.readKind,
+  ),
+);
 
 // An env/define matrix with no usable assumption in any table. Without one, every
 // condition resolves to "unknown", so the advisory discloses the missing matrix as an
@@ -257,11 +259,7 @@ function formatAssumedValue(value: EnvDefineAssumedValue): string {
 function matrixTables(
   matrix: EnvDefineMatrix,
 ): readonly Readonly<Record<string, EnvDefineAssumption>>[] {
-  return [
-    matrix.env,
-    matrix.processEnv,
-    matrix.importMetaEnv,
-    matrix.bunEnv,
-    matrix.defines,
-  ].filter((table): table is Readonly<Record<string, EnvDefineAssumption>> => table !== undefined);
+  return ENV_DEFINE_MATRIX_KEYS.map((tableKey) => matrix[tableKey]).filter(
+    (table): table is Readonly<Record<string, EnvDefineAssumption>> => table !== undefined,
+  );
 }

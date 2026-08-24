@@ -1,0 +1,421 @@
+{
+  "contractVersion": 1,
+  "consult": "D-01",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[24]",
+      "ref": "CQ25-222",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/02-fastify-io-augmentation.md",
+      "coverage": "full",
+      "reason": "The live leaf's Status says this divergence must not be re-scheduled: ADR-0005/local/no-barrel forbids re-exporting AppSocketServer from socket/index.ts, so importers use socket/socket-types.ts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-178",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live persisted-data ruling says not to normalize Spell.classes because spell-mapping.ts parses tags without fallback and a partial backfill breaks reads.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-180",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Operational risks ruling keeps BYTES_PER_MB and MAP_IMAGE_BYTES_PER_MB distinct because they intentionally encode decimal 10^6 and binary 2^20 semantics.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-115",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "none",
+      "reason": "The live plan relies on the barrel-less layout but its landed S1 documentation explicitly defers any root/schema aggregate-export review to a separate backlog leaf, so CQ25-115 did not decide this proposal.",
+      "promotionIds": [
+        "D-01-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-180",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live K2 slice and rejected-alternatives ruling reject routing resolveConcentrationSave through resolveD20Roll because it would add input, result, and behavioral semantics to a shape persisted verbatim in CombatLog.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-180",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live K2 slice and rejected-alternatives ruling retain the three HALF_DIVISOR declarations as unrelated rule concepts, including one inside a named-geometry lint fence.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-174",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-19 disposition explicitly drops unarmoredAc(hasShield): calculateArmorClass owns both the monk exception and shield bonus, so moving one read would split one rule across two functions.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-76",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live R2 and Rejected alternatives sections address this exact narrowing, find it feasible, deliberately decline it for the slice, and preserve it explicitly as available follow-on work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-177",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-18 ruling and landed I1/I2 slices require one total Record<SpellClassId, SrdClassId>, a derived reverse map, the SrdClassId name, and string public signatures with internal narrowing and preserved fallbacks.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-178",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live persisted-data ruling says not to normalize Spell.classes because spell-mapping.ts parses tags without fallback and a partial backfill breaks reads.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-182",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Correction 5 and landed R1 say the caster-type cantrip tables are Musi fallback policy rather than SRD tables, so an SRD citation would be fictitious and the landed documentation instead names the non-SRD decision.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-185",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live post-landing class-semantics section identifies the unknown non-SRD full-caster contradiction but declines speculative fallback changes while no production writer can create such a Class row.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-175",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-23 ruling resolves the layout defect through landed MODULE.md corrections, explicitly retains inline spell/auth inputs, and forbids extracting srd-inputs.ts under the module contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-175",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-23 ruling drops all ten listOutputSchema/searchOutputSchema domain renames as readability-only and permits the sweep only opportunistically with the candidate-finder fix in the same commit.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-176",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live corrections and rejected-alternatives ruling drop the discriminated notification variant because mapper degradation cannot protect notification.markRead's whole-entity output validation and per-type payload semantics remain unsettled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-173",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-19 disposition leaves persisted-read normalization and writer convergence unscheduled, while its back-compat ruling makes twoHandedDice the retained storage spelling and enrichFromSrd the sole adapter.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-181",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Landed S1 documents that homebrew and magic-item timestamps deliberately remain bare strings, and the live ruling says swapping those fields to dateTimeField is type-neutral and deletes nothing.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[22]",
+      "ref": "CQ25-183",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Landed K1 explicitly moved the constants without a schemas/character.ts compatibility re-export because a shim conflicts with ADR-0005 and the schemas no-barrel contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[23]",
+      "ref": "CQ25-181",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live corrections and rejected-alternatives ruling refute exporting shared GridCell/TemplateParams because the caller is already structurally checked, the interface is now ComputeTemplateCellsInput, and the client owns a distinct GridCell.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[25]",
+      "ref": "CQ25-179",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-25 ruling and landed D2 freeze DiceGroupResult/RollResult as persisted wire shapes, forbid a result discriminator, and require flat terms to retain rolls: [].",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[26]",
+      "ref": "CQ25-183",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "Landed R3 requires plain literal drawing constants with no eslint-disable wrapper because const-declarator literals are already exempt.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[27]",
+      "ref": "CQ25-116",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live U3 row closes the four-schema derivation: they remain independent wire contracts because aliasing their Zod identities would weaken the registry's mis-wiring gate for about eight lines saved.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[30]",
+      "ref": "CQ25-115",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan remeasures getValidTransitions, hasActionsRemaining, and getCurrentParticipant as colocated-test-only exports, then cuts leaf 26 to other named residuals and closes the leaf.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[31]",
+      "ref": "CQ25-115",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan remeasures snapToGrid, pixelToHex, and hexRound as colocated-test-only, then narrows leaf 26's surviving work to different targets and closes the leaf.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-185",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live post-landing class-semantics section says not to change non-SRD full-caster spell-step behavior speculatively and defers a coherent contract choice until a non-SRD class writer or import feature exists.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-181",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "partial",
+      "reason": "The live rejected-alternatives ruling covers only the bare-string homebrew/magic-item schemas and their three mapper conversions; it does not adjudicate mapper boundaries whose output schemas already use dateTimeField and accept raw Date inputs.",
+      "promotionIds": [
+        "D-01-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-175",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-23 ruling measures and declines the complete set of generic list/search output names, leaving only a conditional opportunistic sweep coupled to the candidate-finder fix.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-173",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live rejected-alternatives ruling rejects unifying twoHandedDice and versatileDice across persisted schemas and writers, retaining two representations behind the declared rules adapter.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[23]",
+      "ref": "CQ25-175",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-23 ruling covers the independent list/search renames exactly: they are declined standalone and available only as one opportunistic sweep with the output-candidate derivation fix landing atomically.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-175",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-23 ruling exhaustively counts the remaining ten list/search domain schemas and declines their rename except as an opportunistic all-at-once change coupled to the specified candidate-finder fix.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-01-001",
+      "title": "Resolve the promised shared aggregate-export review against ADR-0005's barrel prohibition",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/MODULE.md",
+          "line": 30,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The live module guide says there is no schema or root barrel and explicitly defers a barrel/aggregate export to a separate backlog leaf."
+        },
+        {
+          "path": "docs/adr/0005-shared-subpath-exports.md",
+          "line": 29,
+          "endLine": 43,
+          "measurement": null,
+          "note": "ADR-0005 makes the opposite durable decision: only scoped subpaths are allowed, the schemas barrel stays removed, and the absent root export is actively gated."
+        },
+        {
+          "path": "packages/shared/package.json",
+          "line": 8,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The implemented package surface contains wildcard scoped exports and constants, with neither a root dot export nor a schemas aggregate."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/spell-selection-step.tsx",
+          "line": 1,
+          "endLine": 3,
+          "measurement": null,
+          "note": "A representative consumer needs three defining-file imports across constants, rules, and schemas, illustrating the navigation/API question the deferred review would adjudicate."
+        }
+      ],
+      "problem": "The live shared guide promises a separate backlog decision about root or schema aggregate exports, while ADR-0005 treats those exports as a prohibited, load-bearing architecture choice. CQ25-115 landed schema-layout work but never performed that promised review. Contributors and audits therefore receive incompatible answers about whether an aggregate entrypoint is intended future work or a forbidden regression.",
+      "proposedDirection": "Perform the bounded design review promised by schemas/MODULE.md. Either define a curated aggregate surface with explicit bundle and dependency-graph safeguards and update ADR-0005 plus its gates, or reaffirm scoped-only imports and remove the deferred-leaf promise.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-01",
+          "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[0]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Add a shared root or schemas barrel",
+          "rejectionReason": "The completed shared cluster deliberately retained concrete deep subpaths."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-115",
+          "residual": "The cluster documented the scoped-only status quo but explicitly deferred the aggregate-export decision to a separate backlog leaf."
+        }
+      ],
+      "existingLeafHints": [
+        "Looks adjacent to leaf 021, which audits the shared package's wildcard export/build surface — hint only.",
+        "Any aggregate-export decision would interact with leaf 153's enforcement of the removed schemas-barrel restriction — hint only."
+      ],
+      "overturnsRuling": "ADR-0005 records and actively gates the refusal of root and schemas barrels. Reconsideration is warranted because the later live schemas/MODULE.md explicitly promises a separate aggregate-export backlog review; that review must either justify moving the ADR with bundle/dependency evidence or close the promise and retain the ruling."
+    },
+    {
+      "promotionId": "D-01-002",
+      "title": "dateTimeField-backed mapper boundaries duplicate Date-to-ISO normalization",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 109,
+          "endLine": 111,
+          "measurement": null,
+          "note": "dateTimeField already accepts either a string or Date and performs the canonical Date.toISOString() normalization."
+        },
+        {
+          "path": "packages/shared/src/schemas/map.ts",
+          "line": 112,
+          "endLine": 113,
+          "measurement": null,
+          "note": "Both map-layer timestamps use the shared normalizing field."
+        },
+        {
+          "path": "packages/server/src/utils/map-types.ts",
+          "line": 81,
+          "endLine": null,
+          "measurement": null,
+          "note": "The detail-path mapper contract is derived as z.input<typeof mapLayerSchema>, allowing Prisma Dates to reach the output parser."
+        },
+        {
+          "path": "packages/server/src/utils/map-helpers.ts",
+          "line": 106,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The detail-path map-layer mapper follows the schema-input convention and returns raw Date values."
+        },
+        {
+          "path": "packages/server/src/routers/map-layer.ts",
+          "line": 22,
+          "endLine": 30,
+          "measurement": null,
+          "note": "A second mapper for the same map-layer schema instead hand-normalizes both timestamps, demonstrating two live boundary conventions."
+        },
+        {
+          "path": "packages/server/src/utils/character-mapping.ts",
+          "line": 62,
+          "endLine": 78,
+          "measurement": null,
+          "note": "mapCharacterDetail targets the schema output type and repeats ISO conversion even though the inherited character schema uses dateTimeField."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "`rg -n 'toISOString\\(\\)' packages/server/src --glob '!*.test.ts' --glob '!*.test.tsx' | wc -l` returns 45; the corresponding `rg -l` command returns 18 files.",
+          "note": "This bounds the required inventory; cursor generation, logging, exports, and schemas without dateTimeField are intentionally not all removable."
+        }
+      ],
+      "problem": "dateTimeField is already the shared Date-to-wire-string boundary, but server mappers alternate between schema-input result types that return Prisma Dates and z.infer output types that force each mapper to call toISOString() itself. The duplicate map-layer paths demonstrate both conventions against one schema. This spreads serialization policy across mapper families and permits equivalent paths to drift.",
+      "proposedDirection": "Inventory entity/DTO mappers whose actual tRPC output schema already uses dateTimeField, derive their result contracts from z.input<typeof schema>, and let output parsing normalize Dates, following MapLayerResult. Preserve cursor/log/export timestamp generation and the prior pack's documented bare-string homebrew/magic-item schemas; split conversions by domain.",
+      "leafability": "needs-split",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-01",
+          "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[9]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Perform a repository-wide dateTimeField and toISOString conversion",
+          "rejectionReason": "The prior plan explicitly declined this sweep."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "ruling",
+          "ref": "CQ25-181",
+          "residual": "The ruling closes conversion of the deliberately bare-string homebrew/magic-item schemas and their three mappers; it does not cover existing dateTimeField-backed output contracts that still pre-normalize Dates."
+        }
+      ],
+      "existingLeafHints": [
+        "Looks close to leaf 014: it owns the map-layer-specific duplicate mapper and establishes the z.input/raw-Date convention, but not the broader mapper-family inventory.",
+        "Leaf 006 touches several of the same mapper modules while deriving Prisma payload types, but it does not address schema input/output timestamp normalization."
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent d01_a_decisions: CQ25-222; both CQ25-178 claimants; all three CQ25-180 claimants (6 claimants)",
+      "subagent d01_b_shared_closed: all three CQ25-115 claimants; CQ25-116; CQ25-76 (5 claimants)",
+      "subagent d01_c_persistence_exports: both CQ25-173 claimants; CQ25-174; all three CQ25-181 claimants (6 claimants)",
+      "subagent d01_d_schema_layout: all five CQ25-175 claimants; CQ25-176 (6 claimants)",
+      "subagent d01_e_identity_dice: CQ25-177; CQ25-179; CQ25-182; both CQ25-183 claimants; both CQ25-185 claimants (7 claimants)"
+    ],
+    "notes": [
+      "Disposition totals: 28 full, 1 partial, and 1 none.",
+      "D-01-001 records the direct conflict with ADR-0005 rather than suppressing the deferred aggregate-export review.",
+      "D-01-002 excludes the homebrew/magic-item bare-string schemas and conversions, so it does not overturn CQ25-181's recorded decision.",
+      "No tests or builds were run; review was read-only, and the working tree remained unchanged."
+    ]
+  }
+}

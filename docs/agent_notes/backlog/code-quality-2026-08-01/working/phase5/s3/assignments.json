@@ -1,0 +1,446 @@
+{
+  "componentCount": 24,
+  "assignments": [
+    {
+      "id": "s3-c01",
+      "kind": "component",
+      "files": [
+        "023-five-summary-projections-hand-copy-canonical.md",
+        "027-condition-damage-modules-mix-contracts.md",
+        "030-attack-spell-contracts-duplicate-behavior.md",
+        "036-combat-result-schemas-make-always-produced.md",
+        "049-player-monster-attack-hooks-duplicate-target.md",
+        "189-downstream-packages-keep-semantic-copies.md",
+        "191-let-players-choose-strength-dexterity.md"
+      ],
+      "pairs": [
+        [
+          "023-five-summary-projections-hand-copy-canonical.md",
+          "027-condition-damage-modules-mix-contracts.md"
+        ],
+        [
+          "027-condition-damage-modules-mix-contracts.md",
+          "030-attack-spell-contracts-duplicate-behavior.md"
+        ],
+        [
+          "027-condition-damage-modules-mix-contracts.md",
+          "036-combat-result-schemas-make-always-produced.md"
+        ],
+        [
+          "027-condition-damage-modules-mix-contracts.md",
+          "189-downstream-packages-keep-semantic-copies.md"
+        ],
+        [
+          "030-attack-spell-contracts-duplicate-behavior.md",
+          "036-combat-result-schemas-make-always-produced.md"
+        ],
+        [
+          "030-attack-spell-contracts-duplicate-behavior.md",
+          "189-downstream-packages-keep-semantic-copies.md"
+        ],
+        [
+          "030-attack-spell-contracts-duplicate-behavior.md",
+          "191-let-players-choose-strength-dexterity.md"
+        ],
+        [
+          "036-combat-result-schemas-make-always-produced.md",
+          "189-downstream-packages-keep-semantic-copies.md"
+        ],
+        [
+          "036-combat-result-schemas-make-always-produced.md",
+          "191-let-players-choose-strength-dexterity.md"
+        ],
+        [
+          "189-downstream-packages-keep-semantic-copies.md",
+          "191-let-players-choose-strength-dexterity.md"
+        ],
+        [
+          "049-player-monster-attack-hooks-duplicate-target.md",
+          "191-let-players-choose-strength-dexterity.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c02",
+      "kind": "component",
+      "files": [
+        "001-chat-persistence-delivery-policy.md",
+        "008-chat-broadcast-facade-bypasses-registry.md",
+        "015-participant-create-data-helpers-erase-their.md",
+        "024-encounter-inputs-monolith-spanning-three.md",
+        "064-pagination-suites-systematically-avoid-tie.md",
+        "234-route-manual-combat-logs-through-encounter-combat-s.md"
+      ],
+      "pairs": [
+        [
+          "001-chat-persistence-delivery-policy.md",
+          "064-pagination-suites-systematically-avoid-tie.md"
+        ],
+        [
+          "008-chat-broadcast-facade-bypasses-registry.md",
+          "064-pagination-suites-systematically-avoid-tie.md"
+        ],
+        [
+          "015-participant-create-data-helpers-erase-their.md",
+          "024-encounter-inputs-monolith-spanning-three.md"
+        ],
+        [
+          "024-encounter-inputs-monolith-spanning-three.md",
+          "064-pagination-suites-systematically-avoid-tie.md"
+        ],
+        [
+          "024-encounter-inputs-monolith-spanning-three.md",
+          "234-route-manual-combat-logs-through-encounter-combat-s.md"
+        ],
+        [
+          "064-pagination-suites-systematically-avoid-tie.md",
+          "234-route-manual-combat-logs-through-encounter-combat-s.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c03",
+      "kind": "component",
+      "files": [
+        "112-public-lint-ratchet-demo-asks-adopters.md",
+        "122-portable-lint-ratchet-package-hard-codes.md",
+        "124-ratchet-cli-has-no-authoritative-command.md",
+        "127-public-harness-manifest-has-no-versioned.md",
+        "178-local-lint-rules-lack-one-canonical.md",
+        "188-let-lint-ratchet-proposal-previews-evaluate.md"
+      ],
+      "pairs": [
+        [
+          "112-public-lint-ratchet-demo-asks-adopters.md",
+          "124-ratchet-cli-has-no-authoritative-command.md"
+        ],
+        [
+          "122-portable-lint-ratchet-package-hard-codes.md",
+          "124-ratchet-cli-has-no-authoritative-command.md"
+        ],
+        [
+          "124-ratchet-cli-has-no-authoritative-command.md",
+          "178-local-lint-rules-lack-one-canonical.md"
+        ],
+        [
+          "124-ratchet-cli-has-no-authoritative-command.md",
+          "188-let-lint-ratchet-proposal-previews-evaluate.md"
+        ],
+        [
+          "127-public-harness-manifest-has-no-versioned.md",
+          "178-local-lint-rules-lack-one-canonical.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c04",
+      "kind": "component",
+      "files": [
+        "004-character-creation-large-pseudo-module-loose.md",
+        "021-shared-production-builds-expose-colocated.md",
+        "025-spellcastingts-contains-five-independently.md",
+        "065-server-service-suites-redundantly-wipe.md",
+        "211-reuse-validated-class-references-during.md"
+      ],
+      "pairs": [
+        [
+          "004-character-creation-large-pseudo-module-loose.md",
+          "025-spellcastingts-contains-five-independently.md"
+        ],
+        [
+          "004-character-creation-large-pseudo-module-loose.md",
+          "065-server-service-suites-redundantly-wipe.md"
+        ],
+        [
+          "025-spellcastingts-contains-five-independently.md",
+          "211-reuse-validated-class-references-during.md"
+        ],
+        [
+          "065-server-service-suites-redundantly-wipe.md",
+          "211-reuse-validated-class-references-during.md"
+        ],
+        [
+          "021-shared-production-builds-expose-colocated.md",
+          "025-spellcastingts-contains-five-independently.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c05",
+      "kind": "component",
+      "files": [
+        "046-generic-map-canvas-performs-combat-domain.md",
+        "054-tokencontextmenu-option-bag-two-different.md",
+        "055-token-placement-mirrors-store-state-dialog.md",
+        "179-turn-disabled-stat-block-placeholder-party.md",
+        "215-converge-destructive-client-actions-on-one.md"
+      ],
+      "pairs": [
+        [
+          "046-generic-map-canvas-performs-combat-domain.md",
+          "054-tokencontextmenu-option-bag-two-different.md"
+        ],
+        [
+          "054-tokencontextmenu-option-bag-two-different.md",
+          "055-token-placement-mirrors-store-state-dialog.md"
+        ],
+        [
+          "054-tokencontextmenu-option-bag-two-different.md",
+          "179-turn-disabled-stat-block-placeholder-party.md"
+        ],
+        [
+          "054-tokencontextmenu-option-bag-two-different.md",
+          "215-converge-destructive-client-actions-on-one.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c06",
+      "kind": "component",
+      "files": [
+        "111-lint-coverage-map-reverse-parses-generated.md",
+        "153-global-restricted-import-policy-survives.md",
+        "157-shared-policyjs-grab-bag-unrelated-lint.md",
+        "197-shared-runtime-neutrality-enforcement.md",
+        "251-remove-closed-implementation-residue-from-the-active.md"
+      ],
+      "pairs": [
+        [
+          "111-lint-coverage-map-reverse-parses-generated.md",
+          "157-shared-policyjs-grab-bag-unrelated-lint.md"
+        ],
+        [
+          "111-lint-coverage-map-reverse-parses-generated.md",
+          "251-remove-closed-implementation-residue-from-the-active.md"
+        ],
+        [
+          "153-global-restricted-import-policy-survives.md",
+          "197-shared-runtime-neutrality-enforcement.md"
+        ],
+        [
+          "157-shared-policyjs-grab-bag-unrelated-lint.md",
+          "197-shared-runtime-neutrality-enforcement.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c07",
+      "kind": "component",
+      "files": [
+        "033-attunement-game-rule-lives-request-schema.md",
+        "041-character-hooks-expose-second-identity.md",
+        "044-optimistic-writers-spread-transport.md",
+        "050-optimistic-character-sheet-mutations-omit.md"
+      ],
+      "pairs": [
+        [
+          "033-attunement-game-rule-lives-request-schema.md",
+          "044-optimistic-writers-spread-transport.md"
+        ],
+        [
+          "041-character-hooks-expose-second-identity.md",
+          "044-optimistic-writers-spread-transport.md"
+        ],
+        [
+          "041-character-hooks-expose-second-identity.md",
+          "050-optimistic-character-sheet-mutations-omit.md"
+        ],
+        [
+          "044-optimistic-writers-spread-transport.md",
+          "050-optimistic-character-sheet-mutations-omit.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c08",
+      "kind": "component",
+      "files": [
+        "003-seed-json-boundaries-alternate-between.md",
+        "097-two-database-writing-srd-backfill-commands.md",
+        "203-add-previewapply-safety-boundary-srd.md"
+      ],
+      "pairs": [
+        [
+          "003-seed-json-boundaries-alternate-between.md",
+          "097-two-database-writing-srd-backfill-commands.md"
+        ],
+        [
+          "003-seed-json-boundaries-alternate-between.md",
+          "203-add-previewapply-safety-boundary-srd.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c09",
+      "kind": "component",
+      "files": [
+        "010-trpc-error-sanitization-depends-unstable.md",
+        "184-human-readable-server-messages-act-client.md",
+        "248-preserve-registered-route-typing-through.md"
+      ],
+      "pairs": [
+        [
+          "010-trpc-error-sanitization-depends-unstable.md",
+          "184-human-readable-server-messages-act-client.md"
+        ],
+        [
+          "184-human-readable-server-messages-act-client.md",
+          "248-preserve-registered-route-typing-through.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c10",
+      "kind": "component",
+      "files": [
+        "080-public-harness-copy-recipes-not-closed-over.md",
+        "119-migration-safety-validation-embeds-multiple.md",
+        "181-harness-diagnostics-live-application.md"
+      ],
+      "pairs": [
+        [
+          "080-public-harness-copy-recipes-not-closed-over.md",
+          "181-harness-diagnostics-live-application.md"
+        ],
+        [
+          "119-migration-safety-validation-embeds-multiple.md",
+          "181-harness-diagnostics-live-application.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c11",
+      "kind": "component",
+      "files": [
+        "096-per-worktree-guide-omits-mandatory.md",
+        "198-worktree-provisioning-hard-wired.md",
+        "265-document-cross-worktree-status-modes.md"
+      ],
+      "pairs": [
+        [
+          "096-per-worktree-guide-omits-mandatory.md",
+          "198-worktree-provisioning-hard-wired.md"
+        ],
+        [
+          "198-worktree-provisioning-hard-wired.md",
+          "265-document-cross-worktree-status-modes.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-c12",
+      "kind": "component",
+      "files": [
+        "131-codex-agent-skill-depends-claude-owned.md",
+        "152-path-policy-query-core-closed-over-musis.md",
+        "159-path-policy-gives-single-segment-glob-two.md"
+      ],
+      "pairs": [
+        [
+          "131-codex-agent-skill-depends-claude-owned.md",
+          "152-path-policy-query-core-closed-over-musis.md"
+        ],
+        [
+          "131-codex-agent-skill-depends-claude-owned.md",
+          "159-path-policy-gives-single-segment-glob-two.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-p01",
+      "kind": "singleton-batch",
+      "files": [
+        "002-request-socket-boundaries-capture-production.md",
+        "205-rename-auth-service-to-reflect-its.md",
+        "042-flat-character-creation-contract-forces.md",
+        "056-wizard-contexttesttsx-stale-duplicate-wizard.md",
+        "007-cascade-deleters-duplicate-load-bearing-turn.md",
+        "017-participant-mutation-comments-misstate.md",
+        "040-vtt-actions-tab-duplicates-two-dedicated.md",
+        "058-vtt-spell-tests-copy-full.md"
+      ],
+      "pairs": [
+        [
+          "002-request-socket-boundaries-capture-production.md",
+          "205-rename-auth-service-to-reflect-its.md"
+        ],
+        [
+          "042-flat-character-creation-contract-forces.md",
+          "056-wizard-contexttesttsx-stale-duplicate-wizard.md"
+        ],
+        [
+          "007-cascade-deleters-duplicate-load-bearing-turn.md",
+          "017-participant-mutation-comments-misstate.md"
+        ],
+        [
+          "040-vtt-actions-tab-duplicates-two-dedicated.md",
+          "058-vtt-spell-tests-copy-full.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-p02",
+      "kind": "singleton-batch",
+      "files": [
+        "094-two-documents-both-claim-be-authoritative.md",
+        "220-add-a-joined-explain-view-for-harness-control.md",
+        "109-musi-repository-policy-embedded-throughout.md",
+        "134-analyzer-families-maintain-divergent-source.md",
+        "140-analyzer-presentation-logic-uses-english.md",
+        "182-logging-producers-their-auditor-separately.md",
+        "142-code-intelts-maintains-unused-pseudo-library.md",
+        "161-drift-ai-executable-exposes-incoherent-23.md"
+      ],
+      "pairs": [
+        [
+          "094-two-documents-both-claim-be-authoritative.md",
+          "220-add-a-joined-explain-view-for-harness-control.md"
+        ],
+        [
+          "109-musi-repository-policy-embedded-throughout.md",
+          "134-analyzer-families-maintain-divergent-source.md"
+        ],
+        [
+          "140-analyzer-presentation-logic-uses-english.md",
+          "182-logging-producers-their-auditor-separately.md"
+        ],
+        [
+          "142-code-intelts-maintains-unused-pseudo-library.md",
+          "161-drift-ai-executable-exposes-incoherent-23.md"
+        ]
+      ]
+    },
+    {
+      "id": "s3-p03",
+      "kind": "singleton-batch",
+      "files": [
+        "149-generic-codemod-infrastructure-hidden-behind.md",
+        "185-repository-path-containment-has-several.md",
+        "164-drift-ai-suites-leave-dozens-temporary.md",
+        "165-eight-drift-command-fakes-bypass-strict-git.md",
+        "180-homebrew-entry-type-vocabulary-enumerated.md",
+        "195-validate-concrete-homebrew-entry-data-before.md",
+        "231-fail-closed-when-similarity-ts-output-no-longer.md",
+        "255-make-exact-token-collection-explicit-at-the.md"
+      ],
+      "pairs": [
+        [
+          "149-generic-codemod-infrastructure-hidden-behind.md",
+          "185-repository-path-containment-has-several.md"
+        ],
+        [
+          "164-drift-ai-suites-leave-dozens-temporary.md",
+          "165-eight-drift-command-fakes-bypass-strict-git.md"
+        ],
+        [
+          "180-homebrew-entry-type-vocabulary-enumerated.md",
+          "195-validate-concrete-homebrew-entry-data-before.md"
+        ],
+        [
+          "231-fail-closed-when-similarity-ts-output-no-longer.md",
+          "255-make-exact-token-collection-explicit-at-the.md"
+        ]
+      ]
+    }
+  ]
+}

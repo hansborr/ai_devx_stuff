@@ -7,6 +7,17 @@
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-suppression-register.sh
 # smoke-subjects: scripts/data/eslint-disable-broad-allowlist.txt
@@ -64,11 +75,18 @@ run_report_identities() {
 new_repo() {
   local name="$1"
   local repo="$TMP_ROOT/$name"
-  mkdir -p "$repo"
+  mkdir -p "$repo/scripts/data"
   git -C "$repo" init -q
   git -C "$repo" config user.email test@example.com
   git -C "$repo" config user.name Test
+  printf '%s\n' '# fixture ts-nocheck allowlist' > "$repo/scripts/data/ts-nocheck-allowlist.txt"
+  git -C "$repo" add scripts/data/ts-nocheck-allowlist.txt
   printf '%s\n' "$repo"
+}
+
+allow_ts_nocheck() {
+  local repo="$1" pattern="$2"
+  printf '%s\n' "$pattern" >> "$repo/scripts/data/ts-nocheck-allowlist.txt"
 }
 
 seed_file() {
@@ -160,6 +178,7 @@ contains "$RUN_OUTPUT" 'src/app.ts:1 [ts-nocheck]' \
 ok "hard-gates ts-nocheck outside the allowlist"
 
 repo="$(new_repo ts-nocheck-allowlisted)"
+allow_ts_nocheck "$repo" 'scripts/drift-ai/suppressions.ts'
 seed_file "$repo" scripts/drift-ai/suppressions.ts "$ts_nocheck_reason" 'export const parserFixture = true;'
 run_report "$repo"
 [ "$RUN_STATUS" -eq 0 ] || fail "allowlisted ts-nocheck should pass: $RUN_OUTPUT"
@@ -171,6 +190,44 @@ if contains "$RUN_OUTPUT" 'FAIL: suppression register @ts-nocheck outside allowl
   fail "allowlisted ts-nocheck should not fail: $RUN_OUTPUT"
 fi
 ok "counts allowlisted ts-nocheck without outside-allowlist failure"
+
+repo="$(new_repo overlapping-live-ts-nocheck-rows)"
+allow_ts_nocheck "$repo" 'scripts/*.ts'
+allow_ts_nocheck "$repo" 'scripts/app.ts'
+seed_file "$repo" scripts/app.ts "$ts_nocheck_reason" 'export const generated = true;'
+git -C "$repo" add scripts/data/ts-nocheck-allowlist.txt
+run_report "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "one directive should mark every overlapping ts-nocheck row used: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: suppression register unused @ts-nocheck allowlist entries total=0' \
+  || fail "overlapping ts-nocheck rows were not all marked used: $RUN_OUTPUT"
+ok "marks overlapping glob and exact-path ts-nocheck rows used"
+
+repo="$(new_repo stale-ts-nocheck-row)"
+allow_ts_nocheck "$repo" 'scripts/retired.ts'
+seed_file "$repo" src/app.ts 'export const clean = true;'
+run_report "$repo"
+[ "$RUN_STATUS" -eq 1 ] || fail "full scan should reject an unmatched ts-nocheck allowlist row: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'FAIL: suppression register unused @ts-nocheck allowlist entries total=1' \
+  || fail "stale ts-nocheck allowlist failure was missing: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'scripts/retired.ts' \
+  || fail "stale ts-nocheck allowlist entry was not listed: $RUN_OUTPUT"
+ok "full scan rejects unmatched ts-nocheck allowlist rows"
+
+repo="$(new_repo changed-scope-stale-ts-nocheck-row)"
+allow_ts_nocheck "$repo" 'scripts/retired.ts'
+seed_file "$repo" src/legacy.ts 'export const legacy = true;'
+git -C "$repo" add scripts/data/ts-nocheck-allowlist.txt
+git -C "$repo" -c commit.gpgsign=false commit -q -m "seed unmatched global permission"
+git -C "$repo" branch base
+seed_file "$repo" src/changed.ts "$ts_expect_reason" 'unknownValue();'
+run_report_changed "$repo"
+[ "$RUN_STATUS" -eq 0 ] || fail "changed scope should not infer that a global ts-nocheck row is stale: $RUN_OUTPUT"
+contains "$RUN_OUTPUT" 'PASS: suppression register scope=changed' \
+  || fail "changed-scope stale-row fixture did not remain narrowed: $RUN_OUTPUT"
+if contains "$RUN_OUTPUT" 'unused @ts-nocheck allowlist entries'; then
+  fail "changed scope must ignore unmatched global ts-nocheck rows: $RUN_OUTPUT"
+fi
+ok "changed scope ignores unmatched global ts-nocheck allowlist rows"
 
 repo="$(new_repo stryker-inline)"
 seed_file "$repo" src/rules.ts "$stryker_inline" 'export const value = true;'
@@ -279,6 +336,12 @@ mkdir -p "$repo/scripts/lib"
 cp "$SCRIPT_DIR/../lib/changed-base.sh" "$repo/scripts/lib/changed-base.sh"
 cp "$SCRIPT_DIR/../lib/changed-lintable-files.sh" "$repo/scripts/lib/changed-lintable-files.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$repo/scripts/lib/verify-state-paths.sh"
 git -C "$repo" add scripts/suppression-register.sh scripts/lib
 git -C "$repo" -c commit.gpgsign=false commit -q -m "seed scanner and violation"
 git -C "$repo" branch base
@@ -385,13 +448,19 @@ seed_wrapper_scripts() {
   cp "$SCRIPT_DIR/../lint-suppressions.sh" \
     "$SCRIPT_DIR/../eslint-disable-register.sh" \
     "$SCRIPT_DIR/../suppression-register.sh" "$repo/scripts/"
-  cp "$SCRIPT_DIR/../data/eslint-disable-broad-allowlist.txt" \
-    "$SCRIPT_DIR/../data/ts-nocheck-allowlist.txt" "$repo/scripts/data/"
+  printf '%s\n' '# fixture broad-disable allowlist' > "$repo/scripts/data/eslint-disable-broad-allowlist.txt"
+  printf '%s\n' '# fixture ts-nocheck allowlist' > "$repo/scripts/data/ts-nocheck-allowlist.txt"
   # Both registers source the shared changed-scope libs; keep the sandbox
   # closed over them (fixture-shell-dependencies tripwire).
   cp "$SCRIPT_DIR/../lib/changed-base.sh" \
     "$SCRIPT_DIR/../lib/changed-lintable-files.sh" \
-    "$SCRIPT_DIR/../lib/verify-metadata.sh" "$repo/scripts/lib/"
+    "$SCRIPT_DIR/../lib/verify-metadata.sh" \
+    "$SCRIPT_DIR/../lib/verify-commit-queue.sh" \
+    "$SCRIPT_DIR/../lib/verify-fast-commit.sh" \
+    "$SCRIPT_DIR/../lib/verify-markers.sh" \
+    "$SCRIPT_DIR/../lib/verify-path-policy.sh" \
+    "$SCRIPT_DIR/../lib/verify-run-meta.sh" \
+    "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$repo/scripts/lib/"
 }
 
 repo="$(new_repo wrapper-aggregate)"

@@ -1,5 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
+import { customWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import {
   LINT_RATCHET_BASELINE_WRITE_VERSION,
   lintRatchetBaselineRegenerateForVersion,
@@ -17,11 +19,15 @@ import {
 // A synthetic fixture context: every git and filesystem access in these suites
 // goes through the injected BaselineDebtAccountingGitDeps, so the operation
 // only ever sees these paths as opaque strings.
-const fixtureContext = createLintRatchetEngineContext({ repoRoot: "/lint-ratchet-fixture" });
+const fixtureContext = createLintRatchetEngineContext({
+  workflowVocabulary: fixtureWorkflowVocabulary,
+  repoRoot: "/lint-ratchet-fixture",
+});
 const { baselinePath, debtLogPath } = fixtureContext;
 
 const emptyBaselineRegenerate = lintRatchetBaselineRegenerateForVersion(
   LINT_RATCHET_BASELINE_WRITE_VERSION,
+  fixtureWorkflowVocabulary.updateCommand,
 );
 const EMPTY_BASELINE = `${JSON.stringify(
   {
@@ -211,5 +217,25 @@ describe("runBaselineDebtAccountingCheck", () => {
     expect(() => {
       runBaselineDebtAccountingCheck(fixtureContext, deps);
     }).not.toThrow();
+  });
+
+  it("names the bound update command exactly when the worktree baseline is missing", () => {
+    const base = "basesha777777777";
+    const { deps } = makeDeps(
+      [
+        [["rev-parse", "HEAD"], "headsha777777777\n"],
+        [["merge-base", "HEAD", "origin/main"], `${base}\n`],
+        [["show", `${base}:${BASELINE_FILENAME}`], EMPTY_BASELINE],
+      ],
+      {},
+    );
+    const context = {
+      ...fixtureContext,
+      workflowVocabulary: customWorkflowVocabulary,
+    };
+
+    expect(() => {
+      runBaselineDebtAccountingCheck(context, deps);
+    }).toThrow("lint-ratchet.baseline.json does not exist; run fixture-ratchet update");
   });
 });

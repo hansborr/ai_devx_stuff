@@ -2,7 +2,9 @@
 
 Status: Accepted after adversarial review — non-schedulable decision record
 Date: 2026-07-21
-Source: `pain_points.log` — hook command target misclassification
+Source:
+`/home/node/persist/musi/pain_points/git-hooks-and-commit-workflow.md` — hook
+command target misclassification
 Implementation owner:
 `../ready-2026-07/13-command-policy-ts-core.md` (C8)
 

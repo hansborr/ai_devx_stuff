@@ -1,0 +1,370 @@
+{
+  "contractVersion": 1,
+  "consult": "D-07",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-4",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:79 keeps leaf 28 open through 28-PLAN, which replaces blanket reorganization with explicit move, defer, exception, facade, and documentation dispositions for the flat families.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-3",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:78 keeps leaf 27 open through 27-PLAN, whose live scope comprehensively re-frames consolidation into a bounded assertion kernel, growth policy, and subject-coherent splits while rejecting wholesale migration.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-11",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "The linked live leaf explicitly records at 35-code-intel-internals.md:11-14 that CodeIntelQueryResult re-widens narrowed outputs and leaves command/result correlation as an unscheduled future note beyond H18.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-171",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:67-70 says leaf 06 steps 5-8 are parked and must not be re-filed; SERVER-COMMENTS-PLAN.md:1185 expressly names generator formatting, subclass relayout, seed renaming, and reference-table table-driving.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-11",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:86 and HARNESS-CLUSTER-PLAN.md:137-140 record the landed logs-audit boundary cleanup and the optional CodeIntelContext and ManifestGatedCache work; the live leaf also keeps the unrelated analyzer halves separate.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-4",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:79 points the prose-only layout finding to 28-PLAN, whose live plan retains closed-world inventory enforcement plus documentation and per-family relocation slices.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-171",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:67-70 explicitly parks generator-output rewrites because docs/refs is unavailable to gates and ordinary implementers, and SERVER-COMMENTS-PLAN.md:1185 applies that ruling to generator formatting and subclass relayout.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-171",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "SERVER-COMMENTS-PLAN.md:1185 expressly parks seed-family renaming and table-driving the eight reference-table seeders, while 00-index.md:67-70 says not to re-file those steps as pickup work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-18",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:100-102 preserves leaf 53's owner ruling, and 53-PLAN schedules persisted DM resolution while expressly refusing an automatic deterministic secondary key.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-12",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:87 records H22/H23 landed and no scheduled slice remaining; the linked live leaf confirms the portable-kernel vocabulary work landed and the other proposed vocabulary steps were deliberately dropped.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-171",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:67-70 parks leaf 06 steps 5-8, and SERVER-COMMENTS-PLAN.md:1185 specifically includes generator formatting, regeneration-dependent renames, and subclass-features relayout.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-08-topup.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-16",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "none",
+      "reason": "00-index.md leaves only optional S19/S20, leaf 46's complete live inventory contains neither interface, and WeaponAttackResult does not appear anywhere in the prior pack.",
+      "promotionIds": [
+        "D-07-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-08-topup.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-13",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md delegates leaf 40 to 40-PLAN, whose live verdict says the cross-package cases are unrelated, share no mechanism or fix, and should remain independent domain-local slices rather than one typed-builder convention.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-12",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:87 and HARNESS-CLUSTER-PLAN.md show the portable-kernel cleanup landed as H22/H23, while the surviving testId rename and allowEmpty decision are separately recorded.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-17",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md",
+      "coverage": "full",
+      "reason": "00-index.md:92 records H13/H14 landed and only narrow H15 blocked; the linked live leaf says the remedy is documentation and test placement and forbids restructuring the analyzer into a broader interpreter.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-32",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "none",
+      "reason": "Live slice 27.9 at 27-PLAN.md:101 schedules widening and routing under the same singular smokeTest spelling; it never schedules the dropped naming normalization.",
+      "promotionIds": [
+        "D-07-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[22]",
+      "ref": "CQ25-139",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "The live scope decision moves the Stop-policy assertion rewrite to its own future effort at 27-PLAN.md:62-64, and the rejection record preserves declare-F discovery at line 176.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-28",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.2 schedules test-assertions.sh with fail(), ok(), and the pass counter, sources it from ai-hooks support, and migrates one ordinary suite.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-29",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.3 schedules the exact pre-commit block extraction, hook-helper hoist, and smoke-subject move from dependency-freshness.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-30",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slices 27.4-27.7 enumerate the command-policy, backlog-note-lint, commit/worktree/queue, and failure-guidance/output-filter family splits.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-31",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.8+ owns open-ended, one-cluster-at-a-time splits of test-lint-ratchet.sh by coherent subject ownership.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-33",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.10 schedules splitting test-skill-dispatch-wrappers.sh by independently routable skill/backend group.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-137",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan expressly defers a shared git-fixture layer because the 15 bodies differ and permits extraction only after three identical seams are proven.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-138",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops the 52-suite migration as a completion criterion and replaces it with opportunistic retirement under the growth-control policy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-139",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan expressly moves the Stop-policy rewrite out of shell consolidation into a separate effort and requires any future rewrite to retain declare-F discovery.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-140",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan rejects both test-test-* renames as pure churn and wholesale Vitest rewrites because hook and wrapper coverage must execute Bash.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-27",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.1 schedules the exact TS-first two-tier placement contract, helper location, new-suite growth brake, and ai-hooks colocation paragraph.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-140",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "partial",
+      "reason": "The live refusal covers the test-test-*.sh filename renames at 27-PLAN.md:65-66 and line 177, but it does not adjudicate the claimant's broader command-prefix normalization.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-28",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md",
+      "coverage": "full",
+      "reason": "Live slice 27.2 owns extracting the shared assertion portion of shell preambles and proves it through ai-hooks support plus one ordinary-suite migration; wholesale migration is separately refused.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-07-001",
+      "title": "Disambiguate the two exported WeaponAttackResult contracts",
+      "area": "cross-cutting",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 135,
+          "endLine": 142,
+          "measurement": null,
+          "note": "The shared WeaponAttackResult is a computed rules result containing bonuses, dice, damage type, and selected ability."
+        },
+        {
+          "path": "packages/client/src/hooks/vtt-drawer/use-weapon-attack.ts",
+          "line": 29,
+          "endLine": 36,
+          "measurement": null,
+          "note": "The second exported WeaponAttackResult instead describes hook command state through apply, isPending, and canAttack."
+        }
+      ],
+      "problem": "Two exported interfaces use the same unqualified name for unrelated concepts, so symbol search and auto-import results require path inspection to distinguish a rules computation from a React hook controller. No production consumer imports both, so the impact is navigation and maintenance ambiguity rather than a runtime defect.",
+      "proposedDirection": "Rename the client hook contract to UseWeaponAttackResult, preserving the shared computation name and aligning the client type with useWeaponAttack.",
+      "leafability": "observation",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-07",
+          "sourceItemId": "wave-2/lane-08-topup.json::droppedAsPriorPackDuplicate[0]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Rename the unrelated shared and client WeaponAttackResult interfaces",
+          "rejectionReason": "This is the pure-rename territory owned by open leaf 46; the path-qualified interfaces have different domains and no consumer imports both."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-16",
+          "residual": "Leaf 46 owns a general naming theme, but its live inventory and remaining S19/S20 slices do not mention either WeaponAttackResult interface."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "D-07-002",
+      "title": "Rename the widened skill smoke-test list to match its cardinality",
+      "area": "harness",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 2779,
+          "endLine": null,
+          "measurement": null,
+          "note": "The live skill-routing declaration uses the singular smokeTest key."
+        },
+        {
+          "path": "scripts/harness/skill-inventory-schema.ts",
+          "line": 13,
+          "endLine": 18,
+          "measurement": null,
+          "note": "The typed skill-wiring contract exposes smokeTest as a singular scalar today."
+        },
+        {
+          "path": "scripts/harness/skill-inventory-schema.ts",
+          "line": 95,
+          "endLine": 105,
+          "measurement": null,
+          "note": "The strict parser hard-codes the singular key and a single-string diagnostic, so slice 27.9 must touch this vocabulary when changing cardinality."
+        },
+        {
+          "path": "scripts/harness/skill-artifact-projection.ts",
+          "line": 72,
+          "endLine": 76,
+          "measurement": null,
+          "note": "The downstream projection already names its collection smokeTests, exposing the vocabulary the manifest field can converge on when widened."
+        }
+      ],
+      "problem": "CQ25-32 schedules changing a per-skill scalar into a list while retaining the singular smokeTest spelling. After that change, manifest authors, validation diagnostics, and routing code would describe a collection with a singular key while the downstream projection already uses smokeTests.",
+      "proposedDirection": "Fold the naming decision into slice 27.9: replace the manifest, parser, and interface field with smokeTests: readonly string[], validate its entries, and route each declared path.",
+      "leafability": "observation",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-07",
+          "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[3]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Normalize the smokeTest fixture list name",
+          "rejectionReason": "The exact naming cleanup is already recorded."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-32",
+          "residual": "Slice 27.9 owns list cardinality and routing but retains the singular smokeTest name; the plural naming adjustment is absent."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 29,
+    "claimantsJudged": 29,
+    "subagentPartition": [
+      "subagent d07_index: docs/agent_notes/backlog/code-quality-2026-07-25/00-index.md (15 claimants)",
+      "subagent d07_plan: docs/agent_notes/backlog/code-quality-2026-07-25/27-PLAN.md (14 claimants)"
+    ],
+    "notes": [
+      "CQ25-16 does not cover either WeaponAttackResult interface; D-07-001 is retained as an observation because the demonstrated impact is navigation ambiguity and no production consumer imports both.",
+      "CQ25-32 owns the future list cardinality and routing change but not the plural naming adjustment, producing D-07-002.",
+      "The CQ25-140 command-prefix residual has no promotion: source inspection found consumer-facing package aliases and implementation-facing shell subjects with deliberately different namespaces, so blanket normalization would be ambiguous naming churn rather than an evidenced defect.",
+      "No recorded 2026-08-01 batch ruling separately covers either promotion.",
+      "The review was read-only; no tests, builds, edits, commits, or branch changes were performed."
+    ]
+  }
+}

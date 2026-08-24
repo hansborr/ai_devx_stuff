@@ -4,11 +4,18 @@
 # smoke-subjects: scripts/tests/test-lint-config-sensors.sh
 # smoke-subjects: scripts/lint-changed.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
@@ -26,11 +33,10 @@
 # smoke-subjects: bunfig.toml
 # smoke-subjects: eslint-config/config-surface-manifest.json
 # smoke-subjects: eslint-config/config-surfaces.js
-# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
-# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
-# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: eslint-config/path-glob-policy.js
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # Smoke tests for scripts/lint-config-sensors.sh.
 
 set -euo pipefail
@@ -43,6 +49,12 @@ musi_exit_after_git_hook_env_assertion_if_requested
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/../lint-config-sensors.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
+VERIFY_COMMIT_QUEUE="$SCRIPT_DIR/../lib/verify-commit-queue.sh"
+VERIFY_FAST_COMMIT="$SCRIPT_DIR/../lib/verify-fast-commit.sh"
+VERIFY_MARKERS="$SCRIPT_DIR/../lib/verify-markers.sh"
+VERIFY_PATH_POLICY="$SCRIPT_DIR/../lib/verify-path-policy.sh"
+VERIFY_RUN_META="$SCRIPT_DIR/../lib/verify-run-meta.sh"
+VERIFY_STATE_PATHS="$SCRIPT_DIR/../lib/verify-state-paths.sh"
 # Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
 # source tree via the MUSI_VERIFY_META_CORE seam.
 export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
@@ -51,16 +63,18 @@ CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 YAMLLINT_CONFIG="$REPO_ROOT/.yamllint.yml"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+SMOKE_TEST_FILES="$SCRIPT_DIR/../path-policy/smoke-test-files.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
-SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
+PATH_GLOB_POLICY="$REPO_ROOT/eslint-config/path-glob-policy.js"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -136,14 +150,22 @@ new_repo() {
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$LINT_CONFIG_SENSORS" "$repo/scripts/lint-config-sensors.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$VERIFY_COMMIT_QUEUE" "$repo/scripts/lib/verify-commit-queue.sh"
+  cp "$VERIFY_FAST_COMMIT" "$repo/scripts/lib/verify-fast-commit.sh"
+  cp "$VERIFY_MARKERS" "$repo/scripts/lib/verify-markers.sh"
+  cp "$VERIFY_PATH_POLICY" "$repo/scripts/lib/verify-path-policy.sh"
+  cp "$VERIFY_RUN_META" "$repo/scripts/lib/verify-run-meta.sh"
+  cp "$VERIFY_STATE_PATHS" "$repo/scripts/lib/verify-state-paths.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
   cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$SMOKE_TEST_FILES" "$repo/scripts/path-policy/smoke-test-files.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   # harness-manifest.ts narrows the manifest JSON through the shared record
@@ -157,9 +179,7 @@ new_repo() {
   # inside it, silently dropping node_modules/.bin from the sandbox.
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
-  cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
+  cp "$PATH_GLOB_POLICY" "$repo/eslint-config/path-glob-policy.js"
   cp "$YAMLLINT_CONFIG" "$repo/.yamllint.yml"
   cat > "$repo/.github/workflows/ci.yml" <<'YML'
 name: CI
@@ -225,6 +245,26 @@ run_lint_config_sensors() {
   )
 }
 
+run_actionlint_timeout_contract() {
+  local repo="$1" status="$2" limit="${3:-}"
+  (
+    cd "$repo"
+    export ACTIONLINT_STATUS="$status"
+    export ACTIONLINT_LOG="$repo/actionlint.log"
+    export TIMEOUT_LOG="$repo/timeout.log"
+    export TIMEOUT_STATUS="${TIMEOUT_STATUS:-0}"
+    export PATH="$repo/actionlint-contract-bin:$PATH"
+    export MUSI_ACTIONLINT_BIN="$repo/actionlint-contract-bin/actionlint"
+    export MUSI_TAPLO_BIN="$TAPLO_BIN"
+    if [ -n "$limit" ]; then
+      export MUSI_ACTIONLINT_TIMEOUT="$limit"
+    else
+      unset MUSI_ACTIONLINT_TIMEOUT
+    fi
+    bash scripts/lint-config-sensors.sh
+  )
+}
+
 bash -n "$LINT_CONFIG_SENSORS" || fail "lint-config-sensors.sh fails bash -n"
 ok "lint-config-sensors.sh passes bash -n"
 
@@ -286,6 +326,66 @@ grep -qF '.github/workflows/second-bad.yml' <<< "$output" \
 grep -qF 'github.nope' <<< "$output" \
   || fail "actionlint output should name invalid expression in second workflow: $output"
 ok "actionlint fails on invalid second workflow file"
+
+repo="$(new_repo actionlint-timeout-contract)"
+mkdir -p "$repo/actionlint-contract-bin"
+cat > "$repo/actionlint-contract-bin/actionlint" <<'STUB'
+#!/usr/bin/env sh
+printf 'actionlint %s\n' "$*" >> "$ACTIONLINT_LOG"
+exit "${ACTIONLINT_STATUS:?}"
+STUB
+cat > "$repo/actionlint-contract-bin/timeout" <<'STUB'
+#!/usr/bin/env sh
+printf 'timeout %s\n' "$*" >> "$TIMEOUT_LOG"
+shift
+"$@"
+child_status=$?
+[ "$TIMEOUT_STATUS" -eq 0 ] || exit "$TIMEOUT_STATUS"
+exit "$child_status"
+STUB
+chmod +x "$repo/actionlint-contract-bin/actionlint" "$repo/actionlint-contract-bin/timeout"
+
+: > "$repo/actionlint.log"
+: > "$repo/timeout.log"
+run_actionlint_timeout_contract "$repo" 0 >/dev/null \
+  || fail "default actionlint timeout contract should pass"
+grep -qxF "timeout 60s $repo/actionlint-contract-bin/actionlint .github/workflows/ci.yml" \
+  "$repo/timeout.log" || fail "actionlint default timeout argv mismatch"
+
+: > "$repo/actionlint.log"
+: > "$repo/timeout.log"
+run_actionlint_timeout_contract "$repo" 0 17s >/dev/null \
+  || fail "overridden actionlint timeout contract should pass"
+grep -qxF "timeout 17s $repo/actionlint-contract-bin/actionlint .github/workflows/ci.yml" \
+  "$repo/timeout.log" || fail "actionlint override was not preserved verbatim"
+
+for status in 124 73; do
+  actionlint_status="$status"
+  timeout_status=0
+  if [ "$status" -eq 124 ]; then
+    actionlint_status=0
+    timeout_status=124
+  fi
+  : > "$repo/actionlint.log"
+  : > "$repo/timeout.log"
+  set +e
+  output="$(TIMEOUT_STATUS="$timeout_status" run_actionlint_timeout_contract "$repo" "$actionlint_status" 2>&1)"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "actionlint status $status should fail the aggregate sensor"
+  [ "$(wc -l < "$repo/actionlint.log")" -eq 1 ] \
+    || fail "actionlint status $status should invoke actionlint exactly once"
+  [ "$(wc -l < "$repo/timeout.log")" -eq 1 ] \
+    || fail "actionlint status $status should invoke timeout exactly once"
+  if [ "$status" -eq 124 ]; then
+    grep -qF 'actionlint timed out after 60s on .github/workflows/ci.yml' <<< "$output" \
+      || fail "actionlint timeout diagnostic mismatch: $output"
+  else
+    ! grep -qF 'actionlint timed out' <<< "$output" \
+      || fail "ordinary actionlint failure was mislabeled as a timeout: $output"
+  fi
+done
+ok "actionlint timeout contract preserves defaults, overrides, and exit semantics"
 
 repo="$(new_repo yamllint-violation)"
 cat > "$repo/.codex/skills/example/agents/openai.yaml" <<'YML'

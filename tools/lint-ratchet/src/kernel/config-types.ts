@@ -16,7 +16,6 @@ export type JsonValue = JsonPrimitive | readonly JsonValue[] | JsonObject;
 // removed mode, since registry validation always rejected them before write).
 export type LintRatchetMode = "no-new";
 export type LintRatchetMetric = "complexity-severity" | "effective-line-count" | "message-count";
-type LintRatchetRepairKind = "manual";
 export type LintRatchetParserProfile = "minimal-ts" | "type-aware-ts";
 type LintRatchetPluginExport = "default" | "plugin";
 
@@ -46,7 +45,6 @@ interface LintRatchetConfigBase {
   readonly ruleOptions: readonly JsonValue[];
   readonly mode: LintRatchetMode;
   readonly metric: LintRatchetMetric;
-  readonly repairKind: LintRatchetRepairKind;
   // Single source of truth for the harness-controls doc "Principle" line. The
   // generated harness-controls.md re-projects this from the registry (the same
   // way lint-rule principles flow from meta.docs); ratchet entries in
@@ -55,30 +53,27 @@ interface LintRatchetConfigBase {
   // disposition when the ratchet reaches zero findings).
   readonly principle: string;
   readonly allowEmpty?: boolean;
-  // Explicit tsconfig for a type-aware ratchet's generated config. When unset,
-  // the config writer's default is `projectService: true`, except that a ratchet
-  // whose files are all under `scripts/` infers `./tsconfig.scripts.json` — a
-  // Musi-registry convenience, not a portable default, so an adopter with a
-  // different `scripts/` layout should set this field explicitly instead.
-  readonly typeAwareProject?: string;
   readonly zeroBaselineDisposition?: LintRatchetZeroBaselineDisposition;
 }
 
-// This union intentionally rejects type-aware local entries: local sources
-// default to the minimal-ts parser profile, so only third-party and core
-// sources may opt into type-aware-ts.
+// Local sources use minimal-ts. Third-party and core sources may opt into
+// type-aware-ts and select an explicit tsconfig; otherwise generated configs use
+// the portable `projectService: true` default.
 export type LintRatchetConfig =
   | (LintRatchetConfigBase & {
       readonly source?: LintRatchetLocalSource;
       readonly parserProfile?: "minimal-ts";
+      readonly typeAwareProject?: never;
     })
   | (LintRatchetConfigBase & {
-      readonly source: LintRatchetThirdPartySource;
-      readonly parserProfile: LintRatchetParserProfile;
+      readonly source: LintRatchetThirdPartySource | LintRatchetCoreSource;
+      readonly parserProfile: "minimal-ts";
+      readonly typeAwareProject?: never;
     })
   | (LintRatchetConfigBase & {
-      readonly source: LintRatchetCoreSource;
-      readonly parserProfile: LintRatchetParserProfile;
+      readonly source: LintRatchetThirdPartySource | LintRatchetCoreSource;
+      readonly parserProfile: "type-aware-ts";
+      readonly typeAwareProject?: string;
     });
 
 export interface LintRatchetThirdPartyPluginAllowlistEntry {

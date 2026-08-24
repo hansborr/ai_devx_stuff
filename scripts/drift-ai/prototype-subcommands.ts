@@ -3,6 +3,7 @@ import { runBirthSizeDelta } from "./birth-size-delta-command.js";
 import type { BoundedHistoryGitRunner } from "./bounded-full-history.js";
 import { runClassConstruction } from "./class-construction-command.js";
 import { runCloneCandidates } from "./clone-candidates-command.js";
+import type { DriftAiCommandResult } from "./command-result.js";
 import { runCoverageEvidence } from "./coverage-evidence-command.js";
 import { runCoverageUnusedCorrelation } from "./coverage-unused-correlation-command.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
@@ -37,10 +38,7 @@ export type PrototypeSubcommandOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type PrototypeSubcommandResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type PrototypeSubcommandResult = DriftAiCommandResult;
 
 type PrototypeSubcommandHandler = (
   options: PrototypeSubcommandOptions,

@@ -14,26 +14,43 @@ export interface LintRatchetEngineContext {
   readonly repoRoot: string;
   readonly baselinePath: string;
   readonly debtLogPath: string;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 export interface LintRatchetEngineContextInput {
   readonly repoRoot: string;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
   readonly baselineFilename?: string;
   readonly debtLogFilename?: string;
 }
 
 /**
- * The repo-root + registry-allowlist pair the ESLint config renderer, the ratchet
- * runner, and the rule-source hasher all need together. It travels as one value
- * through the collection subsystem so those operations reach the repository (cache
- * dirs, `tsconfigRootDir`, rule sources) and validate third-party plugins without
- * importing a repo-bound `paths` module or the Musi registry. The adapter builds
- * it from its resolved `repoRoot` and its `lintRatchetThirdPartyPluginAllowlist`;
- * the demo and tests build their own.
+ * Host-owned command spellings used in actionable lint-ratchet output. The
+ * portable engine has no defaults for these values: each repository adapter
+ * binds commands that actually exist in that repository.
+ */
+export interface LintRatchetWorkflowVocabulary {
+  readonly updateCommand: string;
+  readonly regressionUpdateCommand: string;
+  readonly debtAcceptanceCommand: string;
+  readonly installMergeDriverCommand: string;
+  readonly restoreBaselineOursCommand: (baselineFile: string) => string;
+  readonly trendAllCommand: string;
+}
+
+/**
+ * The repository bindings the ESLint config renderer, ratchet runner, and
+ * rule-source hasher need together. Directory strings are the deliberate
+ * portability seam: adopters may override repository-relative rule and cache
+ * locations without injecting arbitrary resolver functions. It travels as one
+ * value through collection so kernel operations do not import a repo-bound
+ * `paths` module or the Musi registry.
  */
 export interface LintRatchetEngineBinding {
   readonly repoRoot: string;
   readonly thirdPartyPluginAllowlist: readonly LintRatchetThirdPartyPluginAllowlistEntry[];
+  readonly localRulesDirectory?: string;
+  readonly cacheDirectory?: string;
 }
 
 /**
@@ -46,6 +63,20 @@ export function safeRatchetId(id: string): string {
 
 export const DEFAULT_BASELINE_FILENAME = "lint-ratchet.baseline.json";
 export const DEFAULT_DEBT_LOG_FILENAME = "lint-ratchet.debt-log.jsonl";
+export const DEFAULT_LOCAL_RULES_DIRECTORY = "eslint-rules";
+export const DEFAULT_CACHE_DIRECTORY = "node_modules/.cache/eslint-ratchet";
+
+export function localRulesRootFor(binding: LintRatchetEngineBinding): string {
+  return join(binding.repoRoot, binding.localRulesDirectory ?? DEFAULT_LOCAL_RULES_DIRECTORY);
+}
+
+export function cacheRootFor(binding: LintRatchetEngineBinding): string {
+  return join(binding.repoRoot, binding.cacheDirectory ?? DEFAULT_CACHE_DIRECTORY);
+}
+
+export function configRootFor(binding: LintRatchetEngineBinding): string {
+  return join(cacheRootFor(binding), "configs");
+}
 
 /**
  * Render `filePath` relative to `repoRoot`, POSIX-normalized. A non-absolute
@@ -75,5 +106,6 @@ export function createLintRatchetEngineContext(
     repoRoot: input.repoRoot,
     baselinePath: join(input.repoRoot, baselineFilename),
     debtLogPath: join(input.repoRoot, debtLogFilename),
+    workflowVocabulary: input.workflowVocabulary,
   };
 }

@@ -1,4 +1,5 @@
-import { CodemodError, createProject } from "../lib/trpc-shared-schema.js";
+import { CodemodError } from "../lib/codemod-errors.js";
+import { createProject } from "../lib/codemod-project.js";
 import { normalizeRelativePath, parseArgs } from "./cli.js";
 import { CODEMOD_NAME } from "./constants.js";
 import { discoverFiles } from "./paths.js";
@@ -34,7 +35,7 @@ export function runConcurrencyGuardCodemod(
   const findings = runScan(parsed, root);
   if (findings.length === 0) {
     console.log(
-      `${CODEMOD_NAME} codemod: no name-based concurrency guard findings; aliases/destructuring still need manual review.`,
+      `${CODEMOD_NAME} scanner: no name-based concurrency guard findings; one-hop aliases and destructuring are included, while deeper indirection still needs manual review.`,
     );
     return;
   }

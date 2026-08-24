@@ -90,10 +90,10 @@ function parseSemgrepHeader(value: unknown): SemgrepHeader | null {
 function parseSemgrepRange(value: unknown): SemgrepRowInput["ranges"][number] | null {
   if (
     !isRecord(value) ||
-    !isNumber(value["startLine"]) ||
-    !isNullableNumber(value["startCol"]) ||
-    !isNumber(value["endLine"]) ||
-    !isNullableNumber(value["endCol"])
+    !isInteger(value["startLine"]) ||
+    !isNullableInteger(value["startCol"]) ||
+    !isInteger(value["endLine"]) ||
+    !isNullableInteger(value["endCol"])
   ) {
     return null;
   }
@@ -292,6 +292,10 @@ function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
 function isBoolean(value: unknown): value is boolean {
   return typeof value === "boolean";
 }
@@ -300,6 +304,6 @@ function isNullableString(value: unknown): value is string | null {
   return value === null || isString(value);
 }
 
-function isNullableNumber(value: unknown): value is number | null {
-  return value === null || isNumber(value);
+function isNullableInteger(value: unknown): value is number | null {
+  return value === null || isInteger(value);
 }

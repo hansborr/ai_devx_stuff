@@ -12,15 +12,23 @@ on wrapper-private paths are deliberately out of scope: `work` grants its
 backend full permissions as the same UID, so the temporary-path machinery
 does not cross or enforce a privilege boundary.
 
-- The wrapper is self-contained bash with no build step: copy
-  `.claude/skills/agent-cli/` wholesale.
+- The wrapper is plain bash with no build step. The copy set is two pieces:
+  `scripts/agent-cli/` (the `agent-run.sh`/`agent-wait.sh` executables, which
+  are provider-neutral and live outside every skill tree) plus your provider's
+  skill directory (`.claude/skills/agent-cli/` or `.codex/skills/agent-cli/` —
+  the documentation projection, including this file and the trailer contract).
 - Normal dispatch needs Bash 4.4 or newer (for `mapfile`, associative arrays,
   and `set -u`-safe `"${arr[@]}"` expansion of an empty array — the script
   expands empty arrays on every run), the target CLI on `PATH`, `git`, `flock`,
   GNU-compatible `realpath -m`, file-operand `sync FILE`, `mv -fT`, `ln -T`,
-  and `stat -c`, `/dev/fd`, and standard Unix text/process utilities.
+  `stat -c`, GNU-compatible `sed`, `stdbuf`, `/dev/fd`, and standard Unix
+  text/process utilities.
   Copilot additionally needs a logged-in `copilot login`; cursor needs
   `agent login`.
+- Backend protocols are line-oriented JSON/text. Codex first `tee`s raw output
+  byte-for-byte into its private capture, then line-buffers only the filtered
+  stdout copy with `stdbuf`. Tests pin NUL-bearing output and a final line
+  without a newline.
 - For cursor consults to gather their own branch diff (rather than depending on
   `-f` attachments), the target repo must commit a `.cursor/cli.json` with a
   read-only `git` allowlist — copy Musi's. It re-permits read-only `git` in
@@ -29,7 +37,7 @@ does not cross or enforce a privilege boundary.
   `approvalMode: "allowlist"` (sandbox disabled). See [cursor.md](cursor.md).
   Copy `.cursor/cli.json` **whenever you copy the skill for cursor consults**:
   the injected consult preamble now promises "git diff is fine" unconditionally,
-  so porting only `.claude/skills/agent-cli/` without the allowlist leaves a
+  so porting only the two-piece copy set without the allowlist leaves a
   false contract — cursor's `git` commands are denied and it silently degrades
   to the `-f` fallback while still being told the diff is reachable.
 - `flock` is required for every answer-producing run (`consult`/`work`) because
@@ -66,8 +74,8 @@ does not cross or enforce a privilege boundary.
   then logs the attempt record as part of the durable claim before branch or
   runtime setup. `agent-wait.sh` can therefore classify every post-trap abort,
   falling back from `dispatched:` to `attempt:` to `starting:`.
-- Validation: run `shellcheck .claude/skills/agent-cli/scripts/agent-run.sh`
-  (in Musi the lint lane already ShellChecks `.claude/skills/**/*.sh`).
+- Validation: run `shellcheck scripts/agent-cli/agent-run.sh`
+  (in Musi the lint lane already ShellChecks `scripts/**/*.sh`).
 - The backend references name CLI versions and model ids that age quickly
   (the "Verified against ..." lines); re-check the local CLI help/catalog
   after upgrades or when porting the skill.

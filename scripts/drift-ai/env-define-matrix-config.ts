@@ -1,7 +1,7 @@
-// Parser for the top-level `envDefine` config block (tasks 43a-43). It validates
-// the assumed-value matrix consumed by the prototype `env-branches` advisory: up to
-// five optional tables (`env`, `processEnv`, `importMetaEnv`, `bunEnv`, `defines`),
-// each mapping a key to a `{ value, source? }` assumption. `value` is a JSON scalar
+// Parser for the top-level `envDefine` config block. It validates the assumed-value
+// matrix consumed by the prototype `env-branches` advisory: one optional shared
+// fallback table plus the provider tables declared in the metadata registry. Each
+// maps a key to a `{ value, source? }` assumption. `value` is a JSON scalar
 // (string/number/boolean/null); `source` is free text describing where the value
 // comes from and defaults to the config key path so provenance is never empty.
 // Nothing here is inferred from deployment defaults — an unlisted key stays
@@ -9,39 +9,24 @@
 
 import type { DriftAiEnvDefineConfig } from "./config.js";
 import { assertConfigObject, assertKnownKeys } from "./config-readers.js";
+import { ENV_DEFINE_MATRIX_KEYS, type EnvDefineMatrixKey } from "./env-define-provider-metadata.js";
 import type { EnvDefineAssumedValue, EnvDefineAssumption } from "./env-define-types.js";
 import { DriftAiError } from "./errors.js";
 
-const TABLE_KEYS = ["env", "processEnv", "importMetaEnv", "bunEnv", "defines"] as const;
-
 type EnvDefineTable = Readonly<Record<string, EnvDefineAssumption>>;
 
-type MutableMatrix = {
-  env?: EnvDefineTable;
-  processEnv?: EnvDefineTable;
-  importMetaEnv?: EnvDefineTable;
-  bunEnv?: EnvDefineTable;
-  defines?: EnvDefineTable;
-};
+type MutableMatrix = Partial<Record<EnvDefineMatrixKey, EnvDefineTable>>;
 
 export function parseEnvDefineConfig(raw: unknown, keyPath: string): DriftAiEnvDefineConfig {
   const record = assertConfigObject(raw, keyPath);
-  assertKnownKeys(record, TABLE_KEYS, keyPath);
+  assertKnownKeys(record, ENV_DEFINE_MATRIX_KEYS, keyPath);
   // Assign each table only when present, so an omitted table stays absent in the
   // matrix (distinct from a present-but-empty one) and never becomes `undefined`.
   const matrix: MutableMatrix = {};
-  if (record["env"] !== undefined) matrix.env = parseTable(record["env"], `${keyPath}.env`);
-  if (record["processEnv"] !== undefined) {
-    matrix.processEnv = parseTable(record["processEnv"], `${keyPath}.processEnv`);
-  }
-  if (record["importMetaEnv"] !== undefined) {
-    matrix.importMetaEnv = parseTable(record["importMetaEnv"], `${keyPath}.importMetaEnv`);
-  }
-  if (record["bunEnv"] !== undefined) {
-    matrix.bunEnv = parseTable(record["bunEnv"], `${keyPath}.bunEnv`);
-  }
-  if (record["defines"] !== undefined) {
-    matrix.defines = parseTable(record["defines"], `${keyPath}.defines`);
+  for (const tableKey of ENV_DEFINE_MATRIX_KEYS) {
+    if (record[tableKey] !== undefined) {
+      matrix[tableKey] = parseTable(record[tableKey], `${keyPath}.${tableKey}`);
+    }
   }
   return matrix;
 }

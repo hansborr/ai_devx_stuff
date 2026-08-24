@@ -85,6 +85,10 @@ function parseCommittedBaseline(
     readFileSync(baselinePath, "utf8"),
     engine.registry,
     ruleSourceHashesById,
+    {
+      workflowVocabulary: engine.context.workflowVocabulary,
+      baselineFile: relativeToRepoRoot(repoRoot, baselinePath),
+    },
   );
   if (parsed.baseline === undefined) {
     throw new BaselineParseError(parsed.failures, parsed.warnings);
@@ -107,7 +111,12 @@ export async function runLintRatchetGate(
   const parsed = parseCommittedBaseline(engine, ruleSourceHashesById);
   const currentById = await collectCurrent(engine, ruleSourceHashesById);
   return {
-    comparison: compareCurrentToBaseline(parsed.baseline, engine.registry, currentById),
+    comparison: compareCurrentToBaseline(
+      parsed.baseline,
+      engine.registry,
+      currentById,
+      engine.context.workflowVocabulary,
+    ),
     currentFindingCount: totalCurrentCount(currentById),
     baselineWarnings: parsed.warnings,
   };
@@ -136,9 +145,20 @@ export async function runLintRatchetUpdate(
 ): Promise<LintRatchetUpdateResult> {
   const ruleSourceHashesById = buildRuleSourceHashesById(params.registry, params.binding);
   const currentById = await collectCurrent(params, ruleSourceHashesById);
-  const generated = buildLintRatchetBaseline(params.registry, currentById, ruleSourceHashesById);
-  const rendered = formatLintRatchetBaseline(generated);
-  const parsedGenerated = parseLintRatchetBaseline(rendered, params.registry, ruleSourceHashesById);
+  const baselineFile = relativeToRepoRoot(params.context.repoRoot, params.context.baselinePath);
+  const generated = buildLintRatchetBaseline(params.registry, currentById, ruleSourceHashesById, {
+    workflowVocabulary: params.context.workflowVocabulary,
+  });
+  const rendered = formatLintRatchetBaseline(generated, params.context.workflowVocabulary);
+  const parsedGenerated = parseLintRatchetBaseline(
+    rendered,
+    params.registry,
+    ruleSourceHashesById,
+    {
+      workflowVocabulary: params.context.workflowVocabulary,
+      baselineFile,
+    },
+  );
   if (parsedGenerated.baseline === undefined) {
     throw new ConfigError(
       `generated baseline failed validation:\n${parsedGenerated.failures.join("\n")}`,

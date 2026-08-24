@@ -1,11 +1,10 @@
 import { type ImportDeclaration, type ImportSpecifier, type SourceFile } from "ts-morph";
 
+import { fail } from "./codemod-errors.js";
+import { ensureNamedImport, type ImportSpecifierInfo, moduleSource } from "./codemod-imports.js";
 import { referencedIdentifiers, targetHasIdentifier } from "./trpc-shared-schema-identifiers.js";
-import { ensureNamedImport, moduleSource } from "./trpc-shared-schema-imports.js";
 import {
-  fail,
   type ImportBinding,
-  type ImportSpecifierInfo,
   type SharedSchemaCodemodCandidate,
   type TargetIdentifiers,
 } from "./trpc-shared-schema-types.js";

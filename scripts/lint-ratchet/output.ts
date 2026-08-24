@@ -1,6 +1,6 @@
+import type { HarnessDiagnostics } from "@musi/harness-diagnostics/schema.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
-import type { HarnessDiagnostics } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   emitHarnessDiagnostics,
   HarnessDiagnosticsValidationError,

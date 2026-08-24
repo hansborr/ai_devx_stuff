@@ -1,0 +1,1267 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-05-client",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L05-001",
+      "title": "Responsive character sheets keep two independent component trees alive",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/sheet-body.tsx",
+          "line": 73,
+          "endLine": 78,
+          "measurement": null,
+          "note": "SheetBody always renders both DesktopSheetLayout and MobileSheetTabs; CSS only hides one."
+        },
+        {
+          "path": "packages/client/src/components/sheet/desktop-sheet-layout.tsx",
+          "line": 33,
+          "endLine": 129,
+          "measurement": null,
+          "note": "The desktop tree mounts the complete panel suite behind hidden/lg:grid."
+        },
+        {
+          "path": "packages/client/src/components/sheet/mobile-sheet-tabs.tsx",
+          "line": 101,
+          "endLine": 227,
+          "measurement": null,
+          "note": "A second independently stateful arrangement of the same panels mounts alongside it."
+        },
+        {
+          "path": "packages/client/src/components/sheet",
+          "line": null,
+          "endLine": null,
+          "measurement": "14 panel component types are instantiated in both responsive layouts, measured by intersecting JSX component usages at the audit pin",
+          "note": "Local drafts, filters, dialogs, and hook work can exist twice."
+        }
+      ],
+      "problem": "Responsive presentation is implemented as two live application subtrees. State can diverge across breakpoints, hook and render work is duplicated, and the unusual invariant is important enough to require a MODULE gotcha.",
+      "proposedDirection": "Render one stateful panel tree and change placement responsively, or select one layout through a browser-media boundary. Preserve SheetSharedProps; this does not require context or directory reorganization.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed cluster documented the dual-mount invariant; this finding treats the now-measured 14-panel duplication as unresolved structural debt."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-002",
+      "title": "The VTT Actions tab duplicates two dedicated tabs and has already drifted",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx",
+          "line": 25,
+          "endLine": 145,
+          "measurement": null,
+          "note": "Actions independently groups spells, builds slot maps, renders rows, and enters casting."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx",
+          "line": 26,
+          "endLine": 253,
+          "measurement": null,
+          "note": "The dedicated tab repeats the flow but has additional prepared, slot, cantrip, and ritual eligibility rules."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx",
+          "line": 16,
+          "endLine": 100,
+          "measurement": null,
+          "note": "Actions separately renders features and exposes a Use button whose implementation only logs."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx",
+          "line": 25,
+          "endLine": 177,
+          "measurement": null,
+          "note": "The dedicated tab owns the real mutation, exhaustion, pending, read-only, and metadata behavior."
+        }
+      ],
+      "problem": "The compact Actions surface reimplements the same spell and feature records as the dedicated tabs. The copies have divergent eligibility and mutation behavior, so changes require parallel discovery and have already left contradictory production controls.",
+      "proposedDirection": "Split this into spell and feature slices that share pure row/view models and focused row primitives between compact and full presentations.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-003",
+      "title": "Character hooks expose a second identity channel beside their cache scope",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": 27,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Every domain hook captures characterId to derive its cache scope."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-character-stats.ts",
+          "line": 99,
+          "endLine": 108,
+          "measurement": null,
+          "note": "The action nevertheless accepts another characterId through its raw RPC input."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-character-spells.ts",
+          "line": 19,
+          "endLine": 40,
+          "measurement": null,
+          "note": "Five character-scoped actions retain full identity-bearing transport inputs."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet",
+          "line": null,
+          "endLine": null,
+          "measurement": "9 production hook modules call useCharacterKeys(characterId), measured with git grep at the audit pin",
+          "note": "The parallel cache-identity/input-identity convention spans the feature."
+        }
+      ],
+      "problem": "Each hook is instantiated for one character, but its actions accept a second entity identity. TypeScript cannot connect those values, callers repeatedly restate them, and mutation targeting can disagree with optimistic-update or invalidation scope.",
+      "proposedDirection": "Expose id-free domain payloads and inject the captured characterId inside each hook. Migrate by domain without introducing identity brands.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-199",
+        "novelty": "This proposes captured-id injection in nine cache-owning hooks, not the refused identity branding of socket, presence, roll, or DM callback values."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-004",
+      "title": "Optimistic writers spread transport envelopes into cached domain objects",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-inventory.ts",
+          "line": 59,
+          "endLine": 68,
+          "measurement": null,
+          "note": "Inventory spreads the complete UpdateInventoryItemInput into an InventoryItem cache row."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-campaign-scoped-mutation.ts",
+          "line": 8,
+          "endLine": 16,
+          "measurement": null,
+          "note": "DM-scoped calls add campaignId to that same envelope before onMutate receives it."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-character-stats.ts",
+          "line": 55,
+          "endLine": 69,
+          "measurement": null,
+          "note": "Stats instead maintains a negative denylist of control fields before spreading the remainder."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-character-personality.ts",
+          "line": 21,
+          "endLine": 26,
+          "measurement": null,
+          "note": "Personality implements a third projection convention."
+        }
+      ],
+      "problem": "Three optimistic writers use incompatible rules for separating transport control data from persisted entity data. Structurally typed extra properties evade compiler feedback, and future authorization or concurrency fields can silently enter cached rows.",
+      "proposedDirection": "Give each writer a positive, typed domain-patch projection. Keep identifiers, authorization scope, and CAS tokens outside cached entity patches.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-005",
+      "title": "The flat character-creation contract forces manual two-way state adapters",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/steps/ability-scores-step.tsx",
+          "line": 36,
+          "endLine": 88,
+          "measurement": null,
+          "note": "Method and scores are mirrored in local and reducer state, requiring paired writes."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/background-step.tsx",
+          "line": 16,
+          "endLine": 69,
+          "measurement": null,
+          "note": "Background maintains a second boost representation and bidirectional conversion helpers."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/background-step.tsx",
+          "line": 111,
+          "endLine": 171,
+          "measurement": null,
+          "note": "Each interaction manually pairs local setters with reducer dispatches."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/personality-step.tsx",
+          "line": 161,
+          "endLine": 180,
+          "measurement": null,
+          "note": "A single-field edit reconstructs and dispatches all seven personality fields."
+        }
+      ],
+      "problem": "The reducer stores a flattened submission projection while richer editing state is reconstructed inside steps. Paired writes, whole-slice payloads, and conversion code make correctness depend on every handler preserving unrelated fields.",
+      "proposedDirection": "Model typed per-step drafts and fine-grained events. Make one state owner authoritative per editing model and derive the transport projection at submission.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-006",
+      "title": "Character-creation ability rules have four independent sources of truth",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/steps/ability-score-card.tsx",
+          "line": 17,
+          "endLine": 75,
+          "measurement": null,
+          "note": "Presentation owns ability metadata, standard-array values, point-buy costs/budget, defaults, modifier math, and boost aggregation."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-validation.ts",
+          "line": 9,
+          "endLine": 41,
+          "measurement": null,
+          "note": "Validation repeats the point-buy table, budget, and standard array."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/review-step.tsx",
+          "line": 15,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Review repeats ability order, names, and modifier calculation."
+        },
+        {
+          "path": "packages/client/src/components/character-create/create-character-input.ts",
+          "line": 5,
+          "endLine": 49,
+          "measurement": null,
+          "note": "Submission owns another boost aggregation and six-field projection."
+        }
+      ],
+      "problem": "Editing, validation, review, and submission can drift independently. Even exact rules such as the point-buy table and standard array are duplicated without a type-level relationship.",
+      "proposedDirection": "Create one pure character-creation ability model for constants, score/boost derivation, modifiers, and validation; keep step modules presentational.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-007",
+      "title": "The generic map canvas performs combat-domain adaptation",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/map-canvas.tsx",
+          "line": 2,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The generic canvas imports EncounterDetail and accepts the complete encounter as an optional prop."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-canvas.tsx",
+          "line": 64,
+          "endLine": 66,
+          "measurement": null,
+          "note": "It derives combat state while also parsing map layers."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-canvas-helpers.ts",
+          "line": 15,
+          "endLine": 60,
+          "measurement": null,
+          "note": "A maps helper understands encounter state, turn order, HP, temporary HP, conditions, and participant identity."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/MODULE.md",
+          "line": 93,
+          "endLine": 96,
+          "measurement": null,
+          "note": "The module contract assigns combat-specific behavior to ../combat."
+        }
+      ],
+      "problem": "A low-level map renderer changes with encounter contracts and combat presentation, contradicting the feature boundary documented for contributors.",
+      "proposedDirection": "Build a render-oriented combat-token lookup in the combat feature and pass that value to MapCanvas; ordinary maps pass no combat projection.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-190",
+        "novelty": "This narrows the existing MapCanvas domain boundary; it does not reintroduce the refused MapCanvasFrame or configurable panel shell."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-008",
+      "title": "ToolHandler erases coordinate domains and invents fake capabilities",
+      "area": "client",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 21,
+          "endLine": 33,
+          "measurement": null,
+          "note": "A runtime coordinateSpace flag is paired with structurally identical x/y callbacks, and onStart is mandatory."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/use-canvas-input.ts",
+          "line": 77,
+          "endLine": 100,
+          "measurement": null,
+          "note": "Dispatch converts by the flag and feeds an undifferentiated callback, so pixel/cell mismatches type-check."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 284,
+          "endLine": 297,
+          "measurement": null,
+          "note": "Target-pick declares a no-op onStart solely to satisfy the interface."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/use-canvas-input.ts",
+          "line": 139,
+          "endLine": 145,
+          "measurement": null,
+          "note": "Draw-eraser is interactive but bypasses the registry through a separate special case."
+        }
+      ],
+      "problem": "The abstraction does not encode the distinctions it organizes. Coordinate correctness depends on aligned strings, unsupported tools need dummy members, and interaction semantics are split across two registries.",
+      "proposedDirection": "Use a discriminated descriptor union for pixel, cell, cancellation-only, and overlay-managed tools, with interaction behavior encoded in the descriptor.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-009",
+      "title": "Encounter detail behavior is fragmented across presentation files",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
+          "line": 83,
+          "endLine": 184,
+          "measurement": null,
+          "note": "The view assembles participant versions, initiative/log mutations, invalidation, and HP behavior."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
+          "line": 186,
+          "endLine": 305,
+          "measurement": null,
+          "note": "It then composes detail cards, maps, XP, logs, dialogs, and inline mutation adapters."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-participants.tsx",
+          "line": 123,
+          "endLine": 214,
+          "measurement": null,
+          "note": "Six mutation factories and invalidation live in the same file as ParticipantRow and ParticipantList."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-detail-card.tsx",
+          "line": 18,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Presentation depends on ReturnType of the presentation-file hook plus separately assembled callbacks."
+        }
+      ],
+      "problem": "Changing one encounter action requires discovering behavior across a 384-line composition view, a hook hidden in a row file, and raw mutation objects threaded through presentation.",
+      "proposedDirection": "Create an encounter-detail controller module for mutation construction, concurrency payloads, invalidation, and pending state; expose narrow intent callbacks to readable sections.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-010",
+      "title": "Participant presentation is duplicated between encounter setup and combat",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-participants.tsx",
+          "line": 25,
+          "endLine": 77,
+          "measurement": null,
+          "note": "Setup independently renders identity, type, HP, AC, initiative, visibility, and removal actions."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/initiative-tracker/participant-stat-line.tsx",
+          "line": 12,
+          "endLine": 26,
+          "measurement": null,
+          "note": "Combat owns another HP/AC presentation vocabulary."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/initiative-tracker/dm-participant-tools.tsx",
+          "line": 19,
+          "endLine": 51,
+          "measurement": null,
+          "note": "Combat independently implements HP, conditions, and a nearly identical visibility action."
+        }
+      ],
+      "problem": "State-independent participant identity, statistics, and visibility have two markup and styling vocabularies. Generic primitives are filed under combat, encouraging setup code to reproduce them.",
+      "proposedDirection": "Move state-independent participant primitives to a neutral encounter-participant module and compose setup-only and combat-only controls around them.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-011",
+      "title": "The monster editor's sections share one 47-field flat state boundary",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/monster/monster-form-data.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "47 fields in MonsterFormData at lines 27-75 of the pinned file",
+          "note": "Identity, movement, defenses, actions, legendary actions, and spellcasting share one flat contract."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/monster/monster-form-data.ts",
+          "line": 261,
+          "endLine": 303,
+          "measurement": null,
+          "note": "The persisted-to-form adapter reconstructs the complete flat object."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/monster/monster-form-data.ts",
+          "line": 384,
+          "endLine": 428,
+          "measurement": null,
+          "note": "The reverse adapter manually mirrors the same domains."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/monster/monster-spellcasting-fields.tsx",
+          "line": 15,
+          "endLine": 18,
+          "measurement": null,
+          "note": "Even an extracted section receives all MonsterFormData and a full Partial updater."
+        }
+      ],
+      "problem": "The visual split does not establish ownership boundaries: every section can read or mutate every field, and field additions require coordinated changes through two 400-plus-line modules.",
+      "proposedDirection": "Introduce domain sub-form types and narrow section props for identity, movement, defenses, actions, legendary actions, and spellcasting. Split adapters along the same boundaries.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-012",
+      "title": "The flat route tree makes authentication an eleven-site convention",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/routes/route-tree.ts",
+          "line": 17,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Public, guest, and authenticated routes are all direct root children."
+        },
+        {
+          "path": "packages/client/src/routes/campaigns-route.ts",
+          "line": 4,
+          "endLine": 15,
+          "measurement": null,
+          "note": "A representative protected route declares a one-use AuthGuard wrapper."
+        },
+        {
+          "path": "packages/client/src/routes",
+          "line": null,
+          "endLine": null,
+          "measurement": "11 production route modules import AuthGuard, measured with git grep at the audit pin",
+          "note": "Every authenticated route repeats the same convention."
+        }
+      ],
+      "problem": "Authentication is encoded by copied leaf wrappers rather than route hierarchy. Protected-area ownership is invisible in route-tree.ts, and adding a route requires remembering a per-file ritual.",
+      "proposedDirection": "Introduce one pathless authenticated parent route that renders AuthGuard around an Outlet, and reparent protected routes beneath it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-013",
+      "title": "SettingsPage implements three account features behind a nominal page boundary",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": 27,
+          "endLine": 53,
+          "measurement": null,
+          "note": "ProfileSection owns state, validation, mutation, refresh, and result presentation."
+        },
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": 97,
+          "endLine": 132,
+          "measurement": null,
+          "note": "PasswordSection owns another full form/mutation workflow and token replacement."
+        },
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": 262,
+          "endLine": 293,
+          "measurement": null,
+          "note": "DangerZoneSection owns account deletion, domain-error interpretation, validation, and logout."
+        },
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": null,
+          "endLine": null,
+          "measurement": "332 lines at the audit pin; the actual page composition is lines 323-332",
+          "note": "Most of the route page is feature implementation."
+        }
+      ],
+      "problem": "Profile editing, password rotation, and account deletion have no discoverable feature home outside one route file, contrary to the page module's composition-boundary contract.",
+      "proposedDirection": "Move the three workflows into focused account/settings components and hooks, leaving SettingsPage as the route-facing composition root.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-195",
+        "novelty": "This is a focused extraction from one page into the existing component/hook structure, not the refused package-root features reorganization."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-014",
+      "title": "Campaign tabs are manually synchronized across three registries",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/pages/campaign-detail-page.tsx",
+          "line": 73,
+          "endLine": 120,
+          "measurement": null,
+          "note": "Triggers declare eight identifiers, labels, icons, and the settings access gate."
+        },
+        {
+          "path": "packages/client/src/pages/campaign-detail-page.tsx",
+          "line": 157,
+          "endLine": 190,
+          "measurement": null,
+          "note": "Contents repeat the identifiers and independently repeat the settings gate."
+        },
+        {
+          "path": "packages/client/src/pages/MODULE.md",
+          "line": 62,
+          "endLine": 67,
+          "measurement": null,
+          "note": "Contributor guidance instructs maintainers to update the route union/default and both render registries together."
+        }
+      ],
+      "problem": "The CampaignTab type validates individual literals but cannot ensure each tab has one trigger, one panel, and aligned access policy. A documentation checklist compensates for missing structural enforcement.",
+      "proposedDirection": "Define an exhaustive page-local Record<CampaignTab, descriptor> for label, icon, access, and panel rendering, and derive triggers and contents from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed viewer/query work did not address the trigger/content/route tab registry."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-015",
+      "title": "FilterSelect erases schema-derived option types",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/common/filter-select.tsx",
+          "line": 18,
+          "endLine": 24,
+          "measurement": null,
+          "note": "The reusable component widens values, option values, and callbacks to string."
+        },
+        {
+          "path": "packages/client/src/components/compendium/magic-item-list.tsx",
+          "line": 58,
+          "endLine": 78,
+          "measurement": null,
+          "note": "Two schema-derived filters need casts and assertion-boundary comments to recover their original unions."
+        },
+        {
+          "path": "packages/client/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "12 production FilterSelect call sites across 4 files, measured with git grep at the audit pin",
+          "note": "The erosion is an established shared API convention."
+        }
+      ],
+      "problem": "A shared typed control discards each option set's literal union and forces consumers to recover it through assertions or runtime narrowing.",
+      "proposedDirection": "Make FilterSelect generic over its option-value union and represent the all-selection sentinel explicitly.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-187",
+        "novelty": "This corrects one existing abstraction's typed API; it is not the refused repository-wide Label/Input sweep."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-016",
+      "title": "MonsterAddData erases mutually exclusive monster origins",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/npcs/monster-tab.tsx",
+          "line": 16,
+          "endLine": 28,
+          "measurement": null,
+          "note": "SRD id, homebrew entry id, and homebrew version are unrelated optional fields."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/monster-tab.tsx",
+          "line": 32,
+          "endLine": 44,
+          "measurement": null,
+          "note": "The SRD summary adapter manually copies common encounter fields."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx",
+          "line": 24,
+          "endLine": 37,
+          "measurement": null,
+          "note": "A second adapter repeats the common fields for homebrew monsters."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/monster-detail-dialog.tsx",
+          "line": 49,
+          "endLine": 61,
+          "measurement": null,
+          "note": "A third adapter repeats the SRD conversion for full Monster records."
+        }
+      ],
+      "problem": "The optional-field bag permits neither origin, both origins, and versions without entries, while three converters repeat participant defaults.",
+      "proposedDirection": "Use a discriminated SRD-versus-homebrew origin plus common stats, centralize source adapters, and flatten only at the mutation boundary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed NPC typing work covered editor draft/submit types, not monster-to-encounter origin modeling."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-017",
+      "title": "TokenContextMenu is an option bag for two different surfaces",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-context-menu.tsx",
+          "line": 72,
+          "endLine": 86,
+          "measurement": null,
+          "note": "Fourteen props include seven optional combat values coordinated by isInCombat."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-context-menu.tsx",
+          "line": 88,
+          "endLine": 172,
+          "measurement": null,
+          "note": "Combat HP and participant-link behavior live inside the generic map-token menu."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-context-menu.tsx",
+          "line": 229,
+          "endLine": 298,
+          "measurement": null,
+          "note": "Surface modes are reconstructed through independent boolean/null checks."
+        }
+      ],
+      "problem": "Base map editing, drawer dispatch, combat HP, and encounter linkage share one partially configured component. Its type admits combat branches without their required callbacks.",
+      "proposedDirection": "Use explicit map and combat variants, or a discriminated props union that requires the complete combat contract while sharing invariant menu items locally.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-190",
+        "novelty": "This is the reverse of the refused configurable-shell direction: an already-shared component has accumulated seven optional mode props and needs narrowing."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-018",
+      "title": "Player and monster attack hooks duplicate the target-pick lifecycle",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/vtt-drawer/use-weapon-attack.ts",
+          "line": 36,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The player hook loads the map, derives targets, configures mutation/invalidation, closes the drawer, activates target pick, and restores on completion."
+        },
+        {
+          "path": "packages/client/src/hooks/vtt-drawer/use-monster-attack.ts",
+          "line": 34,
+          "endLine": 96,
+          "measurement": null,
+          "note": "The monster hook repeats the same interaction protocol with different payload and restore target."
+        },
+        {
+          "path": "packages/client/src/hooks/vtt-drawer/drawer-targeting.ts",
+          "line": 35,
+          "endLine": 49,
+          "measurement": null,
+          "note": "Only token-to-participant mapping has been shared."
+        }
+      ],
+      "problem": "Two hooks own the same stateful interaction protocol. Cleanup, target eligibility, invalidation, and drawer restoration can drift with each additional attack mode.",
+      "proposedDirection": "Extract an internal attack-targeting coordinator for loading, eligibility, target-pick activation, invalidation, and restoration; keep typed payload construction in adapters.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L05-019",
+      "title": "Token placement mirrors store state into dialog state through an indirect effect",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/map-detail-content.tsx",
+          "line": 53,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The component owns addTokenOpen and passes a setter wrapper into usePlacementSlice."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-detail-store-hooks.ts",
+          "line": 33,
+          "endLine": 42,
+          "measurement": null,
+          "note": "The hook observes pendingTokenCell and uses an effect only to invoke that opening callback."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-editor-dialogs.tsx",
+          "line": 75,
+          "endLine": 95,
+          "measurement": null,
+          "note": "Close and success paths must clear both the dialog boolean and placement source."
+        }
+      ],
+      "problem": "The indirect setter hides a synchronous derived-state effect from the lint rule, creates two sources of truth, and makes every close path coordinate both.",
+      "proposedDirection": "Remove the opening callback and derive visibility from manualAddOpen or a non-null placement cell; keep pending-cell clearing in close/success handlers.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The completed effect cleanup drained direct set-state debt, but this maps hook retains the same pattern behind a callback."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L05-020",
+      "title": "Homebrew entry types are enumerated independently in three registries",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
+          "line": 31,
+          "endLine": 41,
+          "measurement": null,
+          "note": "The create selector owns an ordered value/label list."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-card.tsx",
+          "line": 9,
+          "endLine": 19,
+          "measurement": null,
+          "note": "Cards maintain a second exhaustive label map."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 65,
+          "endLine": 75,
+          "measurement": null,
+          "note": "Form data types enumerate the same entry types a third time."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 162,
+          "endLine": 217,
+          "measurement": null,
+          "note": "Only the implementation registry is compiler-enforced as exhaustive."
+        }
+      ],
+      "problem": "Adding or renaming an entry type requires synchronized edits in three files, while omitting it from the selector compiles and merely makes its editor unreachable.",
+      "proposedDirection": "Create one exhaustive entry-type metadata module for labels and order; derive selector and card metadata while retaining the separately typed editor binding registry.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Compile-time harden sheet capability callback sources",
+      "ref": "CQ25-20",
+      "reason": "The sheet helper spread-and-override path is exactly scheduled by open leaf 72."
+    },
+    {
+      "title": "Extract the repeated fog rectangle callback type",
+      "ref": "CQ25-71",
+      "reason": "The same five paths and retained w/h vocabulary are already recorded in the optional slice."
+    },
+    {
+      "title": "Delete the denied-access drawer-close effect",
+      "ref": "CQ25-90",
+      "reason": "The standing ruling retains it because close resets the complete global drawer store."
+    },
+    {
+      "title": "Resplit map-canvas-store by tool family or simplify fireAfterCommit",
+      "ref": "CQ25-188",
+      "reason": "Both directions were declined; any future split must follow lifetime."
+    },
+    {
+      "title": "Add a stale-frame read gate or derive combat selection from participant selection",
+      "ref": "CQ25-189",
+      "reason": "Both exact directions were dropped and the selection relation is not total."
+    },
+    {
+      "title": "Extract a shared MapCanvasFrame or configurable panel shell",
+      "ref": "CQ25-190",
+      "reason": "The prior pack explicitly leaves this two-caller duplication in place."
+    },
+    {
+      "title": "Group SheetDialogState or remodel the drawer as a nested discriminated atom",
+      "ref": "CQ25-191",
+      "reason": "These shapes were dropped; the drawer union is revisited only after a new mode or cast variant."
+    },
+    {
+      "title": "Rename the realtime invalidation hooks or useFeatureUse",
+      "ref": "CQ25-192",
+      "reason": "The exact naming sweep was dropped."
+    },
+    {
+      "title": "Replace SheetSharedProps with context",
+      "ref": "CQ25-193",
+      "reason": "The context direction was refused and re-affirmed."
+    },
+    {
+      "title": "Instantiate one Zustand store set per VTT surface",
+      "ref": "CQ25-194",
+      "reason": "None of the recorded revisit triggers was established."
+    },
+    {
+      "title": "Move client code into a package-root features hierarchy or split the sheet directory",
+      "ref": "CQ25-195",
+      "reason": "Both organization directions were explicitly refused."
+    },
+    {
+      "title": "Replace query invalidation closures with a generic descriptor binder",
+      "ref": "CQ25-196",
+      "reason": "The exact abstraction was rejected as longer than the six query shapes."
+    },
+    {
+      "title": "Collapse all homebrew numeric and string-list coercion helpers",
+      "ref": "CQ25-197",
+      "reason": "The differing contracts and local two-consumer threshold are recorded decisions."
+    },
+    {
+      "title": "Remove the remaining InitiativeTracker or MapCanvas isDm boundaries",
+      "ref": "CQ25-198",
+      "reason": "Both half-boundaries are closed-declined."
+    },
+    {
+      "title": "Brand campaign identities, merge the three stores, or put server state in Zustand",
+      "ref": "CQ25-199",
+      "reason": "These design directions were explicitly refused."
+    },
+    {
+      "title": "Reintroduce character-sheet campaign search state",
+      "ref": "CQ25-200",
+      "reason": "The URL campaignId was deliberately removed and must remain absent."
+    },
+    {
+      "title": "Speculatively change non-SRD full-caster spell-step behavior",
+      "ref": "CQ25-185",
+      "reason": "The extension-contract contradiction is a recorded decision not to change speculatively."
+    },
+    {
+      "title": "Sweep all remaining hand-rolled Label/Input controls",
+      "ref": "CQ25-187",
+      "reason": "The broad 49-site form sweep was permanently dropped."
+    },
+    {
+      "title": "Add a whole-sheet readOnly mode or capability framework",
+      "ref": "CQ25-216",
+      "reason": "These sheet capability directions were closed-declined; only leaf 72 remains live."
+    },
+    {
+      "title": "Add initiative-tie gating and explanation to Start Combat",
+      "ref": "CQ25-61",
+      "reason": "The panel, disabled Start state, tooltip, mount point, and read-only behavior are already scheduled."
+    },
+    {
+      "title": "Perform the opportunistic client pid rename sweep",
+      "ref": "CQ25-169",
+      "reason": "The rename was explicitly left opportunistic-only."
+    }
+  ],
+  "featureIdeas": [
+    "Implement a real DM-to-party stat-block reveal workflow to replace the disabled VTT drawer placeholder.",
+    "Show a compact +N overflow indicator when a map token has more than four conditions.",
+    "Add combat-log pagination or load-older UI for histories beyond the default page.",
+    "Consider making the legal/license route available without authentication."
+  ],
+  "bugsSideList": [
+    {
+      "title": "Actions-tab feature Use buttons only log to the console",
+      "paths": [
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx",
+        "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx"
+      ],
+      "whySuspectedBug": "The Actions tab renders an enabled Use control that only logs, while the dedicated tab invokes the mutation.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Drawer spell-slot pips are clickable no-op buttons",
+      "paths": [
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx",
+        "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx",
+        "packages/client/src/components/sheet/spell-slot-pips.tsx"
+      ],
+      "whySuspectedBug": "Both drawer callers pass noop callbacks, causing interactive buttons instead of the component's read-only spans.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Ritual cast selection is not carried into confirmation",
+      "paths": [
+        "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx",
+        "packages/client/src/components/vtt/drawer/confirm-cast-strip.tsx",
+        "packages/client/src/hooks/vtt-drawer/use-confirm-cast.ts"
+      ],
+      "whySuspectedBug": "The tab labels Ritual but dispatches the ordinary cast path; confirmation defaults the omitted ritual flag to false.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Actions-tab spells bypass preparation and slot eligibility",
+      "paths": [
+        "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx",
+        "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx",
+        "packages/client/src/components/vtt/drawer/cast-rail.tsx"
+      ],
+      "whySuspectedBug": "The Actions copy enables spells that the dedicated tab disables, and the rail does not recheck preparation.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Sorcery-point selectors can retain an unavailable level",
+      "paths": [
+        "packages/client/src/components/sheet/sorcery-points-panel.tsx"
+      ],
+      "whySuspectedBug": "Selection state initializes from derived options once and can submit a level removed by a later conversion.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Metamagic affordability ignores accumulated selected cost",
+      "paths": [
+        "packages/client/src/components/sheet/metamagic-selector.tsx",
+        "packages/client/src/components/sheet/cast-spell-dialog.tsx"
+      ],
+      "whySuspectedBug": "Options are gated by individual cost while the calculated total is not used to gate casting.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Weapon mastery dialog cannot save an empty selection",
+      "paths": [
+        "packages/client/src/components/sheet/weapon-mastery-dialog.tsx"
+      ],
+      "whySuspectedBug": "Save is disabled when selected.size is zero, apparently preventing removal of all masteries.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Point-buy increment rejects an exactly affordable purchase",
+      "paths": [
+        "packages/client/src/components/character-create/steps/ability-score-card.tsx"
+      ],
+      "whySuspectedBug": "The button uses remaining <= costDelta, disabling the purchase when remaining equals its cost.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Character sheet queries an empty id before its missing-param guard",
+      "paths": [
+        "packages/client/src/pages/character-sheet-page.tsx"
+      ],
+      "whySuspectedBug": "character.get is invoked with an empty-string fallback without enabled gating before the missing-id branch renders.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "CharacterCard nests action buttons inside a navigation link",
+      "paths": [
+        "packages/client/src/components/character-card.tsx"
+      ],
+      "whySuspectedBug": "Click suppression does not remove the invalid nested interactive semantics for keyboard and assistive-technology users.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Notification relative timestamps do not advance with time",
+      "paths": [
+        "packages/client/src/components/notifications/notification-item.tsx"
+      ],
+      "whySuspectedBug": "The text reads Date.now during render but has no timer or scheduled refresh.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Magic Items navigation appears only in the mobile header",
+      "paths": [
+        "packages/client/src/components/app-header.tsx"
+      ],
+      "whySuspectedBug": "The mobile menu includes the compendium route while desktop navigation omits it.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Create-map success can preserve stale form and upload state",
+      "paths": [
+        "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+        "packages/client/src/components/campaign/maps/maps-panel.tsx"
+      ],
+      "whySuspectedBug": "Mutation success closes the controlled dialog without calling its internal reset checklist.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Map cards and image drop zones contain nested interactive controls",
+      "paths": [
+        "packages/client/src/components/campaign/maps/map-card.tsx",
+        "packages/client/src/components/campaign/maps/map-image-field.tsx"
+      ],
+      "whySuspectedBug": "Elements with button semantics contain native Button descendants.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Combat map exposes Place Token without consuming placement state",
+      "paths": [
+        "packages/client/src/components/campaign/maps/map-toolbar-dm-tools.tsx",
+        "packages/client/src/components/campaign/combat/combat-map-header.tsx",
+        "packages/client/src/components/campaign/combat/combat-map-content.tsx"
+      ],
+      "whySuspectedBug": "The combat toolbar enables placement, but CombatMapContent has no placement slice or AddTokenDialog.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Token sidebar nests a delete button inside button semantics",
+      "paths": [
+        "packages/client/src/components/campaign/tokens/token-sidebar.tsx"
+      ],
+      "whySuspectedBug": "A role=button row contains another Button, producing nested interactive semantics.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "TokenContextMenu declares menu roles without a menu keyboard model",
+      "paths": [
+        "packages/client/src/components/campaign/tokens/token-context-menu.tsx"
+      ],
+      "whySuspectedBug": "Menu/menuitem roles are present without arrow-key or roving-focus behavior.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Campaign query failures appear as an empty character roster",
+      "paths": [
+        "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx"
+      ],
+      "whySuspectedBug": "The character tab handles loading but not query errors, so missing data becomes an empty-state message.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Combat-log query failures appear as an empty log",
+      "paths": [
+        "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
+        "packages/client/src/components/campaign/combat/combat-log-panel.tsx"
+      ],
+      "whySuspectedBug": "Absent error data is converted to an empty list and rendered as no recorded actions.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Add-log participant default does not follow active-turn changes",
+      "paths": [
+        "packages/client/src/components/campaign/combat/combat-log-panel.tsx"
+      ],
+      "whySuspectedBug": "The current participant prop is copied into local state once and not rebased when turns change.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Condition editing is hidden when a participant lacks HP fields",
+      "paths": [
+        "packages/client/src/components/campaign/combat/initiative-tracker/dm-participant-tools.tsx"
+      ],
+      "whySuspectedBug": "The HP guard wraps the independent condition editor as well as the HP control.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "CORS fallback images can publish stale state after URL changes",
+      "paths": [
+        "packages/client/src/hooks/use-background-image.ts"
+      ],
+      "whySuspectedBug": "The fallback Image request is not retained or cancelled, so obsolete onload handlers can update state.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Delete-account password survives dialog close and reopen",
+      "paths": [
+        "packages/client/src/pages/settings-page.tsx"
+      ],
+      "whySuspectedBug": "The dialog remains mounted and neither close path resets its password state.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Collection detail ignores collection-query loading, error, and not-found states",
+      "paths": [
+        "packages/client/src/pages/collection-detail-page.tsx"
+      ],
+      "whySuspectedBug": "Visible state follows only the entries query, leaving a failed collection load with a generic header and active controls.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "packages/client/src/components/sheet/** excluding tests — 52 pinned paths",
+      "packages/client/src/pages/character-sheet/**, character-sheet-page.tsx, and hooks/character-sheet/** excluding tests — 19 pinned paths",
+      "packages/client/src/components/vtt/** and hooks/vtt-drawer/** excluding tests — 44 pinned paths",
+      "packages/client/src/stores/**, hooks/canvas-input/**, and hooks/use-surface-reset.ts excluding tests — 8 pinned paths",
+      "packages/client/src/components/campaign/maps/** excluding tests — 33 pinned paths",
+      "packages/client/src/components/campaign/{combat,encounters}/** excluding tests — 37 pinned paths",
+      "Remaining packages/client/src/components/campaign surfaces excluding tests — 43 pinned paths",
+      "packages/client/src/components/homebrew/** excluding tests — 55 pinned paths",
+      "packages/client/src/components/character-create/** excluding tests — 21 pinned paths",
+      "Common, compendium, notifications, UI, and root component sources excluding tests — 34 pinned paths",
+      "Root hooks excluding use-surface-reset.ts plus packages/client/src/lib/** — 42 pinned paths",
+      "Root pages excluding character-sheet-page.tsx, routes, app entry/style files, and package config surface — 39 pinned paths",
+      "All nearest MODULE.md files for the owned feature trees and docs/guides/client-effects.md"
+    ],
+    "sampled": [
+      "Production consumers outside each shard — exhaustive symbol/import/reference sweeps used to validate dead-code and duplication claims",
+      "Relevant 2026-07-25 plan source anchors behind dedup-corpus records — opened where a candidate approached a recorded refusal"
+    ],
+    "skipped": [
+      "342 pinned client test/spec/test-helper/src/test/vitest-config paths — explicitly owned by lane 06, not treated as clean",
+      "Test suite and build — prohibited by the user and not run"
+    ],
+    "pointers": [
+      "Lane 07 docs-drift: components/vtt/MODULE.md says VttSurface composes the action bar and target-pick overlay, while vtt-surface.tsx:39-43 renders children plus InVttDrawer.",
+      "Lane 07 docs-drift: canvas-input comments describe a pre-mutation snapshot argument that onFinalize no longer accepts, and use-canvas-input.ts retains an orphaned section heading.",
+      "Lane 07 docs-drift: character-keys.ts documents three socket filter surfaces that have zero production reads.",
+      "Lane 07 docs-drift: encounters/MODULE.md is nine lines for a 16-file production module and omits the normal data-flow, ownership, entry-point, and gotcha sections.",
+      "Lane 07 docs-drift: combat/MODULE.md lists production-dead RollModeToggle and claims ownership of log paging that the UI does not expose.",
+      "Lane 07 docs-drift: hooks/MODULE.md omits production-consumed root exports including useCharacterActions, useBackgroundImage, and useMapLayerMutations.",
+      "Lane 07 docs-drift: homebrew/MODULE.md understates the shared helper surface and points editor registration at the wrong file.",
+      "Lane 07 docs-drift: pages/MODULE.md calls a partial list External Entry Points while omitting most route pages.",
+      "Lane 08 cross-cutting: monster-spellcasting-block.tsx mirrors MONSTER_SPELL_FREQUENCIES from shared rather than importing it.",
+      "Lane 08 cross-cutting: monster-form-data.ts owns the CR-to-proficiency rules table while adjacent CR-to-XP rules come from shared.",
+      "Lane 08 cross-cutting: homebrew editors hand-parse Record<string, unknown> because shared persisted-data schemas are not exposed through a typed read adapter.",
+      "Lane 08 cross-cutting: invite and account error handling depends on English server-message substrings rather than typed failure reasons.",
+      "Lane 06 tests: fog-overlay.tsx exports helpers solely for unit tests; production-dead RollModeToggle is imported only by its test.",
+      "Lane 06 tests: all co-located client tests, fixtures, mock routers, and test helpers were excluded from finding ownership."
+    ],
+    "cut": [
+      "Level-up workflow state is translated through oversized parallel contracts — too close to the previously declined prop-grouping direction.",
+      "Add and edit inventory-item dialogs duplicate the same five-field form.",
+      "Homebrew item tab embeds compatibility parsing and conversion inside a query view.",
+      "Sheet panel chrome appears in 16 files.",
+      "Legacy DeathSaves is unreferenced.",
+      "Spell trait presentation has four implementations.",
+      "Non-freehand drawing gestures accumulate unused freehand history.",
+      "Surface reset uses an unconstrained boolean options bag.",
+      "Canvas registry returns an unread handlers collection.",
+      "Monster action presentation imports a predicate from a mutation hook.",
+      "Drawer-wide SectionHeading is nested under tabs.",
+      "The VTT drawer renders a permanently disabled Reveal placeholder.",
+      "Wizard step keys widen a closed tuple back to string.",
+      "Three character-create choice chips duplicate one interaction model.",
+      "Adjacent character-create steps use inconsistent API-output typing.",
+      "Authentication guards depend on one-render-behind redirect timing.",
+      "Skeleton styling is copied across 18 production files.",
+      "DeathSaveDots exposes five DOM class slots.",
+      "Character deletion bypasses DeleteConfirmDialog.",
+      "MobileNavLink widens typed routes to string.",
+      "Campaign presence combines room leasing, socket events, heartbeat, StrictMode, and view state in one effect.",
+      "Dice roll hooks repeat the same transport adapter and JSON narrowing.",
+      "Map-image upload mixes React state, validation, fetch, auth, and response assertions.",
+      "The character sheet derives the full SRD lookup bundle twice.",
+      "Roll toast presentation is a nested createElement tree.",
+      "elementCenter returns a bottom-left anchor.",
+      "Character-key helpers construct three unused filter surfaces.",
+      "Sheet hook action identity is stable in some hooks and recreated in others.",
+      "CreateMapDialog manually reconstructs keyed-remount lifecycle.",
+      "Four map/token destructive actions use window.confirm beside DeleteConfirmDialog.",
+      "GridType is widened to string across three map boundaries.",
+      "Enable-only map-layer actions are named as toggles.",
+      "Notes search creates an infinite-query key on every keystroke.",
+      "NPC CRUD bypasses the centralized invalidation layer.",
+      "An internal homebrew link uses a raw anchor.",
+      "Most homebrew validation errors bypass the established field contract.",
+      "Class and subclass duplicate the feature persistence codec.",
+      "Class and subclass duplicate caster-selection UI.",
+      "Closed homebrew select values remain unrestricted strings.",
+      "Collection and entry deletion duplicate confirm-by-name dialog stacks.",
+      "Homebrew repeats one raw checkbox primitive across ten files.",
+      "Encounter mutations use an over-broad invalidation policy.",
+      "RollModeToggle is production-dead UI.",
+      "CharacterTab replaces inferred tRPC output with a handwritten assertion.",
+      "Encounter forms maintain three ad hoc native selects.",
+      "Homebrew list and collection-detail pages duplicate CRUD page state machines.",
+      "Required route parameters are widened through strict:false.",
+      "Wizard step heading duplication and review-query orchestration were lower-value shard cuts.",
+      "Encounter header-action duplication, EncounterMapLink layering, and CombatLogPanel line count were lower-value shard cuts.",
+      "Mixed eager/lazy page imports and repeated Card empty states lacked a sufficiently strong policy or impact."
+    ]
+  }
+}

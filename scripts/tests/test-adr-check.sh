@@ -11,7 +11,7 @@
 # smoke-subjects: eslint-rules/no-broadcast-in-transaction.js
 # smoke-subjects: eslint-rules/socket-registry-broadcasts.js
 # smoke-subjects: eslint-config/package-boundary-configs.js
-# smoke-subjects: eslint-config/local-plugin.js
+# smoke-subjects: eslint-config/local-plugin.generated.js
 # smoke-subjects: eslint.config.js
 # smoke-subjects: packages/server/src/utils/prisma-types.ts
 # smoke-subjects: packages/server/src/routers/invite-concurrency.test.ts

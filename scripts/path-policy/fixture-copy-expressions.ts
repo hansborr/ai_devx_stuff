@@ -10,8 +10,10 @@
 import { existsSync, readdirSync } from "node:fs";
 import { relative, resolve } from "node:path";
 
+import { compileShellSegmentGlob, hasShellGlobSyntax } from "./segment-pattern.js";
+import { normalizePath } from "./smoke-test-files.js";
+
 const shellTokenPattern = /"[^"]*"|'[^']*'|\S+/gu;
-const globCharacterPattern = /[*?[]/u;
 const variableExpressionPattern = /^\$\{?([A-Z][A-Z0-9_]*)\}?$/u;
 const assignmentPattern = /^\s*([A-Z][A-Z0-9_]*)=("[^"]*"|'[^']*'|[^\s#]+)\s*$/gmu;
 const assignmentPathCaptureIndex = 2;
@@ -45,11 +47,10 @@ export function expandLiteralGlob(
   const separatorIndex = pattern.lastIndexOf("/");
   const directory = separatorIndex < 0 ? "" : pattern.slice(0, separatorIndex);
   const basePattern = pattern.slice(separatorIndex + 1);
-  if (globCharacterPattern.test(directory) || !globCharacterPattern.test(basePattern)) {
+  if (hasShellGlobSyntax(directory) || !hasShellGlobSyntax(basePattern)) {
     return undefined;
   }
-  const escaped = basePattern.replaceAll(/[.+^${}()|\\]/gu, String.raw`\$&`);
-  const matcher = new RegExp(`^${escaped.replaceAll("*", "[^/]*").replaceAll("?", "[^/]")}$`, "u");
+  const matcher = compileShellSegmentGlob(basePattern);
   let entries: readonly string[];
   try {
     entries = readdirSync(resolve(repoRoot, directory));
@@ -60,10 +61,6 @@ export function expandLiteralGlob(
     .filter((entry) => matcher.test(entry))
     .sort()
     .map((entry) => (directory === "" ? entry : `${directory}/${entry}`));
-}
-
-export function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/");
 }
 
 export function stripQuotes(value: string): string {
@@ -128,7 +125,7 @@ function resolveTreeRelativeExpression(repoRoot: string, value: string): string 
  * resolves without an existence check so that a copy of a deleted script still
  * reaches the closure walk's "does not exist" diagnostic.
  */
-export function resolveFixtureExpression(
+function resolveFixtureExpression(
   repoRoot: string,
   expression: string,
   assignments: ReadonlyMap<string, string>,
@@ -139,7 +136,7 @@ export function resolveFixtureExpression(
 
   const prefixed = resolvePrefixedExpression(repoRoot, value);
   if (prefixed !== undefined) return prefixed;
-  if (value.startsWith("scripts/") && !globCharacterPattern.test(value)) {
+  if (value.startsWith("scripts/") && !hasShellGlobSyntax(value)) {
     return normalizePath(value);
   }
   return resolveTreeRelativeExpression(repoRoot, value);
@@ -149,6 +146,8 @@ export function resolveFixtureExpression(
 export interface FixtureOperandResolution {
   /** Repository paths the operand names; empty when it names none. */
   readonly paths: readonly string[];
+  /** The single literal path, excluding loop and glob expansion. */
+  readonly directPath?: string;
   /**
    * False when the operand looks like a path reference the model cannot read —
    * a runtime-built expression, an unbound variable, an unexpandable glob.
@@ -161,7 +160,7 @@ export interface FixtureOperandResolution {
 const resolvedNothing: FixtureOperandResolution = { paths: [], resolved: true };
 
 function pathReferenceShape(value: string): boolean {
-  return value.includes("$") || value.includes("/") || globCharacterPattern.test(value);
+  return value.includes("$") || value.includes("/") || hasShellGlobSyntax(value);
 }
 
 /**
@@ -176,23 +175,25 @@ export function resolveFixtureOperand(
   assignments: ReadonlyMap<string, string>,
   loopBinding: { readonly paths: readonly string[]; readonly complete: boolean } | undefined,
 ): FixtureOperandResolution {
+  const directPath = resolveFixtureExpression(repoRoot, expression, assignments);
   if (loopBinding !== undefined) {
     return loopBinding.complete
-      ? { paths: loopBinding.paths, resolved: true }
-      : { paths: [], resolved: false };
+      ? { paths: loopBinding.paths, directPath, resolved: true }
+      : { paths: [], directPath, resolved: false };
   }
   const value = normalizePath(stripQuotes(expression));
   // Globs are read before the single-path resolver: a `scripts/`-prefixed
   // operand resolves there without an existence check, which would turn
   // `scripts/lint-ratchet/*.ts` into a path that does not exist.
-  if (!value.includes("$") && globCharacterPattern.test(value)) {
+  if (!value.includes("$") && hasShellGlobSyntax(value)) {
     const expanded = expandLiteralGlob(repoRoot, value);
     return expanded === undefined
       ? { paths: [], resolved: false }
       : { paths: expanded, resolved: true };
   }
-  const single = resolveFixtureExpression(repoRoot, expression, assignments);
-  if (single !== undefined) return { paths: [single], resolved: true };
+  if (directPath !== undefined) {
+    return { paths: [directPath], directPath, resolved: true };
+  }
   return pathReferenceShape(value) ? { paths: [], resolved: false } : resolvedNothing;
 }
 

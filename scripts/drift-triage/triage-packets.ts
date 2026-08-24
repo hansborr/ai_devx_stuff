@@ -11,26 +11,10 @@ import type {
   TriagePacketProvenance,
 } from "./triage-packet-types.js";
 import type { TriageReport } from "./triage-report-types.js";
+import { TRIAGE_VERDICT_CONTRACT } from "./triage-verdict-types.js";
 
 const DEFAULT_PACKET_SIZE = 20;
 const JSON_INDENT = 2;
-
-const VERDICT_CONTRACT = {
-  verdicts: ["confirmed", "false-positive", "accepted-drift", "duplicate-of", "needs-human"],
-  severities: ["high", "medium", "low", "informational"],
-  confidences: ["high", "medium", "low"],
-  requiredFields: [
-    "itemId",
-    "verdict",
-    "severity",
-    "confidence",
-    "rationale",
-    "verifiedLocations",
-    "recommendedAction",
-    "canonicalItemId",
-  ],
-  duplicateOfRequires: "canonicalItemId",
-} as const;
 
 const PACKET_TASK =
   "Inspect the cited source and return one verdict for every item ID. Do not edit code. " +
@@ -65,7 +49,6 @@ export function buildTriagePackets(
         itemCount: packet.items.length,
         itemIds: packet.itemIds,
         lane: packet.lane,
-        oversized: packet.oversized,
         splitPathComponent: packet.splitPathComponent,
         sha256: sha256(renderPacket(packet)),
       })),
@@ -90,11 +73,10 @@ function buildPacket(
     kind: "drift-triage-packet",
     packetId,
     lane: group.lane,
-    oversized: group.oversized,
     splitPathComponent: group.splitPathComponent,
     itemIds: group.items.map((item) => item.id),
     task: PACKET_TASK,
-    verdictContract: VERDICT_CONTRACT,
+    verdictContract: TRIAGE_VERDICT_CONTRACT,
     disclosures: {
       policy: report.policy,
       summary: report.summary,

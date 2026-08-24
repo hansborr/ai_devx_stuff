@@ -12,7 +12,8 @@ import { isAbsolute, resolve } from "node:path";
 import {
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+
 import { ensureDirWriteFileAtomicallySync } from "../lib/atomic-write.js";
 
 const JSON_INDENT_SPACES = 2;

@@ -7,6 +7,8 @@ HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
 # shellcheck source=/dev/null
+. "$HOOK_LIB/claude-adapter.sh"
+# shellcheck source=/dev/null
 . "$HOOK_LIB/policy.sh"
 
 PAYLOAD=$(ai_read_payload)
@@ -23,14 +25,18 @@ CMD=$(ai_payload_command "$PAYLOAD")
 HOOK_REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 WORK_ROOT=$(git -C "$(ai_resolve_target_dir "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$HOOK_REPO_ROOT")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$HOOK_REPO_ROOT")
 
-if REASON=$(ai_policy_violation_reason "$CMD" "$WORK_ROOT"); then
-  if ai_policy_is_soft_guidance "$REASON"; then
+declare -A POLICY_DECISION=()
+ai_policy_decision POLICY_DECISION "$CMD" "$WORK_ROOT"
+case "${POLICY_DECISION[verdict]-}" in
+  advise)
     # Soft nudges should return guidance without turning advisory policy into a
     # hard block.
-    ai_claude_result_command "$REASON" "$AI_POLICY_GUIDANCE_TMP_PREFIX"
-  fi
-  ai_emit_block "$REASON"
-fi
+    ai_claude_result_command "${POLICY_DECISION[message]-}" "$AI_POLICY_GUIDANCE_TMP_PREFIX"
+    ;;
+  block) ai_emit_block "${POLICY_DECISION[message]-}" ;;
+  allow) ;;
+  *) ai_emit_block "$AI_POLICY_RULE_DATA_ERROR" ;;
+esac
 
 # Fail closed when the commit names a checkout that could not be resolved: the
 # WORK_ROOT above then silently became this hook's own checkout, so the branch

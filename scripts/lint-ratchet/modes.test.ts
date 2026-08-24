@@ -2,11 +2,101 @@ import type { EditCheckRegression } from "@musi/lint-ratchet/governance/edit-che
 import { describe, expect, it } from "vitest";
 
 import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
+import { COMMAND_CATALOG, type Mode } from "./cli-catalog.js";
+import { runLintRatchetCli } from "./cli-dispatch.js";
+import type { CommandHandler, PreflightHandler, PreflightTier } from "./cli-handler-types.js";
 import {
   editCheckRepairCommandFor,
   editCheckTargetsFileToRead,
+  runCheckBaselineMode,
+  runCheckDebtAccountingMode,
+  runCheckRegistry,
+  runDebtLogReport,
+  runDefaultMode,
+  runEditCheck,
+  runEditCheckTargets,
+  runEditRatchetCoverage,
+  runPropose,
+  runReport,
+  runSummaryMode,
+  runTrendMode,
+  runUpdate,
+  runZeroBaseline,
   withEditCheckRepairCommands,
 } from "./modes.js";
+
+describe("mode dispatch", () => {
+  it("registers each mode to its concrete handler", () => {
+    expect(Object.fromEntries(COMMAND_CATALOG.map(({ mode, handler }) => [mode, handler]))).toEqual(
+      {
+        default: runDefaultMode,
+        update: runUpdate,
+        "check-baseline": runCheckBaselineMode,
+        "check-debt-accounting": runCheckDebtAccountingMode,
+        "check-registry": runCheckRegistry,
+        summary: runSummaryMode,
+        trend: runTrendMode,
+        "zero-baseline": runZeroBaseline,
+        report: runReport,
+        "debt-log": runDebtLogReport,
+        propose: runPropose,
+        "edit-check-targets": runEditCheckTargets,
+        "edit-check": runEditCheck,
+        "edit-ratchet-coverage": runEditRatchetCoverage,
+      },
+    );
+  });
+
+  it("runs every selected catalog mode without falling through to default", async () => {
+    const calls: Mode[] = [];
+    const preflightCalls: PreflightTier[] = [];
+    const recordMode =
+      (mode: Mode): CommandHandler =>
+      () => {
+        calls.push(mode);
+      };
+    const modeHandlers: Record<Mode, CommandHandler> = {
+      default: recordMode("default"),
+      update: recordMode("update"),
+      "check-baseline": recordMode("check-baseline"),
+      "check-debt-accounting": recordMode("check-debt-accounting"),
+      "check-registry": recordMode("check-registry"),
+      summary: recordMode("summary"),
+      trend: recordMode("trend"),
+      "zero-baseline": recordMode("zero-baseline"),
+      report: recordMode("report"),
+      "debt-log": recordMode("debt-log"),
+      propose: recordMode("propose"),
+      "edit-check-targets": recordMode("edit-check-targets"),
+      "edit-check": recordMode("edit-check"),
+      "edit-ratchet-coverage": recordMode("edit-ratchet-coverage"),
+    };
+    const recordPreflight =
+      (tier: PreflightTier): PreflightHandler =>
+      () => {
+        preflightCalls.push(tier);
+      };
+    const preflightHandlers: Record<PreflightTier, PreflightHandler> = {
+      none: recordPreflight("none"),
+      "registry-preflight": recordPreflight("registry-preflight"),
+      "update-registry-clean": recordPreflight("update-registry-clean"),
+      "validate-registry": recordPreflight("validate-registry"),
+    };
+
+    for (const command of COMMAND_CATALOG) {
+      calls.length = 0;
+      preflightCalls.length = 0;
+      await runLintRatchetCli(
+        { mode: command.mode, allowWorse: false },
+        {},
+        { modeHandlers, preflightHandlers },
+      );
+      expect(preflightCalls).toEqual([command.preflight]);
+      expect(calls).toEqual([command.mode]);
+      if (command.mode !== "default") expect(calls).not.toContain("default");
+    }
+  });
+});
 
 function docsEntry(overrides: Partial<RuleDocsEntry>): RuleDocsEntry {
   return {

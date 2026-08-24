@@ -6,19 +6,15 @@ import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
-  diffFixtureClosure,
   diffTriggerPathClosure,
   type GeneratedSurfaceRecord,
   renderClassifierFragment,
-  renderFixtureManifest,
   renderFreshnessShell,
-  SHARED_FIXTURE_INFRA_RECORD_ID,
 } from "./generated-surfaces.js";
 import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 import {
   GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
-  GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
   GENERATED_SURFACE_FRESHNESS_PATH,
 } from "./harness-paths.js";
 
@@ -69,12 +65,17 @@ function makeFacetRoot(facetOverrides: FacetOverrides = {}, invocation?: string)
 }
 
 describe("loadGeneratedSurfaces (real manifest)", () => {
-  it("returns exactly the eleven registered generated surfaces in deterministic id order", () => {
+  it("returns exactly the seventeen registered generated surfaces in deterministic id order", () => {
     const records = loadGeneratedSurfaces(repoRoot);
     expect(records.map((record) => record.id)).toEqual([
+      "check/command-policy-generator",
+      "check/concurrency-relation-graph-generator",
       "check/config-surface-generator",
       "check/harness-hook-wiring-generator",
       "check/hook-timeout-constants-generator",
+      "check/lint-rule-controls-generator",
+      "check/local-plugin-generator",
+      "check/pre-push-scope-trigger-generator",
       "check/restricted-disable-rules-generator",
       "check/skill-artifacts-generator",
       "check/smoke-subjects-generator",
@@ -83,14 +84,20 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "doc-generator/harness-controls",
       "doc-generator/lint-coverage-map",
       "doc-generator/lint-guidance",
+      "doc-generator/manifest-json-schema",
     ]);
   });
 
   it("covers every freshness checker in the loader's deterministic render order", () => {
     expect(loadGeneratedSurfaces(repoRoot).map((record) => record.checkScript)).toEqual([
+      "harness:command-policy:check",
+      "concurrency:relation-graph:check",
       "harness:config-surfaces:check",
       "harness:wiring:check",
       "harness:hook-timeouts:check",
+      "harness:lint-rule-controls:check",
+      "lint:local-plugin:check",
+      "harness:pre-push-trigger:check",
       "lint:restricted-disable-rules:check",
       "harness:skills:check",
       "test:scripts:subjects:check",
@@ -99,6 +106,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "docs:harness-controls:check",
       "docs:lint-coverage-map:generate:check",
       "docs:lint-guidance:check",
+      "harness:manifest-schema:check",
     ]);
   });
 
@@ -132,233 +140,21 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
     expect(lintCoverageMap?.bunHook).toEqual({ refresh: "bypass", check: "wrapped" });
   });
 
-  it("declares a non-empty fixture copy closure on every record", () => {
+  it("keeps fixture declarations limited to reasoned non-import residue", () => {
     const records = loadGeneratedSurfaces(repoRoot);
-    for (const record of records) {
-      expect(record.fixturePaths, record.id).toBeDefined();
-      expect(record.fixturePaths?.length ?? 0, record.id).toBeGreaterThan(0);
-    }
-    // Shared fixture infrastructure (harness-check's own module family) lives
-    // on the record that owns scripts/harness/generated-surfaces.ts.
-    const sharedInfra = records.find((record) => record.id === SHARED_FIXTURE_INFRA_RECORD_ID);
-    expect(sharedInfra?.fixturePaths).toContain("scripts/harness-check.ts");
-  });
-});
-
-describe("renderFixtureManifest (smoke fixture copy projection)", () => {
-  function fixtureRecord(
-    id: string,
-    overrides: Partial<Pick<GeneratedSurfaceRecord, "fixturePaths" | "outputPaths">> = {},
-  ): GeneratedSurfaceRecord {
-    return {
-      id,
-      source: `scripts/${id}.ts`,
-      checkScript: `${id}:check`,
-      refreshScript: id,
-      triggerPaths: [`scripts/${id}.ts`],
-      outputPaths: overrides.outputPaths ?? [`generated/${id}.txt`],
-      warnLabel: `${id} output`,
-      bunHook: { refresh: "bypass", check: "wrapped" },
-      ...(overrides.fixturePaths === undefined ? {} : { fixturePaths: overrides.fixturePaths }),
-    };
-  }
-
-  it("unions, deduplicates, and codepoint-sorts fixturePaths across records", () => {
-    const rendered = renderFixtureManifest([
-      fixtureRecord("check/beta", { fixturePaths: ["scripts/z.ts", "scripts/shared.ts"] }),
-      fixtureRecord("check/alpha", { fixturePaths: ["scripts/shared.ts", "docs/a.md"] }),
-    ]);
-
-    const copyLines = rendered
-      .split("\n")
-      .filter((line) => line.length > 0 && !line.startsWith("#"));
-    expect(copyLines).toEqual(["docs/a.md", "scripts/shared.ts", "scripts/z.ts"]);
-    expect(rendered.endsWith("\n")).toBe(true);
+    const extras = records.flatMap((record) => record.fixtureExtras ?? []);
+    expect(extras.length).toBeGreaterThan(0);
+    expect(extras.every((extra) => extra.reason.length > 0)).toBe(true);
+    expect(extras.map((extra) => extra.path)).not.toContain("scripts/harness-check.ts");
   });
 
-  it("renders only comment and blank lines besides the copy entries", () => {
-    const rendered = renderFixtureManifest([
-      fixtureRecord("check/alpha", { fixturePaths: ["scripts/a.ts"] }),
-    ]);
-
-    expect(rendered).toContain(
-      "# Generated by scripts/harness/generate-verify-steps.ts. Do not edit by hand.",
+  it("tracks the package recovery renderer that feeds the merge runbook", () => {
+    const record = loadGeneratedSurfaces(repoRoot).find(
+      (candidate) => candidate.id === "doc-generator/baseline-conflict-recipes",
     );
-    expect(rendered).toContain("harness.controls.json");
-    expect(rendered).toContain("bun run verify:steps");
-    for (const line of rendered.split("\n")) {
-      expect(line === "" || line.startsWith("#") || line === "scripts/a.ts").toBe(true);
-    }
-  });
+    const authority = "tools/lint-ratchet/src/git-rail/conflict-recovery.ts";
 
-  it("renders no copy entries when no record declares fixturePaths", () => {
-    const rendered = renderFixtureManifest([fixtureRecord("check/alpha")]);
-    const copyLines = rendered
-      .split("\n")
-      .filter((line) => line.length > 0 && !line.startsWith("#"));
-    expect(copyLines).toEqual([]);
-  });
-
-  it("rejects directory-style fixturePaths entries", () => {
-    const records = [fixtureRecord("check/alpha", { fixturePaths: ["scripts/harness/"] })];
-    expect(() => renderFixtureManifest(records)).toThrow(/scripts\/harness\//u);
-    expect(() => renderFixtureManifest(records)).toThrow(/check\/alpha/u);
-  });
-
-  it("matches the committed generated manifest byte-for-byte", () => {
-    // Same parity contract as the freshness and classifier fragments: the
-    // committed copy manifest must be exactly what the loader records render.
-    const committed = readFileSync(
-      join(repoRoot, GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH),
-      "utf8",
-    );
-    expect(renderFixtureManifest(loadGeneratedSurfaces(repoRoot))).toBe(committed);
-  });
-});
-
-describe("diffFixtureClosure (fixturePaths vs computed import closure)", () => {
-  function closureRecord(
-    id: string,
-    overrides: Partial<Pick<GeneratedSurfaceRecord, "fixturePaths" | "outputPaths">> = {},
-  ): GeneratedSurfaceRecord {
-    return {
-      id,
-      source: `scripts/${id}.ts`,
-      checkScript: `${id}:check`,
-      refreshScript: id,
-      triggerPaths: [`scripts/${id}.ts`],
-      outputPaths: overrides.outputPaths ?? [`generated/${id}.txt`],
-      warnLabel: `${id} output`,
-      bunHook: { refresh: "bypass", check: "wrapped" },
-      ...(overrides.fixturePaths === undefined ? {} : { fixturePaths: overrides.fixturePaths }),
-    };
-  }
-
-  it("passes when every closure file is declared, generated, or synthesized", () => {
-    const failures = diffFixtureClosure({
-      records: [
-        closureRecord("check/alpha", {
-          fixturePaths: ["scripts/check/alpha.ts", "scripts/lib/helper.ts"],
-          outputPaths: ["generated/alpha.generated.js"],
-        }),
-      ],
-      entryClosures: [
-        {
-          ownerId: "check/alpha",
-          files: [
-            "scripts/check/alpha.ts",
-            "scripts/lib/helper.ts",
-            "generated/alpha.generated.js",
-            "scripts/stub.ts",
-          ],
-        },
-      ],
-      synthesizedPaths: ["scripts/stub.ts"],
-    });
-
-    expect(failures).toEqual([]);
-  });
-
-  it("treats closure files under a directory-prefix outputPath as generated", () => {
-    // No manifest record currently emits walkable files under a prefix
-    // outputPath (the only prefixes are shell shim dirs), but the matcher must
-    // stay aligned with triggerCovers: a generated file under a declared
-    // directory prefix is regenerated, not a missing fixture copy.
-    const failures = diffFixtureClosure({
-      records: [
-        closureRecord("check/alpha", {
-          fixturePaths: ["scripts/check/alpha.ts"],
-          outputPaths: ["generated/alpha-dir/"],
-        }),
-      ],
-      entryClosures: [
-        {
-          ownerId: "check/alpha",
-          files: ["scripts/check/alpha.ts", "generated/alpha-dir/emitted.js"],
-        },
-      ],
-    });
-
-    expect(failures).toEqual([]);
-  });
-
-  it("fails on a closure file missing from the declarations, naming the owning record", () => {
-    const failures = diffFixtureClosure({
-      records: [closureRecord("check/alpha", { fixturePaths: ["scripts/check/alpha.ts"] })],
-      entryClosures: [
-        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts", "scripts/lib/missed.ts"] },
-      ],
-    });
-
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("scripts/lib/missed.ts");
-    expect(failures[0]).toContain("fixturePaths");
-    expect(failures[0]).toContain("check/alpha");
-  });
-
-  it("suggests the shared-infra record for files reached only from the validator root", () => {
-    const failures = diffFixtureClosure({
-      records: [closureRecord("check/alpha", { fixturePaths: ["scripts/check/alpha.ts"] })],
-      entryClosures: [
-        { ownerId: "check/alpha", files: ["scripts/check/alpha.ts"] },
-        { ownerId: "scripts/harness-check.ts", files: ["scripts/harness/shared.ts"] },
-      ],
-    });
-
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("scripts/harness/shared.ts");
-    expect(failures[0]).toContain(SHARED_FIXTURE_INFRA_RECORD_ID);
-  });
-
-  it("fails on a declared TypeScript file absent from the closure", () => {
-    const failures = diffFixtureClosure({
-      records: [
-        closureRecord("check/alpha", {
-          fixturePaths: ["scripts/check/alpha.ts", "scripts/lib/stale.ts"],
-        }),
-      ],
-      entryClosures: [{ ownerId: "check/alpha", files: ["scripts/check/alpha.ts"] }],
-    });
-
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("scripts/lib/stale.ts");
-    expect(failures[0]).toContain("check/alpha");
-    expect(failures[0]).toContain("not in the computed fixture import closure");
-  });
-
-  it("fails on a declared walkable JS file absent from the closure", () => {
-    // The walker resolves .js/.mjs/.cjs imports, so a declared JS file the
-    // closure no longer reaches is just as stale as a TypeScript one.
-    const failures = diffFixtureClosure({
-      records: [
-        closureRecord("check/alpha", {
-          fixturePaths: ["scripts/check/alpha.ts", "eslint-config/dead-codec.js"],
-        }),
-      ],
-      entryClosures: [{ ownerId: "check/alpha", files: ["scripts/check/alpha.ts"] }],
-    });
-
-    expect(failures).toHaveLength(1);
-    expect(failures[0]).toContain("eslint-config/dead-codec.js");
-    expect(failures[0]).toContain("not in the computed fixture import closure");
-  });
-
-  it("allows declared non-walkable runtime inputs absent from the closure", () => {
-    const failures = diffFixtureClosure({
-      records: [
-        closureRecord("check/alpha", {
-          fixturePaths: [
-            "scripts/check/alpha.ts",
-            "scripts/verify/steps-lib.sh",
-            "docs/guides/runbook.md",
-            "eslint-config/manifest.json",
-          ],
-        }),
-      ],
-      entryClosures: [{ ownerId: "check/alpha", files: ["scripts/check/alpha.ts"] }],
-    });
-
-    expect(failures).toEqual([]);
+    expect(record?.triggerPaths).toContain(authority);
   });
 });
 
@@ -680,8 +476,15 @@ describe("loadGeneratedSurfaces (validation)", () => {
     expect(() => loadGeneratedSurfaces(root)).toThrow(/bun run/u);
   });
 
-  it("accepts declared fixturePaths as an optional string array", () => {
-    const records = loadGeneratedSurfaces(makeFacetRoot({ fixturePaths: ["scripts/a.ts"] }));
-    expect(records[0]?.fixturePaths).toEqual(["scripts/a.ts"]);
+  it("accepts fixtureExtras only when every path carries a reason", () => {
+    const fixtureExtras = [{ path: "scripts/a.sh", reason: "Runtime fixture helper." }];
+    const records = loadGeneratedSurfaces(makeFacetRoot({ fixtureExtras }));
+    expect(records[0]?.fixtureExtras).toEqual(fixtureExtras);
+
+    expect(() =>
+      loadGeneratedSurfaces(
+        makeFacetRoot({ fixtureExtras: [{ path: "scripts/a.sh", reason: "" }] }),
+      ),
+    ).toThrow(/fixtureExtras\.0\.reason/u);
   });
 });

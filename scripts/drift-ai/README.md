@@ -158,13 +158,13 @@ Implemented checks:
 | `ghost-files`         |                  Yes | Suspicious sibling modules such as `foo-helper.ts` beside `foo.ts` | Uses filename tokens and directory peers; configurable allow-pairs for known-good current-state siblings. In `current` scope, established role-split families are suppressed (see below).                                                            |
 | `comments`            |                  Yes | Over-narrated files with high comment-to-code ratios               | Honors `checks.comments.excludePrefixes`.                                                                                                                                                                                                            |
 | `commented-out-code`  |               Opt-in | Tombstoned code blocks left behind in comments                     | Flags consecutive comment runs that parse cleanly as operative code; `checks.commented-out-code.minLines` / `excludePrefixes`. Evidence only — it does not call the code dead.                                                                       |
-| `suppressions`        | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason.                                                                                                                                                                                                 |
+| `suppressions`        | Yes in changed scope | Newly added `eslint-disable` / `@ts-*` suppressions                | Diff-only; skipped in `current` scope with a reason and the `changed-scope-only` code.                                                                                                                                                                                                 |
 | `module-doc-paths`    |               Opt-in | Stale backtick **file** references in `MODULE.md` / `*-MODULE.md`  | Path existence only (symbols in prose are out of scope); resolves across candidate bases, so it favors precision over recall. Scans every module doc under the roots regardless of scope.                                                            |
 | `orphan-files`        |               Opt-in | Never-imported files from the target's knip config                 | Adapter finding provenance is `[target-config]`; skips when the target cannot support a trustworthy knip run.                                                                                                                                        |
 | `knip-duplicates`     |               Opt-in | Duplicate export aliases from knip                                 | Same knip adapter as `orphan-files` (`[target-config]`, identical skips). Separate from jscpd `duplicates`, which reports source clone blocks.                                                                                                       |
 | `unused-exports`      |               Opt-in | Unused exported symbols/types/enum & namespace members from knip   | Same knip adapter as `orphan-files` (`[target-config]`, identical skips); each finding is tagged `details.category`, and a symbol that is also `@deprecated` gains `details.deprecated`. Shares a single knip spawn with other selected knip checks. |
 | `import-cycles`       |               Opt-in | Circular import components                                         | Uses ts-morph/TypeScript resolution; type-only cycles are labeled.                                                                                                                                                                                   |
-| `layer-direction`     |               Opt-in | Server `utils`/`services` reverse layer imports                    | Uses the resolved TypeScript graph; starts with `utils -> services` and `services -> routers` bans. Findings carry `[drift-baseline]` provenance.                                                                                                    |
+| `layer-direction`     |               Opt-in | Reverse imports across configured source layers                    | Uses the resolved TypeScript graph; rules come from `checks.layer-direction` (built-in default: zero rules — Musi's bans live in `drift-ai.config.json`), and zero-rule or zero-match runs emit explicit notices. Findings carry `[drift-baseline]` provenance. |
 | `near-duplicates`     |               Opt-in | Fuzzy and small exact function clones                              | Report-only union of unchanged fuzzy 8/45/0.85 matching and parser-token exact 3/15 matching under `scripts/**` and `eslint-rules/**`; exact bucket overflow is diagnostic and the exact tier is not in the blocking sensor.                            |
 | `duplicate-types`     |               Opt-in | Repeated interface/type-literal property shapes                    | Exact ts-morph structural hashes over non-function type shapes; filters tiny shapes with `minProps`. Findings carry `[drift-baseline]` provenance.                                                                                                   |
 | `duplicate-schemas`   |               Opt-in | Repeated object-schema key shapes                                  | Exact ts-morph structural hashes over `<receiver>.object({...})` chains; filters tiny schemas with `minKeys`. Findings carry `[drift-baseline]` provenance.                                                                                          |
@@ -347,7 +347,21 @@ role split, not because drift:ai verified the two modules are independent. The
 suppression is deliberately scoped to `current`; the `changed` pass still surfaces
 a freshly added `foo-types.ts` so a new companion gets one look. For a residual
 current-state pair the heuristic cannot classify (two distinct modules that happen
-to be a near-edit apart), use `checks.ghost-files.currentAllowedPairs`.
+to be a near-edit apart), use `checks.ghost-files.currentAllowedPairs`. Each entry
+must provide the normalized pair under `files` and a nonblank `rationale` that
+states both the present structural reason the modules remain separate and the
+condition for removing the exception. Keep ticket names, line deltas, and change
+history in Git rather than in this durable metadata. For example:
+
+```json
+{
+  "files": ["src/widget-helpers.ts", "src/widget.ts"],
+  "rationale": "widget-helpers.ts remains the pure calculation seam consumed by widget.ts; remove this exception when those calculations are consolidated or move behind a differently named module."
+}
+```
+
+The rationale is retained for review and effective-config inspection, but pair
+matching continues to use only the normalized `files` tuple.
 
 ### The `orphan-files` check (knip adapter)
 
@@ -487,13 +501,25 @@ findings' FIX hints.
 
 ### The `layer-direction` check (ts-morph)
 
-`layer-direction` surfaces resolved reverse imports across Musi's server source
-layers. It starts with two report-only rules: files under
-`packages/server/src/utils/` must not import `packages/server/src/services/`, and
-files under `packages/server/src/services/` must not import
-`packages/server/src/routers/`. It reuses the same TypeScript module graph as
-`import-cycles`, so relative imports and tsconfig path aliases are resolved before
-the rule runs.
+`layer-direction` surfaces resolved reverse imports across configured source
+layers. The rules are repo policy supplied by config, not built in: each entry
+under `checks.layer-direction.rules` bans imports from one path prefix into
+another — `{ id, sourceLayer, sourcePrefix, targetLayer, targetPrefix, hint }`,
+where the layer labels are free strings used in the finding prose — and
+`checks.layer-direction.allowedEdges` lists explicit directional
+`[source, target]` file-pair exceptions. The **built-in default is zero rules**,
+per the config-discovery contract above: a foreign target never inherits Musi's
+server topology. Musi's own two rules (`packages/server/src/utils/` must not
+import `packages/server/src/services/`; `packages/server/src/services/` must not
+import `packages/server/src/routers/`) and its two allowed test-fixture edges
+live in the committed `drift-ai.config.json`. The check reuses the same
+TypeScript module graph as `import-cycles`, so relative imports and tsconfig
+path aliases are resolved before the rules run.
+
+An empty result is never silently authoritative: a run with zero rules
+configured skips with an explicit notice (instead of reporting an empty "OK"),
+and a configured rule whose prefixes match zero files in the module graph is
+named on stderr rather than passing as a clean layering verdict.
 
 Findings name the source file, the resolved target file (`details.targetFile`),
 the source/target layers, and whether the edge is type-only. Type-only reverse
@@ -502,10 +528,7 @@ stamped `[drift-baseline]`, and the check is **opt-in** until field runs prove t
 rules are low-noise: enable it with `--check layer-direction` or `--check all`.
 
 The check shares the import graph skip behavior: no tsconfig or a too-partial
-graph becomes a skip with a reason, not a finding. The current allowlist contains
-only the known test fixture edge
-`packages/server/src/utils/character-mapping.test.ts ->
-packages/server/src/services/character-create.ts`.
+graph becomes a skip with a reason, not a finding.
 
 ### The `near-duplicates` check (ts-morph)
 
@@ -534,14 +557,75 @@ functions or total projections above 50,000 pairs produce a bounded diagnostic
 finding instead of truncating or certifying clean.
 
 Advanced: a target config may set `checks.near-duplicates.engine` to
-`"similarity-ts"` to use the optional Rust binary (`cargo install
-similarity-ts`). If that binary is not on `PATH`, the check skips with
+`"similarity-ts"` to use the optional Rust binary (`cargo install similarity-ts
+--version 0.5.0 --locked`). If that binary is not on `PATH`, the check skips with
 `code: tool-not-installed` rather than emitting a finding. Both engines scan the
 same filtered inventory: drift's ignore config, `excludeGlobs`, configured
 `sourceExtensions`, and `.d.ts` exclusion are resolved once, and similarity-ts
 receives that explicit file list as positional paths rather than the raw roots —
 so it never reaches ignored, excluded, unsupported-extension, or declaration
 files.
+
+The adapter supports **similarity-ts 0.5.0** and invokes `--no-types` so stdout
+contains only the function-similarity section. Under this pinned contract,
+`minTokens` is the effective function-size floor and configured `minLines` does
+not reach the similarity-ts engine. Version 0.5.0 gives its optional `min_lines`
+argument a default and discards it whenever `min_tokens` is present, falling
+back to three lines while retaining the token floor. This is the pre-existing
+effective behavior, preserved deliberately so this adapter hardening does not
+retune detection or move the near-duplicates baseline; the adapter omits the
+inert explicit `--min-lines` argument. The pinned tool still emits its misleading
+both-arguments warning because its own default makes `min_lines` present.
+
+The complete accepted text grammar is the fixed run and function headers. A
+valid zero-pair result can then be the no-source-files sentinel in place of the
+checking header:
+
+```text
+Analyzing code similarity...
+=== Function Similarity ===
+No TypeScript/JavaScript files found in the specified paths.
+```
+
+This occurs when the filtered inventory is non-empty but contains only configured
+additional extensions that similarity-ts does not parse. The other zero-pair
+form follows the checking header:
+
+```text
+Analyzing code similarity...
+=== Function Similarity ===
+Checking <positive integer> files for duplicates...
+
+No duplicate functions found!
+```
+
+The pair form instead carries the declared pair count, 60-character rule, and
+score-first three-line records (blank separator lines are allowed):
+
+```text
+Analyzing code similarity...
+=== Function Similarity ===
+Checking <positive integer> files for duplicates...
+Found <positive integer> duplicate pairs:
+------------------------------------------------------------
+Similarity: <percent>%, Score: <score> points (lines <min>~<max>, avg: <average>)
+  <path>:<start>-<end> <function name>
+  <path>:<start>-<end> <function name>
+```
+
+Empty or blank-only stdout is not a valid 0.5.0 response. Every non-blank line
+must belong to the complete selected form, and the declared pair count must
+match the records; otherwise the check reports an analyzer diagnostic with a
+bounded stdout excerpt instead of a clean empty scan. The adapter passes neither
+function filter option, so it rejects the filter-only zero-pair sentinel that
+0.5.0 can print only after applying one of those filters.
+
+This contract is derived from the vendored Cargo registry sources at
+`similarity-ts-0.5.0/src/main.rs:11-214` (CLI, size-floor resolution, and section
+selection) and
+`similarity-ts-0.5.0/src/check.rs:108-232,354-386` (sentinels, headers, records,
+and unconditional within-/cross-file collection). Upgrade the pin and adapter
+together; incompatible presentation changes fail closed.
 
 ### The duplicate value checks (ts-morph)
 
@@ -694,6 +778,11 @@ not apply.
 Any example config is an **illustrative starting point**, not an authoritative
 default. drift:ai's built-in defaults (universal ignores, etc.) are the real
 defaults; the example just shows the shape and common knobs.
+
+The example includes a `layer-direction` starter rule because that check has
+**no** built-in rules at all: layering policy is repository policy, so it always
+comes from your config. Copy the rule shape and swap in your own layer names and
+path prefixes (and prune `allowedEdges` down to your own known exceptions).
 
 Top-level `coverage.artifacts` is an evidence-source list for prototype coverage
 surfaces. Each entry is read-only and has a repo-relative artifact path plus a

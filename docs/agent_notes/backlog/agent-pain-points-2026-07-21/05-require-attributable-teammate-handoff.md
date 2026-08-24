@@ -5,7 +5,9 @@ Date: 2026-07-21
 Priority: P2
 Size: S (probe); M (implementation, conditional)
 Risk: medium
-Source: `pain_points.log` — implementer subagents drop their final report
+Source:
+`/home/node/persist/musi/pain_points/subagents-and-review-convergence.md` —
+implementer subagents drop their final report
 
 ## Problem
 

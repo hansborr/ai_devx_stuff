@@ -41,6 +41,30 @@ CODEX_PRE="$REPO_ROOT/.codex/hooks/pre-tool-use.sh"
 
 bash "$SCRIPT_DIR/check-wiring.sh" >/dev/null
 
+await_holder_ready() {
+  local ready="$1" holder="$2" resource="$3" ticks=0
+
+  until [ -e "$ready" ] || ! kill -0 "$holder" 2>/dev/null || [ "$ticks" -ge 200 ]; do
+    sleep 0.05
+    ticks=$((ticks + 1))
+  done
+  if [ ! -e "$ready" ] || ! kill -0 "$holder" 2>/dev/null; then
+    kill "$holder" 2>/dev/null || true
+    wait "$holder" 2>/dev/null || true
+    fail "$resource holder did not signal readiness at $ready"
+  fi
+}
+
+STALE_HOLDER_READY="$TMP_ROOT/stale-holder.ready"
+: > "$STALE_HOLDER_READY"
+(exit 0) &
+STALE_HOLDER_PID=$!
+wait "$STALE_HOLDER_PID"
+if (await_holder_ready "$STALE_HOLDER_READY" "$STALE_HOLDER_PID" "stale lock") \
+  >/dev/null 2>&1; then
+  fail "holder readiness accepted a marker after its owner exited"
+fi
+
 NESTED_REPO="$TMP_ROOT/nested-repo"
 mkdir -p "$NESTED_REPO"
 git -C "$NESTED_REPO" init -q
@@ -78,6 +102,23 @@ assert_policy_allows() {
   if ai_policy_violation_reason "$cmd" >/dev/null; then
     fail "policy unexpectedly blocked [$cmd]"
   fi
+  assert_claude_native_allows "$cmd"
+}
+
+assert_policy_decision_record() {
+  local cmd="$1"
+  local expected_verdict="$2"
+  local expected_rule_id="$3"
+  local expected_message="$4"
+  local -A decision=()
+
+  ai_policy_decision decision "$cmd"
+  [ "${decision[verdict]}" = "$expected_verdict" ] \
+    || fail "policy verdict mismatch for [$cmd]: ${decision[verdict]}"
+  [ "${decision[ruleId]}" = "$expected_rule_id" ] \
+    || fail "policy rule id mismatch for [$cmd]: ${decision[ruleId]}"
+  [ "${decision[message]}" = "$expected_message" ] \
+    || fail "policy decision message mismatch for [$cmd]"
 }
 
 assert_policy_advisory_contains() {
@@ -108,6 +149,7 @@ assert_policy_allows_in_dir() {
   if (cd "$dir" && ai_policy_violation_reason "$cmd" >/dev/null); then
     fail "policy unexpectedly blocked [$cmd] in [$dir]"
   fi
+  assert_claude_native_allows "$cmd"
 }
 
 assert_policy_blocks_each() {
@@ -147,135 +189,442 @@ assert_policy_allows_in_checkout_shapes() {
   assert_policy_allows_in_dir "$checkout" "git -C $checkout ${command#git }"
 }
 
-claude_destructive_git_family() {
-  local entry="$1"
+assert_claude_matcher_accepts_fixture() {
+  local matcher="$1"
+  local command="$2"
+  local pattern="${matcher#Bash(}"
 
-  if [[ "$entry" == *" commit "* || "$entry" == *" commit"* ]]; then
-    if [[ "$entry" == *"--amend"* ]]; then
-      printf '%s\n' commit-amend
-      return 0
-    fi
-    if [[ "$entry" == *"--no-verify"* ]]; then
-      printf '%s\n' commit-hook-bypass
-      return 0
-    fi
-  elif [[ "$entry" == *" push "* ]]; then
-    if [[ "$entry" == *"--prune"* ]]; then
-      printf '%s\n' push-prune
-    elif [[ "$entry" == *"--delete"* || "$entry" == *" -d"* || "$entry" == *" :"* ]]; then
-      printf '%s\n' push-delete
-    else
-      printf '%s\n' push-force
-    fi
-    return 0
-  elif [[ "$entry" == *" reset "* ]]; then
-    printf '%s\n' reset-ref-or-index
-    return 0
-  elif [[ "$entry" == *" clean "* ]]; then
-    printf '%s\n' clean-force
-    return 0
-  elif [[ "$entry" == *" branch "* ]]; then
-    if [[ "$entry" == *"--delete"* || "$entry" == *"-D"* || "$entry" == *"-df"* || "$entry" == *"-fd"* ]]; then
-      printf '%s\n' branch-force-delete
-    elif [ "$entry" = 'Bash(git branch *--force*)' ]; then
-      printf '%s\n' branch-force-long
-    elif [ "$entry" = 'Bash(git branch -f*)' ]; then
-      printf '%s\n' branch-force-f-leading
-    elif [ "$entry" = 'Bash(git branch * -f*)' ]; then
-      printf '%s\n' branch-force-f-after
-    elif [ "$entry" = 'Bash(git branch -M*)' ]; then
-      printf '%s\n' branch-force-move-leading
-    elif [ "$entry" = 'Bash(git branch * -M*)' ]; then
-      printf '%s\n' branch-force-move-after
-    elif [ "$entry" = 'Bash(git branch -C*)' ]; then
-      printf '%s\n' branch-force-copy-leading
-    elif [ "$entry" = 'Bash(git branch * -C*)' ]; then
-      printf '%s\n' branch-force-copy-after
-    else
-      return 1
-    fi
-    return 0
-  elif [[ "$entry" == *" tag "* ]]; then
-    if [[ "$entry" == *"--delete"* || "$entry" == *" -d"* ]]; then
-      printf '%s\n' tag-delete
-    else
-      printf '%s\n' tag-force-update
-    fi
-    return 0
-  elif [[ "$entry" == *" worktree remove "* ]]; then
-    printf '%s\n' worktree-force-remove
-    return 0
-  elif [[ "$entry" == *" checkout "* ]]; then
-    if [[ "$entry" == *"--force"* || "$entry" == *" -f"* ]]; then
-      printf '%s\n' checkout-force
-    else
-      printf '%s\n' checkout-path-discard
-    fi
-    return 0
-  elif [[ "$entry" == *" switch "* ]]; then
-    printf '%s\n' switch-force
-    return 0
-  elif [[ "$entry" == *" restore "* ]]; then
-    printf '%s\n' restore-worktree
-    return 0
-  elif [[ "$entry" == *" filter-branch"* || "$entry" == *" filter-repo"* || "$entry" == *" replace"* || "$entry" == *" update-ref"* || "$entry" == *" reflog expire"* ]]; then
-    printf '%s\n' history-rewrite
-    return 0
-  fi
-
-  return 1
+  pattern="${pattern%)}"
+  case "$matcher" in
+    'Bash(gh '*)
+      pattern="${pattern%':*'}"
+      [[ "$command" == "$pattern"* ]] \
+        || fail "Claude matcher fixture [$command] does not match [$matcher]"
+      ;;
+    *)
+      # Intentional: the Claude matcher is itself a glob pattern.
+      # shellcheck disable=SC2053
+      [[ "$command" == $pattern ]] \
+        || fail "Claude matcher fixture [$command] does not match [$matcher]"
+      ;;
+  esac
 }
 
-assert_claude_destructive_git_parity() {
-  local corpus_file="$TMP_ROOT/claude-destructive-git-corpus.tsv"
-  local native_families_file="$TMP_ROOT/claude-destructive-git-families.txt"
-  local entry family command expected
+assert_claude_native_allows() {
+  local command="$1"
+  local rule_id matcher
 
-  cat > "$corpus_file" <<EOF
-commit-amend|git commit --amend|$AI_POLICY_GIT_AMEND
-commit-hook-bypass|git commit --no-verify|$AI_POLICY_HOOK_BYPASS
-push-force|git push --force|$AI_POLICY_GIT_FORCE_PUSH
-push-delete|git push --delete origin feat/foo|$AI_POLICY_GIT_FORCE_PUSH
-push-prune|git push --prune origin|$AI_POLICY_GIT_FORCE_PUSH
-reset-ref-or-index|git reset --hard HEAD|$AI_POLICY_GIT_RESET
-clean-force|git clean --force|$AI_POLICY_GIT_CLEAN_FORCE
-branch-force-delete|git branch -D feat/foo|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-long|git branch --force feat/foo HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-f-leading|git branch -f feat/foo HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-f-after|git branch feat/foo -f HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-move-leading|git branch -M feat/old feat/new|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-move-after|git branch feat/old -M feat/new|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-copy-leading|git branch -C feat/source feat/copy|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-branch-force-copy-after|git branch feat/source -C feat/copy|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-tag-delete|git tag --delete v1.0.0|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-tag-force-update|git tag --force v1.0.0 HEAD~1|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-worktree-force-remove|git worktree remove --force ../feature|$AI_POLICY_GIT_BRANCH_FORCE_DELETE
-checkout-force|git checkout --force main|$AI_POLICY_GIT_WORKTREE_LOSS
-checkout-path-discard|git checkout -- packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
-switch-force|git switch --force main|$AI_POLICY_GIT_WORKTREE_LOSS
-restore-worktree|git restore --worktree packages/client/src/foo.ts|$AI_POLICY_GIT_WORKTREE_LOSS
-history-rewrite|git update-ref refs/heads/main abc|$AI_POLICY_GIT_HISTORY_REWRITE
+  for rule_id in "${AI_POLICY_RULE_IDS[@]}"; do
+    while IFS= read -r matcher; do
+      [ -n "$matcher" ] || continue
+      if (assert_claude_matcher_accepts_fixture "$matcher" "$command") 2>/dev/null; then
+        fail "Claude native matcher [$matcher] over-denies shared-policy allow fixture [$command]"
+      fi
+    done <<< "${AI_POLICY_RULE_NATIVE_MATCHERS[$rule_id]-}"
+  done
+}
+
+# The command-policy module set that policy.sh sources, single-sourced for this
+# corpus: the fixture copy set, the per-module corruption variants below, and
+# the parity assertion that pins both back to policy.sh all read this one list.
+POLICY_MODULE_NAMES=(command-normalize command-paths git-classify policy-eval)
+
+assert_policy_fragment_failure_blocks() {
+  local fixture_name="$1"
+  local fixture_dir="$TMP_ROOT/policy-fragment-$fixture_name"
+  local expected="$AI_POLICY_RULE_DATA_ERROR"
+  local fixture_result reason module
+  local -a module_files=()
+  local -a fixture_lines=()
+
+  mkdir -p "$fixture_dir"
+  # The parser/evaluator modules must travel with policy.sh: it resolves them as
+  # its own siblings, so a fixture without them trips the fail-closed module
+  # guard and every fragment mutation below would pass without discriminating
+  # anything about the fragment.
+  for module in "${POLICY_MODULE_NAMES[@]}"; do
+    module_files+=("$SCRIPT_DIR/$module.sh")
+  done
+  cp "$SCRIPT_DIR/policy.sh" "$SCRIPT_DIR/classified-bun-scripts.generated.sh" \
+    "${module_files[@]}" "$fixture_dir/"
+  case "$fixture_name" in
+    empty)
+      : > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-empty-class)
+      sed "s/AI_POLICY_RULE_CLASS\['postgres-cli'\]='hard'/AI_POLICY_RULE_CLASS['postgres-cli']=''/" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-empty-ids)
+      sed "s/^declare -ga AI_POLICY_RULE_IDS=.*/declare -ga AI_POLICY_RULE_IDS=()/" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-empty-matchers)
+      sed "s/AI_POLICY_RULE_MATCHERS\['postgres-cli'\]=.*/AI_POLICY_RULE_MATCHERS['postgres-cli']=''/" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-empty-scope)
+      sed "s/AI_POLICY_RULE_SCOPE\['hook-bypass'\]='command'/AI_POLICY_RULE_SCOPE['hook-bypass']=''/" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-missing-class)
+      sed "/AI_POLICY_RULE_CLASS\['postgres-cli'\]=/d" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-missing-id)
+      sed "s/'hook-bypass' //" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-missing-matchers)
+      sed "/AI_POLICY_RULE_MATCHERS\['postgres-cli'\]=/d" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    interior-missing-scope)
+      sed "/AI_POLICY_RULE_SCOPE\['hook-bypass'\]=/d" \
+        "$SCRIPT_DIR/policy-rules.generated.sh" > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+    missing) ;;
+    module-missing-*)
+      # Valid fragment, one parser/evaluator module removed: pins the
+      # fail-closed module guard itself, which every other variant here now
+      # deliberately keeps out of the way. Run per module, because the guard is
+      # load-bearing for a module that is gone while policy-eval.sh loads fine —
+      # there the evaluator answers normally and only the guard denies.
+      cp "$SCRIPT_DIR/policy-rules.generated.sh" "$fixture_dir/"
+      rm "$fixture_dir/${fixture_name#module-missing-}.sh"
+      expected="$AI_POLICY_MODULE_DATA_ERROR"
+      ;;
+    module-empty-*)
+      # Valid fragment, one module truncated to nothing: it sources cleanly and
+      # defines nothing, so `.` reports success and only the module's completion
+      # sentinel can catch it. This is the corruption mode an exit-status check
+      # waves straight through into a silently degraded gate.
+      cp "$SCRIPT_DIR/policy-rules.generated.sh" "$fixture_dir/"
+      : > "$fixture_dir/${fixture_name#module-empty-}.sh"
+      expected="$AI_POLICY_MODULE_DATA_ERROR"
+      ;;
+    truncated)
+      sed -n '1,20p' "$SCRIPT_DIR/policy-rules.generated.sh" \
+        > "$fixture_dir/policy-rules.generated.sh"
+      ;;
+  esac
+
+  fixture_result=$(bash -u -c '
+    . "$1/policy.sh" 2>/dev/null
+    reason=$(ai_policy_violation_reason "git status")
+    printf "%s\n" "$reason"
+    case "$2" in
+      module-*)
+        declare -A decision_record=()
+        ai_policy_decision decision_record "git status"
+        printf "%s\n%s\n%s\n" \
+          "${decision_record[verdict]}" \
+          "${decision_record[ruleId]}" \
+          "${decision_record[message]}"
+        ;;
+    esac
+  ' policy-fragment-fixture "$fixture_dir" "$fixture_name")
+  mapfile -t fixture_lines <<< "$fixture_result"
+  reason="${fixture_lines[0]-}"
+  [ "$reason" = "$expected" ] \
+    || fail "$fixture_name command policy fixture did not fail closed"
+  case "$fixture_name" in
+    module-*)
+      [ "${fixture_lines[1]-}" = "block" ] \
+        && [ "${fixture_lines[2]-}" = "policy-module-data-error" ] \
+        && [ "${fixture_lines[3]-}" = "$expected" ] \
+        || fail "$fixture_name policy decision did not fail closed"
+      ;;
+  esac
+}
+
+# The module set is spelled out in three independent places — policy.sh's source
+# lines, the AI_POLICY_MODULE_DATA_ERROR recovery text, and POLICY_MODULE_NAMES
+# above, which drives the fixtures. A module added to one and missed in another
+# ships either an unpinned failure path or a recovery message that omits the
+# file the agent has to restore, so pin them to each other.
+assert_policy_module_list_parity() {
+  local module sourced_modules expected_modules named_count
+
+  sourced_modules=$(sed -n \
+    's|^\. "\$AI_POLICY_MODULE_DIR/\([a-z0-9-]*\)\.sh".*|\1|p' "$SCRIPT_DIR/policy.sh" \
+    | LC_ALL=C sort)
+  expected_modules=$(printf '%s\n' "${POLICY_MODULE_NAMES[@]}" | LC_ALL=C sort)
+  [ "$sourced_modules" = "$expected_modules" ] \
+    || fail "policy.sh sources modules [$sourced_modules], corpus expects [$expected_modules]"
+
+  for module in "${POLICY_MODULE_NAMES[@]}"; do
+    assert_contains "$AI_POLICY_MODULE_DATA_ERROR" "scripts/ai-hooks/$module.sh"
+  done
+  named_count=$(grep -c . <<< "$(grep -o 'scripts/ai-hooks/[a-z0-9-]*\.sh' \
+    <<< "$AI_POLICY_MODULE_DATA_ERROR")")
+  [ "$named_count" -eq "${#POLICY_MODULE_NAMES[@]}" ] \
+    || fail "AI_POLICY_MODULE_DATA_ERROR names $named_count modules, expected ${#POLICY_MODULE_NAMES[@]}"
+}
+
+assert_command_policy_projection_parity() {
+  local projected_file="$TMP_ROOT/command-policy-projected.tsv"
+  local nonprojected_file="$TMP_ROOT/command-policy-nonprojected.tsv"
+  local main_fixture_repo="$TMP_ROOT/command-policy-main"
+  local rule_id matcher command expected reason context block
+
+  cat > "$projected_file" <<'EOF'
+hook-bypass|Bash(git commit *--no-verify*)|git commit -m x --no-verify
+hook-bypass|Bash(git commit --no-verify*)|git commit --no-verify
+hook-bypass|Bash(git -c * commit *--no-verify*)|git -c core.editor=true commit -m x --no-verify
+git-commit-amend|Bash(git commit *--amend*)|git commit -m x --amend
+git-commit-amend|Bash(git commit --amend*)|git commit --amend
+git-commit-amend|Bash(git -c * commit *--amend*)|git -c core.editor=true commit --amend
+git-dangerous-reset|Bash(git reset *--hard*)|git reset HEAD --hard
+git-dangerous-reset|Bash(git reset *--soft*)|git reset HEAD --soft
+git-dangerous-reset|Bash(git reset *--merge*)|git reset HEAD --merge
+git-dangerous-reset|Bash(git reset *--keep*)|git reset HEAD --keep
+git-dangerous-reset|Bash(git reset HEAD~*)|git reset HEAD~1
+git-dangerous-reset|Bash(git reset * HEAD~*)|git reset --mixed HEAD~1
+git-dangerous-reset|Bash(git reset HEAD^*)|git reset HEAD^1
+git-dangerous-reset|Bash(git reset * HEAD^*)|git reset --mixed HEAD^1
+git-dangerous-reset|Bash(git reset ORIG_HEAD*)|git reset ORIG_HEAD
+git-dangerous-reset|Bash(git reset * ORIG_HEAD*)|git reset --mixed ORIG_HEAD
+git-worktree-loss|Bash(git checkout *--force*)|git checkout main --force
+git-worktree-loss|Bash(git checkout -f*)|git checkout -f main
+git-worktree-loss|Bash(git checkout * -f*)|git checkout main -f
+git-worktree-loss|Bash(git checkout -- *)|git checkout -- foo.ts
+git-worktree-loss|Bash(git checkout * -- *)|git checkout HEAD -- foo.ts
+git-worktree-loss|Bash(git checkout .)|git checkout .
+git-worktree-loss|Bash(git switch *--force*)|git switch main --force
+git-worktree-loss|Bash(git switch -f*)|git switch -f main
+git-worktree-loss|Bash(git switch * -f*)|git switch main -f
+git-worktree-loss|Bash(git restore *--worktree*)|git restore foo.ts --worktree
+git-worktree-loss|Bash(git restore -W*)|git restore -W foo.ts
+git-worktree-loss|Bash(git restore * -W*)|git restore foo.ts -W
+git-worktree-loss|Bash(git restore -- .)|git restore -- .
+git-worktree-loss|Bash(git restore .)|git restore .
+git-history-rewrite|Bash(git filter-branch*)|git filter-branch -- --all
+git-history-rewrite|Bash(git filter-repo*)|git filter-repo
+git-history-rewrite|Bash(git replace*)|git replace old new
+git-history-rewrite|Bash(git update-ref*)|git update-ref refs/heads/main abc
+git-history-rewrite|Bash(git reflog expire *--expire=now*--all*)|git reflog expire --expire=now --all
+git-force-push|Bash(git push *--force*)|git push origin --force
+git-force-push|Bash(git push *--mirror*)|git push origin --mirror
+git-force-push|Bash(git push *--delete*)|git push origin --delete feat/foo
+git-force-push|Bash(git push *--prune*)|git push origin --prune
+git-force-push|Bash(git push -f*)|git push -f origin
+git-force-push|Bash(git push * -f*)|git push origin -f
+git-force-push|Bash(git push -d*)|git push -d origin feat/foo
+git-force-push|Bash(git push * -d*)|git push origin -d feat/foo
+git-force-push|Bash(git push +*)|git push +main
+git-force-push|Bash(git push * +*)|git push origin +main
+git-force-push|Bash(git push :*)|git push :feat/foo
+git-force-push|Bash(git push * :*)|git push origin :feat/foo
+git-branch-force-delete|Bash(git branch *--force*)|git branch feat/foo --force
+git-branch-force-delete|Bash(git branch *--delete*--force*)|git branch feat/foo --delete --force
+git-branch-force-delete|Bash(git branch *--force*--delete*)|git branch feat/foo --force --delete
+git-branch-force-delete|Bash(git branch -D*)|git branch -D feat/foo
+git-branch-force-delete|Bash(git branch * -D*)|git branch feat/foo -D
+git-branch-force-delete|Bash(git branch -f*)|git branch -f feat/foo
+git-branch-force-delete|Bash(git branch * -f*)|git branch feat/foo -f
+git-branch-force-delete|Bash(git branch -df*)|git branch -df feat/foo
+git-branch-force-delete|Bash(git branch * -df*)|git branch feat/foo -df
+git-branch-force-delete|Bash(git branch -fd*)|git branch -fd feat/foo
+git-branch-force-delete|Bash(git branch * -fd*)|git branch feat/foo -fd
+git-branch-force-delete|Bash(git branch -M*)|git branch -M feat/new
+git-branch-force-delete|Bash(git branch * -M*)|git branch feat/old -M feat/new
+git-branch-force-delete|Bash(git branch -C*)|git branch -C feat/copy
+git-branch-force-delete|Bash(git branch * -C*)|git branch feat/source -C feat/copy
+git-branch-force-delete|Bash(git tag *--delete*)|git tag v1 --delete
+git-branch-force-delete|Bash(git tag *--force*)|git tag v1 --force
+git-branch-force-delete|Bash(git tag -d*)|git tag -d v1
+git-branch-force-delete|Bash(git tag * -d*)|git tag v1 -d
+git-branch-force-delete|Bash(git tag -f*)|git tag -f v1
+git-branch-force-delete|Bash(git tag * -f*)|git tag v1 -f
+git-branch-force-delete|Bash(git worktree remove *--force*)|git worktree remove ../feature --force
+git-branch-force-delete|Bash(git worktree remove -f*)|git worktree remove -f ../feature
+git-branch-force-delete|Bash(git worktree remove * -f*)|git worktree remove ../feature -f
+git-clean-force|Bash(git clean -f*)|git clean -f
+git-clean-force|Bash(git clean -df*)|git clean -df
+git-clean-force|Bash(git clean * -f*)|git clean foo -f
+git-clean-force|Bash(git clean * -df*)|git clean foo -df
+git-clean-force|Bash(git clean *--force*)|git clean foo --force
+gh-auth|Bash(gh auth login:*)|gh auth login
+gh-auth|Bash(gh auth logout:*)|gh auth logout
+gh-auth|Bash(gh auth token:*)|gh auth token
+gh-auth|Bash(gh auth refresh:*)|gh auth refresh
+gh-auth|Bash(gh auth setup-git:*)|gh auth setup-git
 EOF
 
-  : > "$native_families_file"
-  while IFS= read -r entry; do
-    family=$(claude_destructive_git_family "$entry") \
-      || fail "unclassified Claude destructive-git deny entry: $entry"
-    printf '%s\n' "$family" >> "$native_families_file"
-  done < <(jq -r '.permissions.deny[] | select(startswith("Bash(git "))' "$REPO_ROOT/.claude/settings.json")
-  sort -u -o "$native_families_file" "$native_families_file"
+  cat > "$nonprojected_file" <<'EOF'
+postgres-cli|command|psql postgres
+redis-cli|command|redis-cli ping
+docker-cli|command|docker ps
+database-password-literal|command|echo ThisIsNotTheRealDatabasePassword
+protected-file-write|predicate|printf x > bun.lock
+git-rebase|command|git rebase main
+git-stash|command|git stash pop
+git-push-to-main|command|git push origin main
+gh-remote-mutation|command|gh pr create
+git-commit-on-main|main|git commit -m fixture
+EOF
 
-  while IFS='|' read -r family command expected; do
-    grep -Fxq "$family" "$native_families_file" \
-      || fail "shared destructive-git parity corpus has no Claude family: $family"
+  while IFS='|' read -r rule_id matcher command; do
+    block="${AI_POLICY_RULE_NATIVE_MATCHERS[$rule_id]-}"
+    grep -Fxq "$matcher" <<< "$block" \
+      || fail "projection fixture names a matcher outside commandPolicy rule $rule_id: $matcher"
+    assert_claude_matcher_accepts_fixture "$matcher" "$command"
+    expected="${AI_POLICY_RULE_MESSAGE[$rule_id]-}"
+    [ -n "$expected" ] || fail "projected commandPolicy rule has no shared reason: $rule_id"
     assert_policy_blocks "$command" "$expected"
-  done < "$corpus_file"
+  done < "$projected_file"
 
-  while IFS= read -r family; do
-    awk -F '|' -v family="$family" '$1 == family { found = 1 } END { exit !found }' "$corpus_file" \
-      || fail "Claude destructive-git family lacks a shared-policy fixture: $family"
-  done < "$native_families_file"
+  for rule_id in "${AI_POLICY_RULE_IDS[@]}"; do
+    block="${AI_POLICY_RULE_NATIVE_MATCHERS[$rule_id]-}"
+    while IFS= read -r matcher; do
+      [ -n "$matcher" ] || continue
+      awk -F '|' -v rule_id="$rule_id" -v matcher="$matcher" \
+        '$1 == rule_id && $2 == matcher { found = 1 } END { exit !found }' "$projected_file" \
+        || fail "projected commandPolicy matcher lacks a shared-policy fixture: $rule_id / $matcher"
+    done <<< "$block"
+  done
+
+  git init -q -b main "$main_fixture_repo"
+  while IFS='|' read -r rule_id context command; do
+    [ -n "${AI_POLICY_RULE_NATIVE_EXCLUSION[$rule_id]-}" ] \
+      || fail "non-projection fixture names a rule without an exclusion: $rule_id"
+    [ -z "${AI_POLICY_RULE_NATIVE_MATCHERS[$rule_id]-}" ] \
+      || fail "intentionally non-projected rule gained native matchers: $rule_id"
+    expected="${AI_POLICY_RULE_MESSAGE[$rule_id]-}"
+    case "$context" in
+      command)
+        assert_policy_blocks "$command" "$expected"
+        ;;
+      main)
+        assert_policy_blocks_in_dir "$main_fixture_repo" "$command" "$expected"
+        ;;
+      predicate)
+        reason=$(ai_policy_violation_reason "$command" || true)
+        [ -n "$reason" ] \
+          || fail "predicate-owned non-projection fixture did not block: $rule_id / $command"
+        ;;
+    esac
+  done < "$nonprojected_file"
+
+  for rule_id in "${AI_POLICY_RULE_IDS[@]}"; do
+    [ -n "${AI_POLICY_RULE_NATIVE_EXCLUSION[$rule_id]-}" ] || continue
+    awk -F '|' -v rule_id="$rule_id" '$1 == rule_id { found = 1 } END { exit !found }' \
+      "$nonprojected_file" \
+      || fail "intentional commandPolicy non-projection lacks a shared-policy fixture: $rule_id"
+  done
+
 }
+
+for fragment_failure in \
+  missing empty truncated \
+  interior-missing-id interior-empty-ids \
+  interior-missing-class interior-empty-class \
+  interior-missing-scope interior-empty-scope \
+  interior-missing-matchers interior-empty-matchers; do
+  assert_policy_fragment_failure_blocks "$fragment_failure"
+done
+
+# Every module, both corruption modes. Per module because the aggregate loaded
+# flag makes all four states look alike today: without a variant per module,
+# nothing pins that each module is actually checked, and a dropped check would
+# let a protected-file write through with the whole corpus still green. Both
+# modes because deleting a module fails the source while emptying one does not,
+# so only the empty half proves completion is decided by more than exit status.
+# Each fixture asserts both facade entry points in the same subprocess: the
+# legacy reason projection and the decision record must both deny.
+for policy_module in "${POLICY_MODULE_NAMES[@]}"; do
+  assert_policy_fragment_failure_blocks "module-missing-$policy_module"
+  assert_policy_fragment_failure_blocks "module-empty-$policy_module"
+done
+
+assert_policy_module_list_parity
+
+assert_policy_decision_record \
+  "git commit --amend --no-edit" block git-commit-amend "$AI_POLICY_GIT_AMEND"
+assert_policy_decision_record \
+  "cp package.json docs/generated/local-lint-rules.md" \
+  block \
+  protected-file-write \
+  "protected-files: Protected generated file: regenerate docs/generated/local-lint-rules.md with 'bun run docs:lint-guidance' instead of editing it by hand."
+assert_policy_decision_record "git status" allow "" ""
+
+nameref_collision_record=$(bash -u -c '
+  . "$1/policy.sh"
+  declare -A cmd=()
+  declare -A decision_record=()
+  ai_policy_decision cmd "git status"
+  ai_policy_decision decision_record "git commit --amend"
+  printf "%s\t%s" "${cmd[verdict]}" "${decision_record[ruleId]}"
+' policy-decision-nameref-fixture "$SCRIPT_DIR")
+[ "$nameref_collision_record" = $'allow\tgit-commit-amend' ] \
+  || fail "policy decision record names collided with boundary implementation locals"
+
+soft_decision_record=$(bash -u -c '
+  . "$1/policy.sh"
+  AI_POLICY_RULE_CLASS[postgres-cli]=soft
+  declare -A advice=()
+  declare -A block=()
+  ai_policy_decision advice "psql"
+  ai_policy_decision block "psql; git commit --amend"
+  printf "%s\t%s\t%s\n%s\t%s\t%s" \
+    "${advice[verdict]}" "${advice[ruleId]}" "${advice[message]}" \
+    "${block[verdict]}" "${block[ruleId]}" "${block[message]}"
+' policy-soft-decision-fixture "$SCRIPT_DIR")
+[ "$soft_decision_record" = \
+  $'advise\tpostgres-cli\t'"$AI_POLICY_POSTGRES"$'\nblock\tgit-commit-amend\t'"$AI_POLICY_GIT_AMEND" ] \
+  || fail "soft command policy row did not stay provisional before a later hard match"
+
+rule_data_decision_record=$(bash -u -c '
+  . "$1/policy.sh"
+  AI_POLICY_RULES_LOADED=0
+  declare -A decision=()
+  ai_policy_decision decision "git status"
+  printf "%s\t%s\t%s" \
+    "${decision[verdict]}" "${decision[ruleId]}" "${decision[message]}"
+' policy-rule-data-decision-fixture "$SCRIPT_DIR")
+[ "$rule_data_decision_record" = $'block\tpolicy-rule-data-error\t'"$AI_POLICY_RULE_DATA_ERROR" ] \
+  || fail "malformed command policy data did not produce the reserved block record"
+
+resourced_policy_result=$(bash -c '
+  . "$1/policy.sh" 2>/dev/null
+  . "$1/policy.sh" 2>/dev/null
+  if ai_policy_violation_reason "git status" >/dev/null; then
+    printf blocked
+  else
+    printf allowed
+  fi
+' policy-resourcing "$SCRIPT_DIR")
+[ "$resourced_policy_result" = "allowed" ] \
+  || fail "sourcing policy.sh twice caused an allowed command to fail closed"
+
+original_rebase_transform="${AI_POLICY_RULE_HAYSTACK_TRANSFORM[git-rebase]}"
+ai_policy_test_failing_transform() {
+  return 1
+}
+for broken_transform in ai_policy_missing_transform ai_policy_test_failing_transform; do
+  AI_POLICY_RULE_HAYSTACK_TRANSFORM[git-rebase]="$broken_transform"
+  broken_transform_stderr="$TMP_ROOT/$broken_transform.stderr"
+  broken_transform_reason=$(ai_policy_violation_reason "git rebase main" \
+    2> "$broken_transform_stderr" || true)
+  [ "$broken_transform_reason" = "$AI_POLICY_RULE_DATA_ERROR" ] \
+    || fail "broken command policy haystack transform did not fail closed: $broken_transform"
+  grep -qF "Command policy haystack transform $broken_transform" "$broken_transform_stderr" \
+    || fail "broken command policy haystack transform did not fail loudly: $broken_transform"
+done
+AI_POLICY_RULE_HAYSTACK_TRANSFORM[git-rebase]="$original_rebase_transform"
+unset -f ai_policy_test_failing_transform
+
+original_hook_bypass_matchers="${AI_POLICY_RULE_MATCHERS[hook-bypass]}"
+AI_POLICY_RULE_MATCHERS[hook-bypass]=$'unsupported\tbroken'
+malformed_matcher_stderr="$TMP_ROOT/malformed-command-policy-matcher.stderr"
+malformed_matcher_reason=$(ai_policy_violation_reason "git status" 2> "$malformed_matcher_stderr")
+AI_POLICY_RULE_MATCHERS[hook-bypass]="$original_hook_bypass_matchers"
+[ "$malformed_matcher_reason" = "$AI_POLICY_RULE_DATA_ERROR" ] \
+  || fail "unsupported command policy matcher kind did not fail closed"
+grep -qF "Unsupported command policy matcher kind unsupported for rule hook-bypass." \
+  "$malformed_matcher_stderr" \
+  || fail "unsupported command policy matcher kind did not fail loudly"
 
 assert_wrapped_bun() {
   local cmd="$1"
@@ -456,7 +805,6 @@ ALLOW_MARKER_POLICY_CONTEXT=$(jq -r '.hookSpecificOutput.additionalContext // em
 assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" ".allow-protected-edits"
 assert_contains "$ALLOW_MARKER_POLICY_CONTEXT" "repo-wide"
 assert_policy_blocks_each "$AI_POLICY_POSTGRES" \
-  "psql postgres" \
   "psql -c 'select 1'" \
   "env PGX=1 psql postgres" \
   "bash -lc 'psql postgres'" \
@@ -465,13 +813,11 @@ assert_policy_blocks_each "$AI_POLICY_POSTGRES" \
   "command psql -c 'select 1'" \
   "nice psql postgres"
 assert_policy_blocks_each "$AI_POLICY_REDIS" \
-  "redis-cli ping" \
   "env REDIS_URL=redis://localhost redis-cli ping" \
   "bash -lc 'redis-cli ping'" \
   "timeout 30 redis-cli ping" \
   "command redis-cli ping"
 assert_policy_blocks_each "$AI_POLICY_DOCKER" \
-  "docker ps" \
   " docker ps" \
   "docker-compose ps" \
   "env FOO=bar docker ps" \
@@ -486,16 +832,10 @@ assert_policy_allows_each \
   "git grep pg_dump" \
   "printf '%s\n' docker" \
   "command git status"
-assert_policy_blocks "echo ThisIsNotTheRealDatabasePassword" "$AI_POLICY_CHANGEME"
-
-# Every destructive Git family denied natively by Claude must have a
-# representative command blocked by the shared Codex/Copilot policy. New
-# native families therefore require an explicit cross-harness fixture.
-assert_claude_destructive_git_parity
-if jq -e '.permissions.deny[] | select(startswith("Bash(git stash"))' \
-  "$REPO_ROOT/.claude/settings.json" >/dev/null; then
-  fail "Claude native permissions must not preempt the shared stash allowlist reason"
-fi
+# Every projected matcher and intentional non-projection is paired back to its
+# commandPolicy rule and a shared-policy fixture. This pins the record seam,
+# not a separately classified family approximation.
+assert_command_policy_projection_parity
 
 assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
   " git commit --amend -m fix" \
@@ -518,7 +858,6 @@ assert_policy_blocks_each "$AI_POLICY_GIT_AMEND" \
 # FEATURE_BRANCH_REPO alongside the other feature-branch commit allows below.
 
 assert_policy_blocks_each "$AI_POLICY_GIT_REBASE" \
-  "git rebase main" \
   "git rebase -i main" \
   "git rebase --onto main feature" \
   "echo ok && git rebase --autosquash main" \
@@ -540,9 +879,7 @@ assert_policy_blocks_each "$AI_POLICY_GIT_RESET" \
   "git reset --soft HEAD~1" \
   "git reset --merge ORIG_HEAD" \
   "git reset --keep HEAD" \
-  "git reset --mixed HEAD~1" \
   "git reset -q HEAD~1" \
-  "git reset HEAD~1" \
   " git reset --hard HEAD" \
   "echo ok && git reset --hard" \
   "bash -lc 'git reset --hard HEAD'" \
@@ -562,19 +899,13 @@ assert_policy_allows_each \
   "git restore --staged packages/client/src/foo.ts"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_WORKTREE_LOSS" \
-  "git checkout -f main" \
   "git checkout --force main" \
-  "git checkout main -f" \
-  "git switch -f main" \
   "git switch --force main" \
   "git checkout -- packages/client/src/foo.ts" \
   "git checkout HEAD -- packages/client/src/foo.ts" \
-  "git checkout ." \
   "git checkout -- ." \
   "git restore --worktree packages/client/src/foo.ts" \
   "git restore -W packages/client/src/foo.ts" \
-  "git restore ." \
-  "git restore -- ." \
   "git restore ./packages/client/src/foo.ts" \
   "git -C . restore --worktree package.json" \
   "env FOO=bar git checkout -- package.json"
@@ -584,6 +915,7 @@ assert_policy_allows_each \
   "git switch main" \
   "git switch -c feat/foo" \
   "git restore --staged packages/client/src/foo.ts" \
+  "git restore ./packages/client/src/foo.ts --staged" \
   "git restore --source=HEAD --staged packages/client/src/foo.ts" \
   "rg \"git checkout --\" docs/" \
   "echo \"git restore .\""
@@ -607,7 +939,6 @@ assert_policy_blocks_each "$AI_POLICY_GIT_STASH" \
   "git stash --quiet" \
   "git stash push" \
   "git stash save" \
-  "git stash pop" \
   "git stash apply" \
   "git stash branch feat/from-stash" \
   "git stash store deadbeef" \
@@ -730,11 +1061,10 @@ assert_policy_blocks_each "$AI_POLICY_GIT_HISTORY_REWRITE" \
   "git filter-branch --tree-filter true" \
   "git filter-repo --path foo" \
   "git replace abc def" \
-  "git update-ref refs/heads/main abc" \
-  "git reflog expire --expire=now --all" \
   "echo ok && git filter-repo --path foo" \
   "bash -lc 'git update-ref refs/heads/main abc'" \
   "env FOO=bar git replace abc def"
+assert_policy_allows "git reflog expire --stale-fix"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   " git push --force" \
@@ -746,10 +1076,7 @@ assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   "git push --force-with-lease=refs/heads/feat/foo origin feat/foo" \
   "git push --mirror origin" \
   "git push --prune origin" \
-  "git push origin +main" \
-  "git push origin :feat/foo" \
   "git push --delete origin feat/foo" \
-  "git push -d origin feat/foo" \
   "echo ok && git push --force" \
   "bash -lc 'git push --force'" \
   "env FOO=bar git push --force"
@@ -758,7 +1085,6 @@ assert_policy_blocks_each "$AI_POLICY_GIT_FORCE_PUSH" \
   "! git push --force"
 assert_policy_blocks_each "$AI_POLICY_GIT_PUSH_MAIN" \
   " git push origin main" \
-  "git push origin main" \
   "git push origin master" \
   "git push origin HEAD:main" \
   "git push origin HEAD:refs/heads/master" \
@@ -860,11 +1186,8 @@ ai_branch_is_protected "" && fail "detached/empty HEAD must not be treated as pr
   || fail "pre-commit guard must allow a commit on a feature branch"
 
 assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
-  "git branch -D feat/foo" \
   "git -C . branch -D feat/foo" \
   "git -c color.ui=false branch -D feat/foo" \
-  "git branch -df feat/foo" \
-  "git branch -fd feat/foo" \
   "git branch -d -f feat/foo" \
   "git branch -f -d feat/foo" \
   "git branch --delete --force feat/foo" \
@@ -879,12 +1202,10 @@ assert_policy_blocks_each "$AI_POLICY_GIT_BRANCH_FORCE_DELETE" \
   "git tag --force v1.0.0 HEAD~1" \
   "git tag -f v1.0.0 HEAD~1" \
   "git worktree remove --force ../feature" \
-  "git worktree remove -f ../feature" \
   "echo ok && git branch -D feat/foo" \
   "bash -lc 'git tag -d v1.0.0'" \
   "env FOO=bar git worktree remove --force ../feature"
 assert_policy_blocks_each "$AI_POLICY_GIT_CLEAN_FORCE" \
-  "git clean -f" \
   "git -C . clean -fd" \
   "git -c clean.requireForce=false clean -fd" \
   "git clean -fd" \
@@ -898,7 +1219,8 @@ assert_policy_allows_each \
   "git branch -m feat/old feat/new" \
   "git branch -c feat/source feat/copy" \
   "git tag v1.0.0" \
-  "git clean -n"
+  "git clean -n" \
+  "git clean -n -e dist/foo"
 
 assert_policy_blocks_contains "printf '%s\n' x > bun.lock" "Protected lockfile"
 assert_policy_blocks_contains "printf '%s\n' x >> scripts/verify/steps.generated.sh" "Protected generated file"
@@ -914,7 +1236,7 @@ assert_policy_blocks_contains "sed -i 's/a/b/' lint-ratchet.baseline.json" "lint
 assert_policy_blocks_contains "printf '%s\n' x | tee docs/generated/harness-controls.md" "Protected generated file"
 assert_policy_blocks_contains "cp package.json docs/generated/local-lint-rules.md" "Protected generated file"
 assert_policy_allows "printf '%s\n' x > docs/generated/README.md"
-assert_policy_allows "printf '%s\n' x >> docs/generated/lint-coverage-map.md"
+assert_policy_blocks_contains "printf '%s\n' x >> docs/generated/lint-coverage-map.md" "Protected generated file"
 assert_policy_allows "printf '%s\n' x | tee docs/generated/observed_flaky_tests.md"
 assert_policy_blocks_contains "install package.json .husky/_/pre-commit" "Protected Husky internals"
 assert_policy_blocks_contains "mv package.json scripts/suppression-register.sh" "suppression registers"
@@ -939,11 +1261,6 @@ assert_policy_allows_each \
 
 assert_policy_blocks_each "$AI_POLICY_GH_AUTH" \
   " gh auth token" \
-  "gh auth token" \
-  "gh auth login" \
-  "gh auth logout" \
-  "gh auth refresh" \
-  "gh auth setup-git" \
   "bash -lc 'gh auth token'" \
   "env FOO=bar gh auth login"
 
@@ -1049,11 +1366,6 @@ assert_policy_allows_each \
   "gh api -X GET search/issues -f q=repo:owner/repo" \
   "gh api graphql -f query='query { viewer { login } }'"
 
-for reason in "$AI_POLICY_DOCKER" "$AI_POLICY_GIT_REBASE" "$AI_POLICY_POSTGRES"; do
-  if ai_policy_is_soft_guidance "$reason"; then
-    fail "policy must stay a hard block: $reason"
-  fi
-done
 assert_policy_allows_each \
   "echo ok" \
   "git status --short" \
@@ -1531,8 +1843,15 @@ assert_protected_file_deny_entry \
   "generated-harness-controls" \
   "bun run docs:harness-controls"
 assert_protected_file_not_denied "$REPO_ROOT/docs/generated/README.md"
-assert_protected_file_not_denied "$REPO_ROOT/docs/generated/lint-coverage-map.md"
 assert_protected_file_not_denied "$REPO_ROOT/docs/generated/observed_flaky_tests.md"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/docs/generated/lint-coverage-map.md" \
+  "generated-lint-coverage-map" \
+  "bun run docs:lint-coverage-map:generate"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/docs/generated/lint-coverage-map.md" \
+  "generated-lint-coverage-map" \
+  "scripts/lint-coverage-map-manifest"
 assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/verify/steps.generated.sh" \
   "generated-verify-steps" \
@@ -1542,9 +1861,17 @@ assert_protected_file_deny_entry \
   "generated-hook-timeouts" \
   "bun run harness:hook-timeouts"
 assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/harness/pre-push-scope-trigger.generated.sh" \
+  "generated-pre-push-scope-trigger" \
+  "bun run harness:pre-push-trigger"
+assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/ai-hooks/classified-bun-scripts.generated.sh" \
   "generated-classified-bun-scripts" \
   "bun run verify:steps"
+assert_protected_file_deny_entry \
+  "$REPO_ROOT/scripts/ai-hooks/policy-rules.generated.sh" \
+  "generated-policy-rules" \
+  "bun run harness:command-policy"
 assert_protected_file_deny_entry \
   "$REPO_ROOT/scripts/tests/harness-check-fixture-manifest.generated.txt" \
   "generated-harness-check-fixture-manifest" \
@@ -1673,8 +2000,10 @@ assert_protected_files_deny \
   "$REPO_ROOT/docs/generated/local-lint-rules.md" \
   "bun run docs:lint-guidance"
 assert_protected_files_allow "$REPO_ROOT/docs/generated/README.md"
-assert_protected_files_allow "$REPO_ROOT/docs/generated/lint-coverage-map.md"
 assert_protected_files_allow "$REPO_ROOT/docs/generated/observed_flaky_tests.md"
+assert_protected_files_deny \
+  "$REPO_ROOT/docs/generated/lint-coverage-map.md" \
+  "bun run docs:lint-coverage-map:generate"
 assert_protected_files_deny \
   "$REPO_ROOT/scripts/verify/steps.generated.sh" \
   "bun run verify:steps"
@@ -2066,14 +2395,16 @@ BUN_BODY_PASS_OUT=$(
 [ "$BUN_BODY_PASS_OUT" = '{"continue":true}' ] || fail "bun body passthrough failed: $BUN_BODY_PASS_OUT"
 
 BUN_HOOK_LOCK="$TMP_ROOT/bun-hook-lock"
+BUN_HOOK_READY="$TMP_ROOT/bun-hook-lock.ready"
 (
   exec 8<>"$BUN_HOOK_LOCK"
   flock -n 8 || exit 1
   printf 'PID=fixture SCRIPT=verify:changed STARTED=now\n' > "$BUN_HOOK_LOCK"
+  : > "$BUN_HOOK_READY"
   sleep 3
 ) &
 BUN_HOOK_HOLDER=$!
-sleep 0.2
+await_holder_ready "$BUN_HOOK_READY" "$BUN_HOOK_HOLDER" "bun verify lock"
 BUN_HOOK_OUT=$(
   printf '{"tool_input":{"command":"bun run verify:changed","run_in_background":false}}' \
     | AI_BUN_LOCK="$BUN_HOOK_LOCK" AI_BUN_LOCK_WAIT=1 bash "$BUN_HOOK"
@@ -2086,14 +2417,16 @@ assert_not_contains "$BUN_HOOK_OUT" 'flock '"$BUN_HOOK_LOCK"' true && echo FREE'
 assert_not_contains "$BUN_HOOK_OUT" 'Monitor'
 
 BUN_DEFAULT_WAIT_OUT=$(
+  ready="$TMP_ROOT/bun-default-wait-lock.ready"
   (
     exec 8<>"$TMP_ROOT/bun-default-wait-lock"
     flock -n 8 || exit 1
     printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$TMP_ROOT/bun-default-wait-lock"
+    : > "$ready"
     sleep 2
   ) &
   holder=$!
-  sleep 0.2
+  await_holder_ready "$ready" "$holder" "default bun lock"
   printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
     | AI_BUN_LOCK="$TMP_ROOT/bun-default-wait-lock" \
       MUSI_INTERACTIVE_TIMEOUT=1 \
@@ -2106,6 +2439,7 @@ assert_contains "$BUN_DEFAULT_WAIT_OUT" 'Waited 1s'
 assert_claude_bun_lock_wait_subtracts_watchdog_budget() {
   local fake_bin="$TMP_ROOT/fake-bun-budget-bin"
   local lock="$TMP_ROOT/bun-budget-lock"
+  local ready="$TMP_ROOT/bun-budget-lock.ready"
   local hook_out reason second
 
   mkdir -p "$fake_bin"
@@ -2128,10 +2462,11 @@ SH
     exec 8<>"$lock"
     flock -n 8 || exit 1
     printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$lock"
+    : > "$ready"
     sleep 1.2
   ) &
   holder=$!
-  sleep 0.2
+  await_holder_ready "$ready" "$holder" "bun wait-budget lock"
 
   hook_out=$(
     printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
@@ -2154,6 +2489,7 @@ SH
 
 assert_claude_bun_timeout_clamps_to_hook_margin() {
   local lock="$TMP_ROOT/bun-timeout-clamp-lock"
+  local ready="$TMP_ROOT/bun-timeout-clamp-lock.ready"
   local hook_out="$TMP_ROOT/bun-timeout-clamp.out"
   local hook_err="$TMP_ROOT/bun-timeout-clamp.err"
   local reason
@@ -2162,10 +2498,11 @@ assert_claude_bun_timeout_clamps_to_hook_margin() {
     exec 8<>"$lock"
     flock -n 8 || exit 1
     printf 'PID=fixture SCRIPT=lint STARTED=now\n' > "$lock"
+    : > "$ready"
     sleep 2
   ) &
   holder=$!
-  sleep 0.2
+  await_holder_ready "$ready" "$holder" "bun timeout-clamp lock"
 
   printf '{"tool_input":{"command":"bun run lint","run_in_background":false}}' \
     | AI_BUN_LOCK="$lock" \
@@ -2392,16 +2729,18 @@ assert_git_commit_quiet_body_non_commit_passthrough() {
 
 assert_git_commit_quiet_lock_contention_fail_fast() {
   local lock="$TMP_ROOT/git-commit-quiet-held-lock"
+  local ready="$TMP_ROOT/git-commit-quiet-held-lock.ready"
   local hook_out reason
 
   (
     exec 8<>"$lock"
     flock -n 8 || exit 1
     printf 'PID=fixture STARTED=now\n' > "$lock"
+    : > "$ready"
     sleep 2
   ) &
   holder=$!
-  sleep 0.2
+  await_holder_ready "$ready" "$holder" "git commit worktree lock"
 
   hook_out=$(
     # git-commit-quiet.sh runs the commit-policy preflight against the resolved
@@ -3052,10 +3391,11 @@ commit_quiet_payload() {
 # COMMAND POSITION; the routing classifier keeps matching the same text so the
 # wrapper's guards are not weakened.
 assert_commit_verdict_classifier_is_token_aware() {
-  local grep_cmd printf_cmd heredoc_cmd multiline_cmd
+  local grep_cmd printf_cmd heredoc_cmd heredoc_body_cmd multiline_cmd
   grep_cmd='grep -c "cd /lane && git commit -m x" /tmp/assertions.txt'
   printf_cmd='printf "%s\n" "lane note: cd /lane && git commit -m x said no landing" >> /tmp/pain.log'
   heredoc_cmd=$'cat > /tmp/l9-notes.txt <<\'NOTES\'\nExample only: git commit -m x\nNOTES'
+  heredoc_body_cmd=$'cat > /tmp/l9-notes.txt <<\'NOTES\'\ngit commit -m x\nNOTES'
   multiline_cmd=$'cd /lane\ngit commit -m "real multi-line commit"'
 
   # The two observed false-positive shapes: text that merely contains a commit.
@@ -3065,6 +3405,13 @@ assert_commit_verdict_classifier_is_token_aware() {
     || fail "verdict: a printf appending a log line is not a commit invocation"
   ! ai_is_real_git_commit_cmd "$heredoc_cmd" \
     || fail "verdict: a heredoc body naming git commit is not a commit invocation"
+  # The case above is decided by the lexer alone: once newlines read as command
+  # separators, that body line starts with `Example`, not `git`. This one starts
+  # with `git commit`, so only the heredoc-aware view of the command keeps it out
+  # of command position — it is the assertion that fails if the verdict stops
+  # routing through ai_strip_noncommand_text.
+  ! ai_is_real_git_commit_cmd "$heredoc_body_cmd" \
+    || fail "verdict: a heredoc body line that starts with git commit is still data"
   ! ai_is_real_git_commit_cmd 'git log --format=%s -1 && echo "committed"' \
     || fail "verdict: a read-only git command must not read as a commit"
 
@@ -3360,6 +3707,266 @@ assert_commit_verdict_still_reports_real_no_landing() {
   assert_contains "$report" "$head_before"
 }
 
+assert_precommit_failure_directory_ladder() {
+  local wt state_root target_dir caller_dir producer_dir musi_dir adapter_dir
+  local output footer summary
+
+  wt=$(wt_new_lane feat/lane-failure-evidence wt-failure-evidence)
+  state_root="$TMP_ROOT/failure-evidence-state"
+  target_dir=$(MUSI_VERIFY_STATE_ROOT="$state_root" musi_standard_verify_log_dir "$wt")
+  caller_dir="$TMP_ROOT/failure-evidence-caller"
+  producer_dir="$TMP_ROOT/failure-evidence-producer"
+  musi_dir="$wt/relative-musi-override"
+  adapter_dir="$TMP_ROOT/failure-evidence-adapter-override"
+  mkdir -p "$target_dir" "$caller_dir" "$producer_dir" "$musi_dir" "$adapter_dir"
+
+  printf 'target lane evidence\n' > "$target_dir/test.log"
+  printf 'wrong caller evidence\n' > "$caller_dir/test.log"
+  printf 'producer footer evidence\n' > "$producer_dir/test.log"
+  printf 'MUSI override evidence\n' > "$musi_dir/test.log"
+  printf 'adapter override evidence\n' > "$adapter_dir/test.log"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: test'
+  footer="verify: failure logs: $producer_dir (per-slot <slot>.log; wiped by the next verify/pre-commit run — read or copy first)"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary "$output"$'\n'"$footer" "$caller_dir" "$wt" "" "")
+  assert_contains "$summary" "producer footer evidence"
+  assert_contains "$summary" "$producer_dir/test.log"
+  assert_not_contains "$summary" "wrong caller evidence"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary "$output" "$caller_dir" "$wt" "" "")
+  assert_contains "$summary" "target lane evidence"
+  assert_contains "$summary" "$target_dir/test.log"
+  assert_not_contains "$summary" "wrong caller evidence"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary "$output" "$caller_dir" "$wt" "relative-musi-override" "$adapter_dir")
+  assert_contains "$summary" "MUSI override evidence"
+  assert_not_contains "$summary" "adapter override evidence"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary "$output" "$caller_dir" "$wt" "" "$adapter_dir")
+  assert_contains "$summary" "adapter override evidence"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary \
+      "$output"$'\n'"--- test (full log: $producer_dir/test.log) ---"$'\n'"$footer"$'\ntrailing output' \
+      "$caller_dir" "$wt" "" "")
+  assert_contains "$summary" "target lane evidence"
+  assert_not_contains "$summary" "producer footer evidence"
+
+  summary=$(MUSI_VERIFY_STATE_ROOT="$state_root" \
+    ai_precommit_failure_summary \
+      "$output"$'\n'"verify: failure logs: $producer_dir" \
+      "$caller_dir" "$wt" "" "")
+  assert_contains "$summary" "target lane evidence"
+
+  summary=$(ai_precommit_failure_summary "$output" "$caller_dir" "" "" "")
+  assert_contains "$summary" "wrong caller evidence"
+}
+
+assert_precommit_failure_summary_distinguishes_not_run() {
+  local log_dir footer output summary
+
+  log_dir="$TMP_ROOT/not-run-summary"
+  mkdir -p "$log_dir"
+  printf 'memory wait timed out; no slot was launched\n' > "$log_dir/test.log"
+  printf 'memory admission failed for scripts (rc=2)\n' > "$log_dir/scripts.log"
+  printf 'real typecheck failure\n' > "$log_dir/typecheck.log"
+  footer="verify: failure logs: $log_dir (per-slot <slot>.log; wiped by the next verify/pre-commit run — read or copy first)"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed:\nNot run: test scripts\n\nstarting load was 99 on 1 cores\n\nstarting load was 37.25 on 16 cores\n'"$footer"
+  if ! summary=$(ai_precommit_failure_summary "$output" "$TMP_ROOT"); then
+    fail "admission-only summaries should be handled by the pre-commit adapter"
+  fi
+  assert_contains "$summary" "Passed: lint"
+  assert_contains "$summary" "Failed:"
+  assert_contains "$summary" "Not run: test scripts"
+  assert_contains "$summary" "--- test (not run; full log: $log_dir/test.log) ---"
+  assert_contains "$summary" "no slot was launched"
+  assert_contains "$summary" "--- scripts (not run; full log: $log_dir/scripts.log) ---"
+  assert_contains "$summary" "memory admission failed for scripts (rc=2)"
+  assert_contains "$summary" "starting load was 37.25 on 16 cores"
+  assert_not_contains "$summary" "starting load was 99 on 1 cores"
+  assert_not_contains "$summary" "$AI_FLAKY_NOTE"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: typecheck\n\n--- typecheck (full log: decoy) ---\nstarting load was 99 on 1 cores\n\n'"$footer"
+  summary=$(ai_precommit_failure_summary "$output" "$TMP_ROOT")
+  assert_not_contains "$summary" "starting load was 99 on 1 cores"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: typecheck\nNot run: test\n'"$footer"
+  summary=$(ai_precommit_failure_summary "$output" "$TMP_ROOT")
+  assert_contains "$summary" "--- typecheck (last 30 lines; full log: $log_dir/typecheck.log) ---"
+  assert_contains "$summary" "real typecheck failure"
+  assert_contains "$summary" "--- test (not run; full log: $log_dir/test.log) ---"
+  assert_not_contains "$summary" "--- test (last 30 lines;"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: test\n'"$footer"
+  summary=$(ai_precommit_failure_summary "$output" "$TMP_ROOT")
+  assert_contains "$summary" "--- test (last 30 lines; full log: $log_dir/test.log) ---"
+  assert_contains "$summary" "$AI_FLAKY_NOTE"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: typecheck\n\n--- typecheck (full log: '"$log_dir"$'/typecheck.log) ---\nreal typecheck failure\nNot run: scripts\n'"$footer"
+  summary=$(ai_precommit_failure_summary "$output" "$TMP_ROOT")
+  assert_contains "$summary" "--- typecheck (last 30 lines; full log: $log_dir/typecheck.log) ---"
+  assert_not_contains "$summary" "--- scripts (not run;"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed:\nNot run:'
+  if ai_precommit_failure_summary "$output" "$TMP_ROOT" >/dev/null; then
+    fail "empty failed and not-run lists should preserve the generic fallback"
+  fi
+}
+
+assert_adapter_failure_footer_uses_producer_dir() {
+  local wt caller_dir producer_dir target_dir musi_dir adapter_dir output_file footer output cmd opaque_cmd fallback_cmd payload
+  local claude_out codex_out copilot_out report
+
+  wt="$TMP_ROOT/adapter-failure-repo"
+  git init -q -b feat/failure-evidence "$wt"
+  git -C "$wt" config user.email test@example.invalid
+  git -C "$wt" config user.name Test
+  printf 'base\n' > "$wt/base.txt"
+  git -C "$wt" add base.txt
+  git -C "$wt" commit -qm "test: base commit for failure evidence"
+  printf 'changed\n' >> "$wt/base.txt"
+  git -C "$wt" add base.txt
+
+  caller_dir="$TMP_ROOT/adapter-failure-caller"
+  producer_dir="$wt/relative-logs"
+  target_dir=$(MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" musi_standard_verify_log_dir "$wt")
+  musi_dir="$TMP_ROOT/adapter-failure-musi-override"
+  adapter_dir="$TMP_ROOT/adapter-failure-adapter-override"
+  output_file="$TMP_ROOT/adapter-failure-output"
+  mkdir -p "$caller_dir" "$target_dir" "$musi_dir" "$adapter_dir" "$wt/.husky/_"
+  printf 'wrong adapter evidence\n' > "$caller_dir/test.log"
+  printf 'target-derived lane tail\n' > "$target_dir/test.log"
+  printf 'MUSI entrypoint override tail\n' > "$musi_dir/test.log"
+  printf 'adapter entrypoint override tail\n' > "$adapter_dir/test.log"
+  cp "$REPO_ROOT/.husky/_/h" "$REPO_ROOT/.husky/_/pre-commit" "$wt/.husky/_/"
+  cat > "$wt/.husky/pre-commit" <<'HOOK'
+#!/bin/sh
+mkdir -p "$MUSI_VERIFY_LOG_DIR"
+printf 'producing lane tail\n' > "$MUSI_VERIFY_LOG_DIR/test.log"
+printf '=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: test\n'
+printf 'verify: failure logs: %s (per-slot <slot>.log, test-timings.json; wiped by the next verify/pre-commit run — read or copy first)\n' "$MUSI_VERIFY_LOG_DIR"
+exit 1
+HOOK
+  chmod +x "$wt/.husky/pre-commit"
+  git -C "$wt" config core.hooksPath .husky/_
+  footer='verify: failure logs: relative-logs (per-slot <slot>.log, test-timings.json; wiped by the next verify/pre-commit run — read or copy first)'
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: test\n'"$footer"$'\nhusky - pre-commit script failed (code 1)'
+  cmd="cd '$wt' && env MUSI_VERIFY_LOG_DIR=relative-logs git commit -m 'test: exercise a real failing Husky commit'"
+
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$cmd" \
+    '{cwd:$cwd, tool_input:{command:$cmd}}')
+  claude_out=$(
+    printf '%s' "$payload" \
+      | AI_PRECOMMIT_LOG_DIR="$caller_dir" \
+        MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$TMP_ROOT/adapter-failure-claude-queue.lock" \
+        bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
+  )
+  report=$(printf '%s' "$claude_out" | jq -r '.reason // empty')
+  assert_contains "$report" "producing lane tail"
+  assert_contains "$report" "$producer_dir/test.log"
+  assert_not_contains "$report" "wrong adapter evidence"
+
+  mkdir -p "$FEATURE_BRANCH_REPO/relative-logs"
+  printf 'wrong opaque caller evidence\n' > "$FEATURE_BRANCH_REPO/relative-logs/test.log"
+  opaque_cmd="cd \"\$(printf '%s' '$wt')\" && env MUSI_VERIFY_LOG_DIR=relative-logs git commit -m 'test: opaque target failure evidence'"
+  payload=$(jq -n --arg cwd "$FEATURE_BRANCH_REPO" --arg cmd "$opaque_cmd" \
+    '{cwd:$cwd, tool_input:{command:$cmd}}')
+  claude_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$TMP_ROOT/adapter-failure-opaque-queue.lock" \
+        bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
+  )
+  report=$(printf '%s' "$claude_out" | jq -r '.reason // empty')
+  assert_contains "$report" "target checkout is unattributable"
+  assert_not_contains "$report" "wrong opaque caller evidence"
+
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$cmd" --arg output "$output" \
+    '{cwd:$cwd, tool_input:{command:$cmd}, tool_response:{exit_code:1, stdout:$output}}')
+  codex_out=$(
+    printf '%s' "$payload" \
+      | AI_STATE_ROOT="$AI_STATE_ROOT" \
+        AI_PRECOMMIT_LOG_DIR="$caller_dir" \
+        bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh"
+  )
+  report=$(printf '%s' "$codex_out" | jq -r '.reason // empty')
+  assert_contains "$report" "producing lane tail"
+  assert_contains "$report" "$producer_dir/test.log"
+  assert_not_contains "$report" "wrong adapter evidence"
+
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$cmd" \
+    --arg result "$output"$'\n<shellId: 1 completed with exit code 1>' '{
+      sessionId: "failure-evidence",
+      cwd: $cwd,
+      toolName: "bash",
+      toolArgs: ({command:$cmd} | tojson),
+      toolResult: {textResultForLlm:$result}
+    }')
+  copilot_out=$(
+    printf '%s' "$payload" \
+      | AI_STATE_ROOT="$AI_STATE_ROOT" \
+        AI_PRECOMMIT_LOG_DIR="$caller_dir" \
+        bash "$REPO_ROOT/.copilot/hooks/post-tool-use.sh"
+  )
+  report=$(printf '%s' "$copilot_out" | jq -r '.modifiedResult.textResultForLlm // empty')
+  assert_contains "$report" "producing lane tail"
+  assert_contains "$report" "$producer_dir/test.log"
+  assert_not_contains "$report" "wrong adapter evidence"
+
+  output=$'=== PRE-COMMIT FAILED (1s) ===\nPassed: lint\nFailed: test'
+  printf '%s\n' "$output" > "$output_file"
+  fallback_cmd="cd '$wt' && git commit --dry-run >/dev/null 2>&1; cat '$output_file'; false"
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$fallback_cmd" \
+    '{cwd:$cwd, tool_input:{command:$cmd}}')
+  claude_out=$(
+    printf '%s' "$payload" \
+      | env -u MUSI_VERIFY_LOG_DIR -u AI_PRECOMMIT_LOG_DIR \
+        MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        MUSI_COMMIT_QUEUE_LOCK="$TMP_ROOT/adapter-failure-claude-fallback-queue.lock" \
+        bash "$REPO_ROOT/.claude/hooks/git-commit-quiet.sh"
+  )
+  report=$(printf '%s' "$claude_out" | jq -r '.reason // empty')
+  assert_contains "$report" "target-derived lane tail"
+  assert_contains "$report" "$target_dir/test.log"
+
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$fallback_cmd" --arg output "$output" \
+    '{cwd:$cwd, tool_input:{command:$cmd}, tool_response:{exit_code:1, stdout:$output}}')
+  codex_out=$(
+    printf '%s' "$payload" \
+      | env -u MUSI_VERIFY_LOG_DIR -u AI_PRECOMMIT_LOG_DIR \
+        MUSI_VERIFY_STATE_ROOT="$TMP_ROOT" \
+        bash "$REPO_ROOT/.codex/hooks/post-tool-use.sh"
+  )
+  report=$(printf '%s' "$codex_out" | jq -r '.reason // empty')
+  assert_contains "$report" "target-derived lane tail"
+  assert_contains "$report" "$target_dir/test.log"
+
+  payload=$(jq -n --arg cwd "$WT_MAIN_REPO" --arg cmd "$cmd" \
+    --arg result "$output"$'\n<shellId: 1 completed with exit code 1>' '{
+      sessionId: "failure-evidence-override",
+      cwd: $cwd,
+      toolName: "bash",
+      toolArgs: ({command:$cmd} | tojson),
+      toolResult: {textResultForLlm:$result}
+    }')
+  copilot_out=$(
+    printf '%s' "$payload" \
+      | MUSI_VERIFY_LOG_DIR="$musi_dir" \
+        AI_PRECOMMIT_LOG_DIR="$adapter_dir" \
+        bash "$REPO_ROOT/.copilot/hooks/post-tool-use.sh"
+  )
+  report=$(printf '%s' "$copilot_out" | jq -r '.modifiedResult.textResultForLlm // empty')
+  assert_contains "$report" "MUSI entrypoint override tail"
+  assert_not_contains "$report" "adapter entrypoint override tail"
+}
+
 # --- worktree fixture for the L1 wrapper tests -------------------------------
 WT_MAIN_REPO="$TMP_ROOT/wt-main"
 git init -q "$WT_MAIN_REPO"
@@ -3375,7 +3982,7 @@ git -C "$WT_MAIN_REPO" commit -qm "test: base commit for the worktree fixture"
 # `cd <lane> && git commit` or `git -C <lane> commit` must judge the branch of
 # the LANE the commit lands in, not the session's own checkout. The real hooks
 # (no-direct-db.sh / bash-pre-tool-use.sh) resolve the target with
-# ai_resolve_target_dir and pass that work root to ai_policy_violation_reason;
+# ai_resolve_target_dir and pass that work root to ai_policy_decision;
 # this mirrors that path so the guard behavior is pinned end to end.
 SD15_REPO="$TMP_ROOT/sd15-primary"
 git init -q -b feat/primary "$SD15_REPO"
@@ -3899,6 +4506,9 @@ assert_commit_verdict_resolves_lane_through_substituted_message
 assert_commit_verdict_is_silent_when_target_unresolvable
 assert_bash_pre_post_verdict_requires_real_commit
 assert_commit_verdict_still_reports_real_no_landing
+assert_precommit_failure_directory_ladder
+assert_precommit_failure_summary_distinguishes_not_run
+assert_adapter_failure_footer_uses_producer_dir
 assert_commit_queue_waiter_ticket_expiry
 assert_git_commit_quiet_queue_heartbeat_three_lanes
 assert_git_commit_quiet_queue_ticket_cleaned_on_normal_exit
@@ -4125,7 +4735,8 @@ assert_contains "$RATCHET_VALID_EXCERPT" '#### `lint/local/no-debugger`'
 assert_contains "$RATCHET_VALID_EXCERPT" 'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"'
 
 RATCHET_PRECOMMIT_LOG_DIR="$TMP_ROOT/precommit-ratchet-summary"
-mkdir -p "$RATCHET_PRECOMMIT_LOG_DIR"
+RATCHET_WRONG_LOG_DIR="$TMP_ROOT/precommit-ratchet-wrong-summary"
+mkdir -p "$RATCHET_PRECOMMIT_LOG_DIR" "$RATCHET_WRONG_LOG_DIR"
 cp "$RATCHET_DIAG_VALID" "$RATCHET_PRECOMMIT_LOG_DIR/ratchet-diagnostics.json"
 cat > "$RATCHET_PRECOMMIT_LOG_DIR/ratchet.log" <<'EOF'
 {
@@ -4133,14 +4744,16 @@ cat > "$RATCHET_PRECOMMIT_LOG_DIR/ratchet.log" <<'EOF'
 }
 lint:ratchet FAIL — 1 current finding(s); 1 regression(s); 0 improvement(s); blocking=1 info=0
 EOF
+printf 'wrong caller ratchet tail\n' > "$RATCHET_WRONG_LOG_DIR/ratchet.log"
 RATCHET_PRECOMMIT_SUMMARY=$(
   ai_precommit_failure_summary \
-    $'=== PRE-COMMIT FAILED (12s) ===\nPassed: lint typecheck\nFailed: ratchet' \
-    "$RATCHET_PRECOMMIT_LOG_DIR"
+    $'=== PRE-COMMIT FAILED (12s) ===\nPassed: lint typecheck\nFailed: ratchet\n'"verify: failure logs: $RATCHET_PRECOMMIT_LOG_DIR (per-slot <slot>.log; wiped by the next verify/pre-commit run — read or copy first)" \
+    "$RATCHET_WRONG_LOG_DIR"
 )
 assert_contains "$RATCHET_PRECOMMIT_SUMMARY" "### Lint ratchet"
 assert_contains "$RATCHET_PRECOMMIT_SUMMARY" '#### `lint/local/no-debugger`'
 assert_not_contains "$RATCHET_PRECOMMIT_SUMMARY" "json tail should not be the preferred commit summary"
+assert_not_contains "$RATCHET_PRECOMMIT_SUMMARY" "wrong caller ratchet tail"
 
 RATCHET_MISSING_DIAG="$TMP_ROOT/ratchet-diagnostics-missing.json"
 rm -f "$RATCHET_MISSING_DIAG"

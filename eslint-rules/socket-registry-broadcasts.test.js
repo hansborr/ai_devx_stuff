@@ -28,27 +28,61 @@ function collectObjectKeys(node) {
     .filter((name) => name !== undefined);
 }
 
-function registryEventNames() {
+/**
+ * Every declaration in `broadcast-registry.ts` that holds a delivery-policy
+ * registry object literal. The registry is split by delivery policy (room vs.
+ * user-targeted), and `chat:newMessage` is deliberately registered in both, so
+ * the inventory is the deduplicated union of their keys.
+ *
+ * Adding a third delivery policy means adding its declaration name here. The
+ * scanner discovers every `*_BROADCAST_REGISTRY` declaration independently,
+ * so the `finds every declared registry` test makes forgetting to update this
+ * list a failure rather than a silently shrinking inventory.
+ */
+const REGISTRY_DECLARATION_NAMES = ["ROOM_BROADCAST_REGISTRY", "USER_TARGETED_BROADCAST_REGISTRY"];
+const REGISTRY_DECLARATION_PATTERN = /_BROADCAST_REGISTRY$/u;
+
+/**
+ * Scans the registry source for every conventionally named declaration and
+ * returns the keys each one contributed. Returning per-declaration results
+ * (rather than a flat name list) is what lets the callers below distinguish
+ * "this registry is empty" from "this registry was renamed and the scanner
+ * found nothing" — a scanner that can only report an empty list can never fail
+ * loudly when the source it scans changes shape.
+ */
+function scanRegistryDeclarations() {
   const registryPath = join(repoRoot, "packages/server/src/socket/broadcast-registry.ts");
   const sourceText = readFileSync(registryPath, "utf8");
   const sourceFile = ts.createSourceFile(registryPath, sourceText, ts.ScriptTarget.Latest, true);
-  const names = [];
+  /** @type {Map<string, string[]>} */
+  const found = new Map();
 
   ts.forEachChild(sourceFile, function visit(node) {
     if (
       ts.isVariableDeclaration(node) &&
       ts.isIdentifier(node.name) &&
-      node.name.text === "BROADCAST_REGISTRY" &&
+      REGISTRY_DECLARATION_PATTERN.test(node.name.text) &&
       node.initializer &&
       ts.isObjectLiteralExpression(node.initializer)
     ) {
-      names.push(...collectObjectKeys(node.initializer));
+      found.set(node.name.text, collectObjectKeys(node.initializer));
       return;
     }
     ts.forEachChild(node, visit);
   });
 
-  return names.sort();
+  return found;
+}
+
+function registryEventNames() {
+  const found = scanRegistryDeclarations();
+  const names = new Set();
+
+  for (const keys of found.values()) {
+    for (const key of keys) names.add(key);
+  }
+
+  return [...names].sort();
 }
 
 describe("socket-registry-broadcasts", () => {
@@ -56,10 +90,25 @@ describe("socket-registry-broadcasts", () => {
     expect(rule.meta.messages.noDirectEmit).toContain("ADR-0003");
   });
 
+  // The inventory comparison below only detects drift while the scanner still
+  // resolves the registry declarations. When S4 split `BROADCAST_REGISTRY` into
+  // two policy-keyed registries the scanner silently found nothing, so this
+  // asserts the scan itself before anything is compared against its output.
+  it("finds every declared registry", () => {
+    const found = scanRegistryDeclarations();
+
+    expect([...found.keys()].sort()).toEqual([...REGISTRY_DECLARATION_NAMES].sort());
+    for (const [name, keys] of found) {
+      expect(keys, `${name} contributed no event keys`).not.toHaveLength(0);
+    }
+  });
+
   it("tracks every broadcast registry event", () => {
     const ruleEvents = REGISTRY_OWNED_EVENT_HELPERS.map(([eventName]) => eventName).sort();
+    const registryEvents = registryEventNames();
 
-    expect(ruleEvents).toEqual(registryEventNames());
+    expect(registryEvents).not.toHaveLength(0);
+    expect(ruleEvents).toEqual(registryEvents);
   });
 
   it("runs", () => {

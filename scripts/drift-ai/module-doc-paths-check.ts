@@ -5,18 +5,19 @@
 
 import { defineCheckPlugin } from "./check-plugin.js";
 import type { DriftAiModuleDocPathsConfig } from "./config.js";
-import {
-  type RepoFileReader,
-  type RepoPathProbe,
-  runModuleDocPathsCheck,
-} from "./module-doc-paths.js";
+import { runModuleDocPathsCheck } from "./module-doc-paths.js";
 import { moduleDocPathsCheckConfig } from "./module-doc-paths-check-config.js";
 import { defaultListModuleDocs } from "./module-doc-paths-io.js";
-import { defaultFileReader, defaultPathProbe } from "./repo-io.js";
+import {
+  defaultFileReader,
+  defaultPathProbe,
+  type PathProbe,
+  type RepoFileReader,
+} from "./repo-io.js";
 
 type ModuleDocPathsServices = {
   readonly readFile: RepoFileReader;
-  readonly pathExists: RepoPathProbe;
+  readonly pathExists: PathProbe;
 };
 
 export const moduleDocPathsCheck = defineCheckPlugin<

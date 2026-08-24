@@ -2,13 +2,13 @@ import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness/harness-diagnostics-output.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";

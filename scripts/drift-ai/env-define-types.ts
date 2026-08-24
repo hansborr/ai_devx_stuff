@@ -1,3 +1,10 @@
+import type {
+  EnvDefineProviderConfigKey,
+  EnvDefineReadKind,
+} from "./env-define-provider-metadata.js";
+
+export type { EnvDefineReadKind } from "./env-define-provider-metadata.js";
+
 export type EnvDefineAssumedValue = string | number | boolean | null;
 
 export type EnvDefineAssumption = {
@@ -5,17 +12,18 @@ export type EnvDefineAssumption = {
   readonly source: string;
 };
 
-export type EnvDefineMatrix = {
-  // Optional provider-agnostic fallback for keys whose value is intentionally
-  // shared across env providers.
-  readonly env?: Readonly<Record<string, EnvDefineAssumption>>;
-  readonly processEnv?: Readonly<Record<string, EnvDefineAssumption>>;
-  readonly importMetaEnv?: Readonly<Record<string, EnvDefineAssumption>>;
-  readonly bunEnv?: Readonly<Record<string, EnvDefineAssumption>>;
-  readonly defines?: Readonly<Record<string, EnvDefineAssumption>>;
+type EnvDefineTable = Readonly<Record<string, EnvDefineAssumption>>;
+
+type EnvDefineProviderMatrix = {
+  readonly [ConfigKey in EnvDefineProviderConfigKey]?: EnvDefineTable;
 };
 
-export type EnvDefineReadKind = "process.env" | "import.meta.env" | "Bun.env" | "define";
+export type EnvDefineMatrix = EnvDefineProviderMatrix & {
+  // Optional provider-agnostic fallback for keys whose value is intentionally
+  // shared across env providers.
+  readonly env?: EnvDefineTable;
+};
+
 export type EnvDefineBranchPrediction = "truthy" | "falsy" | "unknown";
 
 export type EnvDefineRange = {

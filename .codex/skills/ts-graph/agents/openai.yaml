@@ -1,6 +1,0 @@
-interface:
-  display_name: "TS Graph"
-  short_description: "Navigate Musi TypeScript symbol and import graphs"
-  default_prompt: >-
-    Use $ts-graph to find definitions, exports, import dependents, references,
-    or candidate tests in the Musi TypeScript graph.

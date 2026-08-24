@@ -1,0 +1,103 @@
+{
+ "batch": "wave1-lanes-01-03",
+ "rejected": [
+  {
+   "candidateId": "C-001",
+   "stage": "verify",
+   "reason": "already ruled out by docs/ai-harness.md § Substrate Ruling (Bash Vs TS) (b7c2ce73, lines 280-310) + code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md § Substrate verdict (context records CQ25-124, CQ25-125): The factual observations hold at the corrected path, but the problem as banked — 'the verification lifecycle should not be an untyped Bash framework', remedied by a TS core — re-litigates a standing, explicit repo ruling: gate orchestration (verify.sh, pre-commit, land.sh, ai-hooks process glu"
+  },
+  {
+   "candidateId": "C-003",
+   "stage": "verify",
+   "reason": "already ruled out by docs/ai-harness.md § Substrate Ruling — single-file portable-skill clause naming agent-run.sh + recorded 2026-07-07 rewrite rejection under the copyability lens; reaffirmed by code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md § Substrate verdict and § Rejected alternatives: All evidence verified exactly at the pin: 3,503 lines and 143 functions re-derived; lines 140-235 = agent_run_reset_state global namespace; 1146-1926 = attempt orchestration/recovery/finalization; 2381-3331"
+  },
+  {
+   "candidateId": "C-011",
+   "stage": "judge",
+   "reason": "Problem is real (verified: dual directive vocabularies in bash PATTERN and DIRECTIVE_PATTERNS, four-column TSV wire, four coordinated surfaces per spelling/scope change) but it is a documented deliberate design, not an oversight: scanners must run in bare temp repos with no node_modules (register smoke context), the TSV is 'deliberately dumb' by design, and the fail-closed divergence check at identity.ts:197-204 converts vocabulary drift into a loud failure rather than silent corruption. Directive-vocabulary changes are rare, so the coordinated-change tax bites infrequently and never silently — medium, not high. Rejecting: a typed single-core rewrite must either bundle a standalone binary to survive the no-node_modules constraint or restructure the smoke design, and must clear the CQ25-124/125 measured bar for bash-facade splits; that churn exceeds the payoff for a mitigated, low-frequency seam. Reopen if the smoke-context constraint is lifted or a third directive consumer appears."
+  },
+  {
+   "candidateId": "C-025",
+   "stage": "judge",
+   "reason": "Rejected: the bag-read is an explicitly documented design (check-plugin.ts:38-40 'Small and stable: a new check reads what it needs from overrides/cli without adding fields here') and the doc side wins — CliOptions is ~15 well-commented fields consumed within a single directory, the env stays stable precisely because plugins pull from the bag, and a three-way contract split re-introduces per-check interface churn while colliding with scheduled CQ25-46 which also edits CheckServiceEnv. The one genuine wart, prototype-command.ts fabricating gate/check defaults, is an S-sized converge-on-touch cleanup that cannot carry an L decomposition. Fix churn exceeds payoff at this repo's bar."
+  },
+  {
+   "candidateId": "C-032",
+   "stage": "judge",
+   "reason": "Reading both walkers at the pin shows the genuinely shared substance is small (verbatim readDirSafe, skip-dir policy, a seen set) while the bulk of the 111 lines is deliberately divergent semantics: ancestor-dir expansion, scan --exclude glob pruning, and short-circuit single-filename probing with a directory-cycle guard versus source-walk's ignore-config source-file enumeration with file dedup. Several of the claimed drift axes (skipped dirs, cycle behavior) are intended differences, not latent bugs. The proposed shared repository-walk primitive would need enumerate-vs-probe, dedup-vs-cycle, and ignore-config-vs-glob parameterization — more abstraction surface than the duplication it removes, and an over-parameterized walker is a worse copyability exemplar than two focused, well-commented ones. A minimal extraction (shared readDirSafe or moving the probe to its own module) doesn't clear the churn bar on its own."
+  },
+  {
+   "candidateId": "C-041",
+   "stage": "judge",
+   "reason": "The naming/discoverability problem is real (auth-service.ts holds only crypto primitives while the 342-line router owns the full account/session lifecycle), but the proposed L-sized staged workflow extraction does not pay at this repo's bar: it re-litigates two documented decisions — the 2026-07-25 SERVER-COMMENTS-PLAN ruling that the server layering is sound ('no service to invent', routers keeping request adaptation blessed, services/README.md is the rubric not line count) and leaf-08's twice-refreshed 'auth.ts:223 inline by design' exemption — without any new failure evidence, and it concentrates churn plus regression risk in security-critical flows (cookie serialization, timing-guarded credential checks, $transaction session rotation). The genuinely unadjudicated core, the misleading auth-service name, is clearable by an S-scale rename (e.g. auth-primitives/token-crypto) plus a services/README pointer; re-nominate that narrower fix instead of this candidate as scoped."
+  },
+  {
+   "candidateId": "C-043",
+   "stage": "judge",
+   "reason": "Verified but the seam is a recorded deliberate contract, not drift: commit a7dcbc292 extracted persistence per the services/README $transaction rubric, the JSDoc and homebrew-import-MODULE.md state 'validation stays in the router', and README:146 lists persistImportedCollection as a canonical shape-2 caller-owned example. The 78-line helper block is transport-level untrusted-input validation, a defensible router concern; friction is confined to the single import flow. Moving it would churn 17 homebrew-import.test.ts cases plus three doc surfaces against the documented taxonomy for a marginal comprehension gain — the documented side wins the weigh-which-moves call."
+  },
+  {
+   "candidateId": "C-044",
+   "stage": "judge",
+   "reason": "Verified, but the split follows a rational and documented rule: capacity/race-sensitive operations (preview, join) live in invite-service while create/list/revoke are simple single-write CRUD of the shape services/README explicitly blesses inline (the updatePersonality precedent and the 'lightest structure' rubric). The inline code read is clean; the only real complaint is that the service name implies broader ownership, which a one-line doc clarification in invite-MODULE.md would cover without relocating working, tested code. Extraction adds indirection without reducing any risk."
+  },
+  {
+   "candidateId": "C-045",
+   "stage": "judge",
+   "reason": "Problem is real but overstated: note.ts (250 lines) and npc.ts (195 lines) are cohesive single-write CRUD with no transactions, broadcasts, or concurrency invariants — exactly the shape services/README blesses as legitimate inline routers, and its three-question rubric would deny these domains a service (helpers route to utils/ at most). The visibility/redaction policy is colocated and easy to find within each small file, so 'transport changes risk modifying domain rules' is theoretical here. Extraction contradicts the documented taxonomy by construction while reducing no risk; sizeHint L was inflated (verifier concurs) and severity medium was generous. Not worth the churn at this repo's bar."
+  }
+ ],
+ "survivors": [
+  "C-002",
+  "C-004",
+  "C-005",
+  "C-006",
+  "C-007",
+  "C-008",
+  "C-009",
+  "C-010",
+  "C-012",
+  "C-013",
+  "C-014",
+  "C-015",
+  "C-016",
+  "C-017",
+  "C-018",
+  "C-019",
+  "C-020",
+  "C-021",
+  "C-022",
+  "C-023",
+  "C-024",
+  "C-026",
+  "C-027",
+  "C-028",
+  "C-029",
+  "C-030",
+  "C-031",
+  "C-033",
+  "C-034",
+  "C-035",
+  "C-036",
+  "C-037",
+  "C-038",
+  "C-039",
+  "C-040",
+  "C-042",
+  "C-046",
+  "C-047",
+  "C-048",
+  "C-049",
+  "C-050",
+  "C-051",
+  "C-052",
+  "C-053",
+  "C-054",
+  "C-055",
+  "C-056",
+  "C-057",
+  "C-058",
+  "C-059",
+  "C-060"
+ ]
+}

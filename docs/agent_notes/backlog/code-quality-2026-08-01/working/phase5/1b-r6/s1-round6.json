@@ -1,0 +1,439 @@
+{
+  "contractVersion": 1,
+  "step": "s1-round-6",
+  "records": [
+    {
+      "file": "271-route-verifylogs-wrapper-marker-reads-through-canonical-codec.md",
+      "concreteEdit": "Delete `read_wrapper_marker_ts` from `scripts/verify-logs.sh` and replace it with a thin adapter over the already-sourced `musi_read_success_marker`, deriving `MARK_AGE` and the existing timestamp output from `MUSI_MARKER_LAST_TS`. Keep protocol acceptance tests with the canonical metadata codec and add focused viewer coverage proving duplicate fields produce the existing human and JSON corrupt-marker presentation instead of `OK*`.",
+      "problemFingerprint": {
+        "subject": "`verify:logs` wrapper success-marker decoding",
+        "mechanism": "The viewer independently decodes the canonical three-field marker protocol and overwrites duplicate fields that the gate codec rejects, allowing reporting to promote a corrupt marker.",
+        "invariant": "Gate decisions and log reporting use the same Bash marker codec and therefore return the same verdict for every marker shape while preserving the viewer's existing output contract."
+      },
+      "targetOps": [
+        {
+          "target": "scripts/verify-logs.sh",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/lib/verify-metadata.sh",
+          "action": "consume",
+          "role": "truth-source",
+          "branch": null
+        },
+        {
+          "target": "scripts/tests/test-verify-metadata.sh",
+          "action": "consume",
+          "role": "truth-source",
+          "branch": null
+        },
+        {
+          "target": "scripts/tests/test-verify-logs.sh",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        }
+      ],
+      "relations": [
+        {
+          "kind": "rebaseOn",
+          "target": "117-verify-metadatash-second-kitchen-sink-shell.md",
+          "sourceSentence": "Coordinate with [117-verify-metadatash-second-kitchen-sink-shell.md](./117-verify-metadatash-second-kitchen-sink-shell.md), whose move-only decomposition places the canonical function in an internal marker library.",
+          "confidence": "explicit"
+        }
+      ],
+      "independenceClaim": null,
+      "readerNotes": "Leaf 271 changes only the viewer and its focused tests; it consumes the public metadata aggregator without changing the canonical codec. The relation to 117 is rebase-only because 117 preserves the aggregator and function ABI while moving the implementation internally."
+    },
+    {
+      "file": "084-backlog-simultaneously-action-queue-evidence.md",
+      "concreteEdit": "First document and fence the backlog-note and pack grammar, exposing one coherent parsed model that treats structured leading fields as canonical and existing pathname, prose, index-name, link, and table heuristics as compatibility fallbacks. Then extend backlog-lint with a tested record-class/lifecycle classifier, generate and freshness-check a catalog through the harness manifest, and repoint both agent-notes READMEs without moving records or creating another dispatch queue.",
+      "problemFingerprint": {
+        "subject": "backlog record grammar, actionability, and lifecycle classification",
+        "mechanism": "Actionable work and retained history share one namespace without a reproducible catalog, while the parser needed to build one implements a large undocumented repository-specific grammar behind a front-matter-lint description.",
+        "invariant": "One documented parsed model preserves the existing grammar and shared status semantics, and every tracked backlog record is reproducibly classified in a fresh generated catalog that presents state without ranking work."
+      },
+      "targetOps": [
+        {
+          "target": "scripts/backlog-lint*.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/backlog-lint-status.ts",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": "status-vocabulary-extension-needed"
+        },
+        {
+          "target": "scripts/backlog-lint*.test.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/guides/lint-overview.md",
+          "action": "document",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/agent_notes/backlog/CATALOG.md",
+          "action": "create",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/agent_notes/backlog/CATALOG.json",
+          "action": "create",
+          "role": "write",
+          "branch": "optional-json-sibling"
+        },
+        {
+          "target": "harness.controls.json",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": null
+        },
+        {
+          "target": "scripts/verify/steps.generated.sh",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/agent_notes/backlog/README.md",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/agent_notes/README.md",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        }
+      ],
+      "relations": [
+        {
+          "kind": "rebaseOn",
+          "target": "083-sole-progress-queue-mostly-stale-view.md",
+          "sourceSentence": "There is no ordering dependency between the leaves; if both land, the README wording should distinguish the generated catalog, the ready dispatch queue, and the active-work queue.",
+          "confidence": "explicit"
+        }
+      ],
+      "independenceClaim": null,
+      "readerNotes": "The augmentation does not prescribe a new guide path; `docs/guides/lint-overview.md` is recorded because the leaf cites that contributor map as the misleading current description. CQ25-39 is prior-pack coordination, not a relation target in this pack."
+    },
+    {
+      "file": "094-two-documents-both-claim-be-authoritative.md",
+      "concreteEdit": "Establish `harness.controls.json` and its generated projection as the exhaustive control inventory while retaining `docs/ai-harness.md` as the conceptual map and complete guide-table owner; add rows for all three omitted guides and enforce table membership rather than incidental whole-file references. Expand structured-logging source metadata to include its path-sensitive logger-import policy, then regenerate the controls document.",
+      "problemFingerprint": {
+        "subject": "agent-harness documentation authority and guide-table completeness",
+        "mechanism": "Multiple documents claim exhaustive control authority, the advertised complete guide table contains only 21 of 24 direct guides, and generated control metadata omits an enforced structured-logging policy.",
+        "invariant": "Manifest-backed controls have one exhaustive authority, the conceptual document's guide table contains every direct guide, and generated descriptions expose every enforced control policy."
+      },
+      "targetOps": [
+        {
+          "target": "docs/README.md",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/ai-harness.md",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/drift-ai/harness-freshness.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/drift-ai/harness-freshness.test.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "eslint-rules/structured-logging.js",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "docs/generated/harness-controls.md",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "harness.controls.json",
+          "action": "consume",
+          "role": "truth-source",
+          "branch": null
+        },
+        {
+          "target": "scripts/harness/generate-harness-controls.ts",
+          "action": "consume",
+          "role": "dependency",
+          "branch": null
+        }
+      ],
+      "relations": [
+        {
+          "kind": "serialize",
+          "target": "093-harness-manifest-guide-undercounts-omits.md",
+          "sourceSentence": "[093-harness-manifest-guide-undercounts-omits.md](093-harness-manifest-guide-undercounts-omits.md) corrects manifest-guide prose on an adjacent surface — avoid editing the same paragraphs concurrently.",
+          "confidence": "ambiguous"
+        }
+      ],
+      "independenceClaim": null,
+      "readerNotes": "The existing 093 relation remains intentionally ambiguous because the leaf warns about concurrent paragraph edits although the proposed target lists name different documents. The corrected augmentation adds `lint-message-evals.md` as the third table omission but introduces no new sequencing declaration."
+    },
+    {
+      "file": "115-gate-parity-checks-fingerprint-source-text.md",
+      "concreteEdit": "Generate the complete pre-push near-duplicates trigger, replace the CI marker parser with step-level structured data parsed by Bun.YAML, and derive the registration preflight's data-shaped constants while retaining only narrowed, labeled behavioral tamper fingerprints. Consolidate the four verify-step output path/renderer mappings into one generator-owned typed descriptor consumed by refresh and in-process freshness checking, with exact parity against manifest `outputPaths`.",
+      "problemFingerprint": {
+        "subject": "harness gate-wiring parity and verify-step output projections",
+        "mechanism": "Parity checks fingerprint shell or YAML formatting, while the verify-step producer, freshness checker, and preflight independently map the same four generated outputs without proving that every manifest-advertised output has a writer.",
+        "invariant": "Data-shaped wiring is generated or structurally parsed, every verify-step output projection has one typed producer-owned descriptor exactly matching manifest registration, and only irreducible behavioral tamper invariants retain narrow documented fingerprints."
+      },
+      "targetOps": [
+        {
+          "target": "new pre-push near-duplicates trigger generator and .generated.sh fragment",
+          "action": "create",
+          "role": "write",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": ".husky/pre-push",
+          "action": "modify",
+          "role": "write",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": "harness.controls.json",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": "harness.controls.json check/verify-steps-generator outputPaths",
+          "action": "consume",
+          "role": "truth-source",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "eslint-config/config-surface-manifest.json",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": "scripts/harness/pre-push-scope-pin.ts",
+          "action": "delete",
+          "role": "write",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": "scripts/harness/pre-push-scope-pin.test.ts",
+          "action": "delete",
+          "role": "write",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": "scripts/harness-check.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": "pre-push-generation"
+        },
+        {
+          "target": ".github/workflows/ci.yml",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": "ci-contract-data"
+        },
+        {
+          "target": "scripts/harness/harness-gate-parity.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": "ci-contract-data"
+        },
+        {
+          "target": "scripts/harness/generate-hook-timeout-constants.ts and generated timeout fragment",
+          "action": "modify",
+          "role": "write",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "generator-owned typed verify-step projection descriptor (path unspecified)",
+          "action": "create",
+          "role": "truth-source",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "scripts/harness/generate-verify-steps.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "scripts/harness/registration-generated-checks.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "scripts/harness/registration-preflight-wiring.ts",
+          "action": "modify",
+          "role": "write",
+          "branch": "preflight-shrink"
+        },
+        {
+          "target": "relevant harness documentation",
+          "action": "document",
+          "role": "write",
+          "branch": "preflight-shrink"
+        }
+      ],
+      "relations": [
+        {
+          "kind": "serialize",
+          "target": "114-harness-controls-represented-competing.md",
+          "sourceSentence": "Coordination, not ordering: parts 1 and 3 add/derive from `generatedSurface` facets in `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md) and [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md) also restructure.",
+          "confidence": "explicit"
+        },
+        {
+          "kind": "serialize",
+          "target": "116-generated-surface-dependencies-manually.md",
+          "sourceSentence": "Coordination, not ordering: parts 1 and 3 add/derive from `generatedSurface` facets in `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md) and [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md) also restructure.",
+          "confidence": "explicit"
+        }
+      ],
+      "independenceClaim": null,
+      "readerNotes": "The augmentation does not name the new typed descriptor's file. Its new target overlap with verify-step work should remain visible through targetOps for collision review, but the leaf adds no declaration naming 110 or 125 and does not warrant inventing an S1 relation."
+    },
+    {
+      "file": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+      "concreteEdit": "Add an optional neutral hook `surface` declaration and canonical matcher/command projection tables, then validate eligible authored bindings byte-for-byte against those projections without changing generated hook bytes. Add omission tripwires, exact allowed-key inventories for the top-level facet and each harness command, focused schema tests, and provenance guidance in schema comments, generated documentation, and the manifest.",
+      "problemFingerprint": {
+        "subject": "AI hook binding adapter syntax and `hookWiring` facet validation",
+        "mechanism": "Bindings hand-copy derived matcher and command templates, while validation neither checks the canonical projection nor rejects unknown top-level or per-command keys, allowing boilerplate drift and silent typo loss.",
+        "invariant": "The manifest remains policy authority, one fail-closed projection table owns adapter syntax, eligible copies are canonical-checked, and every unsupported `hookWiring` key receives a focused validation error."
+      },
+      "targetOps": [
+        {
+          "target": "scripts/harness/hook-wiring-schema.ts",
+          "action": "modify",
+          "role": "truth-source",
+          "branch": null
+        },
+        {
+          "target": "harness.controls.json",
+          "action": "modify",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/harness hook-wiring schema unit test",
+          "action": "create",
+          "role": "write",
+          "branch": null
+        },
+        {
+          "target": "scripts/harness/hook-wiring-doc.ts",
+          "action": "modify",
+          "role": "dependency",
+          "branch": null
+        },
+        {
+          "target": "docs/generated/harness-controls.md",
+          "action": "document",
+          "role": "write",
+          "branch": null
+        }
+      ],
+      "relations": [
+        {
+          "kind": "serialize",
+          "target": "125-manifest-copies-verify-slot-programs-across.md",
+          "sourceSentence": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+          "confidence": "explicit"
+        },
+        {
+          "kind": "serialize",
+          "target": "116-generated-surface-dependencies-manually.md",
+          "sourceSentence": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+          "confidence": "explicit"
+        },
+        {
+          "kind": "serialize",
+          "target": "114-harness-controls-represented-competing.md",
+          "sourceSentence": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+          "confidence": "explicit"
+        }
+      ],
+      "independenceClaim": null,
+      "readerNotes": "The unknown-key augmentation remains confined to the same consumer boundary already represented by the banked targets and explicitly excludes the whole-manifest carrier, generator, shims, generated hooks, and generatedSurface registrations."
+    }
+  ],
+  "changedRelations": [
+    {
+      "file": "084-backlog-simultaneously-action-queue-evidence.md",
+      "change": "kept",
+      "target": "083-sole-progress-queue-mostly-stale-view.md",
+      "why": "The current leaf retains the exact README-coherence sentence supporting outcome-sensitive rebasing with the active-work queue."
+    },
+    {
+      "file": "094-two-documents-both-claim-be-authoritative.md",
+      "change": "kept",
+      "target": "093-harness-manifest-guide-undercounts-omits.md",
+      "why": "The current caveat still says to avoid concurrent edits to the adjacent manifest-guide prose."
+    },
+    {
+      "file": "115-gate-parity-checks-fingerprint-source-text.md",
+      "change": "kept",
+      "target": "114-harness-controls-represented-competing.md",
+      "why": "The unchanged coordination sentence still requires serialization around generatedSurface facet restructuring."
+    },
+    {
+      "file": "115-gate-parity-checks-fingerprint-source-text.md",
+      "change": "kept",
+      "target": "116-generated-surface-dependencies-manually.md",
+      "why": "The unchanged coordination sentence still requires serialization around generatedSurface facet restructuring."
+    },
+    {
+      "file": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+      "change": "kept",
+      "target": "125-manifest-copies-verify-slot-programs-across.md",
+      "why": "The same-file-siblings caveat still explicitly prohibits concurrent manifest or scripts/harness work."
+    },
+    {
+      "file": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+      "change": "kept",
+      "target": "116-generated-surface-dependencies-manually.md",
+      "why": "The same-file-siblings caveat still explicitly prohibits concurrent manifest or scripts/harness work."
+    },
+    {
+      "file": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+      "change": "kept",
+      "target": "114-harness-controls-represented-competing.md",
+      "why": "The same-file-siblings caveat still explicitly prohibits concurrent manifest or scripts/harness work."
+    }
+  ],
+  "notes": [
+    "Read ORCHESTRATION.md Step 4 and the relation vocabulary, all five current leaves, their augmentation diff from the pre-round-6 population, the four banked records, 00-index.md, and the relevant records or leaves for 083, 093, 110, 114, 116, 117, 125, 129, 141, 164, 185, 204, and 220.",
+    "Rejected relations from 271 to 115 and 126: neither leaf writes the viewer, canonical marker codec, or focused shell tests; sharing the harness area and the `harness:check` closing command is not a scheduling relation.",
+    "Rejected a 271-to-141 relation: 141 consumes state-path derivation and changes logs-audit discovery, whereas 271 consumes the success-marker codec for verify:logs presentation; 271 does not change the metadata test contract that 141 extends.",
+    "Retained only 271-to-117 because the leaf explicitly coordinates with 117's move of `musi_read_success_marker`; the unchanged public aggregator and function ABI make this `rebaseOn`, not `requires` or `serialize`.",
+    "Rejected new relations among 084, 094, 115, and 126: their augmentations add backlog grammar documentation, a corrected guide-table inventory, verify-step projection parity, and hookWiring exact-key rejection respectively; none introduces a shared new write target or a sequencing statement between those augmented slices.",
+    "Did not convert same-directory proximity or verification-command overlap into relations. Newly exposed write targets are recorded in targetOps so later collision channels can compare them without fabricating leaf-declared ordering."
+  ]
+}

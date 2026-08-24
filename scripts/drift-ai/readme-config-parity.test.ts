@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 
 import { ALL_CHECKS } from "./check-metadata.js";
 import { DriftAiHelp, parseArgs } from "./cli-args.js";
+import { parseDriftAiConfig } from "./config.js";
 import { PROTOTYPE_SUBCOMMAND_IDS } from "./prototype-subcommands.js";
 import { TOP_LEVEL_SUBCOMMAND_IDS } from "./runner.js";
 import { parseRuleSourceManifest } from "./semgrep-rule-manifest.js";
@@ -38,6 +39,7 @@ const STARTER_EXAMPLE_CHECK_IDS = new Set<string>([
   "ghost-files",
   "comments",
   "commented-out-code",
+  "layer-direction",
   "near-duplicates",
 ]);
 const OMITTED_FROM_EXAMPLE_CHECK_IDS = new Set<string>([
@@ -46,7 +48,6 @@ const OMITTED_FROM_EXAMPLE_CHECK_IDS = new Set<string>([
   "orphan-files",
   "knip-duplicates",
   "import-cycles",
-  "layer-direction",
   "duplicate-types",
   "duplicate-schemas",
   "duplicate-literals",
@@ -182,6 +183,17 @@ describe("readme/config parity", () => {
   it("example config carries no unknown check ids", () => {
     const unknown = exampleCheckIds().filter((id) => !REGISTRY_CHECK_IDS.has(id));
     expect(unknown).toEqual([]);
+  });
+
+  // The starter example is copy-paste infrastructure: every knob it shows must
+  // keep parsing under the real config parser, not just carry known check ids.
+  it("example config parses under the real drift:ai config parser", () => {
+    expect(() =>
+      parseDriftAiConfig(
+        JSON.parse(readFileSync(EXAMPLE_CONFIG_PATH, "utf8")),
+        "drift-ai.config.example.json",
+      ),
+    ).not.toThrow();
   });
 
   it("example config check-id set matches the starter-example allowlist", () => {

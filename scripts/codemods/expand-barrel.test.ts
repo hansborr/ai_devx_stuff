@@ -1,4 +1,3 @@
-import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -11,6 +10,7 @@ import {
   enumerateFixtures,
   errorMessage,
   expectDirectoriesToMatch,
+  expectedRoot,
   expectRunTwiceStdout,
   expectStdout,
   optionalBoolean,
@@ -56,11 +56,6 @@ function readMetadata(caseRoot: string): FixtureMetadata {
 
 function fixtureNames(): string[] {
   return enumerateFixtures(fixtureRoot);
-}
-
-function expectedRoot(caseRoot: string): string {
-  const afterRoot = path.join(caseRoot, "after");
-  return existsSync(afterRoot) ? afterRoot : path.join(caseRoot, "before");
 }
 
 function runFixture(name: string): void {

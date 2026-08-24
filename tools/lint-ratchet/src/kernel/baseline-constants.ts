@@ -7,8 +7,6 @@ export const LINT_RATCHET_BASELINE_ACCEPTED_VERSIONS = [
   LINT_RATCHET_BASELINE_LEGACY_VERSION,
   LINT_RATCHET_BASELINE_ANNOTATED_VERSION,
 ] as const;
-export const LINT_RATCHET_BASELINE_REGENERATE = "bun run lint:ratchet:update";
-
 export type LintRatchetBaselineVersion = (typeof LINT_RATCHET_BASELINE_ACCEPTED_VERSIONS)[number];
 
 export interface LintRatchetBaselineVersionPolicy {
@@ -31,10 +29,9 @@ export const LINT_RATCHET_BASELINE_VERSION_POLICY = createLintRatchetBaselineVer
 
 export function lintRatchetBaselineRegenerateForVersion(
   version: LintRatchetBaselineVersion,
+  updateCommand: string,
 ): string | undefined {
-  return version === LINT_RATCHET_BASELINE_ANNOTATED_VERSION
-    ? LINT_RATCHET_BASELINE_REGENERATE
-    : undefined;
+  return version === LINT_RATCHET_BASELINE_ANNOTATED_VERSION ? updateCommand : undefined;
 }
 
 export const LINT_RATCHET_CONFIG_HASH_PREFIX = "sha256:" as const;

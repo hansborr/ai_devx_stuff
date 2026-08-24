@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { isAbsolute, join, relative, resolve, sep } from "node:path";
@@ -15,6 +15,28 @@ import { isAbsolute, join, relative, resolve, sep } from "node:path";
 
 /** An injectable git command runner: takes argv (without the leading "git") and returns stdout. */
 export type GitRunner = (args: readonly string[]) => string;
+
+export type GitCheckIgnoreResult =
+  | { readonly kind: "spawn-failed"; readonly error: Error }
+  | { readonly kind: "ignored-paths-output"; readonly stdout: string }
+  | { readonly kind: "not-ignored"; readonly stdout: string }
+  | { readonly kind: "unexpected-status"; readonly status: number | null; readonly stderr: string };
+
+/** Run Git's verbose check-ignore probe and classify its operation-specific outcome. */
+export function gitCheckIgnore(
+  candidatePaths: readonly string[],
+  options: { readonly cwd: string },
+): GitCheckIgnoreResult {
+  const result = spawnSync("git", ["check-ignore", "--stdin", "-v"], {
+    cwd: options.cwd,
+    encoding: "utf8",
+    input: `${candidatePaths.join("\n")}\n`,
+  });
+  if (result.error !== undefined) return { kind: "spawn-failed", error: result.error };
+  if (result.status === 0) return { kind: "ignored-paths-output", stdout: result.stdout };
+  if (result.status === 1) return { kind: "not-ignored", stdout: result.stdout };
+  return { kind: "unexpected-status", status: result.status, stderr: result.stderr };
+}
 
 /**
  * What {@link defaultGitRunner} does with the child git process's stderr.

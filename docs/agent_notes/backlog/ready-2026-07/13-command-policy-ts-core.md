@@ -65,9 +65,9 @@ they drift fast — re-check before editing):
 
 The only coverage today is the 3,709-line shell suite. The substrate
 ruling supports the port — "Anything analytical lives in TS"
-(docs/ai-harness.md:259-263; ruling section :245-276, signed off
-b7c2ce73 2026-07-14) — and policy.sh is NOT on the recorded exception
-list (docs/ai-harness.md:269-276).
+(`docs/ai-harness.md` **Substrate Ruling (Bash Vs TS)**, signed off
+`b7c2ce73` 2026-07-14) — and `policy.sh` is not on that section's recorded
+exception list.
 
 The threat model is bounded and must not be widened by this port:
 deliberate bypasses outside the documented accidental-use grammar (SSH

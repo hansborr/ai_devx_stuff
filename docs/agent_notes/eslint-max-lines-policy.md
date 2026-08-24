@@ -5,10 +5,10 @@ Date: 2026-06-12
 
 ## Context
 
-Per-file `local/max-lines` caps in ESLint must stay aligned with matching
-ratchet floors and ratchet exclusions. Active ratchet lifecycle metadata points
-here because this policy is not just backlog planning: it explains the current
-large-file exception model used by `eslint-config/shared-policy.js`.
+Per-file `local/max-lines` caps in ESLint and their exception metadata are
+centralized here. The last max-lines ratchet was retired after codemod sources
+moved under normal ESLint coverage; this policy now explains the ordinary lint
+model used by `eslint-config/max-lines-policy.js`.
 
 ## Current Policy
 
@@ -16,6 +16,10 @@ large-file exception model used by `eslint-config/shared-policy.js`.
   lines and comments skipped.
 - Larger files must be listed in `maxLinesPolicy.exceptions` with an exact
   path, cap, severity, reason, `lifecycle` label, and `ratchetExcluded` value.
+- Write each reason as a present-tense structural justification. For an
+  exception expected to retire, name its retirement condition; a permanent
+  exception should instead explain its enduring cohesion or nature. Keep
+  ticket names, named change history, and line or cap deltas in Git history.
 - The `lifecycle` label classifies the exception's intent and is one of:
   - `candidate-for-split` — accepted large today, but flagged to break up
     (the reason names the future split/extraction/refactor).
@@ -23,19 +27,16 @@ large-file exception model used by `eslint-config/shared-policy.js`.
     canonical fixtures/harnesses, bounded glue) and not expected to split.
   - `temporary` — large only until imminent in-flight work removes the
     exception (currently unused; reserve for short-lived exceptions).
-- `ratchetExcluded: false` means normal ESLint has a higher cap while a
-  `local/max-lines` ratchet still keeps the max-300 floor visible.
-- `ratchetExcluded: true` means the file is intentionally outside the default
-  max-lines ratchet; the exception reason must explain why that larger file is
-  currently accepted.
-- Max-lines ratchet scopes live in `maxLinesPolicy.ratchets` so
-  `scripts/lint-ratchet/max-lines-policy.ts` can feed the ratchet registry from
-  the same shared policy object.
-- `eslint-config/shared-policy.js::maxLinesPolicy` is the single source: ESLint
-  per-file overrides (`eslint-config/code-quality-configs.js`), the ratchet
-  registry (`scripts/lint-ratchet/max-lines-policy.ts`), and the policy test
-  (`eslint-rules/max-lines-policy.test.js`) all read it; the ambient type lives
-  in `scripts/eslint-config-shared-policy.d.ts`.
+- `ratchetExcluded` is retained in the exception baseline as historical
+  lifecycle metadata. No current max-lines ratchet consumes it; all live
+  max-lines enforcement is ordinary ESLint.
+- `eslint-config/max-lines-policy.js::maxLinesPolicy` is the single source for
+  ESLint per-file overrides (`eslint-config/code-quality-configs.js`) and the
+  policy tests; its checked JSDoc is also the type contract `scripts/*.ts`
+  consumers resolve (`tsconfig.scripts.json` sets `allowJs`).
+- Any future max-lines debt starts directly in
+  `scripts/lint-ratchet/lint-ratchet-config.ts`; the retired
+  `maxLinesPolicy.ratchets` adapter surface is not kept empty in anticipation.
 
 ## Delivered (Leaf 08, 2026-06-12)
 
@@ -43,10 +44,10 @@ The reference-readiness goals are now met by the single-source policy object:
 
 - Large-file exceptions live in one data structure (`maxLinesPolicy.exceptions`)
   carrying path, cap, severity, reason, `lifecycle` label, and `ratchetExcluded`.
-- ESLint overrides and the ratchet registry import that same object rather than
-  duplicating it (see the single-source bullet under Current Policy).
+- ESLint overrides import that object rather than duplicating it.
 - `eslint-rules/max-lines-policy.test.js` catches missing reasons, stale paths,
-  invalid lifecycle labels, ESLint-cap drift, and ratchet-exclusion drift.
+  invalid lifecycle labels, ESLint-cap drift, and unexpected reintroduction of
+  a max-lines ratchet.
 
 Out of scope (still gated): building reporting/dashboards on top of the
 lifecycle labels — deferred per the lint-followups summary

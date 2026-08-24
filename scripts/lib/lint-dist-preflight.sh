@@ -5,6 +5,7 @@
 
 MUSI_LINT_DIST_REQUIRED_OUTPUTS=(
   "packages/shared/dist/constants.d.ts"
+  "packages/shared/dist/logging-policy.d.ts"
   "packages/shared/dist/dice/dice-roller.d.ts"
   "packages/shared/dist/map/drawing.d.ts"
   "packages/shared/dist/rules/attack-damage.d.ts"

@@ -19,21 +19,33 @@ export const ghostFilesCheck = defineCheckPlugin<
     listDirectory: env.overrides.listDirectory ?? defaultDirectoryListing(env.repoRoot),
   }),
   run: (ctx, config) => {
-    const findings = runGhostFilesCheck({
-      detectorScope: ctx.detectorScope,
-      listDirectory: ctx.services.listDirectory,
-      ...(ctx.inventoryByDir === null ? {} : { inventoryByDir: ctx.inventoryByDir }),
-      excludeGlobs:
-        ctx.detectorScope.scopeMode === "current"
-          ? config.excludeGlobs
-          : ghostExcludeGlobs(ctx.config.ignore.globs, config),
-      currentAllowedPairs: config.currentAllowedPairs,
+    const sharedOptions = {
       ...(config.dependentsHint === undefined ? {} : { dependentsHint: config.dependentsHint }),
       weakTokens: new Set(config.weakTokens),
       entryPointStems: new Set(config.entryPointStems),
-      roleMarkerTokens: new Set(config.roleMarkerTokens),
       sourceExtensions: ctx.sourceExtensions,
-    });
+    };
+    let findings;
+    if (ctx.detectorScope.scopeMode === "current") {
+      if (ctx.inventoryByDir === null) {
+        throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
+      }
+      findings = runGhostFilesCheck({
+        ...sharedOptions,
+        detectorScope: ctx.detectorScope,
+        inventoryByDir: ctx.inventoryByDir,
+        excludeGlobs: config.excludeGlobs,
+        currentAllowedPairs: config.currentAllowedPairs,
+        roleMarkerTokens: new Set(config.roleMarkerTokens),
+      });
+    } else {
+      findings = runGhostFilesCheck({
+        ...sharedOptions,
+        detectorScope: ctx.detectorScope,
+        listDirectory: ctx.services.listDirectory,
+        excludeGlobs: ghostExcludeGlobs(ctx.config.ignore.globs, config),
+      });
+    }
     return { status: "ran", findings };
   },
 });

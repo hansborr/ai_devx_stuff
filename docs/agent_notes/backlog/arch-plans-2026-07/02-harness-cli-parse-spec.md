@@ -145,7 +145,7 @@ Planning-altitude bounds:
   validators, plus the not-yet-classified `sensor-blob-size.ts`,
   `sensor-knip-unused-exports-core.ts`, and `lint-probe-rule.ts` —
   and decide the portable-core question: `harness-audit.ts` is listed
-  as copyable harness core (`docs/ai-harness.md:100`) but imports
+  as copyable harness core (`docs/ai-harness.md` **Portable Core And Adapters**) but imports
   `scripts/lib/cli.ts`, so the closeout rules whether
   `cli.ts`/`cli-option-values.ts` become copy-alongs in that
   inventory.
@@ -392,14 +392,24 @@ All 83 tests across the 15 code-intel suites green; file 323→318 lines
 not raw shrink in cli-args itself — schemas and exact usage strings
 dominate what remains).
 
-## S6 closeout (2026-07-19)
+## S6 closeout (2026-07-19; H5 follow-up closed 2026-08-01)
 
 ### Classification of every remaining parser
 
-Migrated onto `parseCli` (S2–S5): harness-audit, lint-coverage-map-
-check, sensor-near-duplicates-cli-options, logs-audit, drift-triage,
-drift-triage-collect, backlog-lint, drift-ai main command, code-intel
-subcommands (def/overview/dependents/tests/refs).
+Migrated onto `parseCli` (S2–S5 plus H5): harness-audit, lint-coverage-map-check,
+sensor-near-duplicates-cli-options, logs-audit, drift-triage,
+drift-triage-collect, backlog-lint, drift-ai main command, and code-intel
+subcommands (def/overview/dependents/tests/refs), plus
+sensor-knip-unused-exports. The classification table and its only follow-up are
+now complete.
+
+H5 accepted edges (unpinned and not smoke-locked): separate `--baseline ""`
+and inline `--baseline=--foo` now both report `--baseline requires a path.`
+instead of reaching check mode. The empty value previously resolved to the
+repository root as though it were a baseline file, creating a latent `EISDIR`
+failure; neither input was an intentional value contract. The new declarative
+`rejectPositionals` policy preserves the pinned argv-order pair by rejecting a
+stray positional at its token.
 
 Intentionally bespoke, with reasons:
 
@@ -413,7 +423,6 @@ Intentionally bespoke, with reasons:
 | drift-ai `SubcommandSpec` layer (~90 L) | S4 ruling above: second substrate kept; optional follow-up is reimplementing `parseSubcommandArgs` over `parseCli` behind its unchanged consumer shape. |
 | code-intel `exports` + global `--format` pass; `lint-probe-rule.ts` leading parse | Fixed destructure and pass-through/prefix filters — shapes `parseCli` deliberately does not cover (a prefix parser stops at the first positional and hands the tail through untouched). |
 | `scripts/sensor-blob-size.ts` (~35 L) | Newly classified: inline-`=`-only flag surface (`--threshold-warn=N`; the separate form is intentionally not accepted). Migrating would widen the surface or demand an inline-only substrate knob nothing else needs. Bespoke until a second inline-only tool appears. |
-| `scripts/sensor-knip-unused-exports-core.ts` (~35 L) | Newly classified: migratable — same shape as the near-duplicates proof (help sentinel, `--baseline` both forms, exit-2 `ERROR:` prefix). Left as a mechanical follow-up so S6 stays doc-only; no blocker recorded. |
 | `scripts/lint-probe-rule.ts` (~45 L) | Newly classified: leading-prefix parser with pass-through tail (`restStart`); out of the flat-walk shape, same family as the global `--format` pass. Bespoke. |
 | `scripts/lib/verify-metadata-core.ts` (landed on main after this branch was cut; leaf 05) | Classified at merge time: a subcommand table of fixed positional destructures — per-subcommand argv-length contracts and a stdin-vs-argv split behind the `verify-metadata.sh` shims, no flag options at all. Merge-CLI shape; nothing for `parseCli` to spec. Bespoke. |
 
@@ -431,18 +440,22 @@ new external dependency.
 
 ### Final measurements (same whole-function method as S0)
 
-- Substrate: `scripts/lib/cli.ts` 99→237 + `cli-option-values.ts` 57
-  (unchanged) = 294 shared lines, zero type-assertion markers.
+- Substrate: `scripts/lib/cli.ts` 99→241 + `cli-option-values.ts` 57
+  (unchanged) = 298 shared lines, zero type-assertion markers.
 - Bespoke parser mechanics across the S0-measured tools: 706→~43
   (code-intel global pass + dash-rejection + exports destructure ~33,
   sensor near-duplicates bridge shims ~10); drift-ai's second
   substrate (~90) persists by ruling. Intentionally-bespoke parsers
-  outside the S0 scope (~115 lines across blob-size, knip-core,
-  lint-probe-rule) are classified above, not swept.
+  outside the S0 scope (~80 lines across blob-size and lint-probe-rule) are
+  classified above, not swept.
 - Substrate knobs the sweep earned: `repeatable`, `rejectInlineForm`,
   `valueErrorMessage`, flag `inlineValueErrorMessage`, and the
-  empty-usage unknown-argument form. Anything further should wait for
-  a second consumer.
+  empty-usage unknown-argument form; H5 added `rejectPositionals` after five
+  existing post-walk consumers established the seam. Those consumers remain
+  unchanged: lint-coverage-map-check, sensor-near-duplicates, drift-ai,
+  mutation-survivors, and backlog-lint each have established ordering,
+  diagnostics, or return-path behavior to review before conversion. No
+  per-option value-reader policy is justified by the rejected H5 inputs.
 
 ### Design inputs for S1
 

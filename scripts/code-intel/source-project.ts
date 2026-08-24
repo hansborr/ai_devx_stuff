@@ -7,7 +7,12 @@ import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget, ts } from "ts-
 import { CodeIntelError } from "./errors.js";
 import { isSameOrInside, samePath, toSlash } from "./path-utils.js";
 import type { ImportGraph } from "./types.js";
-import { SCRIPT_FIXTURE_DIR, SCRIPT_SOURCE_DIR, WORKSPACE_PACKAGE_DIRS } from "./types.js";
+import {
+  APPLICATION_PACKAGE_DIRS,
+  APPLICATION_SOURCE_ROOTS,
+  SCRIPT_FIXTURE_DIR,
+  SCRIPT_SOURCE_DIR,
+} from "./types.js";
 import { createWorkspaceModel, type WorkspaceResolver } from "./workspace-resolver.js";
 
 const RELATIVE_EXPORT_PREFIX = "./";
@@ -24,12 +29,14 @@ export type CodeIntelContext = {
 
 export function sourceFilesForGraph(repoRoot: string, context: CodeIntelContext): SourceFile[] {
   if (context.sourceFiles) return context.sourceFiles;
-  if (context.graphProject) return workspaceSourceFiles(context.graphProject.getSourceFiles());
+  if (context.graphProject) {
+    return supportedSourceFiles(repoRoot, context.graphProject.getSourceFiles());
+  }
 
   const project = new Project({ skipAddingFilesFromTsConfig: true });
-  const sourcePaths = discoverWorkspaceSourcePaths(repoRoot);
+  const sourcePaths = discoverSupportedSourcePaths(repoRoot);
   project.addSourceFilesAtPaths(sourcePaths);
-  return workspaceSourceFiles(project.getSourceFiles());
+  return supportedSourceFiles(repoRoot, project.getSourceFiles());
 }
 
 export function createReferenceProject(repoRoot: string): Project {
@@ -46,23 +53,43 @@ export function createReferenceProject(repoRoot: string): Project {
       target: ScriptTarget.ES2024,
     },
   });
-  project.addSourceFilesAtPaths(discoverWorkspaceSourcePaths(repoRoot));
+  project.addSourceFilesAtPaths(discoverSupportedSourcePaths(repoRoot));
   return project;
 }
 
 export function createProjectForFile(repoRoot: string, file: string): Project {
   const relative = toSlash(path.relative(repoRoot, path.resolve(repoRoot, file)));
-  const packageDir = WORKSPACE_PACKAGE_DIRS.find((candidate) =>
+  // Repo-relative in the error, matching existingRelativeFile, so the same
+  // out-of-scope path reports identically across every command.
+  if (!isSupportedRelativePath(relative)) throw unsupportedScopeError(relative);
+  const packageDir = APPLICATION_PACKAGE_DIRS.find((candidate) =>
     relative.startsWith(`${candidate}/`),
   );
   if (packageDir) {
     return new Project({ tsConfigFilePath: path.join(repoRoot, packageDir, "tsconfig.json") });
   }
-  if (relative.startsWith(`${SCRIPT_SOURCE_DIR}/`)) {
-    return new Project({ tsConfigFilePath: path.join(repoRoot, "tsconfig.scripts.json") });
-  }
-  throw new CodeIntelError(
-    `File must be under ${WORKSPACE_PACKAGE_DIRS.join(", ")} or ${SCRIPT_SOURCE_DIR}: ${file}`,
+  return new Project({ tsConfigFilePath: path.join(repoRoot, "tsconfig.scripts.json") });
+}
+
+// Shared supported-scope failure so every single-file query path (positional
+// def/exports/overview via one-shot createProjectForFile, daemon def/exports
+// via projectBucketForFile — overview is not daemon-routable and always runs
+// one-shot — and dependents/tests/refs via existingRelativeFile) fails loudly
+// on out-of-scope targets instead of returning empty or incomplete output
+// (docs/guides/code-intel.md#supported-scope).
+export function unsupportedScopeError(file: string): CodeIntelError {
+  return new CodeIntelError(
+    `File must be under ${APPLICATION_SOURCE_ROOTS.join(", ")}, or ${SCRIPT_SOURCE_DIR} (excluding ${SCRIPT_FIXTURE_DIR}): ${file}`,
+  );
+}
+
+// Mirrors discoverSupportedSourcePaths exactly: accepting a file the graph
+// never loads would turn the loud scope error back into a silent empty result.
+export function isSupportedRelativePath(relative: string): boolean {
+  if (relative.startsWith(`${SCRIPT_FIXTURE_DIR}/`)) return false;
+  return (
+    APPLICATION_SOURCE_ROOTS.some((sourceRoot) => relative.startsWith(`${sourceRoot}/`)) ||
+    relative.startsWith(`${SCRIPT_SOURCE_DIR}/`)
   );
 }
 
@@ -90,7 +117,21 @@ export function getOptionalProjectSourceFile(
 }
 
 export function existingRelativeFile(resolver: WorkspaceResolver, file: string): string {
-  const target = resolver.relative(file);
+  // relativeRaw, not relative: the resolver's dist -> src source mapping
+  // would rewrite dist/ and node_modules build artifacts into src/ before the
+  // guard, accepting inputs that def/exports/overview reject. Scope-check
+  // first so out-of-scope paths get the same rejection on every command.
+  const target = resolver.relativeRaw(file);
+  // Extensionless inputs (directories, bare discovery roots) fail the
+  // trailing-slash scope predicate, and the scope error would then tell the
+  // caller their path "must be under" the very root they passed. They can
+  // never be source files, so report the file-shape failure directly.
+  // Extension-shaped paths still hit the scope guard first so dist/ and
+  // node_modules artifacts keep the supported-scope error.
+  if (path.extname(target) === "") {
+    throw new CodeIntelError(`File must be a TypeScript source file: ${target}`);
+  }
+  if (!isSupportedRelativePath(target)) throw unsupportedScopeError(target);
   if (!isSourceFilePath(target)) {
     throw new CodeIntelError(`File must be a TypeScript source file: ${target}`);
   }
@@ -100,9 +141,9 @@ export function existingRelativeFile(resolver: WorkspaceResolver, file: string):
   return target;
 }
 
-export function discoverWorkspaceSourcePaths(repoRoot: string): string[] {
+export function discoverSupportedSourcePaths(repoRoot: string): string[] {
   const paths: string[] = [];
-  for (const packageDir of WORKSPACE_PACKAGE_DIRS) {
+  for (const packageDir of APPLICATION_PACKAGE_DIRS) {
     const sourceRoot = path.join(repoRoot, packageDir, "src");
     if (!existsSync(sourceRoot)) continue;
     collectSourcePaths(sourceRoot, paths);
@@ -128,14 +169,14 @@ function collectSourcePaths(directory: string, paths: string[], ignoredDirs: str
   }
 }
 
-function workspaceSourceFiles(sourceFiles: SourceFile[]): SourceFile[] {
-  return sourceFiles.filter((sourceFile) => {
-    const filePath = toSlash(sourceFile.getFilePath());
-    return (
-      WORKSPACE_PACKAGE_DIRS.some((packageDir) => filePath.includes(`${packageDir}/src/`)) ||
-      filePath.includes(`/${SCRIPT_SOURCE_DIR}/`)
-    );
-  });
+// Filters through the same anchored predicate as the scope guard so the two
+// "supported set" definitions cannot drift: an unanchored substring match
+// would admit out-of-root files (e.g. examples/*/scripts/*) if a caller ever
+// seeded the project from a wider set than discoverSupportedSourcePaths.
+function supportedSourceFiles(repoRoot: string, sourceFiles: SourceFile[]): SourceFile[] {
+  return sourceFiles.filter((sourceFile) =>
+    isSupportedRelativePath(toSlash(path.relative(repoRoot, sourceFile.getFilePath()))),
+  );
 }
 
 function referenceProjectCompilerPaths(repoRoot: string): Record<string, string[]> {

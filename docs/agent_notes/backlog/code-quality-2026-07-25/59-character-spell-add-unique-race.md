@@ -1,6 +1,11 @@
 # 59. `characterSpell.add` checks for an existing row, then inserts against a unique constraint, so the loser gets a 500
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-30** on branch
+`fix/cq-58-59-prepared-spell-writes`, commits `4fe710e4e` and review follow-up
+`e9d743b11`. `characterSpell.add` now lets the unique constraint detect every
+duplicate and maps P2002 to `BAD_REQUEST "Character already knows this spell"`.
+The sequential duplicate test pins the exact code and message; no pre-read or
+implementation-coupled barrier test remains.
 Theme: Race-sensitive mutation not routed through the concurrency machinery · Area: server · Severity: low · Size: XS
 
 Source: server-cluster review round, 2026-07-27 (found while confirming that

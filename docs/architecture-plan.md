@@ -44,7 +44,7 @@ curated recent history.
   Structural rules for that layer live in `packages/server/src/services/README.md`.
 - Race-sensitive writes go through `utils/*-mutations.ts`, not direct Prisma
   updates. See `docs/CONCURRENCY.md` and
-  `docs/adr/0001-race-sensitive-writes.md` (ADR-0001).
+  `docs/adr/0007-runtime-guarded-mutation-boundaries.md` (ADR-0007).
 
 ## Data Model Shape
 

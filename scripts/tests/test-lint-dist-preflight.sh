@@ -5,6 +5,8 @@
 # smoke-subjects: scripts/lint-changed.sh
 # smoke-subjects: scripts/lib/eslint-main-partitions.sh
 # smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/eslint-main-cache.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
 # smoke-subjects: scripts/lib/tool-memory-admission.sh
 # smoke-subjects: scripts/lib/test-worker-count.sh
@@ -13,8 +15,15 @@
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/tests/test-lint-dist-preflight.sh
@@ -22,17 +31,17 @@
 # smoke-subjects: packages/server/package.json
 # smoke-subjects: eslint-config/config-surface-manifest.json
 # smoke-subjects: eslint-config/config-surfaces.js
-# smoke-subjects: eslint-config/max-lines-exceptions-codec.js
-# smoke-subjects: eslint-config/max-lines-exceptions.baseline.json
-# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: eslint-config/path-glob-policy.js
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/lint-ratchet/paths.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # Smoke test for the lint TypeScript-build prerequisite preflight.
 set -euo pipefail
 
@@ -40,12 +49,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 HELPER="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
+ESLINT_MAIN_CACHE_CORE="$SCRIPT_DIR/../lib/eslint-main-cache.ts"
+PROCESS_ARGV="$SCRIPT_DIR/../lib/process-argv.ts"
 ESLINT_MAIN_PARTITIONS="$SCRIPT_DIR/../lib/eslint-main-partitions.sh"
 ESLINT_MAIN_RUNNER="$SCRIPT_DIR/../eslint-main.sh"
 LINT_WRAPPER="$SCRIPT_DIR/../lint.sh"
 LINT_CHANGED_WRAPPER="$SCRIPT_DIR/../lint-changed.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
+VERIFY_COMMIT_QUEUE="$SCRIPT_DIR/../lib/verify-commit-queue.sh"
+VERIFY_FAST_COMMIT="$SCRIPT_DIR/../lib/verify-fast-commit.sh"
+VERIFY_MARKERS="$SCRIPT_DIR/../lib/verify-markers.sh"
+VERIFY_PATH_POLICY="$SCRIPT_DIR/../lib/verify-path-policy.sh"
+VERIFY_RUN_META="$SCRIPT_DIR/../lib/verify-run-meta.sh"
+VERIFY_STATE_PATHS="$SCRIPT_DIR/../lib/verify-state-paths.sh"
 # Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
 # source tree via the MUSI_VERIFY_META_CORE seam.
 export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
@@ -55,20 +72,23 @@ GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 TOOL_MEMORY_ADMISSION="$SCRIPT_DIR/../lib/tool-memory-admission.sh"
 TEST_WORKER_COUNT="$SCRIPT_DIR/../lib/test-worker-count.sh"
 MEMORY_BUDGET="$SCRIPT_DIR/../verify/memory-budget.sh"
+MEMORY_WAIT_TIMEOUT="$SCRIPT_DIR/../verify/memory-wait-timeout.sh"
 ADMITTED_COMMAND="$SCRIPT_DIR/../verify/admitted-command.sh"
 PROCESS_TREE="$SCRIPT_DIR/../process-tree.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+SMOKE_TEST_FILES="$SCRIPT_DIR/../path-policy/smoke-test-files.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
-SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
+PATH_GLOB_POLICY="$REPO_ROOT/eslint-config/path-glob-policy.js"
 PACKAGE_SCRIPTS="$REPO_ROOT/package.json"
 
 PASS=0
@@ -146,6 +166,7 @@ make_repo() {
     "$repo/packages/shared/dist/test" \
     "$repo/packages/server/dist/routers"
   touch "$repo/packages/shared/dist/constants.d.ts"
+  touch "$repo/packages/shared/dist/logging-policy.d.ts"
   touch "$repo/packages/shared/dist/dice/dice-roller.d.ts"
   touch "$repo/packages/shared/dist/map/drawing.d.ts"
   touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
@@ -249,6 +270,7 @@ if [ "${1:-}" = run ] && [ "${2:-}" = typecheck ]; then
       packages/shared/dist/test \
       packages/server/dist/routers
     touch packages/shared/dist/constants.d.ts
+    touch packages/shared/dist/logging-policy.d.ts
     touch packages/shared/dist/dice/dice-roller.d.ts
     touch packages/shared/dist/map/drawing.d.ts
     touch packages/shared/dist/rules/attack-damage.d.ts
@@ -309,10 +331,12 @@ copy_path_policy() {
     "$repo/scripts/lib" "$repo/eslint-config"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$SMOKE_TEST_FILES" "$repo/scripts/path-policy/smoke-test-files.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   # harness-manifest.ts narrows the manifest JSON through the shared record
@@ -326,9 +350,7 @@ copy_path_policy() {
   [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
-  cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
+  cp "$PATH_GLOB_POLICY" "$repo/eslint-config/path-glob-policy.js"
 }
 
 copy_lint_changed_dependencies() {
@@ -337,10 +359,18 @@ copy_lint_changed_dependencies() {
   cp "$LINT_CHANGED_WRAPPER" "$repo/scripts/lint-changed.sh"
   cp "$HELPER" "$repo/scripts/lib/lint-dist-preflight.sh"
   cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+  cp "$ESLINT_MAIN_CACHE_CORE" "$repo/scripts/lib/eslint-main-cache.ts"
+  cp "$PROCESS_ARGV" "$repo/scripts/lib/process-argv.ts"
   cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
   cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$VERIFY_COMMIT_QUEUE" "$repo/scripts/lib/verify-commit-queue.sh"
+  cp "$VERIFY_FAST_COMMIT" "$repo/scripts/lib/verify-fast-commit.sh"
+  cp "$VERIFY_MARKERS" "$repo/scripts/lib/verify-markers.sh"
+  cp "$VERIFY_PATH_POLICY" "$repo/scripts/lib/verify-path-policy.sh"
+  cp "$VERIFY_RUN_META" "$repo/scripts/lib/verify-run-meta.sh"
+  cp "$VERIFY_STATE_PATHS" "$repo/scripts/lib/verify-state-paths.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
   cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
@@ -413,6 +443,13 @@ rm "$REPO_SHARED_MISSING/packages/shared/dist/constants.d.ts"
 expect_preflight_repair "shared-missing" "$REPO_SHARED_MISSING" "packages/shared/dist/constants.d.ts"
 ok "missing shared dist output runs typecheck before lint"
 
+REPO_LOGGING_POLICY_MISSING="$ROOT/logging-policy-missing"
+make_repo "$REPO_LOGGING_POLICY_MISSING"
+rm "$REPO_LOGGING_POLICY_MISSING/packages/shared/dist/logging-policy.d.ts"
+expect_preflight_repair "logging-policy-missing" "$REPO_LOGGING_POLICY_MISSING" \
+  "packages/shared/dist/logging-policy.d.ts"
+ok "missing logging-policy declaration runs typecheck despite sibling top-level output"
+
 REPO_SERVER_MISSING="$ROOT/server-missing"
 make_repo "$REPO_SERVER_MISSING"
 rm "$REPO_SERVER_MISSING/packages/server/dist/routers/app-router.d.ts"
@@ -439,6 +476,7 @@ install_lint_memory_support() {
   cp "$TOOL_MEMORY_ADMISSION" "$repo/scripts/lib/tool-memory-admission.sh"
   cp "$TEST_WORKER_COUNT" "$repo/scripts/lib/test-worker-count.sh"
   cp "$MEMORY_BUDGET" "$repo/scripts/verify/memory-budget.sh"
+  cp "$MEMORY_WAIT_TIMEOUT" "$repo/scripts/verify/memory-wait-timeout.sh"
   cp "$ADMITTED_COMMAND" "$repo/scripts/verify/admitted-command.sh"
   cp "$PROCESS_TREE" "$repo/scripts/process-tree.sh"
 }
@@ -448,6 +486,8 @@ mkdir -p "$REPO_LINT_WRAPPER/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER/scripts/lib/lint-dist-preflight.sh"
 cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_CACHE_CORE" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-cache.ts"
+cp "$PROCESS_ARGV" "$REPO_LINT_WRAPPER/scripts/lib/process-argv.ts"
 cp "$ESLINT_MAIN_PARTITIONS" "$REPO_LINT_WRAPPER/scripts/lib/eslint-main-partitions.sh"
 cp "$ESLINT_MAIN_RUNNER" "$REPO_LINT_WRAPPER/scripts/eslint-main.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER/scripts/lib/parallel-runner.sh"
@@ -519,6 +559,7 @@ set +e
 (
   cd "$REPO_LINT_WRAPPER"
   ESLINT_LOG="$ROOT/lint-wrapper.eslint.log" \
+    REAL_BUN="$(command -v bun)" \
     STUB_ESLINT_FAIL_TARGET="packages/server/src" \
     STUB_ESLINT_FAIL_EXIT=1 \
     PATH="$ROOT/bin:$PATH" \
@@ -537,6 +578,7 @@ set +e
 (
   cd "$REPO_LINT_WRAPPER"
   ESLINT_LOG="$ROOT/lint-wrapper.eslint.log" \
+    REAL_BUN="$(command -v bun)" \
     STUB_ESLINT_FAIL_TARGET="packages/client/src" \
     STUB_ESLINT_FAIL_EXIT=2 \
     PATH="$ROOT/bin:$PATH" \
@@ -558,6 +600,8 @@ mkdir -p "$REPO_LINT_WRAPPER_FAIL/scripts/lib"
 cp "$LINT_WRAPPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lint.sh"
 cp "$HELPER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/lint-dist-preflight.sh"
 cp "$ESLINT_MAIN_CACHE" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_CACHE_CORE" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-cache.ts"
+cp "$PROCESS_ARGV" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/process-argv.ts"
 cp "$ESLINT_MAIN_PARTITIONS" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/eslint-main-partitions.sh"
 cp "$ESLINT_MAIN_RUNNER" "$REPO_LINT_WRAPPER_FAIL/scripts/eslint-main.sh"
 cp "$PARALLEL_RUNNER" "$REPO_LINT_WRAPPER_FAIL/scripts/lib/parallel-runner.sh"

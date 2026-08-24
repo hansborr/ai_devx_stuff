@@ -1,9 +1,9 @@
 import { requireArg } from "../../cli-option-values.js";
+import { fail as failWithName } from "./codemod-errors.js";
 import type {
   SharedSchemaCodemodCliArgs,
   SharedSchemaCodemodConfig,
 } from "./trpc-shared-engine-types.js";
-import { fail as failWithName } from "./trpc-shared-schema.js";
 
 type ParsedCliFlags = {
   all: boolean;

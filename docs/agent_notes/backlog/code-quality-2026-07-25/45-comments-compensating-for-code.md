@@ -1,6 +1,14 @@
 # 45. Contracts are documented in comments that live away from the code enforcing them, and one header claims a compile-time guarantee the types do not give
 
-Status: Proposed — not promoted
+Status: **Landed 2026-07-30 on branch
+`feat/cq-server-comments-s14-s16`, merge `a01edb455`** through
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md) slice **S14**, closing this
+leaf; the plan shrinks it M→XS. **Steps 2 and 4 are dropped permanently**: the
+five-pair transition union is type complexity for two correctly-marked
+`interop` casts, and the three `*-mutations.ts` headers are three altitudes of
+one contract, not three copies — both are durable rulings in
+[CONSTRAINTS.md](./CONSTRAINTS.md). The "Sequencing with leaf 05" caveat is
+answered: leaf 05 step 7 is dropped, so shape 5 stayed verbatim.
 Theme: contract placement · Area: comments · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

@@ -10,6 +10,7 @@ import {
   parseCloneCandidatesArgs,
   type ParsedCloneCandidatesArgs,
 } from "./clone-candidates-args.js";
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import type { MinHashConfig } from "./minhash-lsh.js";
@@ -36,10 +37,7 @@ export type CloneCandidatesRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type CloneCandidatesRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type CloneCandidatesRunResult = DriftAiCommandResult;
 
 export function runCloneCandidates(options: CloneCandidatesRunOptions): CloneCandidatesRunResult {
   return runPrototypeCommand(options, {
@@ -95,6 +93,7 @@ function runFunctionInventory(
     minLines: config.minLines,
     minTokens: config.minTokens,
     similarityThreshold: config.similarityThreshold,
+    includeExactTokens: false,
   });
 }
 

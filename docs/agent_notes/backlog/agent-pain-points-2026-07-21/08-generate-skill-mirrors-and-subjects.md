@@ -5,7 +5,9 @@ Date: 2026-07-21
 Priority: P2
 Size: L
 Risk: medium-high
-Source: `pain_points.log` line 17; Claude memory
+Source:
+`/home/node/persist/musi/pain_points/harness-registration-and-generated-surfaces.md`;
+Claude memory
 `skill-reference-file-registration.md`; architecture-review findings T4/Tier 3
 
 ## Problem

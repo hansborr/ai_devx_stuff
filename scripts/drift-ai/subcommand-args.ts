@@ -1,21 +1,28 @@
-// Shared argument parser for drift:ai SUBCOMMANDS (hotspots, harness-freshness).
-// Subcommands historically did bespoke arg handling with no `--format`/`--output`
-// parity; this gives them one parser so they converge instead of forking. The
-// main `drift:ai` command keeps its own richer parser in `cli-args.ts`.
+// Shared argument substrate for drift:ai SUBCOMMANDS (hotspots, coldspots,
+// harness-freshness, config, and the prototype advisories). Each subcommand
+// parses through `parseSubcommandCli` — the same per-subcommand `parseCli` +
+// Zod pattern the main command adopted in `cli-args.ts` — composing the base
+// fragments below with its own options; result assembly stays hand-written per
+// subcommand. The main `drift:ai` command keeps its own richer parser in
+// `cli-args.ts`.
 //
-// Coordinates with backlog task 50 (Med-1 / M4 / L1): that cleanup defers to this
-// parser shape for the harness-freshness retrofit. A future declarative per-option
-// table (task 50 Low-1) could unify this with cli-args, but they are kept separate
-// for now so the main command's flag surface stays stable.
+// Documented decision (backlog unit 120, discharging the deferral this header
+// used to record for task 50 Low-1): the callback-record SubcommandSpec layer
+// is retired in favor of parseCli+Zod, but subcommands and cli-args
+// deliberately do NOT share one flag table — the main command's flag surface
+// stays stable and separate, and registry agreement is guarded by parity
+// tests, not a declarative per-option derivation layer.
 
-import { requireArgAllowingEmpty as requireArg } from "../cli-option-values.js";
-import type { OutputFormat } from "./arg-readers.js";
-import { optionName, readFormat, readPath, readValue } from "./arg-readers.js";
+import { z } from "zod";
+
+import { type CliFormat, parseCli, type ParseCliSpec, type ParsedCli } from "../lib/cli.js";
 import { DriftAiHelp } from "./cli-args.js";
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
+import { loadDriftAiConfig, type LoadedDriftAiConfig } from "./config.js";
 import { DriftAiError } from "./errors.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 
-export type SubcommandFormat = OutputFormat;
+export type SubcommandFormat = CliFormat;
 
 export type SubcommandBaseOptions = {
   readonly format: SubcommandFormat;
@@ -23,129 +30,100 @@ export type SubcommandBaseOptions = {
   readonly configPath: string | null;
 };
 
-// A per-subcommand value option: given the raw value, validate and stash it
-// (mutating the subcommand's own accumulator). Throws DriftAiError on a bad value.
-type SubcommandValueOption = (value: string) => void;
+// parseCli option fragment for the base surface every subcommand accepts.
+// Spread it into a subcommand's option array alongside the subcommand's own
+// options; the Zod counterpart is `subcommandBaseSchemaShape` below.
+export const SUBCOMMAND_BASE_CLI_OPTIONS = [
+  { name: "--format", kind: "value" },
+  { name: "--output", kind: "value" },
+] as const;
 
-// A per-subcommand valueless boolean flag (present = true): the handler flips the
-// subcommand's own accumulator. Mirrors the main parser's parseBooleanFlag.
-type SubcommandFlagOption = () => void;
+// `--config` stays opt-in: a subcommand that does not read config (e.g.
+// harness-freshness) rejects it as unknown rather than advertising an inert
+// flag whose value is silently ignored. Compose with `configSchemaShape`.
+export const CONFIG_CLI_OPTION = { name: "--config", kind: "value" } as const;
 
-export type SubcommandSpec = {
-  // Full usage text, shown on `--help` and appended to unknown-arg / missing-value
-  // errors so the surface is discoverable.
-  readonly usage: string;
-  // Subcommand-specific value-taking options keyed by flag name (e.g. "--lens").
-  readonly valueOptions?: Readonly<Record<string, SubcommandValueOption>>;
-  // Subcommand-specific path-taking options keyed by flag name (e.g. "--root").
-  // Values flow through the same non-empty path validation as universal path flags.
-  readonly pathValueOptions?: Readonly<Record<string, SubcommandValueOption>>;
-  // Subcommand-specific valueless flags keyed by flag name (e.g. "--allow-live-registry").
-  // `--flag=value` is rejected: a boolean flag never takes a value.
-  readonly flagOptions?: Readonly<Record<string, SubcommandFlagOption>>;
-  // Whether this subcommand consumes `--config`. Opt-in: a subcommand that does not
-  // read config (e.g. harness-freshness) rejects `--config` as unknown rather than
-  // advertising an inert flag whose value is silently ignored.
-  readonly acceptsConfig?: boolean;
+// Zod shape fragment for the base surface; spread into a subcommand's
+// `z.object`. The enum error keeps the shared "--format requires text or
+// json." diagnostic byte-identical to the retired callback layer's readFormat.
+export const subcommandBaseSchemaShape = {
+  "--format": z
+    .enum(["text", "json"], { error: "--format requires text or json." })
+    .default("text"),
+  "--output": z.string().optional(),
 };
 
-type MutableBase = {
-  format: SubcommandFormat;
-  outputPath: string | null;
-  configPath: string | null;
+// Zod shape fragment for the opt-in `--config` option.
+export const configSchemaShape = {
+  "--config": z.string().optional(),
 };
 
-// `--format` and `--output` are accepted by every subcommand. `--config` is opt-in
-// (see SubcommandSpec.acceptsConfig) and handled separately below.
-const UNIVERSAL_SETTERS: Readonly<Record<string, (value: string, base: MutableBase) => void>> = {
-  "--format": (value, base) => {
-    base.format = readFormat(value);
-  },
-  "--output": (value, base) => {
-    base.outputPath = readPath("--output", value);
-  },
-};
-
-function configSetter(value: string, base: MutableBase): void {
-  base.configPath = readPath("--config", value);
+// A valueless `--name` flag whose `--name=value` form fails with the drift:ai
+// "does not accept a value." convention (same shape cli-args' booleanFlag
+// builds for the main command).
+export function subcommandBooleanFlag(name: string): {
+  readonly name: string;
+  readonly kind: "flag";
+  readonly inlineValueErrorMessage: string;
+} {
+  return {
+    name,
+    kind: "flag" as const,
+    inlineValueErrorMessage: `${name} does not accept a value.`,
+  };
 }
 
-// Resolve the universal setter for a flag: `--format`/`--output` always, `--config`
-// only when the subcommand opts in. Returns undefined for non-universal flags so the
-// caller can fall through to subcommand-specific options.
-function universalSetterFor(
-  name: string,
-  spec: SubcommandSpec,
-): ((value: string, base: MutableBase) => void) | undefined {
-  const setter = UNIVERSAL_SETTERS[name];
-  if (setter !== undefined) return setter;
-  if (name === "--config" && spec.acceptsConfig === true) return configSetter;
-  return undefined;
-}
+// What a subcommand schema's output must carry for base assembly: the format
+// default always lands, --output/--config only when the fragments above are
+// composed in (extra subcommand-specific keys flow through structurally).
+type SubcommandBaseParsedOptions = {
+  readonly "--format": SubcommandFormat;
+  readonly "--output"?: string | undefined;
+  readonly "--config"?: string | undefined;
+};
 
-// Parse subcommand argv (already sliced past the subcommand token) into the
-// `--format`/`--output` options (plus opt-in `--config`; see acceptsConfig),
-// dispatching subcommand extras (e.g. `--lens`, `--window`) to the spec's
-// value-option handlers.
-export function parseSubcommandArgs(
-  argv: readonly string[],
-  spec: SubcommandSpec,
+// Hand-written, compiler-checked assembly from a parsed record to the shared
+// base options (no table-derived mapping; see the unit-120 binding rulings).
+export function subcommandBaseFromOptions(
+  options: SubcommandBaseParsedOptions,
 ): SubcommandBaseOptions {
-  const base: MutableBase = { format: "text", outputPath: null, configPath: null };
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = requireArg(argv[index], (message) => {
-      throw new DriftAiError(message);
-    });
-    if (arg === "--help" || arg === "-h") throw new DriftAiHelp(spec.usage);
-    index = dispatchSubcommandArg(arg, argv, index, spec, base);
-  }
-  return { format: base.format, outputPath: base.outputPath, configPath: base.configPath };
+  return {
+    format: options["--format"],
+    outputPath: options["--output"] ?? null,
+    configPath: options["--config"] ?? null,
+  };
 }
 
-// Dispatch one argv entry to its handler (universal setter, valueless flag, path
-// option, then value option) and return the index of the last token it consumed.
-// Throws DriftAiError on an unknown argument.
-function dispatchSubcommandArg(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  spec: SubcommandSpec,
-  base: MutableBase,
-): number {
-  const name = optionName(arg);
-  const universal = universalSetterFor(name, spec);
-  if (universal !== undefined) {
-    const { value, nextIndex } = readValue(arg, argv, index, spec.usage);
-    universal(value, base);
-    return nextIndex;
-  }
-  const flag = spec.flagOptions?.[name];
-  if (flag !== undefined) {
-    if (arg !== name) throw new DriftAiError(`${name} does not accept a value.`);
-    flag();
-    return index;
-  }
-  const pathExtra = spec.pathValueOptions?.[name];
-  if (pathExtra !== undefined) {
-    const { value, nextIndex } = readValue(arg, argv, index, spec.usage);
-    pathExtra(readPath(name, value));
-    return nextIndex;
-  }
-  const extra = spec.valueOptions?.[name];
-  if (extra !== undefined) {
-    const { value, nextIndex } = readValue(arg, argv, index, spec.usage);
-    extra(value);
-    return nextIndex;
-  }
-  throw new DriftAiError(`Unknown argument: ${arg}\n${spec.usage}`);
+// Per-subcommand `parseCli` entry: binds the drift:ai error/help identity and
+// the subcommand token policies once — empty argv entries flow through to the
+// unknown-argument rejection, and positionals are rejected at their token —
+// so each subcommand passes only its usage, option array, and Zod schema.
+export function parseSubcommandCli<Options>(spec: {
+  readonly argv: readonly string[];
+  readonly usage: string;
+  readonly options: ParseCliSpec<Options>["options"];
+  readonly schema: ParseCliSpec<Options>["schema"];
+}): ParsedCli<Options> {
+  return parseCli({
+    argv: spec.argv,
+    usage: spec.usage,
+    createError: (message) => new DriftAiError(message),
+    onHelp: () => {
+      throw new DriftAiHelp(spec.usage);
+    },
+    allowEmptyArgs: true,
+    rejectPositionals: true,
+    options: spec.options,
+    schema: spec.schema,
+  });
 }
 
 // Read and JSON-parse a `--baseline <prev.json>` file for a subcommand's delta
-// tagging. Shared by hotspots and coldspots — both consume an untrusted prior
-// advisory, so the read/parse flow and its two distinct DriftAiError messages
-// (unreadable vs. invalid JSON) live here once. Returns `unknown`: the caller
-// narrows the parsed shape downstream.
-export function loadBaseline(path: string, read: (path: string) => string): unknown {
+// tagging. Hotspots and coldspots both consume an untrusted prior advisory, so
+// the read/parse flow and its two distinct DriftAiError messages (unreadable
+// vs. invalid JSON) live here once, reached through prepareSubcommandInputs.
+// Returns `unknown`: the caller narrows the parsed shape downstream.
+function loadBaseline(path: string, read: (path: string) => string): unknown {
   let raw: string;
   try {
     raw = read(path);
@@ -169,4 +147,30 @@ export function writeSubcommandOutput(
   if (options.outputPath === null) return rendered;
   writer(options.outputPath, `${rendered}\n`);
   return `drift:ai: wrote ${options.format} report to ${options.outputPath}`;
+}
+
+// The `--config`/`--baseline` input surface shared by the advisory subcommands
+// (hotspots and coldspots): both load the optional config and prior-advisory
+// baseline up front, and both map sentinel errors through the shared drift-ai
+// mapper (a DriftAiError becomes the standard exit-2 message, like the main
+// command) rather than letting them escape as a stack trace + exit 1.
+export type PreparedSubcommandInputs =
+  | { readonly ok: true; readonly config: LoadedDriftAiConfig; readonly baseline: unknown }
+  | { readonly ok: false; readonly result: DriftAiCommandResult };
+
+export function prepareSubcommandInputs(
+  parsed: { readonly base: SubcommandBaseOptions; readonly baselinePath: string | null },
+  repoRoot: string,
+  read: (path: string) => string,
+): PreparedSubcommandInputs {
+  try {
+    const config = loadDriftAiConfig({
+      repoRoot,
+      ...(parsed.base.configPath === null ? {} : { configPath: parsed.base.configPath }),
+    });
+    const baseline = parsed.baselinePath === null ? null : loadBaseline(parsed.baselinePath, read);
+    return { ok: true, config, baseline };
+  } catch (err) {
+    return { ok: false, result: sentinelToCommandResult(err) };
+  }
 }

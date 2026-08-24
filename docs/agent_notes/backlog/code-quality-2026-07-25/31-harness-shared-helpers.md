@@ -1,9 +1,20 @@
 # 31. The scripts/ leaf-utility layer: residual guard adoption, shell finding shape, path-policy duplication, and a tail of dead helpers
 
-Status: Proposed — not promoted
+Status: Partially landed — H6/H7 landed on `fix/cq-harness-h6-h7` (merge
+`1bfbfc115`), H8 on `fix/cq-harness-h8` (merge `e7462ee51`), H9/H10 on
+`fix/cq-harness-h9-h10` (merge `bdc120756`), and path-policy step 9 as H14 on
+`fix/cq-harness-h13-h14` (merge `64a7fac64`); H15 remains blocked on unlanded
+27-PLAN slice 27.3
 Theme: Duplicated helpers in the harness tooling tree · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
+
+> Snapshot convention: the Problem and Evidence sections are frozen at this
+> leaf's evidence pin. Present-tense claims in those sections describe that
+> snapshot. Proposed direction also records post-pin contract corrections and
+> review follow-ups; use the
+> [HARNESS-CLUSTER plan](./HARNESS-CLUSTER-PLAN.md#slices) for current
+> implementation status and corrected slice contracts.
 
 ## Problem
 
@@ -72,8 +83,16 @@ Duplicated literals and near-duplicate helpers:
 - `scripts/drift-ai/path-util.ts:6-13` `SOURCE_LIKE_EXTS` and `scripts/drift-ai/scope.ts:24-31` `BUILT_IN_SOURCE_EXTENSIONS` are both `new Set([".ts",".tsx",".js",".jsx",".mjs",".cjs"])`, both exported, neither derived from the other. `scope.ts:49` `buildSourceExtensions` marks `scope.ts` as the natural owner, and `BUILT_IN_SOURCE_EXTENSIONS` is the name the `scripts/drift-ai.ts:109` facade re-exports. `SOURCE_LIKE_EXTS` has two importers: `ghost-files-match.ts:11`, and the `ghost-files-tokens.ts:5` pass-through consumed by `ghost-files.ts:10`.
 - `scripts/drift-ai/ghost-files-tokens.ts:5` is a bare `export { SOURCE_LIKE_EXTS } from "./path-util.js"` pass-through.
 - `scripts/drift-ai/path-util.ts:33-44` `changedFilesFromScope` is the exact inverse of `scripts/drift-ai/scope.ts:33-40` `toChangedScopeFile`, and `path-util.ts:3` already imports `DetectorScope` from `scope.js` to express it. 53 non-test `drift-ai` modules import `path-util.js`; 25 import `scope.js`.
-- `scripts/drift-ai/arg-readers.ts:38-41` `readPath(option, value)` and `:43-47` `readNonEmptyPath(value, flag)` differ only in trimming, throw the identical `` `${x} requires a path.` `` message, and take their arguments in opposite orders. The file's four other readers (`readNonEmptyPath:43`, `readPositiveInt:49`, `readRatio:57`, `readNonEmpty:65`) all use `(value, flag)`; `readPath` is the lone outlier. Its only call sites are `scripts/drift-ai/subcommand-args.ts:65`, `:70`, `:131`.
-- `scripts/drift-ai/dolos-output.ts:142` declares a *different*, private `readPath(row: CsvObject, key: string)` used at `:116`, `:117`, `:187` for CSV columns — a same-directory name collision between two unrelated functions.
+- `scripts/drift-ai/arg-readers.ts:38-41`
+  `readPath(option, value)` and `:43-47` `readNonEmptyPath(value, flag)` differ
+  only in trimming, throw the identical `` `${x} requires a path.` `` message,
+  and take their arguments in opposite orders. The file's four other readers
+  use `(value, flag)`; `readPath` is the lone outlier. Its only call sites are
+  `scripts/drift-ai/subcommand-args.ts:65`, `:70`, `:131`.
+- `scripts/drift-ai/dolos-output.ts:142` declares a *different*,
+  private `readPath(row: CsvObject, key: string)` used at `:116`, `:117`, `:187`
+  for CSV columns — a same-directory name collision between two unrelated
+  functions.
 - `scripts/drift-triage/triage-report.ts:51` and `scripts/drift-triage/triage-report-support.ts:184` — `const CLONE_CHECKS = new Set(["duplicates", "near-duplicates"])`, declared twice, even though `triage-report.ts:15` already imports `mergeUniqueLocations` (and `driftDeferredReason`, `addReviewItem`) from the support module.
 - `scripts/drift-triage/triage-report-support.ts:33-41` — `mergeUniqueLocations(target, additions): void` mutates an out-param, forcing a build-fresh-array dance at `triage-report.ts:131-132`, `triage-report-support.ts:122-124` and `:205-206`. Only `triage-report-support.ts:117` is a genuine merge-into-existing. (The adjacent `locationDetails` build calls the private `mergeUniqueLocationDetails` (`:43`) at `:118` and `:125` over `TriageLocation[]`, not this helper — out of scope for a `string[]` sibling.)
 - `scripts/code-intel/server-cli.ts` — 15 occurrences of the `code-intel daemon: ` prefix (`:117`, `:120`, `:125`, `:132`, `:138`, `:143`, `:158`, `:166`, `:193`, `:198`, `:215`, `:230`, `:244`, `:271`, `:276`), 13 of which sit next to a literal `exitCode: 0`. The other two are `exitCode: 1` at `:214` and a pass-through `exitCode: stop.exitCode` at `:229`. Sites span `statusCommand` (`:107-145`), `stopCommand` (`:147-178`), `stopRunningDaemon` (`:180-200`), `stopUnverifiedDaemon` (`:202-219`), `restartCommand` (`:221-246`), `stopAbsentState` (`:268-278`).
@@ -130,6 +149,10 @@ in whatever order suits, but land 4 before 5.
    assertion that the emitted object still parses against `harnessFindingSchema`
    via `scripts/harness-emit-envelope.ts`. `generate-module-index.sh:82,84` is the
    highest-value convert: it is the one producer that does not even use `jq`.
+
+   **Contract correction:** the authoritative H8 contract is the
+   [HARNESS-CLUSTER plan row](./HARNESS-CLUSTER-PLAN.md#slices); do not re-derive
+   its argument order or validation rules from this proposal.
 4. **Fix `drift-ai` ownership of the source-extension set and the scope
    converters.** Delete `SOURCE_LIKE_EXTS` from `scripts/drift-ai/path-util.ts` and
    keep `BUILT_IN_SOURCE_EXTENSIONS` — that is the name `scripts/drift-ai.ts:109`
@@ -139,17 +162,24 @@ in whatever order suits, but land 4 before 5.
    import). Move `changedFilesFromScope` next to its inverse `toChangedScopeFile`
    in `scope.ts` so the pair is readable in one place. `path-util.ts` already
    depends on `scope.ts`, so this removes an edge rather than adding one.
-5. **Normalise `scripts/drift-ai/arg-readers.ts`.** Flip `readPath` to
-   `(value, flag)` to match its four siblings, update the three call sites in
-   `subcommand-args.ts` (`:65`, `:70`, `:131`), and either fold it into
-   `readNonEmptyPath` or rename it to say what makes it different (it does not
-   trim). Separately, rename the unrelated private `readPath` in
+5. **Normalise `scripts/drift-ai/arg-readers.ts`.** Rename the untrimmed reader
+   to `readUntrimmedPath`, flip it to `(value, flag)` to match its four siblings,
+   and update the three call sites in `subcommand-args.ts` (`:65`, `:70`,
+   `:131`). Separately, rename the unrelated private `readPath` in
    `scripts/drift-ai/dolos-output.ts:142` to something like `readCsvColumn` so
    the directory stops carrying two different `readPath`s.
+
+   **Unscheduled review follow-up (not H9/H10):** seven modules now repeat the
+   same normalized changed-path `Set` construction:
+   `duplicate-shapes.ts`, `near-duplicates.ts`, `knip-duplicates.ts`,
+   `knip-orphan-files.ts`, `knip-unused-exports.ts`, `import-cycles.ts`, and
+   `layer-direction.ts`. A small scope-path helper could own that conversion
+   without creating a `scope.ts` ↔ `path-util.ts` cycle. Do not fold this
+   separate factoring into the completed H9/H10 slice.
 6. **De-duplicate `scripts/drift-triage/`.** Delete the `CLONE_CHECKS` copy in
    `triage-report.ts:51` and import it from `triage-report-support.ts` (which
    `triage-report.ts:15` already imports from). Then add a pure
-   `uniqueLocations(...lists): string[]` beside `mergeUniqueLocations` in the
+   `uniqueLocations(locations): string[]` beside `mergeUniqueLocations` in the
    support module and use it at the three build-fresh sites
    (`triage-report.ts:131-132`, `triage-report-support.ts:122-124`, `:205-206`),
    leaving the mutating `mergeUniqueLocations` for the one genuine
@@ -162,6 +192,13 @@ in whatever order suits, but land 4 before 5.
    wrappers over it. It must support all three shapes — the 13 `exitCode: 0`
    literals, the `exitCode: 1` at `:214`, and the pass-through
    `exitCode: stop.exitCode` at `:229`. An ok/failure pair alone is not enough.
+
+   **Unscheduled review follow-up (not H9/H10):** the verified path of
+   `defaultProcessIdentityProbe` (`lifecycle-probe.ts:75,118`) has no direct test
+   on this branch or on `main`; an `&&` to `||` mutation in
+   `hasMatchingProcessIdentity` survives. Add focused coverage separately rather
+   than folding it into the completed H10 slice.
+
 8. **Fold `scripts/drift-ai/coverage-unused-correlation.ts` onto one
    `unavailable(base, pathMatch, note)` factory** used by all three returns at
    `:170-179`, `:183-192`, `:206-215`.

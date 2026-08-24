@@ -43,6 +43,19 @@ ai_edited_payload_paths() {
   [ -n "$file" ] && printf '%s\n' "$file"
 }
 
+ai_edited_path_eslint_supported() {
+  local path="$1"
+
+  case "${path,,}" in
+    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts|*.json|*.jsonc|*.json5)
+      return 0
+      ;;
+    *)
+      return 1
+      ;;
+  esac
+}
+
 ai_resolve_edited_payload_path() {
   local payload="$1" path="$2" repo_root="$3"
   local candidate

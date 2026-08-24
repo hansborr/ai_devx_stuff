@@ -1,6 +1,7 @@
 # 33. Harness env vars carry several unrelated prefixes and no documented rule for choosing between them
 
-Status: Proposed — not promoted
+Status: Scheduled work landed 2026-07-31 on `fix/cq-harness-h16-h17` (merge
+`c6e1be2a2`) — H17 landed; no scheduled slice remains
 Theme: Undocumented harness configuration conventions · Area: harness · Severity: low · Size: S
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
@@ -39,9 +40,9 @@ established by this leaf: no one has inventoried the actual environment reads
 
 - Two prefixes for the same concept, one line apart: `scripts/verify-logs.sh:38` reads `${MUSI_VERIFY_LOG_DIR:-...}`, `:39` reads `${AI_BUN_LOG_DIR:-...}`, and `:25` lists both in the same header comment. `scripts/verify.sh:76` reads `MUSI_VERIFY_LOG_DIR` too.
 - Two prefixes for one directory: the AI-hook Bun log root is `AI_BUN_LOG_DIR` at the call site and `MUSI_STANDARD_BUN_LOG_DIR` at the default (`scripts/lib/verify-metadata.sh:247-251`); `scripts/logs-audit/logs-audit-latest.ts:105-107` chains both.
-- A third prefix for a repo-owned output path: `HARNESS_DIAGNOSTICS_OUTPUT`, the file a diagnostics producer writes its `HarnessDiagnostics` envelope to, set in four `env` blocks in `harness.controls.json` (`:628`, `:709`, `:789`, `:2060`) and documented at `docs/ai-harness.md:226`, `:447`, `:668`.
+- A third prefix for a repo-owned output path: `HARNESS_DIAGNOSTICS_OUTPUT`, the file a diagnostics producer writes its `HarnessDiagnostics` envelope to, set in four `env` blocks in `harness.controls.json` (`:628`, `:709`, `:789`, `:2060`) and documented in `docs/ai-harness.md` under **Environment Variable Naming**, **Sensors**, and **Current Gaps**.
 - `docs/ai-harness.md` and `docs/guides/` — no env-var naming rule in either; the convention is undocumented, not merely inconsistent.
-- The env vars documented with a `NAME=` spelling in `docs/ai-harness.md` are `FORCE_VERIFY` (`:306`), `HARNESS_DIAGNOSTICS_OUTPUT` (`:447`, `:668`), `MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK` (`:469`), `NON_SERVER_TEST_MAX_WORKERS` (`:483`), `MUSI_TOOL_MEMORY_ADMISSION_BYPASS` (`:511`), and `MUSI_SLOW_DRIFT_MUTATION` (`:539`) — six names under two prefixes plus two that carry no prefix at all. The unprefixed pair are the most hand-set knobs of the six: the variables a developer is most likely to type are the ones with no convention applied.
+- The env vars documented with a `NAME=` spelling in `docs/ai-harness.md` are `FORCE_VERIFY` (**Green-Output Policy**), `HARNESS_DIAGNOSTICS_OUTPUT` (**Environment Variable Naming**, **Sensors**, **Current Gaps**), `MUSI_VERIFY_MEMORY_ALLOW_SOLO_FALLBACK`, `NON_SERVER_TEST_MAX_WORKERS`, and `MUSI_TOOL_MEMORY_ADMISSION_BYPASS` (**Heavy-tool memory admission**), and `MUSI_SLOW_DRIFT_MUTATION` (**Slow Drift Schedule**) — six names under two prefixes plus two that carry no prefix at all. The unprefixed pair are the most hand-set knobs of the six: the variables a developer is most likely to type are the ones with no convention applied.
 - Do not inventory by grepping uppercase identifiers. Most `MUSI_*`/`AI_*`/`AGENT_*`/`LINT_*`/`VERIFY_*`/`HARNESS_*`/`DRIFT_*` identifiers in the tree are not environment variables: local shell variables in test scripts (`VERIFY_REPO` at `scripts/ai-hooks/test-stop-policy.sh:457`, `LINT_COVERAGE_CACHE_STATE` at `scripts/ai-hooks/test-lint-coverage.sh:80`), TypeScript constants (12 of the 13 distinct `HARNESS_*` names — only `HARNESS_DIAGNOSTICS_OUTPUT` is read from the environment; the `DRIFT_*` group is almost entirely constants such as `DRIFT_SCHEMA_VERSION` and `DRIFT_AI_START_MARKER`), and test fixture filenames (`scripts/harness/harness-audit.test.ts:37` declares `const DRIFT_AI_FINDINGS = "drift-ai-findings.json";`, never an environment read). Classify by read site.
 
 ## Proposed direction

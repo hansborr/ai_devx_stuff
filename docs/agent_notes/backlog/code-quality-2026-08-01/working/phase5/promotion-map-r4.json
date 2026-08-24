@@ -1,0 +1,129 @@
+{
+  "step": "2a-r4",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "numberingBase": 253,
+  "entries": [
+    {
+      "promotionId": "R4B-011",
+      "ruling": "new-leaf",
+      "leafFile": "253-converge-typecheck-fan-out-on-the-shared-parallel.md",
+      "leafNumber": "253",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-021",
+      "ruling": "new-leaf",
+      "leafFile": "254-route-current-inventory-through-the-canonical-ignore.md",
+      "leafNumber": "254",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-022",
+      "ruling": "new-leaf",
+      "leafFile": "255-make-exact-token-collection-explicit-at-the.md",
+      "leafNumber": "255",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-031",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "004-character-creation-large-pseudo-module-loose.md",
+      "leafNumber": "004",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-032",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "033-attunement-game-rule-lives-request-schema.md",
+      "leafNumber": "033",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-033",
+      "ruling": "new-leaf",
+      "leafFile": "256-constrain-class-caster-metadata-with-database-enums.md",
+      "leafNumber": "256",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-034",
+      "ruling": "new-leaf",
+      "leafFile": "257-delete-the-no-op-auth-configuration-validator.md",
+      "leafNumber": "257",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-051",
+      "ruling": "new-leaf",
+      "leafFile": "258-share-inventory-draft-fields-between-add-and-edit.md",
+      "leafNumber": "258",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-052",
+      "ruling": "new-leaf",
+      "leafFile": "259-extract-a-one-pass-homebrew-item-read-adapter.md",
+      "leafNumber": "259",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-053",
+      "ruling": "new-leaf",
+      "leafFile": "260-rename-create-only-map-layer-actions-as-enable.md",
+      "leafNumber": "260",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-054",
+      "ruling": "new-leaf",
+      "leafFile": "261-debounce-notes-search-before-changing-its.md",
+      "leafNumber": "261",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-055",
+      "ruling": "new-leaf",
+      "leafFile": "262-single-source-the-class-and-subclass-feature-codec.md",
+      "leafNumber": "262",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4B-056",
+      "ruling": "new-leaf",
+      "leafFile": "263-preserve-closed-vocabularies-through-homebrew-form.md",
+      "leafNumber": "263",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4C-001",
+      "ruling": "new-leaf",
+      "leafFile": "264-make-ad-hoc-fastify-test-teardown-failure-safe.md",
+      "leafNumber": "264",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4C-002",
+      "ruling": "new-leaf",
+      "leafFile": "265-document-cross-worktree-status-modes.md",
+      "leafNumber": "265",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4C-003",
+      "ruling": "new-leaf",
+      "leafFile": "266-add-a-human-focused-contribution-entrypoint.md",
+      "leafNumber": "266",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R4C-004",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "189-downstream-packages-keep-semantic-copies.md",
+      "leafNumber": "189",
+      "mergedPromotionIds": []
+    }
+  ],
+  "rejected": [
+    "R4C-005"
+  ]
+}

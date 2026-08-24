@@ -175,7 +175,7 @@ generated outputs landed in the same commit.
    marker reuse, on every source-relevant commit. Full harness validation
    already runs in CI and in `scripts/land.sh` before landing. Navigability
    policy must not become a universal edit-loop dependency.
-2. **Every move slice triggers a full 52-suite smoke run on its own commit.**
+2. **Every move slice triggers a full 53-suite smoke run on its own commit.**
    `scripts/path-policy/path-policy.ts:283-287` marks any deleted path under
    `scripts/` smoke-sensitive, and `scripts/test-scripts.sh:196-214` falls back
    to the full suite on an unmapped deletion, holding the shared commit queue

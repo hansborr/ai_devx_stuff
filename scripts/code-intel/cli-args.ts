@@ -11,7 +11,13 @@ import {
   parseSymbolName,
 } from "./cli-values.js";
 import { CodeIntelError } from "./errors.js";
-import type { CliCommand, HelpTopic, OutputFormat, ParsedCli } from "./types.js";
+import {
+  type CliCommand,
+  HELP_TOPICS,
+  type HelpTopic,
+  type OutputFormat,
+  type ParsedCli,
+} from "./types.js";
 
 // code:intel parse-error contract: every failure throws CodeIntelError (the
 // "code:intel: " prefix comes from the class), cli-main maps it to exit 1, and
@@ -55,17 +61,7 @@ export function parseArgs(args: string[]): ParsedCli {
 }
 
 function helpTopic(command: string): HelpTopic | undefined {
-  if (
-    command === "def" ||
-    command === "exports" ||
-    command === "overview" ||
-    command === "dependents" ||
-    command === "refs" ||
-    command === "tests"
-  ) {
-    return command;
-  }
-  return undefined;
+  return HELP_TOPICS.find((topic) => topic === command);
 }
 
 function isSubcommandHelp(args: string[]): boolean {
@@ -169,20 +165,39 @@ function parseOverviewArgs(args: string[]): CliCommand {
   return { kind: "overview", file };
 }
 
+const DEPTH_OPTION = {
+  name: "--depth",
+  kind: "value",
+  valueErrorMessage: "--depth requires a positive integer.",
+} as const;
+const LIMIT_OPTION = {
+  name: "--limit",
+  kind: "value",
+  valueErrorMessage: "--limit requires a non-negative integer.",
+} as const;
+const PROJECT_OPTION = {
+  name: "--project",
+  kind: "value",
+  valueErrorMessage: "--project requires shared, server, or client.",
+} as const;
+
+const limitSchema = z
+  .string()
+  .transform((value) => parseLimit(value))
+  .optional();
+const projectSchema = z
+  .string()
+  .transform((value) => parseProjectFilter(value))
+  .optional();
+
 const dependentsSchema = z.object({
   "--depth": z
     .string()
     .transform((value) => parseDepth(value))
     .default(1),
   "--exclude-tests": z.boolean().default(false),
-  "--limit": z
-    .string()
-    .transform((value) => parseLimit(value))
-    .optional(),
-  "--project": z
-    .string()
-    .transform((value) => parseProjectFilter(value))
-    .optional(),
+  "--limit": limitSchema,
+  "--project": projectSchema,
 });
 
 function parseDependentsArgs(args: string[]): CliCommand {
@@ -191,18 +206,10 @@ function parseDependentsArgs(args: string[]): CliCommand {
     usage: "",
     createError,
     options: [
-      { name: "--depth", kind: "value", valueErrorMessage: "--depth requires a positive integer." },
+      DEPTH_OPTION,
       { name: "--exclude-tests", kind: "flag" },
-      {
-        name: "--limit",
-        kind: "value",
-        valueErrorMessage: "--limit requires a non-negative integer.",
-      },
-      {
-        name: "--project",
-        kind: "value",
-        valueErrorMessage: "--project requires shared, server, or client.",
-      },
+      LIMIT_OPTION,
+      PROJECT_OPTION,
     ],
     schema: dependentsSchema,
   });
@@ -230,14 +237,8 @@ const testsSchema = z.object({
     .transform((value) => parseDepth(value))
     .optional(),
   "--direct": z.boolean().default(false),
-  "--limit": z
-    .string()
-    .transform((value) => parseLimit(value))
-    .optional(),
-  "--project": z
-    .string()
-    .transform((value) => parseProjectFilter(value))
-    .optional(),
+  "--limit": limitSchema,
+  "--project": projectSchema,
 });
 
 function parseTestsArgs(args: string[]): CliCommand {
@@ -245,20 +246,7 @@ function parseTestsArgs(args: string[]): CliCommand {
     argv: args,
     usage: "",
     createError,
-    options: [
-      { name: "--depth", kind: "value", valueErrorMessage: "--depth requires a positive integer." },
-      { name: "--direct", kind: "flag" },
-      {
-        name: "--limit",
-        kind: "value",
-        valueErrorMessage: "--limit requires a non-negative integer.",
-      },
-      {
-        name: "--project",
-        kind: "value",
-        valueErrorMessage: "--project requires shared, server, or client.",
-      },
-    ],
+    options: [DEPTH_OPTION, { name: "--direct", kind: "flag" }, LIMIT_OPTION, PROJECT_OPTION],
     schema: testsSchema,
   });
   rejectDashPositionals(parsed.positionals);
@@ -284,10 +272,7 @@ function parseTestsArgs(args: string[]): CliCommand {
 }
 
 const refsSchema = z.object({
-  "--limit": z
-    .string()
-    .transform((value) => parseLimit(value))
-    .optional(),
+  "--limit": limitSchema,
 });
 
 function parseRefsArgs(args: string[]): CliCommand {
@@ -295,13 +280,7 @@ function parseRefsArgs(args: string[]): CliCommand {
     argv: args,
     usage: "",
     createError,
-    options: [
-      {
-        name: "--limit",
-        kind: "value",
-        valueErrorMessage: "--limit requires a non-negative integer.",
-      },
-    ],
+    options: [LIMIT_OPTION],
     schema: refsSchema,
   });
   rejectDashPositionals(parsed.positionals);

@@ -24,8 +24,11 @@ import { nearDuplicatesCheckConfig } from "./near-duplicates-check-config.js";
 import { suppressionsCheckConfig } from "./suppressions-check-config.js";
 import type { DriftCheckId } from "./types.js";
 
-// Canonical check order. The runtime registry (`check-registry.ts`) mirrors it so
-// `CHECK_PLUGINS` and `CHECK_METADATA` enumerate checks identically.
+// Canonical check order — declared once, here. The runtime registry
+// (`check-registry.ts`) derives `CHECK_PLUGINS` from `ALL_CHECKS` below rather
+// than mirroring this list by hand, and its plugin-by-id record is
+// compiler-checked against `DriftCheckId`, so membership and order cannot drift
+// between the two modules.
 export const CHECK_METADATA = [
   duplicatesCheckConfig,
   ghostFilesCheckConfig,
@@ -57,7 +60,29 @@ export const DEFAULT_CHECKS: readonly DriftCheckId[] = CHECK_METADATA.filter(
 export const CHECK_USAGE = `${ALL_CHECKS.join("|")}|all`;
 
 export function buildDefaultChecksConfig(): DriftAiChecksConfig {
-  const entries = CHECK_METADATA.map((meta) => [meta.id, structuredClone(meta.defaultConfig)]);
-  // type-assertion-boundary: interop - CHECK_METADATA preserves id/config correlation; Object.fromEntries widens computed keys.
-  return Object.fromEntries(entries) as DriftAiChecksConfig;
+  // A literal keyed by the config map rather than Object.fromEntries over
+  // CHECK_METADATA: the annotation makes the id/config correlation a compile
+  // fact (a missing, extra, or mistyped entry is a type error here), where the
+  // entries route lost it and needed an interop cast to restore.
+  const defaults: DriftAiChecksConfig = {
+    duplicates: duplicatesCheckConfig.defaultConfig,
+    "ghost-files": ghostFilesCheckConfig.defaultConfig,
+    comments: commentsCheckConfig.defaultConfig,
+    "commented-out-code": commentedOutCodeCheckConfig.defaultConfig,
+    suppressions: suppressionsCheckConfig.defaultConfig,
+    "module-doc-paths": moduleDocPathsCheckConfig.defaultConfig,
+    "orphan-files": orphanFilesCheckConfig.defaultConfig,
+    "knip-duplicates": knipDuplicatesCheckConfig.defaultConfig,
+    "import-cycles": importCyclesCheckConfig.defaultConfig,
+    "layer-direction": layerDirectionCheckConfig.defaultConfig,
+    "near-duplicates": nearDuplicatesCheckConfig.defaultConfig,
+    "duplicate-types": duplicateTypesCheckConfig.defaultConfig,
+    "duplicate-schemas": duplicateSchemasCheckConfig.defaultConfig,
+    "duplicate-literals": duplicateLiteralsCheckConfig.defaultConfig,
+    "duplicate-constants": duplicateConstantsCheckConfig.defaultConfig,
+    "unused-exports": unusedExportsCheckConfig.defaultConfig,
+  };
+  // Cloned per call so callers can never share (or mutate) the module-level
+  // default objects — same freshness contract as the previous per-entry clones.
+  return structuredClone(defaults);
 }

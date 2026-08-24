@@ -1,19 +1,22 @@
 import type { CallExpression, SourceFile, VariableStatement } from "ts-morph";
 import { Node, SyntaxKind } from "ts-morph";
 
-import type { ImportBinding, SharedSchemaCodemodCandidate } from "./lib/trpc-shared-schema.js";
+import { fail as failWithName } from "./lib/codemod-errors.js";
 import {
-  assertSafeSchemaIdentifier,
   collectSchemaCallCandidates,
-  fail as failWithName,
-  isReferenceIdentifier,
   isZObjectCall,
   procedureNameForSchemaCall,
   propertyCallMethod,
   propertyCallObject,
-  rewriteAllowedSharedImportSource,
+} from "./lib/trpc-shared-schema-candidates.js";
+import { isReferenceIdentifier } from "./lib/trpc-shared-schema-identifiers.js";
+import { rewriteAllowedSharedImportSource } from "./lib/trpc-shared-schema-paths.js";
+import {
+  assertSafeSchemaIdentifier,
+  type ImportBinding,
   SHARED_SCHEMA_PREFIX,
-} from "./lib/trpc-shared-schema.js";
+  type SharedSchemaCodemodCandidate,
+} from "./lib/trpc-shared-schema-types.js";
 
 export const CODEMOD_NAME = "trpc-shared-output";
 const OUTPUT_SCHEMA_SUFFIX = "OutputSchema";

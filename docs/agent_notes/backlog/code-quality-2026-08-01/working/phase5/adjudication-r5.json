@@ -1,0 +1,581 @@
+{
+  "contractVersion": 1,
+  "step": "1c-round-5",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "decisions": [
+    {
+      "promotionId": "R5B-L01-001",
+      "ruling": "augment-existing-leaf",
+      "title": "Make reusable drift-ai subprocess diagnostics caller-neutral",
+      "area": "harness",
+      "category": "layering",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The existing text rewrite is a fragile production adapter, and removing it is a small change on an already-shared boundary.",
+      "rulingReason": "Leaf 163 owns the identical caller-label invariant for another reusable drift-ai adapter but does not reach Knip; broadening that leaf avoids a second leaf for the same failure mechanism.",
+      "targetLeaf": "163-ratchet-driven-file-boundaries-strand.md",
+      "augmentInstruction": "Broaden the problem and direction to include `knip-runner.ts`: replace its hard-coded `drift:ai` heartbeat identity with caller-supplied context, remove the standalone sensor's anchored text rewrite, refresh the stale runner header, and add focused caller-label coverage.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make Knip heartbeat diagnostics caller-neutral at the runner boundary and let each production caller supply its command identity. Preserve the existing run/cache behavior and warning cadence.",
+      "authorConstraints": [
+        "Keep `scripts/drift-ai/` flat under CQ25-146; do not turn this into directory restructuring.",
+        "Coordinate with CQ25-41's sensor-family move and leaf 137's edits to `knip-runner.ts`; retain the public sensor facade."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-41",
+          "residual": "The sensor-family move leaves the imported runner's hard-coded label and rewrite untouched."
+        },
+        {
+          "ref": "CQ25-146",
+          "residual": "Caller-neutral formatting survives without reopening the refused drift-ai directory restructure."
+        }
+      ],
+      "dedupBasis": "Opened `163-ratchet-driven-file-boundaries-strand.md:10-21,33-51,58-76`; it establishes the same wrong-caller diagnostic pattern but scopes only the ignore adapter. CQ25-41/CQ25-146 boundaries are at `../code-quality-2026-07-25/28-PLAN.md:118-148,211`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L02-001",
+      "ruling": "augment-existing-leaf",
+      "title": "Keep the code-intel server CLI vocabulary reachable",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Deleting one impossible command arm makes exhaustiveness truthful with negligible churn.",
+      "rulingReason": "Leaf 133 already owns code-intel daemon protocol and CLI-contract fidelity; its present scope omits this private parser/union mismatch, so the small residual belongs there.",
+      "targetLeaf": "133-code-intel-daemon-guards-promise-wire-types.md",
+      "augmentInstruction": "Add a bounded server-CLI cleanup: remove `start` from `ServerCliCommand`, retain `status|stop|restart` as the parser and usage authority, and update focused CLI type/test coverage without changing daemon wire commands.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Remove the unreachable `start` variant and keep the parser, dispatcher, and usage text aligned on the three reachable lifecycle commands.",
+      "authorConstraints": [
+        "Do not conflate the private server CLI vocabulary with leaf 133's routable daemon command set or make `overview` routable.",
+        "Preserve leaf 133's protocol-version and request-validation constraints."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `133-code-intel-daemon-guards-promise-wire-types.md:98-198`; it covers wire guards and ping/pong, while `scripts/code-intel/server-cli.ts:31,82-105` proves the separate unreachable CLI arm.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L02-002",
+      "ruling": "new-leaf",
+      "title": "Require current rationale on durable harness exceptions",
+      "area": "harness",
+      "category": "comment",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Eight opaque durable permissions already require review judgment, and a required rationale field makes that judgment inspectable at low migration cost.",
+      "rulingReason": "Leaves 169 and 207 do not own rationale metadata, and combining this candidate with R5C-005 yields one coherent exception-rationale contract instead of two polish leaves.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Represent each ghost-file allowed pair as files plus a required non-empty, present-tense rationale and preserve it in effective-config inspection. Also absorb R5C-005's rule that durable reasons state the current structural justification rather than change history.",
+      "authorConstraints": [
+        "Do not broaden into stale-entry ratcheting or ghost-file matching changes owned or excluded by leaves 169 and 207.",
+        "Do not reopen CQ25-10's analyzer-contract/Zod work; migrate only the allowed-pair boundary and the merged rationale examples."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-10",
+          "residual": "The live slices do not add rationale metadata to `currentAllowedPairs`."
+        }
+      ],
+      "dedupBasis": "Opened `169-suppression-allowlists-cannot-ratchet.md:40-65` and `207-encode-ghost-files-mode-dependencies-as.md:44-83`; neither reaches allowed-pair rationale. CQ25-10's remaining slices are limited at `../code-quality-2026-07-25/34-PLAN.md:148-155`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L02-003",
+      "ruling": "augment-existing-leaf",
+      "title": "Remove the uninhabitable oversized state from drift-triage packets",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The field is structurally always false yet propagates through every packet contract and fixture, so deletion removes synchronized dead handling cheaply.",
+      "rulingReason": "Leaf 232 edits the same drift-triage packet types, serializer, and fixtures for contract truthfulness; the impossible field is uncovered but belongs in that packet-contract change.",
+      "targetLeaf": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+      "augmentInstruction": "Broaden the leaf from verdict single-sourcing to truthful packet contracts: remove `oversized` from grouping results, packet/manifest types, serialization, and fixtures, retain `splitPathComponent`, and explicitly amend the no-contract-evolution caveat for this sole field removal.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Delete `oversized` throughout the drift-triage packet pipeline because grouping bounds every emitted packet. Keep `splitPathComponent` as the truthful exceptional-condition disclosure.",
+      "authorConstraints": [
+        "Do not revive CQ25-10's refused Zod port or alter verdict parsing.",
+        "Decide and document whether the internal packet schema version requires a bump; do not silently contradict leaf 232's current preservation caveat."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-10",
+          "residual": "The verdict-family exclusion does not cover deleting an uninhabitable serialized field."
+        }
+      ],
+      "dedupBasis": "Opened `232-derive-drift-triage-reviewer-instructions-from-the.md:20-70`; it does not cover `oversized` but edits the same contract surfaces. Prior exclusion is at `../code-quality-2026-07-25/34-PLAN.md:77-82,138-146,224`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L02-004",
+      "ruling": "augment-existing-leaf",
+      "title": "Prune unread state from the coldspot pipeline",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The fields are written for every row and never read, so removal reduces hot aggregation work and clarifies the live age model.",
+      "rulingReason": "Leaf 209 is already an S-sized coldspot dead-dependency cleanup; adding the adjacent unread aggregate fields makes one coherent coldspot-pruning leaf.",
+      "targetLeaf": "209-remove-the-unused-repository-root-parameter-from.md",
+      "augmentInstruction": "Broaden the leaf to remove `FileAggregate.added` and `oldestTouchMs` from types, initialization, per-row updates, and fixtures while retaining `newestTouchMs` for age and `birthMs` for earliest-commit selection.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Remove the two unread aggregate fields and their writes; leave the live newest-touch age and birth selection semantics unchanged.",
+      "authorConstraints": [
+        "Preserve leaf 209's injected Git-runner seam, blame arguments, stale-marker cost gate, and blobless-clone behavior."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `209-remove-the-unused-repository-root-parameter-from.md:8-60`; it does not presently reach aggregation, while `scripts/drift-ai/coldspots-aggregate.ts:10-42` and `coldspots-coldspot.ts:81-84,159-174` show the adjacent dead state.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L03-001",
+      "ruling": "augment-existing-leaf",
+      "title": "Remove tautological scope guards from SRD backfills",
+      "area": "server",
+      "category": "dead-code",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Allowlist-looking branches on database writers create false safety assurance; deleting them makes the actual scope boundary reviewable.",
+      "rulingReason": "Leaf 203 owns safety boundaries for these exact two backfills but expressly preserves the current per-row checks; this residual should amend that leaf and is moot if leaf 097 removes the commands.",
+      "targetLeaf": "203-add-previewapply-safety-boundary-srd.md",
+      "augmentInstruction": "Add a scoped cleanup for both callbacks: delete membership sets and predicates derived from the same supplied rows, preserve the monster `sourceType` constraint, and describe the supplied validated corpus plus preview/apply gate as the real boundary.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Delete the self-derived membership checks rather than replacing them with a second parallel allowlist. Preserve the independent monster `sourceType` restriction and leaf 203's preview/apply safety rail.",
+      "authorConstraints": [
+        "If leaf 097 takes the removal branch, mark this residual moot; otherwise land it with or after leaf 203.",
+        "Do not invent an independently maintained SRD-ID list merely to preserve the appearance of a guard."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `203-add-previewapply-safety-boundary-srd.md:41-79` and `097-two-database-writing-srd-backfill-commands.md:52-91`; 203 omits the tautologies and 097 either keeps/document them or removes them.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L03-002",
+      "ruling": "augment-existing-leaf",
+      "title": "Single-source Bearer-header interpretation at the authentication boundary",
+      "area": "server",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Two production authentication boundaries currently duplicate scheme and empty-token policy, and one small helper prevents silent divergence.",
+      "rulingReason": "Leaf 205 is clarifying the authentication-primitives boundary and repointing these imports; the uncovered header parser is best added during that same boundary cleanup.",
+      "targetLeaf": "205-rename-auth-service-to-reflect-its.md",
+      "augmentInstruction": "After settling the auth module names, add one neutral Bearer-token extractor with focused malformed/empty/header cases and consume it from tRPC context and upload authentication; keep REST reply mapping local.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Centralize authorization-header extraction and use the same token interpretation in both HTTP boundaries before calling the existing verifier.",
+      "authorConstraints": [
+        "Avoid a runtime route/context cycle; place transport parsing in a neutral auth-header helper if adding it to `auth-primitives.ts` would make that module incohesive.",
+        "Amend leaf 205's API-preservation caveat only for this named helper; preserve token format and verification behavior."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `205-rename-auth-service-to-reflect-its.md:38-58`; it currently promises a rename only, while `packages/server/src/trpc/context.ts:14-20` and `packages/server/src/routes/upload-routes.ts:49-68` duplicate the parser.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L03-003",
+      "ruling": "augment-existing-leaf",
+      "title": "Make database seed entrypoint shutdown reliable on failure",
+      "area": "server",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Replacing forced exit with an exit code makes the promised disconnect path real in two operator commands without requiring a broad framework.",
+      "rulingReason": "Leaves 087 and 009 do not cover the Prisma entrypoints, but the residual belongs as a bounded seed-command failure-policy addition to leaf 009 rather than a standalone leaf.",
+      "targetLeaf": "009-all-four-seed-generators-can-overwrite.md",
+      "augmentInstruction": "Add a separate Prisma-seed lifecycle sub-scope: replace `process.exit(1)` in both entrypoints with nonzero `process.exitCode` semantics so async `finally` disconnects, and share a runner only if it reduces duplication without obscuring command-specific work.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Let both seed commands report failure through `process.exitCode` and complete Prisma cleanup. Keep their command-specific seeding callbacks explicit; extraction is optional, reliable cleanup is not.",
+      "authorConstraints": [
+        "Do not conflate the Prisma seed entrypoints with leaf 009's four artifact generators or alter their data behavior.",
+        "Coordinate the `src/seed` documentation separately with leaf 087; this augmentation does not move files."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `009-all-four-seed-generators-can-overwrite.md:8-17,63-102` and `087-server-contributor-maps-contradict-omit.md:105-140`; neither covers `packages/server/prisma/seed*.ts`, whose forced-exit/finally duplication is at `seed.ts:26-32` and `seed-template.ts:27-33`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05-001",
+      "ruling": "augment-existing-leaf",
+      "title": "Delete the orphaned legacy DeathSaves component and stale coverage",
+      "area": "client",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The production orphan and the test that alone keeps it alive can be deleted together with no live behavior change.",
+      "rulingReason": "Leaf 061 is only an analogy; leaf 057 actually names the stale DeathSaves describe as sole coverage and requires it to survive, so that leaf must be corrected rather than creating a conflicting new leaf.",
+      "targetLeaf": "057-character-sheettesttsx-no-longer-tests.md",
+      "augmentInstruction": "Revise the evidence, direction, and caveat that preserve the legacy `DeathSaves` describe: delete `death-saves.tsx`, remove its import/describe from the aggregate test before renaming the remainder, and retain coverage only for `DeathSavesInteractive` and any live shared dot primitive.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Remove the unimported legacy component and its obsolete tests while preserving the interactive death-save implementation and live primitive coverage.",
+      "authorConstraints": [
+        "Do not delete or weaken `DeathSavesInteractive` coverage.",
+        "Update leaf 057's six-component counts and every statement that currently says the legacy describe must survive."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `061-rollmodetoggle-complete-production-orphan.md:43-69` and `057-character-sheettesttsx-no-longer-tests.md:45-51,63-103`; 061 is distinct, while 057 directly preserves the stale test this candidate proves obsolete.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05-002",
+      "ruling": "augment-existing-leaf",
+      "title": "Stop non-freehand drawing gestures from accumulating freehand history",
+      "area": "client",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The fix removes quadratic cumulative array copying from a pointer-frequency path for three tools while preserving output.",
+      "rulingReason": "Leaf 047 restructures the same drawing handler and currently claims no competing canvas-input edit; the residual should be folded into that refactor to avoid conflicting implementations.",
+      "targetLeaf": "047-toolhandler-erases-coordinate-domains.md",
+      "augmentInstruction": "Add a bounded capability distinction so only `draw-freehand` appends `freehandPoints`; line, rectangle, and circle moves update only `currentPoint`. Amend the store-action exclusion only as needed for this behavior-preserving split and update the no-other-leaf claim.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make point-history accumulation tool-specific: freehand keeps its history, while geometric tools retain only their start and current points.",
+      "authorConstraints": [
+        "Land with or after leaf 047, not concurrently in `tool-handlers.ts`.",
+        "Preserve leaf 047's coordinate-domain typing and dispatch/finalize/cancel ordering; do not reopen CQ25-188's store split or `fireAfterCommit` reshape."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-188",
+          "residual": "The refusal covers store decomposition and `fireAfterCommit`, not per-tool point accumulation."
+        }
+      ],
+      "dedupBasis": "Opened `047-toolhandler-erases-coordinate-domains.md:70-143`; it edits the same handler but excludes store actions. CQ25-188's narrow refusal is at `../code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md:121-139,230-236`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05-021",
+      "ruling": "new-leaf",
+      "title": "Type dice.roll metadata as RollResult at the response boundary",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A common roll path currently relies on four unchecked assertions that influence rendering and critical-damage control flow; the existing runtime schema makes the fix small.",
+      "rulingReason": "No current leaf owns the procedure response shape: leaf 001 explicitly leaves metadata shapes with callers, and CQ25-179 refuses persisted model changes rather than response narrowing.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Give `dice.roll` a response contract whose metadata is validated by the existing `rollResultSchema`, then remove the four client assertions. If a generic envelope must remain, centralize `safeParse` with explicit invalid-data handling.",
+      "authorConstraints": [
+        "Preserve the persisted `RollResult`/`DiceGroupResult` shapes, including flat rolls and optional notation, per CQ25-179.",
+        "Sequence after or with leaf 001's `dice.roll` migration and keep metadata construction caller-owned."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-179",
+          "residual": "The refusal preserves persisted roll-result shapes; it does not cover typing this procedure's response metadata."
+        }
+      ],
+      "dedupBasis": "Opened `001-chat-persistence-delivery-policy.md:98-105,189-193`, which excludes metadata shapes. CQ25-179's model-shape refusal is at `../code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:130-138,718` and `25-dice-model.md:119-139`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05C-001",
+      "ruling": "reject",
+      "title": "Rename elementCenter to match its bottom-left anchor",
+      "area": "client",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "The private helper's behavior is pinned by a focused test, so a two-site rename is accurate but does not repay the permanent attention cost of another pack item.",
+      "rulingReason": "This is source-local naming polish with no broader contract residual or collision; the test already prevents the accidental behavior change the candidate fears.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "No authored audit item; rename the helper and test description opportunistically when this file is otherwise edited, preserving bottom-left behavior.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "No current-leaf or prior-pack overlap was found; the entire issue is bounded by `packages/client/src/hooks/use-long-press.ts:35-38,128-135` and its existing pin at `use-long-press.test.ts:255-270`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05C-002",
+      "ruling": "new-leaf",
+      "title": "Reset CreateMapDialog state on every close path",
+      "area": "client",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A normal successful create can reopen stale form/upload state and retain an object URL; one lifecycle fix plus regression coverage pays immediately.",
+      "rulingReason": "Leaf 055 covers a different token-placement dialog, and CQ25-216 is a sheet-capability scope refusal rather than a repository-wide dialog-lifecycle ban.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Put the create-map draft and preview lifecycle behind keyed dialog content or a single close/reset boundary used by cancel and success. Add a create-success-close-reopen regression and ensure object URLs are revoked.",
+      "authorConstraints": [
+        "Do not broaden into a general dialog framework or reopen sheet-owner capability work.",
+        "Preserve successful map creation and image-upload behavior while unifying all close paths."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-216",
+          "residual": "The declined remount/reset work was bounded to the sheet-owner capability branch; CreateMapDialog was not inspected."
+        }
+      ],
+      "dedupBasis": "Opened `055-token-placement-mirrors-store-state-dialog.md:8-24,38-70`; it has no file or lifecycle overlap. CQ25-216's bounded refusal is at `../code-quality-2026-07-25/66-sheet-owner-capability-gate.md:3-17,110-137` and `72-sheet-capability-callback-source.md:61-89`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5B-L05D-001",
+      "ruling": "augment-existing-leaf",
+      "title": "Preserve registered-route typing through links and page parameters",
+      "area": "client",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Four pages discard required-parameter guarantees and carry unreachable fallback states; exact registered-path bindings remove both risk and noise in one commit.",
+      "rulingReason": "Leaf 248 owns the same registered-route type invariant on outbound links; the inbound page seam is uncovered but belongs in a broadened route-typing leaf.",
+      "targetLeaf": "248-preserve-registered-route-typing-through.md",
+      "augmentInstruction": "Broaden the title/problem/direction beyond `MobileNavLink`: bind the four page `useParams` calls to their exact registered paths, remove empty-ID fallbacks and unreachable missing-param branches, and add compile-focused coverage where useful.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Retain TanStack Router's registered types at both outbound wrapper and inbound page boundaries. Use exact route-path bindings for required params and delete fallback states the router cannot produce.",
+      "authorConstraints": [
+        "Do not import route objects from lazily imported pages and create route↔page cycles; use the registered full-path form.",
+        "Preserve leaf 051's URLs and protected-route set; no route-tree regeneration or repository-wide migration."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `248-preserve-registered-route-typing-through.md:8-18,35-63` and `051-flat-route-tree-makes-authentication-eleven.md:48-77`; 248 shares the invariant but excludes pages, while 051 preserves the URLs needed for exact bindings.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-001",
+      "ruling": "reject",
+      "title": "Document the two cross-worktree status modes in the per-worktree guide",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "The work is worthwhile but already fully authored as leaf 265, so another item buys no residual value.",
+      "rulingReason": "Leaf 265 is an exact cross-round duplicate: it states the same omission, the same two command forms and constraints, the same multi-lane insertion, and the same script-authority rule.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "No additional authoring; implement leaf 265 exactly as written.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `265-document-cross-worktree-status-modes.md:10-18,39-69`; it fully covers `--all`, `--lanes [--base]`, mutual exclusion, multi-lane guidance, and script authority with no residual.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-002",
+      "ruling": "new-leaf",
+      "title": "Add a local orientation contract for the client character-creation wizard",
+      "area": "client",
+      "category": "dx",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The 21-file wizard meets the repository's MODULE threshold and hides cross-step reset, validation, and projection contracts that contributors routinely need.",
+      "rulingReason": "Leaves 042 and 045 reshape implementation in the same feature but neither authors the missing MODULE document; leaf 042 expressly records that absence.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add `packages/client/src/components/character-create/MODULE.md` covering state/provider ownership, step composition, conditional navigation, reset invariants, validation, submission projection, and focused test seams; regenerate the module index.",
+      "authorConstraints": [
+        "Prefer landing after leaves 042 and 045 if scheduled so the document describes their settled architecture; otherwise document the pin accurately and require those leaves to refresh it.",
+        "Do not mix in server leaf 004's service-module reorganization or restate rule details owned by code."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `042-flat-character-creation-contract-forces.md:90-168` and `045-character-creation-ability-rules-have-four.md:73-142`; both leave MODULE ownership uncovered, and 042 explicitly says none exists at `:158-159`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-003",
+      "ruling": "augment-existing-leaf",
+      "title": "Make the authoritative harness inventories complete",
+      "area": "docs",
+      "category": "comment",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The authority model in leaf 094 is only useful if its retained guide and control inventories actually expose the policies they claim to index.",
+      "rulingReason": "Leaf 094 settles the exact authority chain and retains the guide table; add the two missing guide rows there, and merge R5C-004's complementary control-metadata omission into the same correction.",
+      "targetLeaf": "094-two-documents-both-claim-be-authoritative.md",
+      "augmentInstruction": "Expand leaf 094 with two completeness fixes: add distinct `lint-ratchet-merges.md` and `lint-ratchet-reference.md` rows and make freshness enforce or accurately describe guide-table membership; also incorporate R5C-004 by naming the structured-logging rule's `createScriptLogger` import restriction in source metadata and regenerating the control inventory.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Retain the audience-partitioned guides, make both omitted guides discoverable in the guide table, and align the freshness claim with actual table membership. Ensure the authoritative generated control view also exposes structured-logging's path-sensitive import policy.",
+      "authorConstraints": [
+        "Do not fold the four lint-ratchet guides together; CQ25-78's audience partition is binding.",
+        "Do not hand-edit generated harness controls; change source metadata and regenerate.",
+        "Preserve leaf 094's split: guide authority in `ai-harness.md`, exhaustive control authority in the manifest/generated projection."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-78",
+          "residual": "The refusal preserves four separate guides; it does not excuse omitting two from the guide inventory."
+        }
+      ],
+      "dedupBasis": "Opened `094-two-documents-both-claim-be-authoritative.md:45-91`; it retains the guide table and generated control authority but does not fix either omission. CQ25-78 is binding at `../code-quality-2026-07-25/CONSTRAINTS.md:10-13`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-004",
+      "ruling": "merge-with-promotion",
+      "title": "Expose structured-logging's import policy in the control inventory",
+      "area": "harness",
+      "category": "comment",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A source-metadata edit plus regeneration makes an enforced path-sensitive policy discoverable at negligible extra churn.",
+      "rulingReason": "This is the control-inventory half of R5C-003's guide-inventory completeness residual, and both belong in the leaf-094 authority correction.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": "R5C-003",
+      "mergeContribution": "Add the enforced `createScriptLogger` import restriction to the rule description/principle, or split it into a separately named control if ownership requires, then regenerate `docs/generated/harness-controls.md`.",
+      "settledDirection": "Make every policy enforced by structured-logging visible in source metadata and the generated authoritative control inventory.",
+      "authorConstraints": [
+        "Change `eslint-rules/structured-logging.js`, not the generated document directly.",
+        "Do not alter enforcement semantics while correcting metadata."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `094-two-documents-both-claim-be-authoritative.md:55-83`; it establishes the generated projection as control authority. Candidate evidence at `eslint-rules/structured-logging.js:178-210` shows the omitted enforced facet.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-005",
+      "ruling": "merge-with-promotion",
+      "title": "Keep durable exception reasons as current rationale, not change history",
+      "area": "harness",
+      "category": "comment",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The two stale examples alone are polish, but they cheaply define and exercise the rationale contract R5B-L02-002 must introduce.",
+      "rulingReason": "Both candidates concern the semantics of durable harness exception rationale; folding this one into the ghost-pair metadata leaf avoids a standalone cleanup item.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": "R5B-L02-002",
+      "mergeContribution": "State that rationale fields describe the current structural exception and retirement condition, rewrite the two max-lines reasons accordingly, and leave change history to Git.",
+      "settledDirection": "Define durable rationale as present-tense justification, clean the two changelog-shaped max-lines entries, and apply the same rule to migrated ghost-file pairs.",
+      "authorConstraints": [
+        "Keep this separate from CQ25-43's max-lines family move, which forbids `eslint-config/` edits.",
+        "Do not add chronology enforcement that attempts to infer prose quality mechanically."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-43",
+          "residual": "The family-move slice excludes `eslint-config/`; present-tense rationale cleanup remains separate."
+        }
+      ],
+      "dedupBasis": "Opened CQ25-43 at `../code-quality-2026-07-25/28-PLAN.md:138-148`; it does not cover the config edit. Pool comparison with R5B-L02-002 shows the shared durable-rationale invariant.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-006",
+      "ruling": "augment-existing-leaf",
+      "title": "Single-source smoke-subject parsing and matching",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Divergent parsing or exact/directory matching can false-green fixture coverage and changed-mode selection, so one shared predicate pays on a gate-critical path.",
+      "rulingReason": "Leaf 152 relocates the query-side matcher and smoke-subject type but preserves behavior and excludes fixture work; this residual must be folded into that move to avoid creating two owners again.",
+      "targetLeaf": "152-path-policy-query-core-closed-over-musis.md",
+      "augmentInstruction": "Add one neutral smoke-subject line parser and one normalized exact-or-trailing-slash-directory matcher, consumed by header generation, fixture validation, and the extracted query engine; retain the generator's stronger diagnostics and update leaf 152's fixture-work exclusion narrowly.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make parsing and matching shared vocabulary while keeping generation, fixture diagnostics, and query orchestration separate consumers.",
+      "authorConstraints": [
+        "Land after H15 and within leaf 152's engine extraction so the matcher is not moved twice.",
+        "Preserve query results, ordering, path normalization, generated-surface registration, and the distinct smoke-test filename semantics landed by CQ25-119.",
+        "Do not absorb leaf 151's broader fixture copy-model rewrite."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-119",
+          "residual": "H14 centralized smoke-file predicates and path normalization, not smoke-subject header parsing or subject matching."
+        }
+      ],
+      "dedupBasis": "Opened `151-fixture-copies-parsed-grouped-two.md:109-133` and `152-path-policy-query-core-closed-over-musis.md:65-132`; 151 is distinct, while 152 moves the current matcher. CQ25-119's narrower landed scope is at `../code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md:133` and `31-harness-shared-helpers.md:205-222`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R5C-007",
+      "ruling": "augment-existing-leaf",
+      "title": "Make the shared codemod writer the sole import-normalization owner",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Removing two exact duplicate ts-morph passes is cheap during the planned helper move and clarifies preview/write normalization ownership.",
+      "rulingReason": "Leaf 149 moves `sortImportBlocks` and `writeOrPreviewFiles` into neutral modules and repoints the same callers; this uncovered behavior-preserving cleanup belongs in that refactor.",
+      "targetLeaf": "149-generic-codemod-infrastructure-hidden-behind.md",
+      "augmentInstruction": "After extracting the neutral modules, remove producer-side `sortImportBlocks` calls from structured-logging and expand-barrel so `writeOrPreviewFiles` owns custom normalization once. Characterize and document the remaining ESLint real-write pass, with preview/write parity coverage, and narrow leaf 149's no-behavior-change exclusion accordingly.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Normalize each write plan once in the shared writer; keep the subsequent ESLint pass only as an explicit real-write policy whose relationship to preview output is tested.",
+      "authorConstraints": [
+        "Sequence inside or after leaf 149; do not edit the pre-extraction tRPC-named locations twice.",
+        "Preserve emitted output unless a separately characterized ESLint difference is deliberately accepted; do not broaden into a codemod framework rewrite."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened `149-generic-codemod-infrastructure-hidden-behind.md:56-103`; it moves the exact helpers and callers but explicitly excludes preview/write behavior, leaving this redundant-pass residual uncovered and collocated.",
+      "confidence": "medium"
+    }
+  ],
+  "summary": {
+    "totalDecisions": 21,
+    "newLeaf": 4,
+    "augmentExistingLeaf": 13,
+    "mergeWithPromotion": 2,
+    "rejected": 2,
+    "acceptedForAuthoring": 17,
+    "bySeverity": {
+      "high": 0,
+      "medium": 7,
+      "low": 14
+    },
+    "bySize": {
+      "S": 21,
+      "M": 0,
+      "L": 0,
+      "XL": 0
+    },
+    "notes": [
+      "R5C-001 is fully covered by leaf 265 with no residual; this first exact cross-round resurfacing is a genuine funnel-exhaustion signal.",
+      "The pool remains uniformly S-sized with no high-severity ruling; consolidation into 13 existing leaves and two same-pool merges avoids authoring 15 thin standalone leaves.",
+      "The 17 accepted-for-authoring decisions exceed the numeric step-2c trigger, but only 15 eligible cuts remain; interpret the trigger alongside the plan's run-to-exhaustion decision rather than as evidence of renewed structural novelty.",
+      "R5C-004 must merge into the leaf-094 augmentation R5C-003, and R5C-005 must merge into new leaf R5B-L02-002; neither receives a separate number."
+    ]
+  }
+}

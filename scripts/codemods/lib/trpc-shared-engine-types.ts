@@ -1,6 +1,6 @@
 import type { Project, SourceFile } from "ts-morph";
 
-import type { ImportBinding, SharedSchemaCodemodCandidate } from "./trpc-shared-schema.js";
+import type { ImportBinding, SharedSchemaCodemodCandidate } from "./trpc-shared-schema-types.js";
 
 /**
  * Context passed to a codemod's target-source resolver. Input resolution reads

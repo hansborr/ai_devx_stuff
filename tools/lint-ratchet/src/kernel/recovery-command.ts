@@ -4,14 +4,16 @@
 // present the updater refuses unless `--allow-worse --reason` is supplied (see
 // decideLintRatchetUpdate in baseline-update.ts).
 
-export const RATCHET_UPDATE_COMMAND = "bun run lint:ratchet:update";
+import type { LintRatchetWorkflowVocabulary } from "./engine-context.js";
 
 export const RATCHET_REGRESSION_REASON_PLACEHOLDER =
   "<why accepting this baseline increase is better than forcing a low-quality fix now>";
 
-export const RATCHET_REGRESSION_UPDATE_COMMAND = `bun run lint:ratchet:update -- --allow-worse --reason "${RATCHET_REGRESSION_REASON_PLACEHOLDER}"`;
-
-export const REGRESSION_RECOVERY_FOOTER = `Recovery: fix the regressions above; if the new findings are intentional, run \`${RATCHET_REGRESSION_UPDATE_COMMAND}\`.`;
+export function regressionRecoveryFooter(
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
+): string {
+  return `Recovery: fix the regressions above; if the new findings are intentional, run \`${workflowVocabulary.regressionUpdateCommand}\`.`;
+}
 
 export function isRatchetRegressionReasonPlaceholder(reason: string): boolean {
   const trimmed = reason.trim();

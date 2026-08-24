@@ -16,6 +16,7 @@ import type {
   HotspotSection,
 } from "./hotspots-format.js";
 import type { CommitRecord } from "./hotspots-history.js";
+import { rowKeyKindFor } from "./hotspots-lens-registry.js";
 
 const DEFAULT_AUTHOR_LIMIT = 4;
 const DEFAULT_SUBJECT_LIMIT = 3;
@@ -111,6 +112,24 @@ export function recentSubjects(
   return subjects;
 }
 
+// Resolve subjects from indexes that are already ordered newest-first. Callers
+// with an existing touch index avoid rescanning every record to rediscover the
+// matching commits while retaining the shared subject limit.
+export function subjectsAtIndexes(
+  records: readonly CommitRecord[],
+  orderedIndexes: Iterable<number>,
+  limit: number = DEFAULT_SUBJECT_LIMIT,
+): string[] {
+  const subjects: string[] = [];
+  for (const index of orderedIndexes) {
+    const record = records[index];
+    if (record === undefined) continue;
+    subjects.push(record.subject);
+    if (subjects.length >= limit) break;
+  }
+  return subjects;
+}
+
 // Quote a path for a copy-paste `git log` inspect command so spaces or shell
 // metacharacters survive. Clean paths (the overwhelming common case) pass through
 // unquoted; anything else is POSIX single-quoted with embedded quotes escaped.
@@ -172,35 +191,31 @@ function indexEntries(lens: string, rawEntries: unknown): Map<string, number> {
   return scores;
 }
 
-// The lenses whose row identity is the file path. Coupling is the lone exception —
-// its identity is the sorted (a, b) pair. This set is the single source of per-lens
-// key semantics, shared by the untrusted-baseline index and the live-tagging path.
-const PATH_KEYED_LENSES: ReadonlySet<string> = new Set([
-  "churn",
-  "fragmentation",
-  "suppression-churn",
-  "thrash",
-]);
-
 // The single key-derivation for both untrusted baseline rows and typed live rows.
 // `fields` reads the key-bearing fields off either source through a string index —
 // a typed live entry supplies them structurally, an untrusted baseline record by its
 // `Record<string, unknown>` shape. Live entries always carry the field, so the live
-// path never actually sees null; a hand-edited baseline row missing the field (or an
-// unknown lens) returns null so it simply fails to match and reads NEW.
+// path never actually sees null; a hand-edited baseline row missing the field (or a
+// lens the registry does not know) returns null so it simply fails to match and
+// reads NEW. Per-lens key semantics come from the registry's `rowKeyKind` — a
+// required field of every lens definition — so registering a lens cannot leave its
+// row identity behind (the old stringly set silently tagged omitted lenses NEW).
 type RowKeyFields = Readonly<Record<string, unknown>>;
 
 function rowKey(lens: string, fields: RowKeyFields): string | null {
-  if (PATH_KEYED_LENSES.has(lens)) {
-    const path = fields["path"];
-    return typeof path === "string" ? path : null;
+  switch (rowKeyKindFor(lens)) {
+    case "path": {
+      const path = fields["path"];
+      return typeof path === "string" ? path : null;
+    }
+    case "pair": {
+      const a = fields["a"];
+      const b = fields["b"];
+      return typeof a === "string" && typeof b === "string" ? pairKey(a, b) : null;
+    }
+    case null:
+      return null;
   }
-  if (lens === "coupling") {
-    const a = fields["a"];
-    const b = fields["b"];
-    return typeof a === "string" && typeof b === "string" ? pairKey(a, b) : null;
-  }
-  return null;
 }
 
 export function pairKey(a: string, b: string): string {

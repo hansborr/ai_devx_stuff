@@ -1,10 +1,9 @@
 // Business-event field convention auditing for the logs-audit script.
 
-import type { LogsAuditFinding } from "../logs-audit.js";
-import type { ParsedLogRecord } from "./logs-audit-checks.js";
-import { isJsonObject } from "./logs-audit-redaction.js";
-
-type JsonObject = Record<string, unknown>;
+import { isRecord as isJsonObject } from "../lib/records.js";
+import type { BusinessEventFamilyPolicy } from "./logs-audit-event-policy.js";
+import { businessEventFamilyPolicy, isBusinessEvent } from "./logs-audit-event-policy.js";
+import type { JsonObject, LogsAuditFinding, ParsedLogRecord } from "./logs-audit-types.js";
 
 interface EventFieldContext {
   readonly file: string;
@@ -18,22 +17,6 @@ interface AllowedFieldPolicy {
 
 const STABLE_EVENT_VALUE = /^[a-z][a-zA-Z0-9]*(?:[._:-][a-z][a-zA-Z0-9]*)*$/u;
 const MAX_STABLE_EVENT_VALUE_LENGTH = 80;
-const AUTHZ_OUTCOMES = new Set(["allow", "deny"]);
-const MUTATION_OUTCOMES = new Set(["success", "failure"]);
-const BROADCAST_OUTCOMES = new Set(["success", "skipped"]);
-const AUTHZ_OUTCOME_POLICY = {
-  allowed: AUTHZ_OUTCOMES,
-  message: "authz outcome must be allow or deny",
-} satisfies AllowedFieldPolicy;
-const MUTATION_OUTCOME_POLICY = {
-  allowed: MUTATION_OUTCOMES,
-  message: "mutation outcome must be success or failure",
-} satisfies AllowedFieldPolicy;
-const BROADCAST_OUTCOME_POLICY = {
-  allowed: BROADCAST_OUTCOMES,
-  message: "socket.broadcast outcome must be success or skipped",
-} satisfies AllowedFieldPolicy;
-
 function eventFieldsFinding(
   context: EventFieldContext,
   field: string,
@@ -110,36 +93,40 @@ function auditActorField(
   return [eventFieldsFinding(context, "actor.userId", "actor.userId must be a string")];
 }
 
-function auditAuthzFields(
-  file: string,
-  record: ParsedLogRecord,
-  outcome: string,
+function auditPolicyActorField(
+  context: EventFieldContext,
+  record: JsonObject,
+  policy: BusinessEventFamilyPolicy,
 ): LogsAuditFinding[] {
-  const context = { file, line: record.line };
-  return [
-    ...auditAllowedField(context, "outcome", outcome, AUTHZ_OUTCOME_POLICY),
-    ...auditActorField(context, record.value, true),
-    ...auditReasonField(
-      context,
-      record.value,
-      outcome === "deny" ? "reason is required for deny outcomes" : undefined,
-    ),
-  ];
+  switch (policy.actorPolicy) {
+    case "required":
+      return auditActorField(context, record, true);
+    case "when-present":
+      return auditActorField(context, record, false);
+    case "ignored":
+      return [];
+  }
 }
 
-function auditMutationFields(
+function auditOutcomeActorReasonFields(
   file: string,
   record: ParsedLogRecord,
   outcome: string,
+  policy: BusinessEventFamilyPolicy,
 ): LogsAuditFinding[] {
   const context = { file, line: record.line };
   return [
-    ...auditAllowedField(context, "outcome", outcome, MUTATION_OUTCOME_POLICY),
-    ...auditActorField(context, record.value, false),
+    ...auditAllowedField(context, "outcome", outcome, {
+      allowed: policy.allowedOutcomes,
+      message: policy.outcomeMessage,
+    }),
+    ...auditPolicyActorField(context, record.value, policy),
     ...auditReasonField(
       context,
       record.value,
-      outcome === "failure" ? "reason is required for failure outcomes" : undefined,
+      outcome === policy.reasonRequiredOutcome
+        ? `reason is required for ${policy.reasonRequiredOutcome} outcomes`
+        : undefined,
     ),
   ];
 }
@@ -148,23 +135,32 @@ function auditSocketBroadcastFields(
   file: string,
   record: ParsedLogRecord,
   outcome: string,
+  policy: BusinessEventFamilyPolicy,
 ): LogsAuditFinding[] {
   const context = { file, line: record.line };
-  const socketEvent = requiredStringField(
-    context,
-    record.value,
-    "socketEvent",
-    "socketEvent is required for socket.broadcast",
-  );
   return [
-    ...auditAllowedField(context, "outcome", outcome, BROADCAST_OUTCOME_POLICY),
-    ...(socketEvent.value === undefined
-      ? socketEvent.findings
-      : auditStableField(context, "socketEvent", socketEvent.value)),
+    ...auditAllowedField(context, "outcome", outcome, {
+      allowed: policy.allowedOutcomes,
+      message: policy.outcomeMessage,
+    }),
+    ...auditPolicyActorField(context, record.value, policy),
+    ...policy.requiredStableFields.flatMap((field) => {
+      const required = requiredStringField(
+        context,
+        record.value,
+        field,
+        `${field} is required for socket.broadcast`,
+      );
+      return required.value === undefined
+        ? required.findings
+        : auditStableField(context, field, required.value);
+    }),
     ...auditReasonField(
       context,
       record.value,
-      outcome === "skipped" ? "reason is required for skipped outcomes" : undefined,
+      outcome === policy.reasonRequiredOutcome
+        ? `reason is required for ${policy.reasonRequiredOutcome} outcomes`
+        : undefined,
     ),
   ];
 }
@@ -183,13 +179,15 @@ function auditBusinessEventFields(
   );
   const findings = auditStableField(context, "event", event);
   if (outcome.value === undefined) return findings.concat(outcome.findings);
-  if (event.startsWith("authz.")) {
-    return findings.concat(auditAuthzFields(file, record, outcome.value));
+  const policy = businessEventFamilyPolicy(event);
+  switch (policy.family) {
+    case "authz":
+      return findings.concat(auditOutcomeActorReasonFields(file, record, outcome.value, policy));
+    case "socket.broadcast":
+      return findings.concat(auditSocketBroadcastFields(file, record, outcome.value, policy));
+    case "mutation/default":
+      return findings.concat(auditOutcomeActorReasonFields(file, record, outcome.value, policy));
   }
-  if (event === "socket.broadcast") {
-    return findings.concat(auditSocketBroadcastFields(file, record, outcome.value));
-  }
-  return findings.concat(auditMutationFields(file, record, outcome.value));
 }
 
 export function auditEventFields(
@@ -206,7 +204,7 @@ export function auditEventFields(
       );
       continue;
     }
-    if (event.startsWith("script.")) continue;
+    if (!isBusinessEvent(event)) continue;
     findings.push(...auditBusinessEventFields(file, record, event));
   }
   return findings;

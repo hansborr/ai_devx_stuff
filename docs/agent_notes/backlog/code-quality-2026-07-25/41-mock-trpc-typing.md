@@ -1,6 +1,9 @@
 # 41. The client's tRPC test mock is a 603-line untyped shadow router that silently returns `undefined` when the real router changes
 
-Status: Proposed — not promoted. **Partly pre-applied by merge `ec4d732c4`:**
+Status: Superseded by [`41-PLAN.md`](./41-PLAN.md). **Slices 41.1 and 41.2 are
+implemented; 41.3 remains optional and is not scheduled.** Leaf steps 4 and 6
+and the input-parsing generalization are dropped permanently and must not be
+re-scheduled from this leaf. **Partly pre-applied by merge `ec4d732c4`:**
 `srd.listSpells` alone now parses its input with the router's shared schema and
 withholds fixture `initialData` when `enabled === false`. This is a required I3
 test pin, not a piecemeal implementation plan for this leaf; see the note below.

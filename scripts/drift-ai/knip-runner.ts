@@ -1,6 +1,6 @@
-// knip subprocess runner and executable resolution for the orphan-files adapter.
-// Parsing and check integration live in knip-orphan-files.ts; this module owns the
-// I/O and portability concerns, mirroring duplicates-runner.ts / jscpd-bin.ts.
+// Shared knip subprocess runner and executable resolution for Knip-backed analyzers.
+// Parsing and check integration stay with each caller; this module owns the I/O,
+// timeout, diagnostic, memoization, and portability concerns.
 
 import {
   spawnSync,
@@ -82,6 +82,8 @@ export type DefaultKnipRunnerOptions = {
   // executable location (knipBin) so an installed target can be scanned with knip
   // resolved from the tools checkout. Defaults to process.cwd().
   readonly analyzedRepoRoot?: string;
+  // Human-facing identity of the command that initiated this runner.
+  readonly commandLabel: string;
   // Resolved knip executable (see resolveKnipBin).
   readonly knipBin: string;
   // Wall-clock subprocess budget in milliseconds. Defaults to
@@ -176,6 +178,7 @@ const SILENT_WARN: (message: string) => void = () => {};
 export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner {
   const analyzedRepoRoot = options.analyzedRepoRoot ?? process.cwd();
   const bin = options.knipBin;
+  const commandLabel = options.commandLabel;
   const timeoutMs = options.timeoutMs ?? DEFAULT_KNIP_TIMEOUT_MS;
   const includeCategories = options.includeCategories ?? KNIP_INCLUDE_CATEGORIES;
   const spawn = options.spawn ?? spawnSync;
@@ -186,7 +189,7 @@ export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner
     if (configPath !== null) args.push("--config", configPath);
     // Heartbeat (J1): announce the blocking self-scan BEFORE the spawn so the phase
     // is observably alive and the wait is bounded/explained, not silent for minutes.
-    warn(`drift:ai: running knip self-scan (budget ${budgetSeconds}s)…`);
+    warn(`${commandLabel}: running knip self-scan (budget ${budgetSeconds}s)…`);
     const result = spawn(bin, args, {
       cwd: analyzedRepoRoot,
       encoding: "utf8",
@@ -199,7 +202,7 @@ export function defaultKnipRunner(options: DefaultKnipRunnerOptions): KnipRunner
       if (isTimeoutResult(result)) {
         // Explain the skip on stderr — a timed-out knip phase must not be silent.
         warn(
-          `drift:ai: knip self-scan timed out after ${budgetSeconds}s; skipping knip-backed checks for this run.`,
+          `${commandLabel}: knip self-scan timed out after ${budgetSeconds}s; skipping knip-backed checks for this run.`,
         );
         return {
           ok: false,

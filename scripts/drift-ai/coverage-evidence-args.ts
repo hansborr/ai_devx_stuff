@@ -1,9 +1,19 @@
-import { readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { positiveIntValue } from "./arg-readers.js";
 import {
   COVERAGE_EVIDENCE_SUBCOMMAND,
   DEFAULT_COVERAGE_EVIDENCE_TOP,
 } from "./coverage-evidence-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const COVERAGE_EVIDENCE_USAGE = [
   "Usage:",
@@ -20,16 +30,24 @@ export type ParsedCoverageEvidenceArgs = {
   readonly top: number;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_COVERAGE_EVIDENCE_TOP),
+});
+
 export function parseCoverageEvidenceArgs(argv: readonly string[]): ParsedCoverageEvidenceArgs {
-  let top = DEFAULT_COVERAGE_EVIDENCE_TOP;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: COVERAGE_EVIDENCE_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, top };
+  return { base: subcommandBaseFromOptions(options), top: options["--top"] };
 }

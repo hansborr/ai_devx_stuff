@@ -179,7 +179,7 @@ report-only line so it never gates.
 **Priority: Medium · Effort: M**
 
 **Rationale.** Behavior confidence is the repo's self-declared weakest sensor axis
-(`docs/ai-harness.md:223`). The captured Stryker baseline (70.25% score, 258 survivors
+(`docs/ai-harness.md` **Current Gaps**). The captured Stryker baseline (70.25% score, 258 survivors
 over 1,438 mutants on `packages/shared/src/rules`, 16 of 66 shared files) is a one-time
 audit, not a recurring signal — survivor counts never trend. The scheduled lane that
 *could* carry a recurring behavior signal **already runs** (`slow-drift.yml`,

@@ -1,0 +1,988 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "additionalProperties": false,
+  "description": "Musi harness control manifest (harness.controls.json): the registration inventory of every enforcement control in the harness. GENERATED from the Zod parser in scripts/harness/harness-manifest-schema.ts by `bun run harness:manifest-schema`; do not edit by hand. AUTHORITATIVE HERE: the root keys, the per-kind field inventories (unknown keys are rejected, so a stray field is a registration typo), primitive field typing, the non-emptiness of `slots` and of the root `commandPolicy` rule array (whose array order is agent-command policy scan order: first hard match wins, otherwise the first soft match advises), and the structure of the ordered `verifySlotCatalog` plus per-control `slotProfile` declarations. DELIBERATELY OPEN: the interiors of the `generatedSurface`, `hookWiring` and `skillWiring` facets, the entries of the root `commandPolicy` rule array, and the command vocabulary inside materialized slots or catalog/profile slot bodies, which stay with their owning repo-side validators (generated-surfaces.ts, hook-wiring-schema.ts, skill-inventory-schema.ts, command-policy-schema.ts, verify-step-schema.ts) so their aggregated diagnostics remain authoritative. REPO-SIDE ONLY, not expressible here: control-id uniqueness, `repairCommand` being required exactly when `repairKind` is `codemod`, the slot vocabulary, catalog/profile resolution semantics (unique names, valid override targets, non-empty selected programs, and mandatory production modes), marker-bridge divergence filtering, and every check that compares the manifest against the actual tree (`bun run harness:check`). A document this schema accepts can still fail those. ASSEMBLY: readers see one manifest assembled from two files — harness.controls.json owns every kind except `lint-rule`, and the generated include harness.controls.lint-rules.generated.json owns those. This schema describes the assembled document. harness.controls.json alone is also a valid instance; the include is a `controls`-only fragment carrying no root arrays, so it is not one.",
+  "properties": {
+    "$comment": {
+      "pattern": "\\S",
+      "type": "string"
+    },
+    "$schema": {
+      "const": "./schemas/harness.controls.schema.json",
+      "type": "string"
+    },
+    "ciGateControlIds": {
+      "items": {
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "commandPolicy": {
+      "items": {
+        "additionalProperties": {},
+        "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+        "properties": {},
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "controls": {
+      "items": {
+        "oneOf": [
+          {
+            "additionalProperties": false,
+            "description": "A local ESLint rule. Carries no doc vocabulary: category, principle, pairedGuide, repairKind and repairCommand are re-projected from the rule's own meta.docs, so restating any of them here is rejected. These controls are generated into harness.controls.lint-rules.generated.json rather than authored.",
+            "properties": {
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "lint-rule",
+                "type": "string"
+              },
+              "ruleName": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "kind",
+              "ruleName"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "A lint ratchet. Like every non-lint control except that `principle` is re-projected from the lint-ratchet registry, so a hand-written one is rejected.",
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "ratchet",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "sensor",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "doctor-check",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "drift-scope",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "logs-audit",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "codemod",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "verify-wrapper",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "slotProfile": {
+                "additionalProperties": false,
+                "description": "Thin gate profile selecting the catalog's full or changed form, with optional reasoned whole-slot replacements. Membership still comes only from the catalog's changed dispositions.",
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "full",
+                      "changed"
+                    ],
+                    "type": "string"
+                  },
+                  "overrides": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "slot": {
+                          "additionalProperties": {},
+                          "description": "Verify slot command body without its catalog-owned name. The command vocabulary is validated repo-side by verify-step-schema.ts.",
+                          "properties": {},
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "reason",
+                        "slot"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              },
+              "slots": {
+                "description": "Legacy materialized verify/hook slots. Array-ness, per-entry object-ness, and NON-EMPTINESS are contract; the slot vocabulary (names, scripts, args, dynamic resolvers) is repo-side. Profile-backed programs receive an equivalent non-emptiness check during repo-side resolution.",
+                "items": {
+                  "additionalProperties": {},
+                  "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                  "properties": {},
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "generatedSurface": {
+                "additionalProperties": {},
+                "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                "properties": {},
+                "type": "object"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "check",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "generatedSurface": {
+                "additionalProperties": {},
+                "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                "properties": {},
+                "type": "object"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "doc-generator",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "description": "An agent-CLI hook. `hookWiring` is optional because several hook controls document externally-wired or intentionally-disabled hooks; which hooks require a facet is repo-side.",
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "hookWiring": {
+                "additionalProperties": {},
+                "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                "properties": {},
+                "type": "object"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "hook",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "slotProfile": {
+                "additionalProperties": false,
+                "description": "Thin gate profile selecting the catalog's full or changed form, with optional reasoned whole-slot replacements. Membership still comes only from the catalog's changed dispositions.",
+                "properties": {
+                  "mode": {
+                    "enum": [
+                      "full",
+                      "changed"
+                    ],
+                    "type": "string"
+                  },
+                  "overrides": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "name": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "reason": {
+                          "pattern": "\\S",
+                          "type": "string"
+                        },
+                        "slot": {
+                          "additionalProperties": {},
+                          "description": "Verify slot command body without its catalog-owned name. The command vocabulary is validated repo-side by verify-step-schema.ts.",
+                          "properties": {},
+                          "type": "object"
+                        }
+                      },
+                      "required": [
+                        "name",
+                        "reason",
+                        "slot"
+                      ],
+                      "type": "object"
+                    },
+                    "minItems": 1,
+                    "type": "array"
+                  }
+                },
+                "required": [
+                  "mode"
+                ],
+                "type": "object"
+              },
+              "slots": {
+                "description": "Legacy materialized verify/hook slots. Array-ness, per-entry object-ness, and NON-EMPTINESS are contract; the slot vocabulary (names, scripts, args, dynamic resolvers) is repo-side. Profile-backed programs receive an equivalent non-emptiness check during repo-side resolution.",
+                "items": {
+                  "additionalProperties": {},
+                  "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                  "properties": {},
+                  "type": "object"
+                },
+                "minItems": 1,
+                "type": "array"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "category": {
+                "enum": [
+                  "maintainability",
+                  "architecture-fitness",
+                  "behavior"
+                ],
+                "type": "string"
+              },
+              "id": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "invocation": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "kind": {
+                "const": "skill",
+                "type": "string"
+              },
+              "pairedGuide": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "principle": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairCommand": {
+                "pattern": "\\S",
+                "type": "string"
+              },
+              "repairKind": {
+                "enum": [
+                  "autofix",
+                  "suggestion",
+                  "codemod",
+                  "manual"
+                ],
+                "type": "string"
+              },
+              "skillWiring": {
+                "additionalProperties": {},
+                "description": "Facet carrier. Presence and object-ness are contract here; the interior is deliberately unconstrained and validated repo-side by the facet's owning module (see the root description).",
+                "properties": {},
+                "type": "object"
+              },
+              "source": {
+                "pattern": "\\S",
+                "type": "string"
+              }
+            },
+            "required": [
+              "id",
+              "source",
+              "invocation",
+              "category",
+              "pairedGuide",
+              "repairKind",
+              "principle",
+              "kind",
+              "skillWiring"
+            ],
+            "type": "object"
+          }
+        ]
+      },
+      "minItems": 1,
+      "type": "array"
+    },
+    "scriptParityExemptions": {
+      "items": {
+        "pattern": "\\S",
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "verifySlotCatalog": {
+      "description": "Ordered verify slot catalog. Every slot declares its full command body and an explicit changed disposition: inherit, a reasoned replacement, or a reasoned omission, plus any named build artifact the slot produces or requires. Array order is gate execution order.",
+      "items": {
+        "additionalProperties": false,
+        "properties": {
+          "changed": {
+            "oneOf": [
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "inherit",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "replace",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "pattern": "\\S",
+                    "type": "string"
+                  },
+                  "slot": {
+                    "additionalProperties": {},
+                    "description": "Verify slot command body without its catalog-owned name. The command vocabulary is validated repo-side by verify-step-schema.ts.",
+                    "properties": {},
+                    "type": "object"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "reason",
+                  "slot"
+                ],
+                "type": "object"
+              },
+              {
+                "additionalProperties": false,
+                "properties": {
+                  "kind": {
+                    "const": "omit",
+                    "type": "string"
+                  },
+                  "reason": {
+                    "pattern": "\\S",
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "kind",
+                  "reason"
+                ],
+                "type": "object"
+              }
+            ]
+          },
+          "full": {
+            "additionalProperties": {},
+            "description": "Verify slot command body without its catalog-owned name. The command vocabulary is validated repo-side by verify-step-schema.ts.",
+            "properties": {},
+            "type": "object"
+          },
+          "name": {
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "produces": {
+            "pattern": "\\S",
+            "type": "string"
+          },
+          "requiresArtifact": {
+            "pattern": "\\S",
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "full",
+          "changed"
+        ],
+        "type": "object"
+      },
+      "minItems": 1,
+      "type": "array"
+    }
+  },
+  "required": [
+    "scriptParityExemptions",
+    "ciGateControlIds",
+    "controls"
+  ],
+  "type": "object"
+}

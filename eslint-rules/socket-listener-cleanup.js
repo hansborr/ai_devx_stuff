@@ -5,21 +5,12 @@
  * from the effect cleanup to avoid duplicate listeners after remounts.
  */
 
-import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { isFunctionNode, staticPropertyName, unwrapChain } from "./ast-helpers.js";
 
 /** @typedef {{ node: import('estree').CallExpression, key: string | undefined, objectName: string }} OnCall */
 /** @typedef {{ offKeys: Set<string>, removeAllListenerObjects: Set<string> }} CleanupCalls */
 /** @typedef {{ onCalls: OnCall[], offKeys: Set<string>, removeAllListenerObjects: Set<string> }} EffectContext */
 /** @typedef {{ effectContext: EffectContext | undefined, inCleanup: boolean, isEffectCallback: boolean, functionName: string | undefined, ownCleanupCalls: CleanupCalls, cleanupFunctionNames: Set<string>, namedFunctionCleanupCalls: Map<string, CleanupCalls> }} FunctionFrame */
-
-/** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
-function isFunctionNode(node) {
-  return (
-    node?.type === "ArrowFunctionExpression" ||
-    node?.type === "FunctionExpression" ||
-    node?.type === "FunctionDeclaration"
-  );
-}
 
 const LIFECYCLE_HOOK_NAMES = new Set(["useEffect", "useLayoutEffect", "useCallback"]);
 

@@ -1,0 +1,138 @@
+{
+  "base": 230,
+  "chunks": [
+    {
+      "chunk": "au2a-01",
+      "members": [
+        {
+          "promotionId": "R2B-001",
+          "file": "107-ai-hook-policy-2121-line-shell-parsing.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-001.md"
+        },
+        {
+          "promotionId": "R2B-002",
+          "file": "230-single-source-edited-path-decoding-and-eslint-file.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-002.md"
+        },
+        {
+          "promotionId": "R2B-003",
+          "file": "231-fail-closed-when-similarity-ts-output-no-longer.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-003.md"
+        },
+        {
+          "promotionId": "R2B-004",
+          "file": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-004.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-02",
+      "members": [
+        {
+          "promotionId": "R2B-005",
+          "file": "233-bulk-load-encounter-participants-before-character.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-005.md"
+        },
+        {
+          "promotionId": "R2B-006",
+          "file": "234-route-manual-combat-logs-through-encounter-combat-s.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-006.md"
+        },
+        {
+          "promotionId": "R2B-007",
+          "file": "235-preserve-gridtype-through-client-map-component.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-007.md"
+        },
+        {
+          "promotionId": "R2B-008",
+          "file": "236-use-tanstack-router-for-the-campaign-homebrew.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-008.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-03",
+      "members": [
+        {
+          "promotionId": "R2B-009",
+          "file": "237-associate-homebrew-validation-errors-with-their.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-009.md"
+        },
+        {
+          "promotionId": "R2B-010",
+          "file": "238-share-class-and-subclass-caster-selection-fields.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-010.md"
+        },
+        {
+          "promotionId": "R2B-011",
+          "file": "239-extract-the-duplicated-homebrew-confirm-by-name.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2B-011.md"
+        },
+        {
+          "promotionId": "R2C-001",
+          "file": "240-classify-the-below-low-trivial-encounter-tier-as.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-001.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-04",
+      "members": [
+        {
+          "promotionId": "R2C-002",
+          "file": "241-share-the-repeated-initiative-tracker-participant.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-002.md"
+        },
+        {
+          "promotionId": "R2C-003",
+          "file": "242-derive-slow-test-project-roots-with-fileurltopath.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-003.md"
+        },
+        {
+          "promotionId": "R2C-004",
+          "file": "243-correct-prototype-headers-that-deny-registered.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-004.md"
+        },
+        {
+          "promotionId": "R2C-005",
+          "file": "189-downstream-packages-keep-semantic-copies.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-005.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-05",
+      "members": [
+        {
+          "promotionId": "R2C-006",
+          "file": "244-let-multiclass-characters-choose-their-unarmored.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-006.md"
+        },
+        {
+          "promotionId": "R2C-007",
+          "file": "245-reject-empty-fixture-and-smoke-discovery-sets.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r2/packets/R2C-007.md"
+        }
+      ]
+    }
+  ]
+}

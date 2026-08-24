@@ -53,11 +53,10 @@ belong to which tool, and the README no longer describes the repository.
   `-emission.ts`, `-identity.ts`, and four colocated tests. It is not in
   `scripts/README.md`'s sanctioned-exception paragraph (`:32-40`) or its directory
   table, and not in `scripts-flat-family-reorg.md`.
-- `worktree-seed*` — 7 files, no `scripts/worktree-seed/` and no top-level
-  `worktree-seed.ts` entrypoint: `-runtime-loader-exports.ts`,
-  `-runtime-loader-identifiers.ts`, `-runtime-loader-validation.ts` are
-  implementation modules of `worktree-seed-runtime-loaders.ts`, alongside
-  `worktree-seed-import-closure.ts` and two tests. The consumer is
+- `worktree-seed*` — 5 files (was 8 before the 2026-08-13 coarsening), no
+  `scripts/worktree-seed/` and no top-level `worktree-seed.ts` entrypoint:
+  `worktree-seed-runtime-loaders.ts` and `worktree-seed-runtime-resolution.ts`
+  support `worktree-seed-import-closure.ts`, alongside two tests. The consumer is
   `scripts/worktree-db.sh`, so this group needs a ruling of its own rather than
   being swept in with the seven above.
 - Not violations, and not to be counted as such: `adr-check*` (4 — entrypoint,

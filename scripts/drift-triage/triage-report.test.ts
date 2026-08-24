@@ -1,28 +1,201 @@
 import { describe, expect, it } from "vitest";
 
 import { DEFAULT_CHECKS } from "../drift-ai/check-metadata.js";
+import { DRIFT_SCHEMA_VERSION } from "../drift-ai/types.js";
 import { buildTriageReport, type NamedTriageInput, parseTriageInput } from "./triage-report.js";
-import type { DolosRowInput } from "./triage-report-contracts.js";
+import type {
+  DolosAdvisoryInput,
+  DolosRowInput,
+  DriftFindingInput,
+  DriftReportInput,
+  SemgrepAdvisoryInput,
+  SemgrepRowInput,
+} from "./triage-report-contracts.js";
 import { isTestLocation } from "./triage-report-support.js";
 
 function input(path: string, value: unknown): NamedTriageInput {
   return { path, input: parseTriageInput(value) };
 }
 
-describe("buildTriageReport", () => {
-  it("accepts drift findings without an optional repair hint", () => {
-    const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
+function driftRow(overrides: Partial<DriftFindingInput> = {}): DriftFindingInput {
+  return {
+    check: "comments",
+    file: "src/a.ts",
+    message: "drift finding",
+    ...overrides,
+  };
+}
+
+type DriftInputOptions = {
+  readonly inputPath?: string;
+  readonly scopeMode?: Exclude<DriftReportInput["scopeMode"], null>;
+  readonly roots?: Exclude<DriftReportInput["roots"], null>;
+  readonly enabledChecks?: Exclude<DriftReportInput["enabledChecks"], null>;
+  readonly skippedChecks?: DriftReportInput["skippedChecks"];
+};
+
+function driftInput(
+  findings: DriftReportInput["findings"],
+  {
+    inputPath = "drift.json",
+    scopeMode,
+    roots,
+    enabledChecks,
+    skippedChecks = [],
+  }: DriftInputOptions = {},
+): NamedTriageInput {
+  return input(inputPath, {
+    schemaVersion: DRIFT_SCHEMA_VERSION,
+    ...(scopeMode === undefined ? {} : { scopeMode }),
+    ...(roots === undefined ? {} : { roots }),
+    ...(enabledChecks === undefined ? {} : { enabledChecks }),
+    skippedChecks,
+    findings,
+  });
+}
+
+function semgrepRow(
+  overrides: Partial<Omit<SemgrepRowInput, "candidateSource">> = {},
+): SemgrepRowInput {
+  return {
+    rank: 1,
+    candidateSource: "semgrep",
+    checkId: "rules.example",
+    path: "src/auth.ts",
+    count: 1,
+    ranges: [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }],
+    severity: "WARNING",
+    message: null,
+    metadata: { cwe: [] },
+    ...overrides,
+  };
+}
+
+type SemgrepInputOptions = {
+  readonly entries: readonly SemgrepRowInput[];
+  readonly prerequisites?: SemgrepAdvisoryInput["prerequisites"];
+};
+
+function semgrepInput(ranges: SemgrepRowInput["ranges"]): NamedTriageInput {
+  return {
+    path: "semgrep.json",
+    input: {
+      kind: "semgrep-advisory",
+      report: {
+        kind: "advisory",
+        lane: "prototype",
+        subcommand: "semgrep-candidates",
+        prerequisites: [],
+        degradations: [],
+        caps: [],
+        sections: [
           {
-            check: "comments",
-            file: "src/a.ts",
-            message: "comment-heavy file",
+            totalCandidates: 1,
+            entries: [
+              {
+                rank: 1,
+                candidateSource: "semgrep",
+                checkId: "rules.auth",
+                path: "src/auth.ts",
+                count: 1,
+                ranges,
+                severity: "ERROR",
+                message: "auth candidate",
+                metadata: { cwe: ["CWE-208"] },
+              },
+            ],
           },
         ],
-      }),
+      },
+    },
+  };
+}
+
+function semgrepAdvisoryInput(options: SemgrepInputOptions): NamedTriageInput {
+  const { entries, prerequisites = [] } = options;
+  return input("semgrep.json", {
+    kind: "advisory",
+    lane: "prototype",
+    subcommand: "semgrep-candidates",
+    prerequisites,
+    degradations: [],
+    caps: [],
+    sections: [{ totalCandidates: entries.length, entries }],
+  });
+}
+
+function dolosRow(
+  rank: number,
+  left: { readonly filePath: string; readonly startLine: number; readonly endLine: number },
+  right: { readonly filePath: string; readonly startLine: number; readonly endLine: number },
+  overrides: Partial<Omit<DolosRowInput, "rank" | "candidateSource" | "left" | "right">> = {},
+): DolosRowInput {
+  return {
+    rank,
+    candidateSource: "dolos",
+    score: 0.95,
+    left: { ...left, lineCount: left.endLine - left.startLine + 1 },
+    right: { ...right, lineCount: right.endLine - right.startLine + 1 },
+    metrics: { similarity: 0.95, totalOverlap: 40, longestFragment: 20 },
+    ...overrides,
+  };
+}
+
+type DolosInputOptions = {
+  readonly degradations?: DolosAdvisoryInput["degradations"];
+  readonly caps?: DolosAdvisoryInput["caps"];
+  readonly sectionTotal?: number;
+};
+
+function dolosInput(
+  entries: readonly DolosRowInput[],
+  { degradations = [], caps = [], sectionTotal = entries.length }: DolosInputOptions = {},
+): NamedTriageInput {
+  return input("dolos.json", {
+    kind: "advisory",
+    lane: "prototype",
+    subcommand: "dolos-candidates",
+    prerequisites: [],
+    degradations,
+    caps,
+    sections: [{ totalCandidates: sectionTotal, entries }],
+  });
+}
+
+describe("buildTriageReport", () => {
+  describe("published item ID contract", () => {
+    it("pins the sorted compact Semgrep ID grammar", () => {
+      const report = buildTriageReport([
+        semgrepInput([
+          { startLine: 20, startCol: 1, endLine: 21, endCol: 4 },
+          { startLine: 8, startCol: 2, endLine: 8, endCol: 14 },
+        ]),
+      ]);
+
+      expect(report.items[0]?.id).toBe("semgrep:src/auth.ts:8.2-8.14,20.1-21.4:CWE-208");
+    });
+
+    it("keeps Semgrep IDs invariant under range property reordering", () => {
+      const canonical = buildTriageReport([
+        semgrepInput([{ startLine: 8, startCol: 2, endLine: 9, endCol: 14 }]),
+      ]);
+      const reordered = buildTriageReport([
+        semgrepInput([{ endCol: 14, endLine: 9, startCol: 2, startLine: 8 }]),
+      ]);
+
+      expect(reordered.items[0]?.id).toBe(canonical.items[0]?.id);
+    });
+  });
+
+  it("accepts drift findings without an optional repair hint", () => {
+    const report = buildTriageReport([
+      driftInput([
+        driftRow({
+          check: "comments",
+          file: "src/a.ts",
+          message: "comment-heavy file",
+        }),
+      ]),
     ]);
 
     expect(report.items).toHaveLength(1);
@@ -32,21 +205,17 @@ describe("buildTriageReport", () => {
 
   it("preserves drift finding provenance in triage evidence", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "orphan-files",
-            file: "src/orphan.ts",
-            message: "orphan candidate",
-            provenance: {
-              configSource: "drift-baseline",
-              tool: "knip",
-            },
+      driftInput([
+        driftRow({
+          check: "orphan-files",
+          file: "src/orphan.ts",
+          message: "orphan candidate",
+          provenance: {
+            configSource: "drift-baseline",
+            tool: "knip",
           },
-        ],
-      }),
+        }),
+      ]),
     ]);
 
     expect(report.items[0]?.evidence[0]).toMatchObject({
@@ -57,49 +226,32 @@ describe("buildTriageReport", () => {
   it("emits unique ids for distinct rows with the same source location", () => {
     const sharedRange = [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }];
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          { check: "comments", file: "src/a.ts", message: "first comment signal" },
-          { check: "comments", file: "src/a.ts", message: "second comment signal" },
-        ],
-      }),
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 2,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "semgrep",
-                checkId: "rules.first",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-208"] },
-              },
-              {
-                rank: 2,
-                candidateSource: "semgrep",
-                checkId: "rules.second",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-209"] },
-              },
-            ],
-          },
+      driftInput([
+        driftRow({
+          check: "comments",
+          file: "src/a.ts",
+          message: "first comment signal",
+        }),
+        driftRow({
+          check: "comments",
+          file: "src/a.ts",
+          message: "second comment signal",
+        }),
+      ]),
+      semgrepAdvisoryInput({
+        entries: [
+          semgrepRow({
+            rank: 1,
+            checkId: "rules.first",
+            ranges: sharedRange,
+            metadata: { cwe: ["CWE-208"] },
+          }),
+          semgrepRow({
+            rank: 2,
+            checkId: "rules.second",
+            ranges: sharedRange,
+            metadata: { cwe: ["CWE-209"] },
+          }),
         ],
       }),
     ]);
@@ -111,41 +263,22 @@ describe("buildTriageReport", () => {
   it("keeps distinct Semgrep rules without CWEs at the same range separate", () => {
     const sharedRange = [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }];
     const report = buildTriageReport([
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 2,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "semgrep",
-                checkId: "rules.first",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: "first rule message",
-                metadata: { cwe: [] },
-              },
-              {
-                rank: 2,
-                candidateSource: "semgrep",
-                checkId: "rules.second",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: "second rule message",
-                metadata: { cwe: [] },
-              },
-            ],
-          },
+      semgrepAdvisoryInput({
+        entries: [
+          semgrepRow({
+            rank: 1,
+            checkId: "rules.first",
+            ranges: sharedRange,
+            message: "first rule message",
+            metadata: { cwe: [] },
+          }),
+          semgrepRow({
+            rank: 2,
+            checkId: "rules.second",
+            ranges: sharedRange,
+            message: "second rule message",
+            metadata: { cwe: [] },
+          }),
         ],
       }),
     ]);
@@ -159,34 +292,29 @@ describe("buildTriageReport", () => {
 
   it("defers explicitly informational and high-volume drift noise", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "duplicate-literals",
-            file: "src/a.ts:1-1",
-            message: "literal repeated",
-            hint: "inspect it",
-            relatedFiles: ["src/b.ts:1-1"],
-            details: { value: "example" },
-          },
-          {
-            check: "import-cycles",
-            file: "src/a.ts",
-            message: "type-only cycle",
-            hint: "inspect it",
-            relatedFiles: ["src/b.ts"],
-            details: { typeOnly: true },
-          },
-          {
-            check: "module-doc-paths",
-            file: "src/MODULE.md:12",
-            message: "stale path",
-            hint: "update it",
-          },
-        ],
-      }),
+      driftInput([
+        driftRow({
+          check: "duplicate-literals",
+          file: "src/a.ts:1-1",
+          message: "literal repeated",
+          hint: "inspect it",
+          relatedFiles: ["src/b.ts:1-1"],
+          details: { value: "example" },
+        }),
+        driftRow({
+          check: "import-cycles",
+          message: "type-only cycle",
+          hint: "inspect it",
+          relatedFiles: ["src/b.ts"],
+          details: { typeOnly: true },
+        }),
+        driftRow({
+          check: "module-doc-paths",
+          file: "src/MODULE.md:12",
+          message: "stale path",
+          hint: "update it",
+        }),
+      ]),
     ]);
 
     expect(report.summary).toMatchObject({
@@ -203,32 +331,27 @@ describe("buildTriageReport", () => {
     expect(report.items[0]).toMatchObject({
       priority: "review-first",
       category: "maintenance",
-      locations: ["src/MODULE.md:12"],
+      locations: ["src/MODULE.md:12-12"],
     });
   });
 
   it("keeps opted-in literals and type-only cycles in the review queue", () => {
     const report = buildTriageReport(
       [
-        input("drift.json", {
-          schemaVersion: 4,
-          skippedChecks: [],
-          findings: [
-            {
-              check: "duplicate-literals",
-              file: "src/a.ts:1-1",
-              message: "literal repeated",
-              relatedFiles: ["src/b.ts:1-1"],
-            },
-            {
-              check: "import-cycles",
-              file: "src/a.ts",
-              message: "type-only cycle",
-              relatedFiles: ["src/b.ts"],
-              details: { typeOnly: true },
-            },
-          ],
-        }),
+        driftInput([
+          driftRow({
+            check: "duplicate-literals",
+            file: "src/a.ts:1-1",
+            message: "literal repeated",
+            relatedFiles: ["src/b.ts:1-1"],
+          }),
+          driftRow({
+            check: "import-cycles",
+            message: "type-only cycle",
+            relatedFiles: ["src/b.ts"],
+            details: { typeOnly: true },
+          }),
+        ]),
       ],
       { includeLiterals: true, includeTypeOnlyCycles: true },
     );
@@ -240,24 +363,20 @@ describe("buildTriageReport", () => {
   it("defers test-only constants and literals across repository test conventions", () => {
     const report = buildTriageReport(
       [
-        input("drift.json", {
-          schemaVersion: 4,
-          skippedChecks: [],
-          findings: [
-            {
-              check: "duplicate-constants",
-              file: "packages/server/src/auth-test-helper.ts:1-2",
-              message: "constant repeated",
-              relatedFiles: ["packages/server/src/test/fixtures-auth.ts:3-4"],
-            },
-            {
-              check: "duplicate-literals",
-              file: "packages/client/src/__tests__/auth.ts:5-6",
-              message: "literal repeated",
-              relatedFiles: ["packages/client/src/test/fixtures-auth.ts:7-8"],
-            },
-          ],
-        }),
+        driftInput([
+          driftRow({
+            check: "duplicate-constants",
+            file: "packages/server/src/auth-test-helper.ts:1-2",
+            message: "constant repeated",
+            relatedFiles: ["packages/server/src/test/fixtures-auth.ts:3-4"],
+          }),
+          driftRow({
+            check: "duplicate-literals",
+            file: "packages/client/src/__tests__/auth.ts:5-6",
+            message: "literal repeated",
+            relatedFiles: ["packages/client/src/test/fixtures-auth.ts:7-8"],
+          }),
+        ]),
       ],
       { includeLiterals: true },
     );
@@ -271,24 +390,20 @@ describe("buildTriageReport", () => {
 
   it("defers test-only drift clone findings", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "duplicates",
-            file: "src/a.test.ts:1-20",
-            message: "exact clone in tests",
-            relatedFiles: ["src/b.spec.ts:3-22"],
-          },
-          {
-            check: "near-duplicates",
-            file: "src/test/a-helper.ts:5-25",
-            message: "near clone in tests",
-            relatedFiles: ["src/__tests__/b-helper.ts:7-27"],
-          },
-        ],
-      }),
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.test.ts:1-20",
+          message: "exact clone in tests",
+          relatedFiles: ["src/b.spec.ts:3-22"],
+        }),
+        driftRow({
+          check: "near-duplicates",
+          file: "src/test/a-helper.ts:5-25",
+          message: "near clone in tests",
+          relatedFiles: ["src/__tests__/b-helper.ts:7-27"],
+        }),
+      ]),
     ]);
 
     expect(report.summary).toMatchObject({ reviewItems: 0, deferredRows: 2 });
@@ -297,19 +412,18 @@ describe("buildTriageReport", () => {
     ]);
   });
 
-  it("keeps legacy single-location test clone findings for review", () => {
+  it("keeps legacy single-location test clone findings and pins the drift ID contract", () => {
     const report = buildTriageReport([
-      input("legacy-drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
+      driftInput(
+        [
+          driftRow({
             check: "duplicates",
             file: "src/a.test.ts:1-20",
             message: "legacy clone without relatedFiles",
-          },
+          }),
         ],
-      }),
+        { inputPath: "legacy-drift.json" },
+      ),
     ]);
 
     expect(report.summary).toMatchObject({ reviewItems: 1, deferredRows: 0 });
@@ -321,36 +435,80 @@ describe("buildTriageReport", () => {
 
   it("keeps clone findings with one distinct test location for review", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "duplicates",
-            file: "src/a.test.ts:1-20",
-            message: "clone with repeated primary location",
-            relatedFiles: ["src/a.test.ts:1-20"],
-          },
-        ],
-      }),
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.test.ts:1-20",
+          message: "clone with repeated primary location",
+          relatedFiles: ["src/a.test.ts:1-20"],
+        }),
+      ]),
     ]);
 
     expect(report.summary).toMatchObject({ reviewItems: 1, deferredRows: 0 });
     expect(report.items[0]?.locations).toEqual(["src/a.test.ts:1-20"]);
   });
 
+  it("preserves pair IDs for every admitted clone-location suffix form", () => {
+    const report = buildTriageReport([
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:12:4-20",
+          message: "same-file mixed column range",
+          relatedFiles: ["src/a.ts:30:5-40"],
+        }),
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:1-2:3",
+          message: "first asymmetric cross-file range",
+          relatedFiles: ["src/b.ts:4-5:6"],
+        }),
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:7-8:9",
+          message: "second asymmetric cross-file range",
+          relatedFiles: ["src/b.ts:10-11:12"],
+        }),
+      ]),
+    ]);
+
+    expect(report.summary).toMatchObject({ reviewRows: 3, reviewItems: 2, mergedRows: 1 });
+    expect(report.items.map((item) => item.id)).toEqual([
+      "pair:src/a.ts:12:4-20<=>src/a.ts:30:5-40",
+      "pair:src/a.ts<=>src/b.ts",
+    ]);
+  });
+
+  it.each([
+    [1.2, 20.5, 3.4, 22.6, "pair:src/a.ts:1.2-20.5<=>src/b.ts:3.4-22.6"],
+    [-1, -20, -3, -22, "pair:src/a.ts:-1--20<=>src/b.ts:-3--22"],
+    [1e21, 2e21, 3e21, 4e21, "pair:src/a.ts:1e+21-2e+21<=>src/b.ts:3e+21-4e+21"],
+  ])(
+    "preserves the Dolos pair ID for noncanonical coordinates %#",
+    (leftStart, leftEnd, rightStart, rightEnd, expectedId) => {
+      const report = buildTriageReport([
+        dolosInput([
+          dolosRow(
+            1,
+            { filePath: "src/a.ts", startLine: leftStart, endLine: leftEnd },
+            { filePath: "src/b.ts", startLine: rightStart, endLine: rightEnd },
+          ),
+        ]),
+      ]);
+
+      expect(report.items[0]?.id).toBe(expectedId);
+    },
+  );
+
   it("does not merge non-clone findings from different input files", () => {
     const finding = { check: "comments", file: "src/a.ts" };
     const report = buildTriageReport([
-      input("first.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [{ ...finding, message: "first report finding" }],
+      driftInput([driftRow({ ...finding, message: "first report finding" })], {
+        inputPath: "first.json",
       }),
-      input("second.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [{ ...finding, message: "second report finding" }],
+      driftInput([driftRow({ ...finding, message: "second report finding" })], {
+        inputPath: "second.json",
       }),
     ]);
 
@@ -363,18 +521,14 @@ describe("buildTriageReport", () => {
 
   it("deduplicates a primary location repeated in relatedFiles", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "ghost-files",
-            file: "src/foo-helper.ts",
-            message: "suspicious sibling pair",
-            relatedFiles: ["src/foo-helper.ts", "src/foo.ts"],
-          },
-        ],
-      }),
+      driftInput([
+        driftRow({
+          check: "ghost-files",
+          file: "src/foo-helper.ts",
+          message: "suspicious sibling pair",
+          relatedFiles: ["src/foo-helper.ts", "src/foo.ts"],
+        }),
+      ]),
     ]);
 
     expect(report.items[0]?.locations).toEqual(["src/foo-helper.ts", "src/foo.ts"]);
@@ -383,52 +537,26 @@ describe("buildTriageReport", () => {
   it("collapses equivalent Semgrep rules and defers matches in test fixtures", () => {
     const sharedRange = [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }];
     const report = buildTriageReport([
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 3,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "semgrep",
-                checkId: "rules.first",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-208"] },
-              },
-              {
-                rank: 2,
-                candidateSource: "semgrep",
-                checkId: "rules.second",
-                path: "src/auth.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-208"] },
-              },
-              {
-                rank: 3,
-                candidateSource: "semgrep",
-                checkId: "rules.example",
-                path: "src/auth.test.ts",
-                count: 1,
-                ranges: sharedRange,
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-208"] },
-              },
-            ],
-          },
+      semgrepAdvisoryInput({
+        entries: [
+          semgrepRow({
+            rank: 1,
+            checkId: "rules.first",
+            ranges: sharedRange,
+            metadata: { cwe: ["CWE-208"] },
+          }),
+          semgrepRow({
+            rank: 2,
+            checkId: "rules.second",
+            ranges: sharedRange,
+            metadata: { cwe: ["CWE-208"] },
+          }),
+          semgrepRow({
+            rank: 3,
+            path: "src/auth.test.ts",
+            ranges: sharedRange,
+            metadata: { cwe: ["CWE-208"] },
+          }),
         ],
       }),
     ]);
@@ -448,66 +576,33 @@ describe("buildTriageReport", () => {
 
   it("deduplicates Semgrep locations whose ranges differ only by column", () => {
     const report = buildTriageReport([
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 1,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "semgrep",
-                checkId: "rules.example",
-                path: "src/auth.ts",
-                count: 2,
-                ranges: [
-                  { startLine: 8, startCol: 2, endLine: 8, endCol: 14 },
-                  { startLine: 8, startCol: 20, endLine: 8, endCol: 32 },
-                ],
-                severity: "WARNING",
-                message: "two matches on one line",
-                metadata: { cwe: [] },
-              },
+      semgrepAdvisoryInput({
+        entries: [
+          semgrepRow({
+            count: 2,
+            ranges: [
+              { startLine: 8, startCol: 2, endLine: 8, endCol: 14 },
+              { startLine: 8, startCol: 20, endLine: 8, endCol: 32 },
             ],
-          },
+            message: "two matches on one line",
+          }),
         ],
       }),
     ]);
 
+    expect(report.items[0]?.locations).toHaveLength(1);
+    expect(report.items[0]?.locationDetails).toHaveLength(2);
     expect(report.items[0]?.locations).toEqual(["src/auth.ts:8-8"]);
   });
 
   it("treats dot test-helper files as test-only evidence", () => {
     const report = buildTriageReport([
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 1,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "semgrep",
-                checkId: "rules.example",
-                path: "src/auth.test-helper.ts",
-                count: 1,
-                ranges: [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }],
-                severity: "WARNING",
-                message: null,
-                metadata: { cwe: ["CWE-208"] },
-              },
-            ],
-          },
+      semgrepAdvisoryInput({
+        entries: [
+          semgrepRow({
+            path: "src/auth.test-helper.ts",
+            metadata: { cwe: ["CWE-208"] },
+          }),
         ],
       }),
     ]);
@@ -526,39 +621,24 @@ describe("buildTriageReport", () => {
       "examples/lint-ratchet-demo/x.ts",
     ];
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: testSupportPaths.map((path) => ({
-          check: "duplicates",
-          file: `${path}:1-20`,
-          message: "deliberate test-support clone",
-          relatedFiles: [`${path.replace(/\.ts$/u, "-copy.ts")}:21-40`],
-        })),
-      }),
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: testSupportPaths.length,
-            entries: testSupportPaths.map((path, index) => ({
-              rank: index + 1,
-              candidateSource: "semgrep",
-              checkId: "rules.example",
-              path,
-              count: 1,
-              ranges: [{ startLine: 8, startCol: 2, endLine: 8, endCol: 14 }],
-              severity: "WARNING",
-              message: null,
-              metadata: { cwe: ["CWE-208"] },
-            })),
-          },
-        ],
+      driftInput(
+        testSupportPaths.map((path) =>
+          driftRow({
+            check: "duplicates",
+            file: `${path}:1-20`,
+            message: "deliberate test-support clone",
+            relatedFiles: [`${path.replace(/\.ts$/u, "-copy.ts")}:21-40`],
+          }),
+        ),
+      ),
+      semgrepAdvisoryInput({
+        entries: testSupportPaths.map((path, index) =>
+          semgrepRow({
+            rank: index + 1,
+            path,
+            metadata: { cwe: ["CWE-208"] },
+          }),
+        ),
       }),
     ]);
 
@@ -571,10 +651,8 @@ describe("buildTriageReport", () => {
 
   it("marks advisories with unmet prerequisites as partial", () => {
     const report = buildTriageReport([
-      input("semgrep.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "semgrep-candidates",
+      semgrepAdvisoryInput({
+        entries: [],
         prerequisites: [
           {
             name: "semgrep engine",
@@ -582,9 +660,6 @@ describe("buildTriageReport", () => {
             detail: "semgrep was not available on PATH",
           },
         ],
-        degradations: [],
-        caps: [],
-        sections: [{ totalCandidates: 0, entries: [] }],
       }),
     ]);
 
@@ -596,8 +671,7 @@ describe("buildTriageReport", () => {
 
   it("marks drift reports with skipped checks as partial and retains their reasons", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
+      driftInput([], {
         skippedChecks: [
           {
             check: "duplicates",
@@ -606,7 +680,6 @@ describe("buildTriageReport", () => {
           },
           { check: "near-duplicates", reason: "ts-morph timed out" },
         ],
-        findings: [],
       }),
     ]);
 
@@ -625,13 +698,10 @@ describe("buildTriageReport", () => {
 
   it("retains drift scan coverage and marks restricted scans as partial", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
+      driftInput([], {
         scopeMode: "changed",
         roots: ["packages/server/src"],
         enabledChecks: ["duplicates"],
-        skippedChecks: [],
-        findings: [],
       }),
     ]);
 
@@ -645,13 +715,10 @@ describe("buildTriageReport", () => {
 
   it("marks a current full-scope default-check scan as complete", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
+      driftInput([], {
         scopeMode: "current",
         roots: ["."],
         enabledChecks: DEFAULT_CHECKS,
-        skippedChecks: [],
-        findings: [],
       }),
     ]);
 
@@ -665,17 +732,12 @@ describe("buildTriageReport", () => {
 
   it("retains hit-cap details and degradation reasons in advisory summaries", () => {
     const report = buildTriageReport([
-      input("dolos.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "dolos-candidates",
-        prerequisites: [],
+      dolosInput([], {
         degradations: ["Dolos timed out before returning candidates"],
         caps: [
           { label: "reported pairs", limit: 1000, hit: true, detail: "stopped at 1000 pairs" },
           { label: "files", limit: 500, hit: false, detail: null },
         ],
-        sections: [{ totalCandidates: 0, entries: [] }],
       }),
     ]);
 
@@ -689,69 +751,51 @@ describe("buildTriageReport", () => {
   it("merges clone evidence by file pair and applies the fragment floor", () => {
     const report = buildTriageReport(
       [
-        input("drift.json", {
-          schemaVersion: 4,
-          skippedChecks: [],
-          findings: [
-            {
-              check: "duplicates",
-              file: "src/a.ts:10-40",
-              message: "near duplicate",
-              hint: "compare it",
-              relatedFiles: ["src/b.ts:20-50"],
-              details: { similarity: 0.95 },
-            },
+        driftInput([
+          driftRow({
+            check: "duplicates",
+            file: "src/a.ts:10-40",
+            message: "near duplicate",
+            hint: "compare it",
+            relatedFiles: ["src/b.ts:20-50"],
+            details: { similarity: 0.95 },
+          }),
+        ]),
+        dolosInput(
+          [
+            dolosRow(
+              1,
+              { filePath: "src/b.ts", startLine: 1, endLine: 80 },
+              { filePath: "src/a.ts", startLine: 1, endLine: 70 },
+              {
+                score: 0.99,
+                metrics: { similarity: 0.99, totalOverlap: 60, longestFragment: 40 },
+              },
+            ),
+            dolosRow(
+              2,
+              { filePath: "src/c.ts", startLine: 1, endLine: 20 },
+              { filePath: "src/d.ts", startLine: 1, endLine: 20 },
+              {
+                score: 0.9,
+                metrics: { similarity: 0.9, totalOverlap: 10, longestFragment: 8 },
+              },
+            ),
+            dolosRow(
+              3,
+              { filePath: "src/e.test.ts", startLine: 1, endLine: 20 },
+              { filePath: "src/f.test.ts", startLine: 1, endLine: 20 },
+              {
+                score: 1,
+                metrics: { similarity: 1, totalOverlap: 30, longestFragment: 30 },
+              },
+            ),
           ],
-        }),
-        input("dolos.json", {
-          kind: "advisory",
-          lane: "prototype",
-          subcommand: "dolos-candidates",
-          prerequisites: [],
-          degradations: [],
-          caps: [{ label: "reported pairs", limit: 1000, hit: true, detail: "partial" }],
-          sections: [
-            {
-              totalCandidates: 4,
-              entries: [
-                {
-                  rank: 1,
-                  candidateSource: "dolos",
-                  score: 0.99,
-                  left: { filePath: "src/b.ts", startLine: 1, endLine: 80, lineCount: 80 },
-                  right: { filePath: "src/a.ts", startLine: 1, endLine: 70, lineCount: 70 },
-                  metrics: { similarity: 0.99, totalOverlap: 60, longestFragment: 40 },
-                },
-                {
-                  rank: 2,
-                  candidateSource: "dolos",
-                  score: 0.9,
-                  left: { filePath: "src/c.ts", startLine: 1, endLine: 20, lineCount: 20 },
-                  right: { filePath: "src/d.ts", startLine: 1, endLine: 20, lineCount: 20 },
-                  metrics: { similarity: 0.9, totalOverlap: 10, longestFragment: 8 },
-                },
-                {
-                  rank: 3,
-                  candidateSource: "dolos",
-                  score: 1,
-                  left: {
-                    filePath: "src/e.test.ts",
-                    startLine: 1,
-                    endLine: 20,
-                    lineCount: 20,
-                  },
-                  right: {
-                    filePath: "src/f.test.ts",
-                    startLine: 1,
-                    endLine: 20,
-                    lineCount: 20,
-                  },
-                  metrics: { similarity: 1, totalOverlap: 30, longestFragment: 30 },
-                },
-              ],
-            },
-          ],
-        }),
+          {
+            caps: [{ label: "reported pairs", limit: 1000, hit: true, detail: "partial" }],
+            sectionTotal: 4,
+          },
+        ),
       ],
       { minCloneFragment: 20 },
     );
@@ -783,42 +827,26 @@ describe("buildTriageReport", () => {
 
   it("prefers drift titles and retains drift messages when Dolos is processed first", () => {
     const report = buildTriageReport([
-      input("dolos.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "dolos-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
+      dolosInput([
+        dolosRow(
+          1,
+          { filePath: "src/a.ts", startLine: 1, endLine: 70 },
+          { filePath: "src/b.ts", startLine: 1, endLine: 80 },
           {
-            totalCandidates: 1,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "dolos",
-                score: 0.99,
-                left: { filePath: "src/a.ts", startLine: 1, endLine: 70, lineCount: 70 },
-                right: { filePath: "src/b.ts", startLine: 1, endLine: 80, lineCount: 80 },
-                metrics: { similarity: 0.99, totalOverlap: 60, longestFragment: 40 },
-              },
-            ],
+            score: 0.99,
+            metrics: { similarity: 0.99, totalOverlap: 60, longestFragment: 40 },
           },
-        ],
-      }),
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "duplicates",
-            file: "src/a.ts:10-40",
-            message: "exact duplicate implementation",
-            hint: "extract the shared implementation",
-            relatedFiles: ["src/b.ts:20-50"],
-          },
-        ],
-      }),
+        ),
+      ]),
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:10-40",
+          message: "exact duplicate implementation",
+          hint: "extract the shared implementation",
+          relatedFiles: ["src/b.ts:20-50"],
+        }),
+      ]),
     ]);
 
     expect(report.items[0]).toMatchObject({
@@ -834,42 +862,16 @@ describe("buildTriageReport", () => {
     });
   });
 
-  it("intentionally merges cross-file clone rows by file pair across differing ranges", () => {
-    const dolosRow = (
-      rank: number,
-      left: { readonly filePath: string; readonly startLine: number; readonly endLine: number },
-      right: { readonly filePath: string; readonly startLine: number; readonly endLine: number },
-    ): DolosRowInput => ({
-      rank,
-      candidateSource: "dolos",
-      score: 0.95,
-      left: { ...left, lineCount: left.endLine - left.startLine + 1 },
-      right: { ...right, lineCount: right.endLine - right.startLine + 1 },
-      metrics: { similarity: 0.95, totalOverlap: 40, longestFragment: 20 },
-    });
-    const dolosInput = (entries: readonly unknown[]): NamedTriageInput =>
-      input("dolos.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "dolos-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [{ totalCandidates: entries.length, entries }],
-      });
+  it("intentionally merges cross-file clone rows and pins the pair ID contract", () => {
     const mixedReport = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
-          {
-            check: "duplicates",
-            file: "src/a.ts:10-20",
-            message: "cross-file duplicate",
-            relatedFiles: ["src/b.ts:30-40"],
-          },
-        ],
-      }),
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:10-20",
+          message: "cross-file duplicate",
+          relatedFiles: ["src/b.ts:30-40"],
+        }),
+      ]),
       dolosInput([
         dolosRow(
           1,
@@ -918,52 +920,41 @@ describe("buildTriageReport", () => {
     });
   });
 
-  it("keeps same-file drift fragments separate from whole-file Dolos evidence", () => {
+  it("keeps same-file clone IDs range-sensitive", () => {
     const report = buildTriageReport([
-      input("drift.json", {
-        schemaVersion: 4,
-        skippedChecks: [],
-        findings: [
+      driftInput([
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:10-20",
+          message: "first internal duplicate",
+          relatedFiles: ["src/a.ts:40-50"],
+        }),
+        driftRow({
+          check: "duplicates",
+          file: "src/a.ts:60-70",
+          message: "second internal duplicate",
+          relatedFiles: ["src/a.ts:90-100"],
+        }),
+      ]),
+      dolosInput([
+        dolosRow(
+          1,
+          { filePath: "src/a.ts", startLine: 1, endLine: 100 },
+          { filePath: "src/a.ts", startLine: 1, endLine: 100 },
           {
-            check: "duplicates",
-            file: "src/a.ts:10-20",
-            message: "first internal duplicate",
-            relatedFiles: ["src/a.ts:40-50"],
+            score: 1,
+            metrics: { similarity: 1, totalOverlap: 22, longestFragment: 22 },
           },
-          {
-            check: "duplicates",
-            file: "src/a.ts:60-70",
-            message: "second internal duplicate",
-            relatedFiles: ["src/a.ts:90-100"],
-          },
-        ],
-      }),
-      input("dolos.json", {
-        kind: "advisory",
-        lane: "prototype",
-        subcommand: "dolos-candidates",
-        prerequisites: [],
-        degradations: [],
-        caps: [],
-        sections: [
-          {
-            totalCandidates: 1,
-            entries: [
-              {
-                rank: 1,
-                candidateSource: "dolos",
-                score: 1,
-                left: { filePath: "src/a.ts", startLine: 1, endLine: 100, lineCount: 100 },
-                right: { filePath: "src/a.ts", startLine: 1, endLine: 100, lineCount: 100 },
-                metrics: { similarity: 1, totalOverlap: 22, longestFragment: 22 },
-              },
-            ],
-          },
-        ],
-      }),
+        ),
+      ]),
     ]);
 
     expect(report.summary).toMatchObject({ reviewRows: 3, reviewItems: 3, mergedRows: 0 });
+    expect(report.items.map((item) => item.id)).toEqual([
+      "pair:src/a.ts:10-20<=>src/a.ts:40-50",
+      "pair:src/a.ts:60-70<=>src/a.ts:90-100",
+      "pair:src/a.ts:1-100<=>src/a.ts:1-100",
+    ]);
     expect(report.items.map((item) => item.locations)).toEqual([
       ["src/a.ts:10-20", "src/a.ts:40-50"],
       ["src/a.ts:60-70", "src/a.ts:90-100"],
@@ -978,6 +969,46 @@ describe("buildTriageReport", () => {
 });
 
 describe("parseTriageInput", () => {
+  it("rejects fractional Semgrep coordinates that would make compact IDs ambiguous", () => {
+    const fractionalRanges = [
+      { startLine: 1.2, startCol: 3, endLine: 4, endCol: 5 },
+      { startLine: 1, startCol: 2.3, endLine: 4, endCol: 5 },
+      { startLine: 1, startCol: 2, endLine: 3.4, endCol: 5 },
+      { startLine: 1, startCol: 2, endLine: 3, endCol: 4.5 },
+    ];
+
+    for (const range of fractionalRanges) {
+      expect(() =>
+        parseTriageInput({
+          kind: "advisory",
+          lane: "prototype",
+          subcommand: "semgrep-candidates",
+          prerequisites: [],
+          degradations: [],
+          caps: [],
+          sections: [
+            {
+              totalCandidates: 1,
+              entries: [
+                {
+                  rank: 1,
+                  candidateSource: "semgrep",
+                  checkId: "rules.example",
+                  path: "src/auth.ts",
+                  count: 1,
+                  ranges: [range],
+                  severity: "WARNING",
+                  message: "fractional location",
+                  metadata: { cwe: [] },
+                },
+              ],
+            },
+          ],
+        }),
+      ).toThrow(/malformed semgrep-candidates row at section 0 index 0/u);
+    }
+  });
+
   it("rejects Semgrep advisory rows with no ranges", () => {
     expect(() =>
       parseTriageInput({
@@ -1074,7 +1105,7 @@ describe("parseTriageInput", () => {
   );
 
   it("rejects drift reports that omit skippedChecks", () => {
-    expect(() => parseTriageInput({ schemaVersion: 4, findings: [] })).toThrow(
+    expect(() => parseTriageInput({ schemaVersion: DRIFT_SCHEMA_VERSION, findings: [] })).toThrow(
       /malformed skippedChecks/u,
     );
   });
@@ -1082,21 +1113,21 @@ describe("parseTriageInput", () => {
   it("identifies malformed drift finding and skipped-check entries", () => {
     expect(() =>
       parseTriageInput({
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         skippedChecks: [],
         findings: [{ check: "comments", file: "src/a.ts" }],
       }),
     ).toThrow(/malformed finding at index 0/u);
     expect(() =>
       parseTriageInput({
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         skippedChecks: [{ check: "duplicates" }],
         findings: [],
       }),
     ).toThrow(/malformed skippedChecks entry at index 0/u);
     expect(() =>
       parseTriageInput({
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         skippedChecks: [{ check: "duplicates", reason: "unavailable", code: 42 }],
         findings: [],
       }),
@@ -1104,15 +1135,16 @@ describe("parseTriageInput", () => {
   });
 
   it("rejects unsupported drift schema versions with a clear message", () => {
-    expect(() => parseTriageInput({ schemaVersion: 5, findings: [] })).toThrow(
-      /unsupported drift schemaVersion 5; expected 4/u,
+    const unsupported = DRIFT_SCHEMA_VERSION + 1;
+    expect(() => parseTriageInput({ schemaVersion: unsupported, findings: [] })).toThrow(
+      `unsupported drift schemaVersion ${String(unsupported)}; expected ${String(DRIFT_SCHEMA_VERSION)}`,
     );
   });
 
   it("rejects drift finding chunks instead of treating them as complete reports", () => {
     expect(() =>
       parseTriageInput({
-        schemaVersion: 4,
+        schemaVersion: DRIFT_SCHEMA_VERSION,
         chunkIndex: 0,
         totalFindings: 12,
         findings: [],

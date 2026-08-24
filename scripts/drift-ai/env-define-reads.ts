@@ -1,5 +1,6 @@
 import { ts } from "ts-morph";
 
+import { ENV_DEFINE_PROVIDERS } from "./env-define-provider-metadata.js";
 import type {
   EnvDefineAssumption,
   EnvDefineConditionReadEvidence,
@@ -39,12 +40,13 @@ export function readRefFromNode(
     return { ...envRead, assumption: readEnvAssumption(matrix, envRead.kind, envRead.key) };
   }
   if (!ts.isIdentifier(node) || !isIdentifierRead(node)) return null;
-  if (matrix.defines === undefined || !hasOwnKey(matrix.defines, node.text)) return null;
+  const assumption = readEnvAssumption(matrix, "define", node.text);
+  if (assumption === undefined) return null;
   return {
     kind: "define",
     key: node.text,
     text: node.getText(sourceFile),
-    assumption: matrix.defines[node.text],
+    assumption,
   };
 }
 
@@ -140,10 +142,31 @@ function envReadFromElementAccess(
 
 function envObjectKind(expression: ts.Expression): EnvDefineReadKind | null {
   if (!ts.isPropertyAccessExpression(expression) || expression.name.text !== "env") return null;
-  if (isNamedIdentifier(expression.expression, "process")) return "process.env";
-  if (isNamedIdentifier(expression.expression, "Bun")) return "Bun.env";
-  if (isImportMeta(expression.expression)) return "import.meta.env";
+  for (const provider of ENV_DEFINE_PROVIDERS) {
+    if (matchesEnvObjectReadKind(expression.expression, provider.readKind)) {
+      return provider.readKind;
+    }
+  }
   return null;
+}
+
+function matchesEnvObjectReadKind(expression: ts.Expression, kind: EnvDefineReadKind): boolean {
+  switch (kind) {
+    case "process.env":
+      return isNamedIdentifier(expression, "process");
+    case "import.meta.env":
+      return isImportMeta(expression);
+    case "Bun.env":
+      return isNamedIdentifier(expression, "Bun");
+    case "define":
+      return false;
+    default:
+      return unhandledReadKind(kind);
+  }
+}
+
+function unhandledReadKind(_kind: never): never {
+  throw new Error("Unhandled env/define read kind.");
 }
 
 function isNamedIdentifier(expression: ts.Expression, text: string): boolean {
@@ -211,16 +234,13 @@ function readEnvAssumption(
   kind: EnvDefineReadKind,
   key: string,
 ): EnvDefineAssumption | undefined {
-  if (kind === "process.env") {
-    return readAssumption(matrix.processEnv, key) ?? readAssumption(matrix.env, key);
+  const provider = ENV_DEFINE_PROVIDERS.find((candidate) => candidate.readKind === kind);
+  if (provider === undefined) {
+    throw new Error(`Missing env/define provider metadata for read kind: ${kind}`);
   }
-  if (kind === "import.meta.env") {
-    return readAssumption(matrix.importMetaEnv, key) ?? readAssumption(matrix.env, key);
-  }
-  if (kind === "Bun.env") {
-    return readAssumption(matrix.bunEnv, key) ?? readAssumption(matrix.env, key);
-  }
-  return undefined;
+  const providerAssumption = readAssumption(matrix[provider.configKey], key);
+  if (providerAssumption !== undefined || !provider.sharedEnvFallback) return providerAssumption;
+  return readAssumption(matrix.env, key);
 }
 
 function readAssumption(

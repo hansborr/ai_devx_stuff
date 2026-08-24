@@ -14,6 +14,7 @@ export type GroupedParseResult<T> =
 export interface BaselineConflictMarkerRemediation {
   readonly baselineFile: string;
   readonly installerCommand: string;
+  readonly restoreOursCommand: string;
   readonly updateCommand: string;
   readonly reconcileEntries?: boolean;
 }

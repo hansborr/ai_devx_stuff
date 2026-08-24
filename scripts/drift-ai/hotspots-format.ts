@@ -8,19 +8,18 @@
 //
 // This module is the TYPE HOME for the advisory + the renderers. It imports no
 // lens math (the churn/coupling reducers import these types, not the reverse), so
-// there is no cycle.
+// there is no cycle. The one upstream import is the lens registry — definitions-only
+// data with no lens-math imports of its own — from which the lens union derives.
 
 import type { CommitIntentOverlay } from "./commit-intent.js";
 import { appendSection } from "./hotspots-format-sections.js";
 import type { ChurnMetric } from "./hotspots-history.js";
+import type { ConcreteHotspotLens } from "./hotspots-lens-registry.js";
 
-export type HotspotLens =
-  | "churn"
-  | "coupling"
-  | "fragmentation"
-  | "suppression-churn"
-  | "thrash"
-  | "all";
+// Derived from the registry: a lens registered there is automatically part of
+// the union (and of the `all` fan-out); one absent from it cannot exist here.
+export type { ConcreteHotspotLens } from "./hotspots-lens-registry.js";
+export type HotspotLens = ConcreteHotspotLens | "all";
 
 // --- per-row actionability context (shared by every lens) -------------------
 

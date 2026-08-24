@@ -2,11 +2,68 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { EditCheckRegression, EditCheckTarget } from "./edit-check.js";
 import {
+  EDIT_CHECK_ROW_LAYOUTS,
   formatEditCheckChecked,
   formatEditCheckRegression,
   formatEditCheckTarget,
+  formatRatchetCoverageRow,
   parseEditCheckTargetLine,
 } from "./edit-check-protocol.js";
+
+type RowLayout = (typeof EDIT_CHECK_ROW_LAYOUTS)[keyof typeof EDIT_CHECK_ROW_LAYOUTS];
+
+// Round-trip every formatter against the layout table rather than against a
+// TypeScript decoder: the shell hooks are the only decoders in production, so
+// the table is what a formatter must agree with. Splits a formatted row into
+// its declared columns, asserting the kind and fixed arity on the way.
+function columnsOf(line: string, layout: RowLayout): Record<string, string> {
+  const values = line.split("\t");
+  expect(values).toHaveLength(layout.fieldCount);
+  expect(values[0]).toBe(layout.kind);
+  const fields: readonly string[] = layout.fields;
+  return Object.fromEntries(fields.map((field, index) => [field, values[index] ?? ""]));
+}
+
+describe("edit-check row layouts", () => {
+  it("owns every emitted kind, field order, and fixed arity", () => {
+    expect(EDIT_CHECK_ROW_LAYOUTS).toEqual({
+      target: {
+        kind: "target",
+        fields: ["kind", "path", "testId", "ruleId", "cacheIdentity"],
+        fieldCount: 5,
+        acceptedOptionalTrailingFields: [],
+      },
+      checked: {
+        kind: "checked",
+        fields: ["kind", "path"],
+        fieldCount: 2,
+        acceptedOptionalTrailingFields: [],
+      },
+      regression: {
+        kind: "regression",
+        fields: [
+          "kind",
+          "path",
+          "testId",
+          "ruleId",
+          "reason",
+          "line",
+          "baselineCount",
+          "currentCount",
+          "repairCommand",
+        ],
+        fieldCount: 9,
+        acceptedOptionalTrailingFields: ["repairCommand"],
+      },
+      "ratchet-covered": {
+        kind: "ratchet-covered",
+        fields: ["kind", "path", "ruleIds"],
+        fieldCount: 3,
+        acceptedOptionalTrailingFields: [],
+      },
+    });
+  });
+});
 
 describe("edit-check protocol tab/newline loudness", () => {
   afterEach(() => {
@@ -126,6 +183,14 @@ describe("formatEditCheckChecked", () => {
       "checked\tpackages/app/src/example.ts",
     );
   });
+
+  it("places the path in the column the layout declares", () => {
+    const columns = columnsOf(
+      formatEditCheckChecked("packages/app/src/example.ts"),
+      EDIT_CHECK_ROW_LAYOUTS.checked,
+    );
+    expect(columns.path).toBe("packages/app/src/example.ts");
+  });
 });
 
 describe("formatEditCheckRegression", () => {
@@ -189,5 +254,42 @@ describe("formatEditCheckRegression", () => {
         "repair command for 'local/type-assertion-boundary' contains a tab or newline",
       ),
     );
+  });
+
+  it("places every regression value in the column the layout declares", () => {
+    const columns = columnsOf(
+      formatEditCheckRegression({ ...regression, repairCommand: "bun run lint:fix" }),
+      EDIT_CHECK_ROW_LAYOUTS.regression,
+    );
+
+    expect(columns).toEqual({
+      kind: "regression",
+      path: "packages/app/src/example.ts",
+      testId: "ratchet/local-type-assertion-boundary",
+      ruleId: "local/type-assertion-boundary",
+      reason: "increased-count",
+      line: "12",
+      baselineCount: "1",
+      currentCount: "2",
+      repairCommand: "bun run lint:fix",
+    });
+  });
+});
+
+describe("formatRatchetCoverageRow", () => {
+  it("places the path and joined rule ids in the columns the layout declares", () => {
+    const columns = columnsOf(
+      formatRatchetCoverageRow({
+        path: "packages/app/src/example.ts",
+        ruleIds: ["local/a", "local/b"],
+      }),
+      EDIT_CHECK_ROW_LAYOUTS["ratchet-covered"],
+    );
+
+    expect(columns).toEqual({
+      kind: "ratchet-covered",
+      path: "packages/app/src/example.ts",
+      ruleIds: "local/a, local/b",
+    });
   });
 });

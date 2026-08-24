@@ -4,7 +4,9 @@
 // inspection model. It runs no checks and writes no config file: discovery is
 // anchored to the target, never the tools checkout.
 
-import { DriftAiHelp } from "./cli-args.js";
+import { z } from "zod";
+
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
 import { loadDriftAiConfig } from "./config.js";
 import {
   buildConfigInspection,
@@ -13,12 +15,16 @@ import {
   formatConfigInspectionJson,
   formatConfigInspectionText,
 } from "./config-inspect.js";
-import { DriftAiError } from "./errors.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import {
-  parseSubcommandArgs,
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
   type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
   writeSubcommandOutput,
 } from "./subcommand-args.js";
 
@@ -28,10 +34,7 @@ export type ConfigInspectRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type ConfigInspectRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type ConfigInspectRunResult = DriftAiCommandResult;
 
 const CONFIG_INSPECT_USAGE = [
   "Usage:",
@@ -44,15 +47,23 @@ const CONFIG_INSPECT_USAGE = [
   "checks and never writes or rewrites a config file.",
 ].join("\n");
 
+const CLI_OPTIONS = [...SUBCOMMAND_BASE_CLI_OPTIONS, CONFIG_CLI_OPTION] as const;
+
+const cliOptionsSchema = z.object({ ...subcommandBaseSchemaShape, ...configSchemaShape });
+
 export function runConfigInspect(options: ConfigInspectRunOptions): ConfigInspectRunResult {
   let parsed: SubcommandBaseOptions;
   try {
-    parsed = parseSubcommandArgs(options.argv, {
-      usage: CONFIG_INSPECT_USAGE,
-      acceptsConfig: true,
-    });
+    parsed = subcommandBaseFromOptions(
+      parseSubcommandCli({
+        argv: options.argv,
+        usage: CONFIG_INSPECT_USAGE,
+        options: CLI_OPTIONS,
+        schema: cliOptionsSchema,
+      }).options,
+    );
   } catch (err) {
-    return toResult(err);
+    return sentinelToCommandResult(err);
   }
   try {
     const git = options.git ?? defaultGitRunner();
@@ -71,7 +82,7 @@ export function runConfigInspect(options: ConfigInspectRunOptions): ConfigInspec
     const writer = options.writer ?? defaultReportWriter;
     return { exitCode: 0, stdout: writeSubcommandOutput(parsed, rendered, writer) };
   } catch (err) {
-    return toResult(err);
+    return sentinelToCommandResult(err);
   }
 }
 
@@ -79,10 +90,4 @@ function render(inspection: ConfigInspection, format: SubcommandBaseOptions["for
   return format === "json"
     ? formatConfigInspectionJson(inspection)
     : formatConfigInspectionText(inspection);
-}
-
-function toResult(err: unknown): ConfigInspectRunResult {
-  if (err instanceof DriftAiHelp) return { exitCode: 0, stdout: err.message };
-  if (err instanceof DriftAiError) return { exitCode: 2, stdout: err.message };
-  throw err;
 }

@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
 const tmpRepo = registerTempRootCleanup();
@@ -25,7 +26,7 @@ describe("env-branches subcommand", () => {
 
     const result = runDriftAi({
       argv: ["env-branches", "--config", repo.configPath, "--format", "json", "--top", "10"],
-      git: gitRoot(repo.dir),
+      git: currentRepoGit(repo.dir),
       gitBuffer: () => Buffer.alloc(0),
     });
     const advisory = JSON.parse(result.stdout) as Record<string, unknown>;
@@ -46,7 +47,7 @@ describe("env-branches subcommand", () => {
 
     const result = runDriftAi({
       argv: ["env-branches", "--config", repo.configPath, "--format", "json"],
-      git: gitRoot(repo.dir),
+      git: currentRepoGit(repo.dir),
       gitBuffer: () => Buffer.alloc(0),
     });
     const advisory = JSON.parse(result.stdout) as { prerequisites: { satisfied: boolean }[] };
@@ -72,8 +73,4 @@ function writeFixtureRepo(config: unknown): { dir: string; configPath: string } 
   const configPath = path.join(dir, "drift-ai.config.json");
   writeFileSync(configPath, JSON.stringify(config), "utf8");
   return { dir, configPath };
-}
-
-function gitRoot(repoRoot: string): (args: readonly string[]) => string {
-  return (args) => (args[0] === "rev-parse" ? `${repoRoot}\n` : "");
 }

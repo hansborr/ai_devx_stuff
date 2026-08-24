@@ -32,6 +32,30 @@ function writePackFixture(root: string): string {
 }
 
 describe("runBacklogLint", () => {
+  it("accepts generated catalog metadata without adding an advisory", () => {
+    const result = runBacklogLint({
+      files: [
+        {
+          path: "docs/agent_notes/backlog/pack/00-index.md",
+          text: "# Pack\n\nStatus: Parked task index\nCreated: 2026-08-04\n",
+        },
+        {
+          path: "docs/agent_notes/backlog/pack/LEAVES-A.md",
+          text: [
+            "# Catalog",
+            "",
+            "Status: Done — generated reference catalog; canonical leaf status lives in 00-index.md",
+            "Updated: 2026-08-04",
+          ].join("\n"),
+        },
+      ],
+      now: new Date("2026-08-04T00:00:00Z"),
+      requireFrontMatter: true,
+    });
+
+    expect(result.findings).toEqual([]);
+  });
+
   it("accepts existing backlog header shapes and reports a clean advisory check", () => {
     const result = runBacklogLint({
       files: [
@@ -277,6 +301,58 @@ describe("runBacklogLint", () => {
         .map((finding) => `${finding.path}:${String(finding.line ?? 0)}`)
         .sort();
       expect(drift).toEqual(["backlog/pack/00-index.md:8", "backlog/pack/00-index.md:9"]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("loads a declared catalog closure when the catalog is edited in file mode", () => {
+    const root = mkdtempSync(join(tmpdir(), "musi-backlog-catalog-"));
+    try {
+      const packDir = join(root, "backlog", "pack");
+      mkdirSync(packDir, { recursive: true });
+      writeFileSync(
+        join(packDir, "00-index.md"),
+        [
+          "# Pack",
+          "",
+          "Status: Parked task index",
+          "Created: 2026-08-04",
+          "",
+          "<!-- BEGIN GENERATED LEAF CATALOG ROUTING -->",
+          "<!-- backlog-lint-catalog: LEAVES-A.md -->",
+          "[LEAVES-A.md](./LEAVES-A.md)",
+          "<!-- END GENERATED LEAF CATALOG ROUTING -->",
+        ].join("\n"),
+      );
+      writeFileSync(
+        join(packDir, "LEAVES-A.md"),
+        [
+          "# Catalog",
+          "",
+          "Status: Done — generated reference catalog",
+          "Updated: 2026-08-04",
+          "",
+          "[gone](./99-gone.md)",
+        ].join("\n"),
+      );
+      writeFileSync(join(packDir, "10-unlisted.md"), "# 10\n\nStatus: Ready\n");
+
+      const result = runBacklogLint({
+        cwd: root,
+        backlogDir: "backlog",
+        filePaths: [join(packDir, "LEAVES-A.md")],
+        now: new Date("2026-08-04T00:00:00Z"),
+      });
+
+      expect(result.findings.map((finding) => finding.kind).sort()).toEqual([
+        "dangling-index-link",
+        "unlisted-leaf",
+      ]);
+      expect(result.findings.find((finding) => finding.kind === "dangling-index-link")?.path).toBe(
+        "backlog/pack/LEAVES-A.md",
+      );
+      expect(result.checkedCount).toBe(1);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }

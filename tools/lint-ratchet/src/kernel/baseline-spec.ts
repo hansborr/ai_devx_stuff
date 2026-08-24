@@ -14,6 +14,7 @@ import {
   relativeLintRatchetItemFailure,
 } from "./baseline-spec-parse.js";
 import { compareByCodepoint } from "./codepoint-compare.js";
+import { DEFAULT_BASELINE_FILENAME, type LintRatchetWorkflowVocabulary } from "./engine-context.js";
 import type {
   GroupedBaseline,
   GroupedBaselineSpec,
@@ -104,17 +105,23 @@ function formatGroupMeta(meta: LintRatchetBaselineGroupMeta): Readonly<Record<st
 
 export function lintRatchetBaselineSpec(
   versionPolicy: LintRatchetBaselineVersionPolicy = LINT_RATCHET_BASELINE_VERSION_POLICY,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
+  baselineFile: string = DEFAULT_BASELINE_FILENAME,
 ): GroupedBaselineSpec<LintRatchetBaselineGroupMeta, LintRatchetMetricItem> {
   return {
     writeVersion: versionPolicy.writeVersion,
     acceptedReadVersions: versionPolicy.acceptedVersions,
     rootKey: "tests",
-    regenerate: lintRatchetBaselineRegenerateForVersion(versionPolicy.writeVersion),
+    regenerate: lintRatchetBaselineRegenerateForVersion(
+      versionPolicy.writeVersion,
+      workflowVocabulary.updateCommand,
+    ),
     preserveRegenerateOnFormat: true,
     conflictMarkerRemediation: {
-      baselineFile: "lint-ratchet.baseline.json",
-      installerCommand: "bun run lint:ratchet:install-merge-driver",
-      updateCommand: "bun run lint:ratchet:update",
+      baselineFile,
+      installerCommand: workflowVocabulary.installMergeDriverCommand,
+      restoreOursCommand: workflowVocabulary.restoreBaselineOursCommand(baselineFile),
+      updateCommand: workflowVocabulary.updateCommand,
     },
     requireSortedKeysOnParse: false,
     compareGroupKeys: compareByCodepoint,

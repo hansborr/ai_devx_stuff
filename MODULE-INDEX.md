@@ -57,4 +57,8 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [area-template module](packages/shared/src/map/area-template-MODULE.md) - `packages/shared/src/map/area-template-MODULE.md` - Concepts: AoE geometry, grid-cell projection, coordinate convention, angle snapping, Chebyshev distance
 - [shared rules module](packages/shared/src/rules/MODULE.md) - `packages/shared/src/rules/` - Concepts: 5E rules, ability modifiers, combat math, spellcasting, XP, weapon mastery
 - [shared schemas module](packages/shared/src/schemas/MODULE.md) - `packages/shared/src/schemas/` - Concepts: zod schemas, contract layer, tRPC inputs, entity schemas, SRD reference, derived types
+- [code-intel module](scripts/code-intel/MODULE.md) - `scripts/code-intel/` - Concepts: code intel queries, import graph, ts-morph projects, code-intel daemon, graph cache, workspace resolver
 - [drift-triage module](scripts/drift-triage/MODULE.md) - `scripts/drift-triage/` - Concepts: drift triage, review queue, swarm packets, verdict collection, drift-ai reducer
+- [harness module](scripts/harness/MODULE.md) - `scripts/harness/` - Concepts: harness controls manifest, generated surfaces, hook wiring, registration checks, skill artifacts, harness diagnostics
+- [import-closure module](scripts/import-closure/MODULE.md) - `scripts/import-closure/` - Concepts: source import closure, synthetic sandboxes, seed fingerprints, ESM-only policy
+- [path-policy module](scripts/path-policy/MODULE.md) - `scripts/path-policy/` - Concepts: fixture copy sets, sandbox closure, smoke subjects, changed-file path policy

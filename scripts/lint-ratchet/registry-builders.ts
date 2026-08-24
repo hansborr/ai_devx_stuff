@@ -21,7 +21,6 @@ export function localTypeAssertionBoundaryRatchet(scope: RatchetFamilyScope): Li
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: scope.principle,
     zeroBaselineDisposition: scope.zeroBaselineDisposition,
   };
@@ -38,7 +37,6 @@ export function vitestValidExpectRatchet(scope: RatchetFamilyScope): LintRatchet
     ruleOptions: [{ maxArgs: 2 }],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: scope.principle,
     zeroBaselineDisposition: scope.zeroBaselineDisposition,
   };

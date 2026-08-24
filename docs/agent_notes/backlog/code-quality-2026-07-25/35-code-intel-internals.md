@@ -1,9 +1,17 @@
 # 35. code-intel and logs-audit carry structure by convention: two duplicate workspace caches, an optional-dependency bag, unions re-narrowed with impossible throws, and core types stranded in a CLI entrypoint
 
-Status: Proposed — not promoted
+Status: Scheduled work landed 2026-08-01 on `fix/cq-harness-h18-h19` (merge
+`57ef569e5`) — H18 (`d65612bd2`; hardened `a99c7c3f9`, simplified
+`ba4636886`, tested `ac1f8a533`, polished `42d877830`) and H19 (`f687b65e4`);
+H20 and H21 remain optional and unstarted
 Theme: module boundaries that do not match where the types live · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
+
+Future note (unscheduled): `CodeIntelQueryResult`'s `"results"` arm re-widens the
+narrowed query outputs to `IntelResult[]`. That is why formatting needs an out-of-band
+`commandKind` and daemon IPC needs handwritten command/discriminator correlation.
+Correlating command and result in the type could remove both, but exceeds H18.
 
 ## Problem
 

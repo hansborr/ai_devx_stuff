@@ -23,6 +23,7 @@ export default defineProject({
         "codemods/**/*.ts",
         "drift-ai/**/*.ts",
         "harness/**/*.ts",
+        "import-closure/**/*.ts",
         "lint-ratchet/**/*.ts",
         "logs-audit/**/*.ts",
         "path-policy/**/*.ts",

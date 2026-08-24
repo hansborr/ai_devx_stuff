@@ -19,15 +19,11 @@ import path from "node:path";
 
 import { extractInlineCodeTokens } from "./backtick-paths.js";
 import { matchesAnyGlob } from "./config-match.js";
-import { defaultPathIgnored } from "./harness-freshness-io.js";
-import { compareStrings } from "./repo-io.js";
+import { defaultPathIgnored, type PathIgnored } from "./repo-ignore.js";
+import { compareStrings, type PathProbe, type RepoFileReader } from "./repo-io.js";
 import type { DriftFinding } from "./types.js";
 
 export type ModuleDocPathsFinding = DriftFinding & { readonly check: "module-doc-paths" };
-
-export type RepoFileReader = (repoRelativePath: string) => string | undefined;
-export type RepoPathProbe = (repoRelativePath: string) => boolean;
-type RepoPathIgnored = (repoRelativePath: string) => boolean;
 
 export type RunModuleDocPathsOptions = {
   // Used only to build the default git check-ignore probe when `isIgnored` is not
@@ -37,8 +33,8 @@ export type RunModuleDocPathsOptions = {
   // Repo-relative paths of the MODULE.md / *-MODULE.md files to scan.
   readonly listModuleDocs: () => readonly string[];
   readonly readFile: RepoFileReader;
-  readonly pathExists: RepoPathProbe;
-  readonly isIgnored?: RepoPathIgnored;
+  readonly pathExists: PathProbe;
+  readonly isIgnored?: PathIgnored;
   readonly excludeGlobs?: readonly string[];
 };
 
@@ -140,16 +136,16 @@ function buildFinding(item: PendingReference): ModuleDocPathsFinding {
   };
 }
 
-function allCandidatesIgnored(item: PendingReference, isIgnored: RepoPathIgnored): boolean {
+function allCandidatesIgnored(item: PendingReference, isIgnored: PathIgnored): boolean {
   return item.candidates.every((candidate) => isIgnored(candidate));
 }
 
 function buildDefaultIgnored(
   repoRoot: string | undefined,
   pending: readonly PendingReference[],
-): RepoPathIgnored {
+): PathIgnored {
   const candidates = [...new Set(pending.flatMap((item) => item.candidates))];
-  return defaultPathIgnored(repoRoot ?? process.cwd(), candidates);
+  return defaultPathIgnored(repoRoot ?? process.cwd(), candidates, "module-doc-paths");
 }
 
 // Anchors a reference may be written against, in resolution order. Deduped so a
@@ -179,7 +175,7 @@ function resolveCandidates(reference: string, bases: readonly string[]): readonl
   return [...out];
 }
 
-function existsWithFallback(repoRelative: string, pathExists: RepoPathProbe): boolean {
+function existsWithFallback(repoRelative: string, pathExists: PathProbe): boolean {
   if (pathExists(repoRelative)) return true;
   const ext = lastExtension(repoRelative);
   const stem = repoRelative.slice(0, repoRelative.length - ext.length);

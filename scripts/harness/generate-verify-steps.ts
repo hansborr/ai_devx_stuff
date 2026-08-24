@@ -6,8 +6,13 @@ import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { runDocGenerator } from "../lib/doc-generator.js";
 import { isRecord } from "../lib/records.js";
 import {
-  renderClassifierFragment,
+  deriveGeneratedSurfaceDependencies,
+  FIXTURE_CLOSURE_NO_DECLARATIONS_OPT_OUT_ENV,
   renderFixtureManifest,
+} from "./generated-surface-dependencies.js";
+import {
+  type GeneratedSurfaceRecord,
+  renderClassifierFragment,
   renderFreshnessShell,
 } from "./generated-surfaces.js";
 import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
@@ -19,10 +24,15 @@ import {
   GENERATED_SURFACE_FRESHNESS_PATH,
   GENERATED_VERIFY_STEPS_PATH,
 } from "./harness-paths.js";
-import { MARKER_BRIDGE_DIVERGENCE_ALLOWLIST } from "./verify-step-bridge-divergences.js";
 import {
-  parseVerifyStepSlots,
+  collectVerifyArtifactFailures,
+  renderVerifyArtifactBindings,
+  type VerifyArtifactProgram,
+} from "./verify-step-artifacts.js";
+import {
   VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS,
+  verifyStepBridgeSignature,
+  verifyStepCommandTokens,
   type VerifyStepSlot,
 } from "./verify-step-schema.js";
 
@@ -32,7 +42,9 @@ const VAR_REF_PATTERN = /\$(?:([A-Za-z_]\w*)|\{([A-Za-z_]\w*)\})/gu;
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
 
-// porting-knob: verify-consumers -- retarget manifest consumers and their wrapper variables
+// porting-knob: verify-consumers -- retarget manifest consumers and their wrapper variables;
+// keep the profile/marker ids used to derive bridge reasons in
+// harness-manifest-schema.ts aligned with these ids
 const CONSUMERS = [
   {
     id: "verify-wrapper/verify",
@@ -79,16 +91,11 @@ function parseConsumerSlots(
 ): readonly VerifyStepSlot[] {
   // Only the slot-carrying kinds may declare `slots` at all, so a consumer
   // control of any other kind is a registration mistake, not a shape bug.
-  const rawSlots = "slots" in control ? control.slots : undefined;
-  if (rawSlots === undefined) {
+  const slots = "slots" in control ? control.slots : undefined;
+  if (slots === undefined) {
     throw new Error(`${spec.id} must declare a slots array`);
   }
-  const failures: string[] = [];
-  const slots = parseVerifyStepSlots(rawSlots, failures, `${spec.id} `);
-  if (failures.length > 0) {
-    throw new Error(failures.join("; "));
-  }
-  return slots ?? [];
+  return slots;
 }
 
 // Controls-array shape, entry object-ness, id presence, and id uniqueness are
@@ -116,11 +123,12 @@ function findConsumer(consumers: readonly Consumer[], id: string): Consumer {
   return consumer;
 }
 
-function markerBridgeAllowedDivergences(supersetId: string): ReadonlySet<string> {
+function markerBridgeAllowedDivergences(
+  reasons: HarnessManifest["verifyStepBridgeDivergenceReasons"],
+  supersetId: string,
+): ReadonlySet<string> {
   return new Set(
-    MARKER_BRIDGE_DIVERGENCE_ALLOWLIST.filter((entry) => entry.supersetId === supersetId).map(
-      (entry) => entry.slot,
-    ),
+    reasons.filter((entry) => entry.supersetId === supersetId).map((entry) => entry.slot),
   );
 }
 
@@ -128,21 +136,17 @@ function markerBridgeAllowedDivergences(supersetId: string): ReadonlySet<string>
 // Never compare on this — distinct token vectors can flatten to the same string
 // (`["--foo", "a b"]` vs `["--foo a", "b"]`), which would hide a real drift.
 function slotCommandDisplay(slot: VerifyStepSlot): string {
-  const tokens = slotCommandTokens(slot).join(" ");
+  const tokens = verifyStepCommandTokens(slot).join(" ");
   return slot.dynamic === undefined ? tokens : `${tokens} [dynamic:${slot.dynamic}]`;
 }
 
-// Comparison signature: JSON.stringify keeps the token vector unambiguous so a
-// space inside a token (env values, quoted args) cannot make two different
-// command vectors share a signature and let a bridge divergence pass undetected.
-function slotBridgeSignature(slot: VerifyStepSlot): string {
-  const tokens = JSON.stringify(slotCommandTokens(slot));
-  return slot.dynamic === undefined ? tokens : `${tokens} [dynamic:${slot.dynamic}]`;
-}
-
-function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: string): void {
+function assertSlotSuperset(
+  superset: Consumer,
+  subset: Consumer,
+  markerLabel: string,
+  allowed: ReadonlySet<string>,
+): void {
   const supersetByName = new Map(superset.slots.map((slot) => [slot.name, slot] as const));
-  const allowed = markerBridgeAllowedDivergences(superset.spec.id);
   const missing: string[] = [];
   const diverged: string[] = [];
 
@@ -152,10 +156,10 @@ function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: s
       missing.push(slot.name);
       continue;
     }
-    if (allowed.has(slot.name)) continue;
-    const subsetSignature = slotBridgeSignature(slot);
-    const supersetSignature = slotBridgeSignature(supersetSlot);
+    const subsetSignature = verifyStepBridgeSignature(slot);
+    const supersetSignature = verifyStepBridgeSignature(supersetSlot);
     if (subsetSignature !== supersetSignature) {
+      if (allowed.has(slot.name)) continue;
       diverged.push(
         `${slot.name} (${subset.spec.name}: ${slotCommandDisplay(slot)}; ${superset.spec.name}: ${slotCommandDisplay(supersetSlot)})`,
       );
@@ -171,15 +175,26 @@ function assertSlotSuperset(superset: Consumer, subset: Consumer, markerLabel: s
   }
   if (diverged.length > 0) {
     throw new Error(
-      `${superset.spec.id} and ${subset.spec.id} must render identical command tokens for every shared slot because pre-commit accepts fresh ${markerLabel} success markers; divergent: ${diverged.join(", ")}. If a divergence is intentional, add {supersetId, slot, reason} to MARKER_BRIDGE_DIVERGENCE_ALLOWLIST in generate-verify-steps.ts.`,
+      `${superset.spec.id} and ${subset.spec.id} must render identical command tokens for every shared slot because pre-commit accepts fresh ${markerLabel} success markers; divergent: ${diverged.join(", ")}. If a divergence is intentional, declare its reason on the catalog changed form or pre-commit profile override in harness.controls.json.`,
     );
   }
 }
 
-function assertMarkerBridgeSupersets(consumers: readonly Consumer[]): void {
+function assertMarkerBridgeSupersets(
+  consumers: readonly Consumer[],
+  reasons: HarnessManifest["verifyStepBridgeDivergenceReasons"],
+): void {
+  // Changed/staged-mode commands may be blessed against full verify's stronger
+  // whole-tree/worktree forms because both marker bridges use the worktree
+  // fingerprint; every other shared slot must remain signature-identical.
   const preCommit = findConsumer(consumers, PRE_COMMIT_CONSUMER_ID);
   for (const { id, markerLabel } of MARKER_BRIDGE_SUPERSET_CONSUMERS) {
-    assertSlotSuperset(findConsumer(consumers, id), preCommit, markerLabel);
+    assertSlotSuperset(
+      findConsumer(consumers, id),
+      preCommit,
+      markerLabel,
+      markerBridgeAllowedDivergences(reasons, id),
+    );
   }
 }
 
@@ -215,18 +230,6 @@ function shellVariableSuffix(value: string): string {
     .replaceAll(/[^A-Za-z0-9]+/gu, "_")
     .replaceAll(/^_+|_+$/gu, "")
     .toUpperCase();
-}
-
-function slotCommandTokens(slot: VerifyStepSlot): readonly string[] {
-  const envTokens = Object.entries(slot.env ?? {}).map(([name, value]) => `${name}=${value}`);
-  // porting-knob: bun-command-runner -- generated verification invokes package scripts via Bun
-  return [
-    ...(envTokens.length > 0 ? ["env", ...envTokens] : []),
-    "bun",
-    "run",
-    slot.script,
-    ...(slot.args ?? []),
-  ];
 }
 
 function runtimeVariables(consumers: readonly Consumer[]): readonly string[] {
@@ -304,21 +307,37 @@ function renderSlotMetadata(consumer: Consumer, slot: VerifyStepSlot): string[] 
   const variableName = slotVariableName(consumer, slot);
   const key = `${consumer.spec.name}:${slot.name}`;
   const lines = [
-    `${variableName}=${shellArray(slotCommandTokens(slot))}`,
+    `${variableName}=${shellArray(verifyStepCommandTokens(slot))}`,
     `MUSI_VERIFY_SLOT_CMD_VAR[${shellQuote(key)}]=${shellQuote(variableName)}`,
   ];
   if (slot.dynamic !== undefined) {
     lines.push(`MUSI_VERIFY_SLOT_DYNAMIC[${shellQuote(key)}]=${shellQuote(slot.dynamic)}`);
+  }
+  if (slot.produces !== undefined) {
+    lines.push(`MUSI_VERIFY_SLOT_PRODUCES[${shellQuote(key)}]=${shellQuote(slot.produces)}`);
+  }
+  if (slot.requiresArtifact !== undefined) {
+    lines.push(
+      `MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT[${shellQuote(key)}]=${shellQuote(slot.requiresArtifact)}`,
+    );
   }
   lines.push("");
   return lines;
 }
 
 function renderSlots(consumers: readonly Consumer[]): string[] {
+  // Declared unconditionally, populated only from declarations: a manifest with
+  // no artifact edges generates empty maps, and the runner's deferral branch —
+  // guarded on an empty lookup — disappears for an adopter without a producing
+  // slot.
   const lines = [
     "declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()",
     "declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()",
+    "declare -gA MUSI_VERIFY_SLOT_PRODUCES=()",
+    "declare -gA MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT=()",
     "declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()",
+    "declare -gA MUSI_VERIFY_ARTIFACT_PROBE_FUNC=()",
+    "declare -gA MUSI_VERIFY_ARTIFACT_SUMMARY=()",
     "",
   ];
   // shellVariableSuffix collapses non-alphanumerics, and consumer prefixes can
@@ -358,6 +377,15 @@ function renderDynamicResolverDispatch(): string[] {
   return lines;
 }
 
+function artifactPrograms(consumers: readonly Consumer[]): readonly VerifyArtifactProgram[] {
+  return consumers.map((consumer) => ({ id: consumer.spec.id, slots: consumer.slots }));
+}
+
+function assertArtifactClosure(consumers: readonly Consumer[]): void {
+  const failures = collectVerifyArtifactFailures(artifactPrograms(consumers));
+  if (failures.length > 0) throw new Error(failures.join("; "));
+}
+
 function assertKnownScripts(
   consumers: readonly Consumer[],
   knownScripts: ReadonlySet<string>,
@@ -378,7 +406,8 @@ export function renderVerifyStepsShellFromManifest(
   knownScripts?: ReadonlySet<string>,
 ): string {
   const consumers = collectConsumers(manifest);
-  assertMarkerBridgeSupersets(consumers);
+  assertMarkerBridgeSupersets(consumers, manifest.verifyStepBridgeDivergenceReasons);
+  assertArtifactClosure(consumers);
   if (knownScripts !== undefined) assertKnownScripts(consumers, knownScripts);
   const lines = [
     ...renderHeader(consumers),
@@ -386,9 +415,125 @@ export function renderVerifyStepsShellFromManifest(
     ...renderFastCommitSkipSlots(consumers),
     ...renderSlots(consumers),
     ...renderDynamicResolverDispatch(),
+    ...renderVerifyArtifactBindings(artifactPrograms(consumers), shellQuote),
   ];
   while (lines[lines.length - 1] === "") lines.pop();
   return `${lines.join("\n")}\n`;
+}
+
+/** Which `harness:check` surface re-renders a projection to prove it fresh. */
+export type VerifyStepProjectionChecker = "collector" | "fixtureClosure";
+
+export interface VerifyStepProjectionContext {
+  readonly records: readonly GeneratedSurfaceRecord[];
+  /** Absent when the typed manifest failed its schema contract. */
+  readonly manifest?: HarnessManifest;
+  readonly knownScripts?: ReadonlySet<string>;
+  /** Absent when the derived fixture copy closure was not computed. */
+  readonly fixturePaths?: readonly string[];
+}
+
+/** Context inputs a projection may need that are not always available. */
+export type VerifyStepProjectionInput = "manifest" | "fixturePaths";
+
+/**
+ * Which optional inputs each checker's context supplies. This makes `checkedBy`
+ * more than a label: a projection may only require inputs its own owner
+ * provides, so the owner's pass always reaches it. Preflight asserts that,
+ * which is what turns path-set parity into a proof that every advertised output
+ * has a writer — a mis-tagged `checkedBy` otherwise renders `undefined` in the
+ * only pass that offers it and is never selected by the other.
+ */
+export const VERIFY_STEP_PROJECTION_CHECKER_INPUTS: Readonly<
+  Record<VerifyStepProjectionChecker, readonly VerifyStepProjectionInput[]>
+> = {
+  collector: ["manifest"],
+  fixtureClosure: ["fixturePaths"],
+};
+
+export interface VerifyStepProjection {
+  readonly outputPath: string;
+  readonly checkedBy: VerifyStepProjectionChecker;
+  /**
+   * Optional context inputs {@link render} needs. `render` returns `undefined`
+   * exactly when one is absent, and every caller that tolerates that reports
+   * the absence itself (a manifest that failed its schema contract; a
+   * dependency walk that failed), so the sentinel never means "no writer".
+   */
+  readonly requires: readonly VerifyStepProjectionInput[];
+  /** Renders the output, or `undefined` when a {@link requires} input is absent. */
+  readonly render: (context: VerifyStepProjectionContext) => string | undefined;
+}
+
+/**
+ * The projection set `bun run verify:steps` writes: one typed descriptor read
+ * by the producer below, by the collector-side freshness checker
+ * (registration-generated-checks.ts), and by the fixture-closure checker
+ * (fixture-closure-check.ts), so producer and checkers cannot drift on which
+ * renderer feeds which output or on who proves it fresh.
+ *
+ * `harness.controls.json` stays the registration authority: this list carries
+ * no registration of its own, and registration-preflight-wiring.ts asserts it
+ * agrees with check/verify-steps-generator's `generatedSurface.outputPaths`
+ * exactly, in both directions — plus that each entry's `requires` is something
+ * its `checkedBy` owner supplies, so agreement means "has a writer" rather than
+ * only "the two lists name the same paths".
+ */
+export const VERIFY_STEP_PROJECTIONS: readonly VerifyStepProjection[] = [
+  {
+    outputPath: GENERATED_VERIFY_STEPS_PATH,
+    checkedBy: "collector",
+    requires: ["manifest"],
+    render: ({ manifest, knownScripts }) =>
+      manifest === undefined
+        ? undefined
+        : renderVerifyStepsShellFromManifest(manifest, knownScripts),
+  },
+  {
+    outputPath: GENERATED_SURFACE_FRESHNESS_PATH,
+    checkedBy: "collector",
+    requires: [],
+    render: ({ records }) => renderFreshnessShell(records),
+  },
+  {
+    outputPath: GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH,
+    checkedBy: "collector",
+    requires: [],
+    render: ({ records }) => renderClassifierFragment(records),
+  },
+  {
+    outputPath: GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH,
+    checkedBy: "fixtureClosure",
+    requires: ["fixturePaths"],
+    render: ({ fixturePaths }) =>
+      fixturePaths === undefined ? undefined : renderFixtureManifest(fixturePaths),
+  },
+];
+
+/**
+ * Render every projection `owner` writes. A selected projection that renders
+ * nothing is a wiring bug, not a skip: the producer supplies exactly the inputs
+ * the owner advertises, so `bun run verify:steps` names the output that would
+ * otherwise have been dropped instead of quietly writing one file fewer.
+ */
+export function renderProjectionsFor(
+  owner: VerifyStepProjectionChecker,
+  context: VerifyStepProjectionContext,
+): readonly { readonly outputPath: string; readonly rendered: string }[] {
+  const rendered: { readonly outputPath: string; readonly rendered: string }[] = [];
+  for (const projection of VERIFY_STEP_PROJECTIONS) {
+    if (projection.checkedBy !== owner) continue;
+    const output = projection.render(context);
+    if (output === undefined) {
+      const missing = projection.requires.filter((input) => context[input] === undefined);
+      throw new Error(
+        `the ${owner} pass rendered nothing for ${projection.outputPath}: missing ` +
+          (missing.length > 0 ? missing.join(", ") : "nothing it declared as required"),
+      );
+    }
+    rendered.push({ outputPath: projection.outputPath, rendered: output });
+  }
+  return rendered;
 }
 
 function readPackageScripts(): ReadonlySet<string> {
@@ -399,36 +544,50 @@ function readPackageScripts(): ReadonlySet<string> {
   return new Set(Object.keys(pkg.scripts));
 }
 
+/** A producer pass's context, or `undefined` when the run has no such pass. */
+type PassContext = VerifyStepProjectionContext | undefined;
+
 if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  runDocGenerator({
-    outputPath: join(repoRoot, GENERATED_VERIFY_STEPS_PATH),
-    refreshCommand: "verify:steps",
-    render: () => ({
-      rendered: renderVerifyStepsShellFromManifest(
-        loadTypedHarnessManifest(repoRoot),
-        readPackageScripts(),
-      ),
-    }),
-  });
-  runDocGenerator({
-    outputPath: join(repoRoot, GENERATED_SURFACE_FRESHNESS_PATH),
-    refreshCommand: "verify:steps",
-    render: () => ({
-      rendered: renderFreshnessShell(loadGeneratedSurfaces(repoRoot)),
-    }),
-  });
-  runDocGenerator({
-    outputPath: join(repoRoot, GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH),
-    refreshCommand: "verify:steps",
-    render: () => ({
-      rendered: renderClassifierFragment(loadGeneratedSurfaces(repoRoot)),
-    }),
-  });
-  runDocGenerator({
-    outputPath: join(repoRoot, GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH),
-    refreshCommand: "verify:steps",
-    render: () => ({
-      rendered: renderFixtureManifest(loadGeneratedSurfaces(repoRoot)),
-    }),
-  });
+  const generatedSurfaces = loadGeneratedSurfaces(repoRoot);
+  // One model per run rather than one per projection: every projection reads
+  // the same manifest, surface records, and script names.
+  const context: VerifyStepProjectionContext = {
+    records: generatedSurfaces,
+    manifest: loadTypedHarnessManifest(repoRoot),
+    knownScripts: readPackageScripts(),
+  };
+  // One entry per owner the descriptor can name, keyed exhaustively: an owner
+  // added to VerifyStepProjectionChecker without a context here is a type
+  // error, and the pass loop below iterates the descriptor rather than a
+  // hand-written call list, so no call site decides on its own whether an
+  // owner runs. Returning `undefined` is the single documented opt-out (a
+  // walker-less tree with no fixture residue to derive anything from).
+  const passes: Record<VerifyStepProjectionChecker, () => PassContext | Promise<PassContext>> = {
+    collector: () => context,
+    fixtureClosure: async () => {
+      const allowWalkerless = process.env[FIXTURE_CLOSURE_NO_DECLARATIONS_OPT_OUT_ENV] === "1";
+      const declared = generatedSurfaces.some((record) => record.fixtureExtras !== undefined);
+      if (!declared && allowWalkerless) return undefined;
+      const dependencies = await deriveGeneratedSurfaceDependencies(repoRoot, generatedSurfaces, {
+        allowDeclaredFallback: allowWalkerless,
+      });
+      if (dependencies.failures.length > 0) throw new Error(dependencies.failures.join("\n"));
+      return { ...context, fixturePaths: dependencies.fixturePaths };
+    },
+  };
+
+  // Descriptor order is pass order: the directly rendered projections come
+  // first, so a bootstrap run adding a new generated surface still lands them
+  // before the derived fixture closure, whose dependency walk can fail.
+  for (const owner of new Set(VERIFY_STEP_PROJECTIONS.map((entry) => entry.checkedBy))) {
+    const ownerContext = await passes[owner]();
+    if (ownerContext === undefined) continue;
+    for (const { outputPath, rendered } of renderProjectionsFor(owner, ownerContext)) {
+      runDocGenerator({
+        outputPath: join(repoRoot, outputPath),
+        refreshCommand: "verify:steps",
+        render: () => ({ rendered }),
+      });
+    }
+  }
 }

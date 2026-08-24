@@ -1,12 +1,22 @@
 #!/usr/bin/env bash
 # smoke-order: 420
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/lib/verify-metadata-core.ts
 # smoke-subjects: scripts/lib/fixtures/verify-metadata-core-corpus.json
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
+# smoke-subjects: scripts/logs-audit.sh
+# smoke-subjects: package.json
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-verify-metadata.sh
 # test-verify-metadata.sh — pure-shell smoke tests for scripts/lib/verify-metadata.sh.
@@ -37,6 +47,34 @@ source "$VERIFY_METADATA"
 # --- syntax check ------------------------------------------------------------
 bash -n "$VERIFY_METADATA" || fail "verify-metadata.sh fails bash -n"
 ok "verify-metadata.sh passes bash -n"
+
+# --- leaf libs never source each other ---------------------------------------
+# verify-metadata.sh is the sole public entry point and owns the leaf ordering;
+# a leaf that sourced a peer would make that order implicit.
+mapfile -t LEAF_LIBS < <(sed -n 's|^\. "\$__musi_verify_metadata_lib_dir/\(.*\)"$|\1|p' "$VERIFY_METADATA")
+[ "${#LEAF_LIBS[@]}" -gt 0 ] || fail "verify-metadata.sh sources no leaf libs"
+# A leaf sourced in a variant form (`source`, a trailing comment) would drop out
+# of the sed above and lose every leaf tripwire at once, so require a full match.
+[ "${#LEAF_LIBS[@]}" -eq "$(grep -c '\$__musi_verify_metadata_lib_dir/' "$VERIFY_METADATA")" ] \
+  || fail "verify-metadata.sh has leaf source lines the leaf-list sed does not match"
+for leaf in "${LEAF_LIBS[@]}"; do
+  ! grep -Eq '^[[:space:]]*(\.|source)[[:space:]]' "$SCRIPT_DIR/../lib/$leaf" \
+    || fail "leaf lib $leaf sources another file; verify-metadata.sh owns ordering"
+done
+ok "verify-metadata.sh leaf libs never source each other"
+
+# --- only the aggregator sources a leaf lib ----------------------------------
+# The other half of the same contract: verify-metadata.sh stays the sole public
+# entry point, so no consumer may reach past it into a leaf.
+VM_REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+for leaf in "${LEAF_LIBS[@]}"; do
+  offenders="$(git -C "$VM_REPO_ROOT" grep -lE "^[[:space:]]*(\.|source)[[:space:]].*$leaf" \
+    -- ':!scripts/lib/verify-metadata.sh')" || [ "$?" -eq 1 ] \
+    || fail "git grep failed while scanning for direct sources of $leaf"
+  [ -z "$offenders" ] \
+    || fail "leaf lib $leaf is sourced outside the aggregator: $offenders"
+done
+ok "only verify-metadata.sh sources the leaf libs"
 
 # --- valid marker constants ---------------------------------------------------
 VALID_HASH="$(printf 'test' | sha256sum | awk '{print $1}')"
@@ -248,6 +286,10 @@ ok "musi_success_marker_matches rejects future timestamp (negative age)"
   || fail "MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT should be 2400 (got '${MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT:-unset}')"
 [ "${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}" = "3600" ] \
   || fail "MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS should be 3600 (got '${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}')"
+# MUSI_GATE_PRECOMMIT_REGISTRATION_TIMEOUT_DEFAULT is deliberately not restated
+# here: test-dependency-freshness.sh pins the meaningful behaviour by observing
+# pre-commit hand `45s` to `timeout`, so a second assertion would only repeat
+# the constant.
 ok "shared gate timing constants expose the canonical 120/2400/3600 budgets"
 
 # --- default freshness arg falls back to the shared constant ------------------
@@ -613,6 +655,102 @@ do
 done
 ok "standard verification state paths are worktree-scoped"
 
+# --- the logs:audit shim exports exactly what the accessors derive ------------
+# scripts/logs-audit.sh is the process boundary that hands the bash-owned
+# state-path protocol to scripts/logs-audit.ts, which used to re-derive it in
+# TypeScript behind a keep-in-sync comment. The loop above only proves the
+# accessors are worktree-scoped; nothing in this suite asserted a derived
+# state-path *value*, which is exactly the drift that stayed silent. These cases
+# pin the exported values to the accessor outputs, so the env contract cannot
+# come apart from the protocol it carries.
+unset MUSI_STANDARD_VERIFY_LOG_DIR MUSI_STANDARD_BUN_LOG_DIR
+# First link: nothing else in the suite notices if `logs:audit` is reverted to
+# `bun scripts/logs-audit.ts`. The cases below would still pass — they invoke
+# the shim by path — while every real `--latest` run exited 2 with a hint to
+# run the command that had just failed.
+shim_package_script=$(sed -n 's/^[[:space:]]*"logs:audit": "\(.*\)",*$/\1/p' \
+  "$VM_REPO_ROOT/package.json")
+[ "$shim_package_script" = "bash scripts/logs-audit.sh" ] \
+  || fail "package.json logs:audit must route through the shim, got: ${shim_package_script:-<missing>}"
+ok "package.json routes bun run logs:audit through the shim"
+
+shim_state_root="$SANDBOX/logs-audit-shim-state"
+shim_bin="$SANDBOX/logs-audit-shim-bin"
+mkdir -p "$shim_bin"
+# Stand in for the real bun so the smoke observes the exported contract instead
+# of running the audit; `<unset>` distinguishes "not exported" from "exported
+# empty".
+cat > "$shim_bin/bun" <<'STUB'
+#!/usr/bin/env bash
+printf 'ARGS=%s\n' "$*"
+printf 'VERIFY_LOG_DIR=%s\n' "${MUSI_STANDARD_VERIFY_LOG_DIR-<unset>}"
+printf 'BUN_LOG_DIR=%s\n' "${MUSI_STANDARD_BUN_LOG_DIR-<unset>}"
+STUB
+chmod +x "$shim_bin/bun"
+
+shim_field() { printf '%s\n' "$1" | sed -n "s/^$2=//p"; }
+
+run_logs_audit_shim() {
+  local repo_root="$1"
+  shift
+  env -u MUSI_STANDARD_VERIFY_LOG_DIR -u MUSI_STANDARD_BUN_LOG_DIR \
+    PATH="$shim_bin:$PATH" \
+    REPO_ROOT="$repo_root" \
+    MUSI_VERIFY_STATE_ROOT="$shim_state_root" \
+    bash "$VM_REPO_ROOT/scripts/logs-audit.sh" "$@"
+}
+
+shim_expected_verify=$(MUSI_VERIFY_STATE_ROOT="$shim_state_root" musi_standard_verify_log_dir "$repo")
+shim_expected_bun=$(MUSI_VERIFY_STATE_ROOT="$shim_state_root" musi_standard_bun_log_dir "$repo")
+shim_latest_out=$(run_logs_audit_shim "$repo" --latest --format json)
+[ "$(shim_field "$shim_latest_out" VERIFY_LOG_DIR)" = "$shim_expected_verify" ] \
+  || fail "shim MUSI_STANDARD_VERIFY_LOG_DIR should equal musi_standard_verify_log_dir: $shim_latest_out"
+[ "$(shim_field "$shim_latest_out" BUN_LOG_DIR)" = "$shim_expected_bun" ] \
+  || fail "shim MUSI_STANDARD_BUN_LOG_DIR should equal musi_standard_bun_log_dir: $shim_latest_out"
+[ "$(shim_field "$shim_latest_out" ARGS)" = "$VM_REPO_ROOT/scripts/logs-audit.ts --latest --format json" ] \
+  || fail "shim should forward its arguments to logs-audit.ts verbatim: $shim_latest_out"
+ok "logs:audit shim exports the accessor-derived log directories for --latest"
+
+# The shim owns no root selection of its own: with REPO_ROOT unset it asks
+# musi_repo_root_for_state, so `--latest` lands on whichever worktree the caller
+# is standing in rather than on the one that happens to hold the script. This is
+# the case that a locally re-implemented root chain gets wrong, and it subsumes
+# the worktree-scoping check — the loop above already proves the accessors
+# differ per worktree, and the case above already proves the shim publishes an
+# accessor result for an explicit REPO_ROOT.
+shim_sibling_out=$(env -u REPO_ROOT -u MUSI_STANDARD_VERIFY_LOG_DIR -u MUSI_STANDARD_BUN_LOG_DIR \
+  PATH="$shim_bin:$PATH" MUSI_VERIFY_STATE_ROOT="$shim_state_root" \
+  bash -c 'cd "$1" || exit 1; bash "$2" --latest' _ "$sibling" "$VM_REPO_ROOT/scripts/logs-audit.sh")
+[ "$(shim_field "$shim_sibling_out" VERIFY_LOG_DIR)" \
+  = "$(MUSI_VERIFY_STATE_ROOT="$shim_state_root" musi_standard_verify_log_dir "$sibling")" ] \
+  || fail "shim should resolve the repo root through musi_repo_root_for_state: $shim_sibling_out"
+[ "$(shim_field "$shim_sibling_out" VERIFY_LOG_DIR)" != "$shim_expected_verify" ] \
+  || fail "shim log dirs should differ between sibling worktrees"
+ok "logs:audit shim delegates repo-root resolution to the state-path owner"
+
+# Cost discipline: a --file run never needs the directories, so it must not pay
+# for sourcing the gate libs or hashing the worktree identity.
+shim_file_out=$(run_logs_audit_shim "$repo" --file "$SANDBOX/nonexistent.jsonl")
+[ "$(shim_field "$shim_file_out" VERIFY_LOG_DIR)" = "<unset>" ] \
+  || fail "shim should not derive log dirs without --latest: $shim_file_out"
+[ "$(shim_field "$shim_file_out" BUN_LOG_DIR)" = "<unset>" ] \
+  || fail "shim should not derive log dirs without --latest: $shim_file_out"
+[ "$(shim_field "$shim_file_out" ARGS)" = "$VM_REPO_ROOT/scripts/logs-audit.ts --file $SANDBOX/nonexistent.jsonl" ] \
+  || fail "shim should forward --file arguments verbatim: $shim_file_out"
+ok "logs:audit shim skips the state-path derivation when --latest is absent"
+
+# An explicit override still wins: the shim publishes the accessor result, and
+# the accessors are themselves override-first.
+shim_preset_out=$(env MUSI_STANDARD_VERIFY_LOG_DIR="$SANDBOX/preset-verify-logs" \
+  MUSI_STANDARD_BUN_LOG_DIR="$SANDBOX/preset-bun-logs" \
+  PATH="$shim_bin:$PATH" REPO_ROOT="$repo" MUSI_VERIFY_STATE_ROOT="$shim_state_root" \
+  bash "$VM_REPO_ROOT/scripts/logs-audit.sh" --latest)
+[ "$(shim_field "$shim_preset_out" VERIFY_LOG_DIR)" = "$SANDBOX/preset-verify-logs" ] \
+  || fail "shim should preserve an explicit MUSI_STANDARD_VERIFY_LOG_DIR: $shim_preset_out"
+[ "$(shim_field "$shim_preset_out" BUN_LOG_DIR)" = "$SANDBOX/preset-bun-logs" ] \
+  || fail "shim should preserve an explicit MUSI_STANDARD_BUN_LOG_DIR: $shim_preset_out"
+ok "logs:audit shim preserves explicit MUSI_STANDARD_*_LOG_DIR overrides"
+
 # --- commit queue state path is scoped per Git common dir ---------------------
 primary_queue=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" musi_standard_commit_queue_lock "$repo")
 sibling_queue=$(MUSI_VERIFY_STATE_ROOT="$SANDBOX/default-state" musi_standard_commit_queue_lock "$sibling")
@@ -863,6 +1001,171 @@ git -C "$repo" add "$staged_newline_path"
   musi_staged_has_source_relevant_change
 ) || fail "staged source detection should preserve newline-containing paths"
 ok "musi_staged_has_source_relevant_change preserves newline paths"
+
+# --- staged source blobs reject literal NUL bytes -----------------------------
+run_staged_nul_guard() {
+  (
+    cd "$1" || exit 2
+    musi_staged_source_blobs_reject_nul
+  )
+}
+
+expect_staged_nul_rejected() {
+  local label="$1" repo="$2" expected_path="$3" output exit_code
+
+  set +e
+  output="$(run_staged_nul_guard "$repo" 2>&1)"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -eq 1 ] \
+    || fail "$label should reject a staged NUL with exit 1 (got $exit_code): $output"
+  grep -qF "$expected_path" <<< "$output" \
+    || fail "$label should name the staged path: $output"
+  grep -qF '\u0000' <<< "$output" \
+    || fail "$label should recommend the escaped source spelling: $output"
+}
+
+repo="$(new_repo staged-nul-offset-zero)"
+mkdir -p "$repo/packages/server"
+printf '\0const value = 1;\n' > "$repo/packages/server/zero.ts"
+git -C "$repo" add packages/server/zero.ts
+expect_staged_nul_rejected "offset-zero NUL" "$repo" "packages/server/zero.ts"
+
+repo="$(new_repo staged-nul-after-utf8)"
+mkdir -p "$repo/scripts"
+printf 'é\0bad\n' > "$repo/scripts/multibyte.ts"
+git -C "$repo" add scripts/multibyte.ts
+expect_staged_nul_rejected "post-UTF-8 NUL" "$repo" "scripts/multibyte.ts"
+ok "staged source guard rejects NUL at offset zero and after multibyte UTF-8"
+
+repo="$(new_repo staged-multiple-nul-paths)"
+mkdir -p "$repo/packages/server" "$repo/scripts"
+printf 'first\0bad\n' > "$repo/packages/server/first.ts"
+printf 'second\0bad\n' > "$repo/scripts/second.ts"
+git -C "$repo" add packages/server/first.ts scripts/second.ts
+set +e
+output="$(run_staged_nul_guard "$repo" 2>&1)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 1 ] \
+  || fail "multiple staged NUL paths should reject with exit 1: $output"
+grep -qF "packages/server/first.ts" <<< "$output" \
+  || fail "multiple staged NUL diagnostics should name the first path: $output"
+grep -qF "scripts/second.ts" <<< "$output" \
+  || fail "multiple staged NUL diagnostics should name the second path: $output"
+ok "staged source guard reports every NUL-bearing path in one run"
+
+repo="$(new_repo staged-nul-safe-text)"
+mkdir -p "$repo/packages/client"
+printf 'const escaped = "\\\\u0000";\n' > "$repo/packages/client/escaped.ts"
+printf 'const greeting = "こんにちは";\n' > "$repo/packages/client/utf8.ts"
+git -C "$repo" add packages/client
+run_staged_nul_guard "$repo" \
+  || fail "escaped NUL spelling and ordinary UTF-8 should pass"
+ok "staged source guard accepts escaped NUL spelling and ordinary UTF-8"
+
+repo="$(new_repo staged-nul-index-version)"
+mkdir -p "$repo/scripts"
+printf 'staged\0blob\n' > "$repo/scripts/index.ts"
+git -C "$repo" add scripts/index.ts
+printf 'clean worktree replacement\n' > "$repo/scripts/index.ts"
+expect_staged_nul_rejected "index-only NUL" "$repo" "scripts/index.ts"
+ok "staged source guard reads the index rather than the worktree"
+
+repo="$(new_repo staged-nul-modify)"
+mkdir -p "$repo/packages/server"
+printf 'clean\n' > "$repo/packages/server/modify.ts"
+git -C "$repo" add packages/server/modify.ts
+git -C "$repo" commit -qm "add modification fixture"
+printf 'modified\0blob\n' > "$repo/packages/server/modify.ts"
+git -C "$repo" add packages/server/modify.ts
+expect_staged_nul_rejected "modified source NUL" "$repo" "packages/server/modify.ts"
+
+repo="$(new_repo staged-nul-rename)"
+mkdir -p "$repo/scripts"
+for i in $(seq 1 100); do printf 'export const line%s = %s;\n' "$i" "$i"; done \
+  > "$repo/scripts/before.ts"
+git -C "$repo" add scripts/before.ts
+git -C "$repo" commit -qm "add rename fixture"
+git -C "$repo" mv scripts/before.ts scripts/after.ts
+printf '\0' >> "$repo/scripts/after.ts"
+git -C "$repo" add scripts/after.ts
+git -C "$repo" diff --cached --name-status | grep -q '^R' \
+  || fail "rename fixture should be detected as a rename"
+expect_staged_nul_rejected "renamed source NUL" "$repo" "scripts/after.ts"
+
+repo="$(new_repo staged-source-delete)"
+mkdir -p "$repo/scripts"
+printf 'clean\n' > "$repo/scripts/delete.ts"
+git -C "$repo" add scripts/delete.ts
+git -C "$repo" commit -qm "add deletion fixture"
+git -C "$repo" rm -q scripts/delete.ts
+run_staged_nul_guard "$repo" || fail "staged deletion should not trigger a blob read"
+ok "staged source guard covers additions, modifications, renames, and deletions"
+
+repo="$(new_repo staged-nul-unknown-suffix)"
+mkdir -p "$repo/packages/server"
+printf 'unknown\0suffix\n' > "$repo/packages/server/source.future-extension"
+git -C "$repo" add packages/server/source.future-extension
+expect_staged_nul_rejected \
+  "unknown source suffix NUL" "$repo" "packages/server/source.future-extension"
+ok "staged source guard does not filter source-relevant paths by extension"
+
+repo="$(new_repo staged-nul-lockfile)"
+printf 'lock\0data\n' > "$repo/bun.lock"
+git -C "$repo" add bun.lock
+expect_staged_nul_rejected "lockfile NUL" "$repo" "bun.lock"
+ok "staged source guard covers source-relevant paths excluded from source verification"
+
+repo="$(new_repo staged-nul-operational-failures)"
+mkdir -p "$repo/scripts"
+printf 'clean\n' > "$repo/scripts/fail.ts"
+git -C "$repo" add scripts/fail.ts
+set +e
+selection_output="$(
+  (
+    cd "$repo" || exit 2
+    musi_path_policy_query_nul() { return 23; }
+    musi_staged_source_blobs_reject_nul
+  ) 2>&1
+)"
+selection_rc=$?
+blob_output="$(
+  (
+    cd "$repo" || exit 2
+    git() {
+      [ "${1:-}" != "cat-file" ] || return 24
+      command git "$@"
+    }
+    musi_staged_source_blobs_reject_nul
+  ) 2>&1
+)"
+blob_rc=$?
+set -e
+[ "$selection_rc" -eq 2 ] \
+  || fail "staged source selection failure should exit 2: $selection_output"
+grep -qF "selection failed" <<< "$selection_output" \
+  || fail "staged source selection failure should be explained: $selection_output"
+[ "$blob_rc" -eq 2 ] || fail "staged blob read failure should exit 2: $blob_output"
+grep -qF "scripts/fail.ts" <<< "$blob_output" \
+  || fail "staged blob read failure should name its path: $blob_output"
+ok "staged source guard fails closed on selection and blob-read errors"
+
+repo="$(new_repo staged-source-gitlink)"
+mkdir -p "$repo/packages"
+git -C "$repo" update-index \
+  --add --cacheinfo "160000,$(git -C "$repo" rev-parse HEAD),packages/submodule"
+set +e
+gitlink_output="$(run_staged_nul_guard "$repo" 2>&1)"
+gitlink_rc=$?
+set -e
+[ "$gitlink_rc" -eq 2 ] \
+  || fail "source-relevant staged gitlink should fail closed with exit 2: $gitlink_output"
+grep -qF "packages/submodule" <<< "$gitlink_output" \
+  || fail "staged gitlink failure should name its path: $gitlink_output"
+grep -qF "not an inspectable blob" <<< "$gitlink_output" \
+  || fail "staged gitlink failure should explain the non-blob boundary: $gitlink_output"
+ok "staged source guard explains non-blob index entries"
 
 # --- reports source-relevant unstaged files -----------------------------------
 repo="$(new_repo gate-relevant-unstaged)"

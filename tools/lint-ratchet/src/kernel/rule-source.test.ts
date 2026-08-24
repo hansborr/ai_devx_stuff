@@ -1,10 +1,11 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
-import { computeCoreLintRatchetRuleSourceHash } from "./baseline.js";
+import { computeCoreLintRatchetRuleSourceHash } from "./baseline-hash.js";
 import type { LintRatchetConfig } from "./config-types.js";
 import type { LintRatchetEngineBinding } from "./engine-context.js";
 import { cacheKeyHashFor } from "./eslint-config.js";
@@ -14,6 +15,7 @@ import {
   buildRuleSourceHashesById,
   computeLocalRuleSourceClosureHash,
   localRuleName,
+  localRulePath,
   thirdPartySupportFor,
 } from "./rule-source.js";
 
@@ -26,7 +28,6 @@ const helperImportingLocalRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Exercise local rule-source helper import validation.",
 } satisfies LintRatchetConfig;
 
@@ -47,7 +48,6 @@ const coreRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Exercise core rule-source dependency hashing.",
 } satisfies LintRatchetConfig;
 
@@ -82,10 +82,13 @@ function virtualRuleSourceHash(helperSource: string): string {
   });
 }
 
-function virtualSingleFileRuleSourceHash(source: string): string {
-  const files = new Map([["/repo/eslint-rules/example-rule.js", source]]);
+function virtualSingleFileRuleSourceHash(
+  source: string,
+  entryPath = "/repo/eslint-rules/example-rule.js",
+): string {
+  const files = new Map([[entryPath, source]]);
   return computeLocalRuleSourceClosureHash({
-    entryPath: "/repo/eslint-rules/example-rule.js",
+    entryPath,
     repoRootPath: "/repo",
     fileSystem: {
       exists: (path) => files.has(path),
@@ -288,20 +291,31 @@ describe("static-ESM closure guard", () => {
     ).not.toThrow();
   });
 
-  it("rejects a second static import placed after a semicolon on the same physical line", () => {
-    // Both targets exist, so the only reason to reject is the multi-import guard
-    // (not a missing-source failure). Without it the scanner silently follows
-    // only ./a.js and drops ./b.js from the closure hash.
-    expect(() =>
+  it("includes every static import when several appear on one physical line", () => {
+    const entry: readonly [string, string] = [
+      "/repo/eslint-rules/example-rule.js",
+      'import { a } from "./a.js"; import { b } from "./b.js";\nexport default { a, b };\n',
+    ];
+    const original = closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+      entry,
+      ["/repo/eslint-rules/a.js", "export const a = 1;\n"],
+      ["/repo/eslint-rules/b.js", "export const b = 1;\n"],
+    ]);
+
+    expect(
       closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
-        [
-          "/repo/eslint-rules/example-rule.js",
-          'import { a } from "./a.js"; import { b } from "./b.js";\nexport default { a, b };\n',
-        ],
-        ["/repo/eslint-rules/a.js", "export const a = 1;\n"],
+        entry,
+        ["/repo/eslint-rules/a.js", "export const a = 2;\n"],
         ["/repo/eslint-rules/b.js", "export const b = 1;\n"],
       ]),
-    ).toThrow(/more than one import on a single line/u);
+    ).not.toBe(original);
+    expect(
+      closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+        entry,
+        ["/repo/eslint-rules/a.js", "export const a = 1;\n"],
+        ["/repo/eslint-rules/b.js", "export const b = 2;\n"],
+      ]),
+    ).not.toBe(original);
   });
 
   it("still accepts an ordinary one-import-per-line closure", () => {
@@ -313,6 +327,83 @@ describe("static-ESM closure guard", () => {
         ],
         ["/repo/eslint-rules/a.js", "export const a = 1;\n"],
         ["/repo/eslint-rules/b.js", "export const b = 1;\n"],
+      ]),
+    ).not.toThrow();
+  });
+
+  it("rejects malformed JavaScript closure members as a ConfigError", () => {
+    const malformedSource = (): string =>
+      virtualSingleFileRuleSourceHash("export const helper = ;\n");
+
+    expect(malformedSource).toThrow(ConfigError);
+    expect(malformedSource).toThrow(/malformed JavaScript/u);
+  });
+
+  it.each(["", ".js"])(
+    "rejects TypeScript annotations in %s JavaScript rule sources",
+    (extension) => {
+      const annotatedSource = (): string =>
+        virtualSingleFileRuleSourceHash(
+          "export const value: string = 'typed';\n",
+          `/repo/eslint-rules/example-rule${extension}`,
+        );
+
+      expect(annotatedSource).toThrow(ConfigError);
+      expect(annotatedSource).toThrow(/Type annotations can only be used in TypeScript files/u);
+    },
+  );
+
+  it("accepts JSX syntax in an extensionless JavaScript rule source", () => {
+    expect(() =>
+      virtualSingleFileRuleSourceHash(
+        "export const element = <div data-count={1} />;\n",
+        "/repo/eslint-rules/example-rule",
+      ),
+    ).not.toThrow();
+  });
+
+  it.each([".mjs", ".cjs", ".jsx", ""])(
+    "parses reachable %s JavaScript helpers for transitive imports and dynamic loading",
+    (extension) => {
+      const helperPath = `/repo/eslint-rules/helper${extension}`;
+      const helperSpecifier = `./helper${extension}`;
+      const entry: readonly [string, string] = [
+        "/repo/eslint-rules/example-rule.js",
+        `import { helper } from ${JSON.stringify(helperSpecifier)};\nexport default helper;\n`,
+      ];
+      const helper: readonly [string, string] = [
+        helperPath,
+        'import { transitive } from "./transitive.js";\nexport const helper = transitive;\n',
+      ];
+      const original = closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+        entry,
+        helper,
+        ["/repo/eslint-rules/transitive.js", "export const transitive = 1;\n"],
+      ]);
+      const changed = closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+        entry,
+        helper,
+        ["/repo/eslint-rules/transitive.js", "export const transitive = 2;\n"],
+      ]);
+
+      expect(changed).not.toBe(original);
+      expect(() =>
+        closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+          entry,
+          [helperPath, 'export const helper = require("./dynamic.js");\n'],
+        ]),
+      ).toThrow(/dynamic import\(\)\/require\(\)/u);
+    },
+  );
+
+  it("keeps imported JSON as an opaque hashed leaf", () => {
+    expect(() =>
+      closureHashFromFiles("/repo/eslint-rules/example-rule.js", [
+        [
+          "/repo/eslint-rules/example-rule.js",
+          'import data from "./data.json";\nexport default data;\n',
+        ],
+        ["/repo/eslint-rules/data.json", '{"message":"require() is data"}\n'],
       ]),
     ).not.toThrow();
   });
@@ -344,6 +435,20 @@ describe("localRuleName", () => {
   });
 });
 
+describe("localRulePath", () => {
+  it("keeps the default path and supports a repository-relative directory override", () => {
+    expect(localRulePath(helperImportingLocalRatchet, binding)).toBe(
+      join(binding.repoRoot, "eslint-rules/trpc-shared-input-schema.js"),
+    );
+    expect(
+      localRulePath(helperImportingLocalRatchet, {
+        ...binding,
+        localRulesDirectory: "build/lint-rules",
+      }),
+    ).toBe(join(binding.repoRoot, "build/lint-rules/trpc-shared-input-schema.js"));
+  });
+});
+
 describe("thirdPartySupportFor", () => {
   it("throws when the third-party plugin namespace is not allowlisted", () => {
     const ratchet = {
@@ -356,7 +461,6 @@ describe("thirdPartySupportFor", () => {
       ruleOptions: [],
       mode: "no-new",
       metric: "message-count",
-      repairKind: "manual",
       principle: "Exercise the lint-ratchet third-party allowlist miss branch.",
     } satisfies LintRatchetConfig;
 
@@ -445,5 +549,15 @@ describe("buildRuleSourceHashesById", () => {
         helperImportingLocalRatchet.id,
       ),
     ).toMatch(/^sha256:[a-f0-9]{64}$/u);
+  });
+
+  it("keeps local hashes stable when the default directory is explicit", () => {
+    const implicit = buildRuleSourceHashesById([helperImportingLocalRatchet], binding);
+    const explicit = buildRuleSourceHashesById([helperImportingLocalRatchet], {
+      ...binding,
+      localRulesDirectory: "eslint-rules",
+    });
+
+    expect(explicit).toStrictEqual(implicit);
   });
 });

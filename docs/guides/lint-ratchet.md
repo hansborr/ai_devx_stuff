@@ -37,9 +37,12 @@ workspace consumer of the `@musi/lint-ratchet` package.
      a dependency. Its per-layer subpath exports are the whole API.
    - Write a small adapter like the demo's `scripts/lint-ratchet.ts` +
      `scripts/lint-ratchet/adapter.ts`: a `LintRatchetEngineContext`/binding over
-     your repo root, your registry, and a result envelope.
-   - Copy the demo's `scripts/git/*` + the two CLI wrappers when adopting the
-     recommended semantic merge protection described below.
+     your repo root, your registry, a `LintRatchetWorkflowVocabulary` naming
+     your actual recovery commands, and a result envelope.
+   - Export the demo's typed `lintRatchetGitRailAdapter` binding and copy its
+     package scripts when adopting the recommended semantic merge protection;
+     the package owns install/check, semantic merge, truth-up, preflight, and
+     stage restore.
    - `lint-ratchet.baseline.json`, initially
      `{ "version": 2, "regenerate": "bun run lint:ratchet:update", "tests": {} }`.
 
@@ -62,7 +65,6 @@ workspace consumer of the `@musi/lint-ratchet` package.
   ruleOptions: [{ allow: ["warn", "error"] }],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Keep console output from growing beyond today's intentional logging and debug debt.",
 },
 ```
@@ -94,18 +96,27 @@ For the full copy set and the minimum copied test set, see
   Improvements enter the envelope as blocking harness findings with the
   recovery command in `howToFix`.
 - `bun run lint:ratchet -- --propose <ruleId> <glob...>` is a dry run for a
-  candidate core ESLint rule or `local/<rule-name>` rule. It builds an ad-hoc
+  candidate core ESLint rule, `local/<rule-name>` rule, or namespaced
+  third-party rule. It builds an ad-hoc
   single-entry ratchet in memory, filters the provided globs through the same
   Git-tracked-file matcher used by update/check mode, and prints the file
   count, total findings, top offending files, and would-be baseline JSON. Use
   repeatable `--ignore <glob>`, `--metric <message-count|effective-line-count|complexity-severity>`,
   and `--rule-options '<json-array>'` after the file globs to mirror the real
-  registry entry before promoting it. The preview never edits
+  registry entry before promoting it. A third-party namespace already present
+  in `lintRatchetThirdPartyPluginAllowlist` infers its package. For a new
+  namespace, pass `--plugin <package>` and optionally
+  `--plugin-export <default|plugin>`; the preview uses a temporary allowlist
+  entry and prints that required governance addition beside the promotable
+  config. `--parser-profile <minimal-ts|type-aware-ts>` defaults to
+  `minimal-ts`. Type-aware previews use project service, so broad globs can
+  take substantially longer and print a progress notice. The preview never edits
   `lint-ratchet-config.ts` or `lint-ratchet.baseline.json`; the printed
   `ratchet/propose` id plus `configHash` and `ruleSourceHash` are synthetic
-  preview fields, so copy only the rule config fields into the registry and run
-  `bun run lint:ratchet:update` for the real baseline. Third-party rules are
-  intentionally deferred to a future `--plugin` option.
+  preview fields, so copy the rule config fields and any printed allowlist
+  addition into the registry, then run `bun run lint:ratchet:update` for the
+  real baseline. Plugin module and export failures are reported as proposal
+  configuration errors with the option that needs correction.
 - `bun run lint:ratchet:check-registry` validates the ratchet registry, the
   `files`/`ignores` globs, and the committed baseline ids without running
   ESLint. In Musi, it also reads `harness.controls.json` when present and
@@ -197,6 +208,15 @@ For the full copy set and the minimum copied test set, see
   uploaded diagnostics artifact.
 - `bun run lint:ratchet:update` is the recovery for an improvement failure: it
   rewrites the baseline from the current tree to the tighter counts and metrics.
+  The Musi adapter first requires the installed dependency tree to be fresh
+  against `bun.lock`. If the install is stale or missing, run `bun install`; if
+  `bun.lock` itself is missing, restore it first and then install. Re-run the
+  update so generated `ruleSourceHash` values cannot capture an old toolchain.
+  The portable engine remains package-manager-neutral; this check is
+  adapter-owned. Successful updates report rule-source identity refreshes
+  separately from debt-floor deltas, excluding informational
+  `messagesFingerprint`-only changes from the debt-floor count and including an
+  identity-only classification when no other baseline content changed.
   It runs registry preflight before rewriting and fails on broken/empty globs,
   absolute paths, or missing harness controls; only orphan-baseline preflight
   failures are deferred to update's own accounting path. No `--allow-worse` flag
@@ -289,9 +309,13 @@ meaningful.
 
 For a local rule, add the registry entry with a `local/<rule-name>` `ruleId`
 and no `source` field unless the explicit local marker improves readability.
-For a third-party rule, first add the package/namespace pair to
-`lintRatchetThirdPartyPluginAllowlist`, then add the ratchet entry with an
-explicit third-party source and parser profile. See
+For a third-party rule, preview the full contract with
+`bun run lint:ratchet -- --propose <ruleId> <glob...>`. Pass
+`--plugin <package>` when the namespace is not yet allowlisted, and add
+`--plugin-export plugin` when the package exposes rules from `module.plugin`.
+The preview prints both the explicit third-party source/parser profile and any
+required `lintRatchetThirdPartyPluginAllowlist` addition; copy both before
+updating the baseline. See
 [Rule sources and parser profiles](lint-ratchet-reference.md#rule-sources-and-parser-profiles)
 for the source shapes. The third-party/type-aware infrastructure was added
 after the original local-rule runner and was first used for a
@@ -303,7 +327,7 @@ id.
 
 ## Current ratchets
 
-The active ratchet registry is the exported `lintRatchets` array in
+Musi's active ratchet registry is the exported `lintRatchets` array in
 `scripts/lint-ratchet/lint-ratchet-config.ts`. Run
 `bun run lint:ratchet:summary` for the current ids, rules, metrics, debt-bearing
 file counts, and finding totals. This guide intentionally does not hand-copy
@@ -420,11 +444,12 @@ existing inbound links working and point to the canonical home:
 
 The coverage-map gate details now live in the reference doc:
 [Coverage Map Gate](lint-ratchet-reference.md#coverage-map-gate).
-Musi uses hybrid ownership: refresh the marker-delimited direct-child drift-ai
-row with `bun run docs:lint-coverage-map:generate`, and use
+In Musi the map is wholly generated from a typed manifest: edit
+`scripts/lint-coverage-map-manifest-<area>.ts`, refresh the document with
+`bun run docs:lint-coverage-map:generate`, and use
 `bun run docs:lint-coverage-map:generate:check` to check generated freshness.
-Rows and policy prose outside that block remain hand-maintained; the existing
-`:check` and `:audit` commands retain their whole-map semantic roles.
+The existing `:check` and `:audit` commands retain their whole-map semantic
+roles, reading the manifest rather than the rendered Markdown.
 
 ### Portable adoption
 

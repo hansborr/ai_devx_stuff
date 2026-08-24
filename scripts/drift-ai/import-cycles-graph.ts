@@ -1,7 +1,9 @@
-// Module-graph builder for the import-cycles adapter: the injected I/O seam that
-// owns all ts-morph / TypeScript-compiler work (filesystem walk, per-file nearest
-// tsconfig resolution, import/export/dynamic-import extraction, module resolution).
-// Cycle detection and check integration are pure and live in import-cycles.ts.
+// Module-graph builder for the import-cycles adapter: the injected I/O seam
+// that owns the filesystem walk, per-file nearest tsconfig resolution, module
+// resolution, partiality accounting, and edge merging. Extraction and
+// runtime-vs-type classification of import/export/dynamic-import references
+// live in the shared kernel, scripts/lib/ts-module-refs.ts. Cycle detection
+// and check integration are pure and live in import-cycles.ts.
 //
 // The spike (docs/agent_notes/.../31-import-cycles-plugin.md) picked option (c):
 // raw `ts.resolveModuleName` over per-file nearest tsconfigs. It resolves the
@@ -15,6 +17,7 @@ import path from "node:path";
 
 import { ts } from "ts-morph";
 
+import { extractModuleRefs, type ModuleRef } from "../lib/ts-module-refs.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import {
   type AliasHead,
@@ -148,12 +151,12 @@ function collectFileEdges(absFile: string, state: GraphBuildState): FileEdges {
   const out = new Map<string, ModuleEdge>();
   let candidates = 0;
   let unresolved = 0;
-  for (const spec of extractSpecifiers(absFile)) {
-    const candidate = isResolutionCandidate(spec.text, aliasHeads);
+  for (const ref of extractSpecifiers(absFile)) {
+    const candidate = isResolutionCandidate(ref.specifier, aliasHeads);
     if (candidate) candidates += 1;
-    const resolution = resolveSpecifier(spec, absFile, options, state);
+    const resolution = resolveSpecifier(ref.specifier, absFile, options, state);
     if (resolution.kind === "edge") {
-      mergeEdge(out, resolution.to, spec.typeOnly);
+      mergeEdge(out, resolution.to, ref.typeOnly);
     } else if (resolution.kind === "unresolved" && candidate) {
       // Only a genuine resolution FAILURE counts toward partiality. A specifier
       // that resolved fine but landed outside the graph (node_modules, a .d.ts, or
@@ -201,12 +204,12 @@ type SpecifierResolution =
   | { readonly kind: "unresolved" };
 
 function resolveSpecifier(
-  spec: Specifier,
+  specifier: string,
   containingFile: string,
   options: ts.CompilerOptions,
   state: GraphBuildState,
 ): SpecifierResolution {
-  const result = ts.resolveModuleName(spec.text, containingFile, options, state.host, state.cache);
+  const result = ts.resolveModuleName(specifier, containingFile, options, state.host, state.cache);
   const resolvedFileName = result.resolvedModule?.resolvedFileName;
   if (resolvedFileName === undefined) return { kind: "unresolved" };
   if (resolvedFileName.includes("/node_modules/")) return { kind: "external" };
@@ -230,70 +233,15 @@ function isResolutionCandidate(spec: string, aliasHeads: readonly AliasHead[]): 
   );
 }
 
-type Specifier = { readonly text: string; readonly typeOnly: boolean };
-
-// Extract top-level import/export-from specifiers + dynamic import() calls from a
-// file's AST (no type-check). `import type` / `export type` and type-only named
-// bindings are flagged so the cycle classifier can tell a runtime edge from one
-// that exists only in the type system.
-function extractSpecifiers(absFile: string): Specifier[] {
+// Parse one file (no type-check) and hand classification to the shared kernel:
+// scripts/lib/ts-module-refs.ts owns what counts as a runtime import edge.
+// Reading, scriptKind selection, and parsing stay here — per-stack policy.
+function extractSpecifiers(absFile: string): readonly ModuleRef[] {
   const text = readFileSync(absFile, "utf8");
   const scriptKind =
     absFile.endsWith(".tsx") || absFile.endsWith(".jsx") ? ts.ScriptKind.TSX : ts.ScriptKind.TS;
   const source = ts.createSourceFile(absFile, text, ts.ScriptTarget.Latest, false, scriptKind);
-  const out: Specifier[] = [];
-  const visit = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) && isStringLiteralLike(node.moduleSpecifier)) {
-      out.push({ text: node.moduleSpecifier.text, typeOnly: isImportTypeOnly(node) });
-    } else if (
-      ts.isExportDeclaration(node) &&
-      node.moduleSpecifier !== undefined &&
-      isStringLiteralLike(node.moduleSpecifier)
-    ) {
-      out.push({ text: node.moduleSpecifier.text, typeOnly: isExportTypeOnly(node) });
-    } else if (
-      ts.isCallExpression(node) &&
-      node.expression.kind === ts.SyntaxKind.ImportKeyword &&
-      node.arguments.length > 0 &&
-      isStringLiteralLike(node.arguments[0])
-    ) {
-      // Dynamic import() is always a runtime edge.
-      out.push({ text: node.arguments[0].text, typeOnly: false });
-    }
-    ts.forEachChild(node, visit);
-  };
-  visit(source);
-  return out;
-}
-
-function isStringLiteralLike(node: ts.Node | undefined): node is ts.StringLiteralLike {
-  return (
-    node !== undefined && (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node))
-  );
-}
-
-// `import type ...` (whole-clause) or `import { type a, type b }` (every binding
-// type-only) is a type-only edge. A default/namespace import or any value binding
-// makes it a runtime edge.
-function isImportTypeOnly(node: ts.ImportDeclaration): boolean {
-  const clause = node.importClause;
-  if (clause === undefined) return false; // bare `import "x"` side-effect import
-  if (clause.phaseModifier === ts.SyntaxKind.TypeKeyword) return true; // `import type ...`
-  if (clause.name !== undefined) return false; // default import is a value binding
-  const bindings = clause.namedBindings;
-  if (bindings === undefined) return false;
-  if (ts.isNamespaceImport(bindings)) return false;
-  if (bindings.elements.length === 0) return false;
-  return bindings.elements.every((element) => element.isTypeOnly);
-}
-
-function isExportTypeOnly(node: ts.ExportDeclaration): boolean {
-  if (node.isTypeOnly) return true;
-  const clause = node.exportClause;
-  if (clause === undefined) return false; // `export * from` re-exports values
-  if (!ts.isNamedExports(clause)) return false;
-  if (clause.elements.length === 0) return false;
-  return clause.elements.every((element) => element.isTypeOnly);
+  return extractModuleRefs(source);
 }
 
 // --- tsconfig discovery + parsing -------------------------------------------

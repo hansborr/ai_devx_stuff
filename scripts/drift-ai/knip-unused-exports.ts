@@ -7,10 +7,16 @@
 // duplicating them. The subprocess I/O lives in knip-runner.ts; the CheckPlugin
 // wiring in knip-unused-exports-check.ts.
 
-import { errorMessage } from "../lib/error-message.js";
 import { isRecord } from "../lib/records.js";
-import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import {
+  fullKnipLocation,
+  type KnipReportIssueRows,
+  type KnipReportParseFailure,
+  knipSymbolFromItem,
+  parseKnipReportEnvelope,
+} from "./knip-report-envelope.js";
+import { sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
 // The four symbol-level knip categories drift:ai surfaces. `files` (orphan files)
@@ -42,9 +48,9 @@ export type UnusedExportSymbol = {
 
 export type ParseKnipUnusedExportsResult =
   | { readonly ok: true; readonly symbols: readonly UnusedExportSymbol[] }
-  | { readonly ok: false; readonly error: string };
+  | KnipReportParseFailure;
 
-// Parse the symbol-level categories from `knip --reporter json` (knip 6.14.1
+// Parse the symbol-level categories from `knip --reporter json` (knip 6.26.0
 // shape, confirmed at runtime against the pinned version). A row is keyed by
 // `file` and carries a per-category array of items:
 //   { "file": "<path>",
@@ -58,18 +64,14 @@ export type ParseKnipUnusedExportsResult =
 // here — a missing/empty/non-array category is skipped, never an error. The
 // `files` category is ignored: orphan-files owns file-level reachability.
 export function parseKnipUnusedExports(jsonText: string): ParseKnipUnusedExportsResult {
-  // knip always prints `{"issues":[]}` even when clean, so empty output means the
-  // run never produced a report (attempted-and-failed), not "no unused exports".
-  if (jsonText.trim().length === 0) return { ok: false, error: "knip produced no JSON output" };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(jsonText);
-  } catch (err) {
-    return { ok: false, error: errorMessage(err) };
-  }
-  if (!isRecord(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
-  const issues = raw["issues"];
-  if (!Array.isArray(issues)) return { ok: true, symbols: [] };
+  const envelope = parseKnipReportEnvelope(jsonText);
+  if (!envelope.ok) return envelope;
+  return projectKnipUnusedExports(envelope.issues);
+}
+
+export function projectKnipUnusedExports(
+  issues: KnipReportIssueRows,
+): Extract<ParseKnipUnusedExportsResult, { readonly ok: true }> {
   const symbols: UnusedExportSymbol[] = [];
   for (const row of issues) symbols.push(...symbolsFromRow(row));
   return { ok: true, symbols };
@@ -97,11 +99,10 @@ function symbolFromItem(
   file: string,
   item: unknown,
 ): UnusedExportSymbol | undefined {
-  if (!isRecord(item)) return undefined;
-  const name = item["name"];
-  if (typeof name !== "string" || name.length === 0) return undefined;
-  const namespace = item["namespace"];
-  const base = { category, file, name, ...locationFromItem(item) };
+  const symbol = knipSymbolFromItem(item);
+  if (symbol === undefined) return undefined;
+  const namespace = isRecord(item) ? item["namespace"] : undefined;
+  const base = { category, file, ...symbol };
   return typeof namespace === "string" && namespace.length > 0 ? { ...base, namespace } : base;
 }
 
@@ -155,7 +156,7 @@ export function buildUnusedExportFindings(
 ): DriftFinding[] {
   const inScope = filterSymbolsToScope(symbols, detectorScope);
   const findings = inScope.map<DriftFinding>((symbol) => {
-    const location = fullLocation(symbol);
+    const location = fullKnipLocation(symbol);
     const deprecated = isDeprecated?.(symbol) ?? false;
     return {
       check: "unused-exports",
@@ -197,27 +198,7 @@ function scopeFileSet(detectorScope: DetectorScope): ReadonlySet<string> {
   return new Set(changedFilesFromScope(detectorScope).map((file) => toPosix(file.path)));
 }
 
-function locationFromItem(
-  item: Record<string, unknown>,
-): { readonly line: number; readonly col: number } | undefined {
-  const line = positiveIntegerOrUndefined(item["line"]);
-  const col = positiveIntegerOrUndefined(item["col"]);
-  return line === undefined || col === undefined ? undefined : { line, col };
-}
-
 function locationLabel(symbol: UnusedExportSymbol): string {
-  const location = fullLocation(symbol);
+  const location = fullKnipLocation(symbol);
   return location === undefined ? symbol.file : `${symbol.file}:${location.line}:${location.col}`;
-}
-
-function fullLocation(
-  symbol: UnusedExportSymbol,
-): { readonly line: number; readonly col: number } | undefined {
-  const line = positiveIntegerOrUndefined(symbol.line);
-  const col = positiveIntegerOrUndefined(symbol.col);
-  return line === undefined || col === undefined ? undefined : { line, col };
-}
-
-function positiveIntegerOrUndefined(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }

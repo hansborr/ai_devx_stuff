@@ -20,7 +20,8 @@ The ratchet has three pieces:
 
 1. A **registry** of scoped rules. Each entry names the ESLint rule, source
    kind, parser profile, file globs, ignore globs, options, mode, metric, and
-   repair kind.
+   principle. Local-rule repair guidance separately lives in
+   `meta.docs.repairKind`; it is not a registry field.
 2. A **committed per-file baseline**. `lint-ratchet.baseline.json` records each
    ratcheted file's current count or metric payload, plus config and rule-source
    hashes.
@@ -60,11 +61,12 @@ baseline stack in the adopting repository.
 
 ## Tier 1 — Minimal ratchet
 
-The minimal tier gives you the gate, baseline, and registry. No agent envelope,
-no coverage map, no post-edit hooks, no CI reporting. The runner still emits a
-`HarnessDiagnostics` JSON envelope for machine-readable failures; "no agent
-envelope" means you are not adopting the separate changed-file
-`lint:agent:local-rules` pipeline.
+The minimal tier gives you the gate, baseline, and registry. No prescribed
+agent envelope, no coverage map, no post-edit hooks, no CI reporting. The
+package returns typed results; your adapter decides whether and how to render a
+machine-readable result envelope. The demo deliberately renders its own small
+JSON shape rather than Musi's `HarnessDiagnostics` envelope, proving that output
+format stays outside the engine.
 
 ### What to copy
 
@@ -74,8 +76,8 @@ file selection, no copy manifest — and bind it with a thin adapter you write:
 | Item | Role |
 | --- | --- |
 | `tools/lint-ratchet/` | The portable engine (kernel + git-rail + governance). Copy it verbatim into your repo, or add it as a dependency; it carries no `@musi/*` or repo-relative imports. Its `package.json#exports` map enumerates every supported entry point as an exact per-layer subpath key (`@musi/lint-ratchet/kernel/<module>.js`, `/git-rail/<module>.js`, `/governance/<module>.js` — no wildcards); that enumerated set is the whole API, and the package README's exports inventory is the authoritative list. |
-| A thin adapter (you write it) | Construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo root, declare your registry (`LintRatchetConfig[]`), and render whatever result envelope your CI wants. `examples/lint-ratchet-demo/scripts/lint-ratchet.ts` + `scripts/lint-ratchet/adapter.ts` is a minimal, working template to diff against. |
-| Merge drivers (recommended): `scripts/git/*` + the fixed-path CLI wrappers | Copy the git-rail shells and the two CLI wrappers (`baseline-merge-cli.ts`, `post-merge-baseline-preflight.ts`) from the demo; they consume the package's pure git-rail ops and install the semantic baseline merge. |
+| A thin adapter (you write it) | Construct a `LintRatchetEngineContext`/`LintRatchetEngineBinding` over your repo root, declare your registry (`LintRatchetConfig[]`), and render whatever result envelope your CI wants. The demo's `examples/lint-ratchet-demo/scripts/lint-ratchet.ts` + `examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts` is a minimal, working template to diff against. |
+| Merge driver (recommended): the package git-rail executable | Export `lintRatchetGitRailAdapter` from your adapter and copy the demo's git-rail package scripts. The package owns install/check, semantic merge, preflight, post-merge truth-up, and stage restore; adopters vendor no operational scripts. |
 | `lint-ratchet.baseline.json` | Start with `{ "version": 2, "regenerate": "bun run lint:ratchet:update", "tests": {} }`, then `lint:ratchet:update` to populate it against your toolchain. |
 
 The engine no longer ships a copy manifest or a demo sync-checker: because
@@ -86,8 +88,7 @@ isolation.
 
 ### Merge-driver wiring (recommended)
 
-The copied merge-driver scripts need repository wiring before Git will use
-them:
+The package-owned merge driver needs repository wiring before Git will use it:
 
 1. Add these rows to `.gitattributes`:
 
@@ -95,21 +96,36 @@ them:
    /lint-ratchet.baseline.json merge=lint-ratchet-baseline
    /lint-ratchet.debt-log.jsonl merge=union
    ```
-2. Expose
-   `"lint:ratchet:install-merge-driver": "bash scripts/git/install-lint-ratchet-merge-driver.sh"`
-   as a package script. Run it from `prepare`, or once for every clone and
-   worktree: the installer stores the driver in the Git common directory.
-3. Invoke `scripts/git/lint-ratchet-post-merge-baseline-truth-up.sh` from the
-   repository's `post-merge` hook. Also invoke it with the `post-commit`
-   argument from `post-commit`, so a marker left by a completed cherry-pick or
-   rebase is validated and consumed.
+2. Copy the demo's `lint:ratchet:install-merge-driver` and
+   `lint:ratchet:merge-driver:check` package scripts, changing only the adapter
+   module path if yours differs. Run the installer from `prepare`, or once for
+   every clone and worktree: it generates a marked bootstrap in the Git common
+   directory and records the fixed Git command.
+3. Invoke the demo's `lint:ratchet:post-merge` package script from `post-merge`.
+   Invoke it with `post-commit` from that hook too, so a marker left by a
+   completed cherry-pick or rebase is validated and consumed.
 
 See the [Lint Ratchet Merge Runbook](lint-ratchet-merges.md) for why a textual JSON
 merge is unsafe and how the semantic minimum merge and truth-up check preserve
 the stricter floor. The runtime's merge-driver advisory runs only during
-`lint:ratchet:update` and `lint:ratchet:check-baseline`; if
-`scripts/git/check-lint-ratchet-merge-driver.sh` was not copied, that advisory
-silently skips, so omitting the merge-driver files also omits the warning.
+`lint:ratchet:update` and `lint:ratchet:check-baseline`; bind it to the package's
+`check` operation as the demo does, so an omitted local installation still
+produces the repair command.
+
+In a normal installed dependency, those scripts can call the package bin
+directly. The in-repository demo uses the equivalent exported function because
+Bun does not link workspace package bins; its fresh-install smoke asserts that
+behavior so this longer workspace-only invocation cannot become stale folklore:
+
+```json
+{
+  "scripts": {
+    "lint:ratchet:install-merge-driver": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- install --adapter scripts/lint-ratchet/adapter.ts --repair-command 'bun run lint:ratchet:install-merge-driver'",
+    "lint:ratchet:merge-driver:check": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- check --adapter scripts/lint-ratchet/adapter.ts --repair-command 'bun run lint:ratchet:install-merge-driver'",
+    "lint:ratchet:post-merge": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- post-merge --adapter scripts/lint-ratchet/adapter.ts --"
+  }
+}
+```
 
 ### Runtime assumptions
 
@@ -126,13 +142,17 @@ currently assumes:
   `process.execPath`, while plugin and ESLint versions are read from
   `node_modules/<package>/package.json` and generated configs/caches live under
   `node_modules/.cache/eslint-ratchet/`;
-- a POSIX environment with `bash`: the merge-driver presence check spawns it,
-  and installers and Git hooks are shell scripts. Native Windows is untested;
-  use WSL as the expected adoption path;
+- a POSIX environment with Bash and util-linux `flock` for the optional
+  merge-driver wiring. The generated bootstrap uses no Bash-4-only features,
+  so stock macOS Bash 3.2 is sufficient; install `flock` with
+  `brew install flock` (or util-linux). Native Windows is untested; use WSL as
+  the expected adoption path;
 - generated isolated ESLint configs, not the project's normal flat config with
-  one extra rule enabled. Rules that need project `settings`, globals,
-  processors, import resolvers, or custom TypeScript project setup need
-  `scripts/lint-ratchet/eslint-config.ts` changes;
+  one extra rule enabled. A type-aware ratchet uses `projectService: true` by
+  default; set its registry `typeAwareProject` to a repo-relative tsconfig for
+  custom TypeScript project setup. Rules that need project `settings`, globals,
+  processors, or import resolvers require changes to the generated-config
+  kernel in `tools/lint-ratchet/src/kernel/eslint-config.ts`;
 - relative `files` and `ignores` patterns evaluated by Minimatch with
   `{ dot: true }`, so normal minimatch syntax and dot-prefixed paths are
   supported. Registry preflight checks every `files` pattern against tracked
@@ -142,6 +162,14 @@ currently assumes:
 Yarn PnP, global ESLint installs, non-Git source trees, and unusual cache roots
 are supportable, but they require adapter changes rather than only package
 script changes.
+
+When upgrading a pre-H23 copy that relied on the former scripts-only
+type-aware default, set `typeAwareProject: "./tsconfig.scripts.json"` on those
+entries and run the normal baseline update before replacing the kernel.
+Otherwise their generated config switches to `projectService: true`. The old
+implicit choice was not represented in `configHash`, so an unchanged finding
+count—especially a zero floor—does not prove that the same TypeScript program
+was checked.
 
 ### What to change
 
@@ -162,7 +190,6 @@ script changes.
        ruleOptions: [{ allow: ["warn", "error"] }],
        mode: "no-new",
        metric: "message-count",
-       repairKind: "manual",
        principle: "Keep console output from growing beyond today's intentional logging and debug debt.",
      },
    ] as const satisfies readonly LintRatchetConfig[];
@@ -170,80 +197,89 @@ script changes.
 
    Use `mode: "no-new"` (the only mode) so the entry writes a committed floor
    and fails on unacknowledged drift. Before committing a new entry, you can run
-   `bun run lint:ratchet -- --propose <ruleId> <glob...>` for a core or
-   `local/<rule-name>` rule to print current counts and the would-be baseline
-   without editing the registry or committed baseline — the discovery use case
-   the removed `report-only` mode once served.
+   `bun run lint:ratchet -- --propose <ruleId> <glob...>` for a core,
+   `local/<rule-name>`, or third-party rule to print current counts and the
+   would-be baseline without editing the registry or committed baseline — the
+   discovery use case the removed `report-only` mode once served. For a
+   third-party namespace not yet in the adapter allowlist, pass
+   `--plugin <package>` and optional `--plugin-export <default|plugin>`; the
+   preview prints the allowlist entry that promotion requires. Add
+   `--parser-profile type-aware-ts` only when the rule needs type information;
+   project-service setup makes broad preview globs materially slower.
 
-2. **Clear the third-party allowlist** unless you are ratcheting third-party
-   plugin rules from the start.
+2. **Choose the adapter's third-party policy.** Set the binding's
+   `thirdPartyPluginAllowlist` to `[]` unless you are ratcheting third-party
+   plugin rules from the start. If you do need plugins, declare an adopter-owned
+   allowlist beside your registry and pass it through the binding in step 3; do
+   not copy or edit Musi's registry module.
 
-3. **Delete or stub `scripts/lint-ratchet/registry-builders.ts`** after the
-   registry no longer imports it. The builder functions are convenience
-   abstractions over raw registry entries and are not required.
+3. **Build your repository adapter.** In `scripts/lint-ratchet/adapter.ts` (or
+   your own equivalent), import `createLintRatchetEngineContext` plus the
+   `LintRatchetEngineContext`, `LintRatchetEngineBinding`, and
+   `LintRatchetWorkflowVocabulary` types from
+   `@musi/lint-ratchet/kernel/engine-context.js`. Bind the repository root,
+   baseline/debt-log paths, and the commands your repository actually exposes
+   for update, accepted-debt update, merge-driver installation, baseline-side
+   restoration, and complete trend history. Export that vocabulary with the
+   context, binding, and `LintRatchetConfig[]` registry from step 1. The demo's
+   `examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts` is the complete
+   working example.
 
-4. **Stub `scripts/lib/lint-rule-docs.ts` if you are not adopting local rules.** The
-   CLI modes still import the loader so `local/*` ratchets can be validated. A
-   core-only or third-party-only setup can keep a same-export stub that returns
-   no entries:
+   Do not copy, delete, or stub Musi's
+   `scripts/lint-ratchet/registry-builders.ts` or
+   `scripts/lib/lint-rule-docs.ts`: neither file is part of the package an
+   adopter receives. They are conveniences and policy owned by Musi's adapter.
+   If your adapter ratchets local rules, validate the local rule ids and any
+   metadata policy you choose in that adapter; core-only and third-party-only
+   adapters need no local-rule-docs stub.
 
-   ```ts
-   export interface RuleDocsEntry {
-     readonly id: string;
-     readonly principle: string;
-     readonly pairedGuide: string;
-     readonly repairKind: "autofix" | "codemod" | "manual" | "suggestion";
-     readonly repairCommand?: string;
-   }
+4. **Write the entry CLI and its result format.** Compose the package's kernel
+   and governance operations against the context, binding, and registry from
+   step 3, then translate their typed results and errors into the exit codes and
+   output shape your project needs. Start from
+   `examples/lint-ratchet-demo/scripts/lint-ratchet.ts`, which wires gate,
+   registry-check, baseline-check, update, and propose modes while rendering a
+   demo-owned JSON envelope. A package-copy adopter does not receive Musi's
+   `scripts/harness/harness-diagnostics-output.ts` emission-kernel writer or its
+   `HarnessDiagnostics` schema and does not need to recreate either one — Tier 1
+   has no prescribed agent envelope, and the demo's own small JSON shape proves
+   that. Adopters who want Musi's envelope instead of their own shape can copy
+   the portable `tools/harness-diagnostics` package (`@musi/harness-diagnostics`)
+   directly; see Tier 2's agent-envelope row below and `docs/ai-harness.md`'s
+   Portable Core map.
 
-   export interface RuleDocsFailure {
-     readonly id: string;
-     readonly failures: readonly string[];
-   }
-
-   export function formatRuleDocsFailures(failures: readonly RuleDocsFailure[]): string {
-     return failures.map((failure) => `${failure.id}: ${failure.failures.join("; ")}`).join("\n");
-   }
-
-   export async function loadLintRuleDocs(_repoRoot: string): Promise<{
-     readonly entries: readonly RuleDocsEntry[];
-     readonly failures: readonly RuleDocsFailure[];
-   }> {
-     return { entries: [], failures: [] };
-   }
-   ```
-
-5. **Update the `harness-diagnostics.ts` import path** if you move the schema
-   file. Find every importer in the copied set with
-   `rg -l 'schemas/harness-diagnostics' <copied files>` rather than trusting a
-   hand-maintained list — the schema is imported from the ratchet runtime, the
-   report and info diagnostics, the sidecar writer
-   (`scripts/harness/harness-diagnostics-output.ts`), and the portable tests. If
-   you do not need the structured envelope at all, replace the schema and
-   summary helper with a project-local equivalent before dropping Zod.
-
-6. **Add package scripts:**
+5. **Add package scripts:**
 
    ```json
    {
-     "baseline:restore-stage": "bash scripts/git/restore-generated-baseline-stage.sh",
+     "baseline:restore-stage": "<package git-rail executable> restore-stage --allow-baseline lint-ratchet.baseline.json --",
      "lint:ratchet": "bun scripts/lint-ratchet.ts",
      "lint:ratchet:check-baseline": "bun scripts/lint-ratchet.ts --check-baseline",
      "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",
-     "lint:ratchet:install-merge-driver": "bash scripts/git/install-lint-ratchet-merge-driver.sh",
-     "lint:ratchet:report": "bun scripts/lint-ratchet.ts --report",
-     "lint:ratchet:summary": "bun scripts/lint-ratchet.ts --summary",
-     "lint:ratchet:trend": "bun scripts/lint-ratchet.ts --trend",
-     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
-     "lint:ratchet:zero-baseline": "bun scripts/lint-ratchet.ts --zero-baseline"
+     "lint:ratchet:install-merge-driver": "<package git-rail executable> install --adapter scripts/lint-ratchet/adapter.ts",
+     "lint:ratchet:merge-driver:check": "<package git-rail executable> check --adapter scripts/lint-ratchet/adapter.ts",
+     "lint:ratchet:post-merge": "<package git-rail executable> post-merge --adapter scripts/lint-ratchet/adapter.ts --",
+     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update"
    }
    ```
+
+   Replace `<package git-rail executable>` with the invocation used verbatim by
+   the demo's `package.json`; the placeholder keeps this guide readable. Four
+   scripts dispatch the adopter's TypeScript CLI (gate, baseline check, registry
+   check, and update), while restore/install/check/post-merge dispatch the
+   package rail. Invoke the post-merge script with `post-merge` or `post-commit`
+   from the corresponding hook. The CLI also accepts
+   `--propose <ruleId> <glob...>` directly, without a dedicated package-script
+   alias. Musi's adapter additionally implements `report`,
+   `summary`, `trend`, and `zero-baseline`, but copying those package-script
+   names alone does not add the modes; extend the adopter's CLI and tests before
+   registering any of them.
 
    The main runtime path uses plain TypeScript rather than Bun-only APIs, but
    the portability fixtures exercise only `bun`. Treat `npx tsx`,
    `pnpm exec tsx`, and other runners as untested substitutions.
 
-7. **Run the adoption sequence.** Use a Git worktree with the intended files
+6. **Run the adoption sequence.** Use a Git worktree with the intended files
    tracked:
 
    ```sh
@@ -253,7 +289,7 @@ script changes.
    bun run lint:ratchet                  # prove the gate passes
    ```
 
-### Tests
+### What to copy for tests
 
 The engine's own tests travel with the package: `tools/lint-ratchet/test/` and
 the co-located `src/**/*.test.ts` cover baseline building/parsing/comparison,
@@ -275,8 +311,10 @@ assert the gate behaves. You are testing your wiring, not the engine.
   or PR as the source change.
 - **Zero-baseline decisions.** When a ratchet reaches zero findings, you decide
   whether to promote the rule into normal ESLint, keep the ratchet with a
-  documented disposition, or narrow the scope. The
-  `lint:ratchet:zero-baseline` gate enforces this.
+  documented disposition, or narrow the scope. The package carries the
+  zero-baseline governance operation, but the demo CLI does not expose it. Add
+  and test an adapter mode before registering a `lint:ratchet:zero-baseline`
+  gate; Musi's adapter is one complete implementation.
 - **Registry coherence.** Adding, removing, or changing a ratchet entry requires
   `lint:ratchet:update` to refresh the baseline. The `check-registry` preflight
   catches structural problems before an ESLint run.
@@ -324,9 +362,9 @@ reporting, and custom guidance pipeline on top of Tier 1.
 
 | Surface | Key files | What it does |
 | --- | --- | --- |
-| Coverage map | `scripts/lint-coverage-map-check.ts`, `scripts/lint-coverage-map-check-eslint-reach.ts` | Proves every tracked maintained file is accounted for by a lint owner (normal lint, ratchet, exclusion, or named blocker). Catches stale map rows, unknown ratchet ids, and ESLint reach gaps. |
-| Agent envelope | `scripts/lint-agent.ts`, `scripts/lint-agent-guidance.ts`, `scripts/lint-agent-changed.sh`, `packages/shared/src/schemas/harness-diagnostics.ts` | Emits structured `HarnessDiagnostics` JSON for `local/*`, selected core/plugin steering findings, and parser errors, scoped to changed files. Non-overlaid findings remain info disclosures. Agents and hooks consume this selected view alongside full lint output. |
-| Custom guidance | `scripts/lib/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`, `docs/generated/local-lint-rules.md` | Validates and publishes `meta.docs` metadata from local rules: description, principle, category, paired guide, repair kind. |
+| Coverage map | `scripts/lint-coverage-map-manifest.ts` (+ the `-manifest-<area>.ts` entry modules), `scripts/lint-coverage-map-manifest-schema.ts`, `scripts/lint-coverage-map-check.ts`, `scripts/lint-coverage-map-check-eslint-reach.ts`, `scripts/lint-coverage-map-gen.ts` | Proves every tracked maintained file is accounted for by a lint owner (normal lint, ratchet, exclusion, or named blocker). Policy is a Zod-validated typed manifest; `docs/generated/lint-coverage-map.md` is rendered from it. Catches stale globs, rotted file counts, unknown ratchet ids, and ESLint reach gaps in both directions. |
+| Agent envelope | `scripts/lint-agent.ts`, `scripts/lint-agent-guidance.ts`, `scripts/lint-agent-changed.sh`, the `tools/harness-diagnostics` package (`@musi/harness-diagnostics`) | Emits structured `HarnessDiagnostics` JSON for `local/*`, selected core/plugin steering findings, and parser errors, scoped to changed files. Non-overlaid findings remain info disclosures. Agents and hooks consume this selected view alongside full lint output. |
+| Musi custom-guidance adapter | `scripts/lib/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`, `docs/generated/local-lint-rules.md` | Validates and publishes `meta.docs` metadata from local rules: description, principle, category, paired guide, repair kind. |
 | Post-edit hooks | `scripts/ai-hooks/tidy-edited-file.sh`, `scripts/ai-hooks/common.sh`, `.claude/hooks/`, `.codex/hooks/` | Runs Prettier + `eslint --fix` on files an agent just edited. Non-blocking, bounded, skips unsafe paths. |
 | CI report | `lint:ratchet:report` command, CI workflow steps | Renders the diagnostics envelope as a GitHub step summary and sticky PR comment with recovery instructions. |
 
@@ -335,8 +373,10 @@ reporting, and custom guidance pipeline on top of Tier 1.
 Everything in Tier 1, plus:
 
 - **Coverage map maintenance.** When you add files, directories, or ratchets,
-  update the map and run the map gate. The map is a committed Markdown table;
-  the checker validates it structurally.
+  update the manifest entry that owns them and run the map gate; the Markdown
+  document is generated output, never hand-edited. The checker validates the
+  typed entries against the live tree — globs that match nothing, file counts
+  that no longer add up, unknown ratchet ids, and reach disagreements.
 - **Local rule metadata.** Each `local/*` rule needs `meta.docs` with
   `description`, `principle`, `category`, `pairedGuide`, and `repairKind`. The
   guidance generator and agent envelope depend on this vocabulary.
@@ -403,9 +443,9 @@ load time; a malformed inventory must fail rather than silently narrow lint.
 | Consumer | Adoption status | What the adopter must preserve or replace |
 | --- | --- | --- |
 | `eslint-config/config-surfaces.js` | Essential pattern | Load and validate the manifest once, then derive named path groups. Replace Musi's four groups and language/status enums with repository-local ones. |
-| `eslint-config/shared-policy.js`, `base-configs.js`, and `config-file-configs.js` | Essential enforcement | Re-include globally ignored config files, give TypeScript configs a parser project, and verify every entry resolves an ESLint config. Adapt the surrounding flat-config modules rather than copying Musi's package globs. |
+| `eslint-config/path-glob-policy.js`, `base-configs.js`, and `config-file-configs.js` | Essential enforcement | Re-include globally ignored config files, give TypeScript configs a parser project, and verify every entry resolves an ESLint config. Adapt the surrounding flat-config modules rather than copying Musi's package globs. |
 | `scripts/harness/generate-config-surfaces.ts` → `tsconfig.configs.json` | Essential for type-aware TS config files; otherwise omit | Generate the dedicated TypeScript project from the manifest's TS entries, or point those entries at an existing checked project. Keep one check mode that fails when the committed output is stale. |
-| `scripts/lint-coverage-map-check.ts` | Replaceable proof | Musi checks that each manifest path is tracked and appears in the coverage map with the declared status. Use an equivalent inventory/reach check if the adopter has no Markdown coverage map. |
+| `scripts/lint-coverage-map-check.ts` | Replaceable proof | Musi checks that each config-surface manifest path is tracked and is claimed by a coverage-manifest entry with the declared status. Use an equivalent inventory/reach check if the adopter has no coverage manifest. |
 | `scripts/path-policy/path-policy.ts` | Musi-only adapter | It treats manifest entries as source-relevant changes for staged/changed gate routing. Map the inventory into the adopter's changed-file classifier, or omit this consumer when every gate is whole-tree. |
 | `harness.controls.json`, `harness:check`, and pre-commit dependency-freshness tests | Musi-only wiring | Do not copy the control ids. Wire the generator's check command into the adopter's CI or commit gate and add a fixture proving a manifest edit selects that check. |
 

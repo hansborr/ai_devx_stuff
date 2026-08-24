@@ -68,7 +68,7 @@ function packComponents(
   let pending: TriageItem[] = [];
   const flush = (): void => {
     if (pending.length === 0) return;
-    groups.push(toGroup(lane, pending, packetSize, false));
+    groups.push(toGroup(lane, pending, false));
     pending = [];
   };
   for (const component of components) {
@@ -97,7 +97,7 @@ function splitComponent(
   let offset = 0;
   for (let chunk = 0; chunk < chunkCount; chunk += 1) {
     const size = baseSize + (chunk < largerChunks ? 1 : 0);
-    groups.push(toGroup(lane, component.slice(offset, offset + size), packetSize, true));
+    groups.push(toGroup(lane, component.slice(offset, offset + size), true));
     offset += size;
   }
   return groups;
@@ -106,13 +106,11 @@ function splitComponent(
 function toGroup(
   lane: CoreLane,
   items: readonly TriageItem[],
-  packetSize: number,
   splitPathComponent: boolean,
 ): PacketItemGroup {
   return {
     lane: { ...lane, area: itemArea(items) },
     items: [...items],
-    oversized: items.length > packetSize,
     splitPathComponent,
   };
 }
@@ -142,12 +140,22 @@ function itemPaths(item: TriageItem): string[] {
   return [...new Set(item.locationDetails.map((location) => location.path))];
 }
 
+/**
+ * Musi's repository path taxonomy for packet lane areas — policy data, not
+ * mechanism. Order-sensitive: the first matching prefix wins, so
+ * `scripts/drift-ai/` must stay ahead of `scripts/`. Paths matching no prefix
+ * fall back to their first path segment.
+ */
+export const PATH_AREA_TAXONOMY: readonly { prefix: string; area: string }[] = [
+  { prefix: "packages/client/", area: "packages/client" },
+  { prefix: "packages/server/", area: "packages/server" },
+  { prefix: "packages/shared/", area: "packages/shared" },
+  { prefix: "scripts/drift-ai/", area: "scripts/drift-ai" },
+  { prefix: "scripts/", area: "scripts" },
+  { prefix: "eslint-rules/", area: "eslint-rules" },
+];
+
 function pathArea(path: string): string {
-  if (path.startsWith("packages/client/")) return "packages/client";
-  if (path.startsWith("packages/server/")) return "packages/server";
-  if (path.startsWith("packages/shared/")) return "packages/shared";
-  if (path.startsWith("scripts/drift-ai/")) return "scripts/drift-ai";
-  if (path.startsWith("scripts/")) return "scripts";
-  if (path.startsWith("eslint-rules/")) return "eslint-rules";
-  return path.split("/")[0] ?? "unknown";
+  const match = PATH_AREA_TAXONOMY.find(({ prefix }) => path.startsWith(prefix));
+  return match?.area ?? path.split("/")[0] ?? "unknown";
 }

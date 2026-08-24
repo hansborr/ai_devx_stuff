@@ -2,12 +2,15 @@
 // prototype subcommand (semgrep plan, slice 1). The manifest is the structured way
 // to declare several rule sources at once, with per-source license and pinning
 // metadata; the parsed sources flow into the license/registry gate in
-// `semgrep-rule-sources.ts`. Every defect here (invalid JSON, wrong schema
-// version, malformed source) is a usage/config error: DriftAiError, which
+// `semgrep-rule-sources.ts`. The strict-key arrays below are compiler-proven
+// against those source-arm types. This bespoke parser remains intentional:
+// every defect here (invalid JSON, wrong schema version, malformed source) is a
+// path-aware usage/config error whose tested contract is DriftAiError, which
 // `runPrototypeCommand` maps to exit 2 — unlike a valid-but-blocked source, which
 // stays an unmet prerequisite at exit 0.
 
-import { isRecord, type UnknownRecord } from "./config-readers.js";
+import { isRecord } from "../lib/records.js";
+import type { UnknownRecord } from "./config-readers.js";
 import { DriftAiError } from "./errors.js";
 import {
   conflictingKnownPackLicense,
@@ -19,16 +22,28 @@ import {
 } from "./semgrep-rule-sources.js";
 
 const MANIFEST_SCHEMA_VERSION = 1;
-const LOCAL_SOURCE_KEYS = [
-  "kind",
-  "config",
-  "license",
-  "sourceUrl",
-  "commit",
-  "sha256",
-  "operatorAcceptedLicense",
-];
-const REGISTRY_SOURCE_KEYS = ["kind", "pack", "license", "operatorAcceptedLicense"];
+const LOCAL_SOURCE_KEY_SET = {
+  kind: true,
+  config: true,
+  license: true,
+  sourceUrl: true,
+  commit: true,
+  sha256: true,
+  operatorAcceptedLicense: true,
+} as const satisfies Record<keyof SemgrepLocalRuleSource, true>;
+const LOCAL_SOURCE_KEYS = Object.keys(
+  LOCAL_SOURCE_KEY_SET,
+) as (keyof typeof LOCAL_SOURCE_KEY_SET)[]; // type-assertion-boundary: interop - Object.keys widens known object keys to string[]
+
+const REGISTRY_SOURCE_KEY_SET = {
+  kind: true,
+  pack: true,
+  license: true,
+  operatorAcceptedLicense: true,
+} as const satisfies Record<keyof SemgrepRegistryRuleSource, true>;
+const REGISTRY_SOURCE_KEYS = Object.keys(
+  REGISTRY_SOURCE_KEY_SET,
+) as (keyof typeof REGISTRY_SOURCE_KEY_SET)[]; // type-assertion-boundary: interop - Object.keys widens known object keys to string[]
 
 // Parse a `--rule-source-manifest` document (already read from disk; the command
 // owns file IO).

@@ -1,4 +1,6 @@
-import { readNonEmpty, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { positiveIntValue } from "./arg-readers.js";
 import {
   BIRTH_SIZE_DELTA_SUBCOMMAND,
   DEFAULT_BIRTH_SIZE_DELTA_BLOB_TIMEOUT_MS,
@@ -6,7 +8,20 @@ import {
   DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_READS,
   DEFAULT_BIRTH_SIZE_DELTA_TOP,
 } from "./birth-size-delta-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  BOUNDED_HISTORY_CLI_OPTIONS,
+  boundedHistoryArgsFromOptions,
+  boundedHistorySchemaShape,
+} from "./bounded-history-options.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const BIRTH_SIZE_DELTA_USAGE = [
   "Usage:",
@@ -38,59 +53,45 @@ export type ParsedBirthSizeDeltaArgs = {
   readonly blobTimeoutMs: number;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+  ...BOUNDED_HISTORY_CLI_OPTIONS,
+  { name: "--max-blob-reads", kind: "value" },
+  { name: "--max-blob-bytes", kind: "value" },
+  { name: "--blob-timeout-ms", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_BIRTH_SIZE_DELTA_TOP),
+  ...boundedHistorySchemaShape,
+  "--max-blob-reads": positiveIntValue("--max-blob-reads").default(
+    DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_READS,
+  ),
+  "--max-blob-bytes": positiveIntValue("--max-blob-bytes").default(
+    DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_BYTES,
+  ),
+  "--blob-timeout-ms": positiveIntValue("--blob-timeout-ms").default(
+    DEFAULT_BIRTH_SIZE_DELTA_BLOB_TIMEOUT_MS,
+  ),
+});
+
 export function parseBirthSizeDeltaArgs(argv: readonly string[]): ParsedBirthSizeDeltaArgs {
-  let top = DEFAULT_BIRTH_SIZE_DELTA_TOP;
-  let since: string | null = null;
-  let maxCommits: number | null = null;
-  let maxFiles: number | null = null;
-  let maxOutputBytes: number | null = null;
-  let timeoutMs: number | null = null;
-  let maxBlobReads = DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_READS;
-  let maxBlobBytes = DEFAULT_BIRTH_SIZE_DELTA_MAX_BLOB_BYTES;
-  let blobTimeoutMs = DEFAULT_BIRTH_SIZE_DELTA_BLOB_TIMEOUT_MS;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: BIRTH_SIZE_DELTA_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--since": (value) => {
-        since = readNonEmpty(value, "--since");
-      },
-      "--max-commits": (value) => {
-        maxCommits = readPositiveInt(value, "--max-commits");
-      },
-      "--max-blob-reads": (value) => {
-        maxBlobReads = readPositiveInt(value, "--max-blob-reads");
-      },
-      "--max-blob-bytes": (value) => {
-        maxBlobBytes = readPositiveInt(value, "--max-blob-bytes");
-      },
-      "--blob-timeout-ms": (value) => {
-        blobTimeoutMs = readPositiveInt(value, "--blob-timeout-ms");
-      },
-      "--max-files": (value) => {
-        maxFiles = readPositiveInt(value, "--max-files");
-      },
-      "--max-output-bytes": (value) => {
-        maxOutputBytes = readPositiveInt(value, "--max-output-bytes");
-      },
-      "--timeout-ms": (value) => {
-        timeoutMs = readPositiveInt(value, "--timeout-ms");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
   return {
-    base,
-    top,
-    since,
-    maxCommits,
-    maxFiles,
-    maxOutputBytes,
-    timeoutMs,
-    maxBlobReads,
-    maxBlobBytes,
-    blobTimeoutMs,
+    base: subcommandBaseFromOptions(options),
+    top: options["--top"],
+    ...boundedHistoryArgsFromOptions(options),
+    maxBlobReads: options["--max-blob-reads"],
+    maxBlobBytes: options["--max-blob-bytes"],
+    blobTimeoutMs: options["--blob-timeout-ms"],
   };
 }

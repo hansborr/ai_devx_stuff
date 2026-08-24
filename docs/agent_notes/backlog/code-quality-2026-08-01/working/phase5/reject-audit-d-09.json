@@ -1,0 +1,148 @@
+{
+  "contractVersion": 1,
+  "consult": "D-09",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-208",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/57-ratchet-exit-path-validation.md",
+      "coverage": "full",
+      "reason": "The live Status and weaker-sibling section explicitly limit validation to existence and leave semantic ownership and file.md#section anchor validation to a separate pack-wide convention change.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-208",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/57-ratchet-exit-path-validation.md",
+      "coverage": "full",
+      "reason": "The live leaf says semantic ownership is not mechanically checkable and anchor validation is an out-of-scope pack-wide convention change, fully covering this semantic-validation proposal.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[22]",
+      "ref": "CQ25-210",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/59-character-spell-add-unique-race.md",
+      "coverage": "full",
+      "reason": "The live Scope / caveats expressly rejects global P2002 middleware because call sites require distinct messages and codes and global mapping would silently alter future constraints.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-211",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/60-nested-write-runtime-guard.md",
+      "coverage": "full",
+      "reason": "The live Outcome explicitly keeps the nested ts-morph detector retired and moves all 45 former parity cases into the lint-only corpus.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-212",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/61-saving-throw-proficiency-identity.md",
+      "coverage": "full",
+      "reason": "The live Not done — deliberate section explicitly defers constraining saving-throw proficiency names to ability abbreviations until persisted-name auditing and uniqueness dedup are completed.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-214",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/64-concurrency-guard-direct-branch-parity.md",
+      "coverage": "full",
+      "reason": "The live Outcome explicitly keeps direct and nested cases in separate JSON corpora because their finding shapes and detector entry points differ and combining them would not strengthen either comparison.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-214",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/64-concurrency-guard-direct-branch-parity.md",
+      "coverage": "full",
+      "reason": "The live Outcome explicitly keeps direct and nested cases in separate JSON corpora because their finding shapes and detector entry points differ and combining them would not strengthen either comparison.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-216",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/66-sheet-owner-capability-gate.md",
+      "coverage": "full",
+      "reason": "The live Status and Outcome explicitly decline both a whole-sheet readOnly prop and a capability framework while recording the narrower owner/dm/viewer callback projection that landed instead.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[23]",
+      "ref": "CQ25-217",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/67-service-readme-ownership-exceptions.md",
+      "coverage": "full",
+      "reason": "The live Proposed direction treats the transaction-local utility as an established exception and explicitly says not to move prepared-spell-toggle.ts merely to satisfy the old prose.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-218",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/70-eslint-helper-collision-coverage.md",
+      "coverage": "full",
+      "reason": "The live Scope / caveats explicitly bars both a general module-classification framework and merging focused helper homes into ast-helpers.js.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-218",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/70-eslint-helper-collision-coverage.md",
+      "coverage": "full",
+      "reason": "The live Outcome and Scope permit only narrowly sharing the small classifier when that deletes duplication and explicitly reject generalized classification and helper-home consolidation.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[34]",
+      "ref": "CQ25-19",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/71-nested-write-walker-parity.md",
+      "coverage": "full",
+      "reason": "The live leaf remains open and explicitly owns deduplication or simplification of the duplicated lint/runtime nested-write state machine while preserving runtime authority and the 45-case lint floor.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-19",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/71-nested-write-walker-parity.md",
+      "coverage": "full",
+      "reason": "The live leaf inventories the shared state-machine decisions and schedules simplification or a declarative policy or behavior matrix; its warning against forced executable sharing narrows implementation rather than coverage.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-19",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/71-nested-write-walker-parity.md",
+      "coverage": "full",
+      "reason": "The live leaf remains open specifically for nested-walker simplification, beginning with deletion pressure while preserving the authoritative runtime boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-20",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/72-sheet-capability-callback-source.md",
+      "coverage": "full",
+      "reason": "The live leaf remains open and exactly owns compile-time hardening of the helper spread-and-override callback source so newly added mutation callbacks require capability classification.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [],
+  "coverageNotes": {
+    "claimantsAssigned": 15,
+    "claimantsJudged": 15,
+    "subagentPartition": [
+      "subagent 1: 57-ratchet-exit-path-validation.md and 59-character-spell-add-unique-race.md (3 claimants)",
+      "subagent 2: 60-nested-write-runtime-guard.md and 61-saving-throw-proficiency-identity.md (2 claimants)",
+      "subagent 3: 64-concurrency-guard-direct-branch-parity.md and 66-sheet-owner-capability-gate.md (3 claimants)",
+      "subagent 4: 67-service-readme-ownership-exceptions.md and 70-eslint-helper-collision-coverage.md (3 claimants)",
+      "subagent 5: 71-nested-write-walker-parity.md and 72-sheet-capability-callback-source.md (4 claimants)"
+    ],
+    "notes": [
+      "All 15 dropped titles are fully covered by explicit live prior-pack outcomes, scope decisions, or still-open leaves; no promotion candidates or source-tree residual evidence are required.",
+      "CQ25-210 fully covers the global-P2002-middleware title, but the lane's broader rejection prose overstates adjacent P2025 status: the live leaf describes remove as unverified and togglePrepared as out of scope rather than categorically declining both; neither issue is part of the dropped title.",
+      "CQ25-212's title is understood as tightening names conditionally for savingThrow proficiencies, as established by its ref and rejection reason; applying ability abbreviations to every proficiency type would be nonsensical because skill and language names share the input.",
+      "The prior-pack index still lists leaves 71 and 72 as open, and no reviewed constraint or current-pack triage ruling supersedes them.",
+      "No existingLeafHints apply because there are no promotions."
+    ]
+  }
+}

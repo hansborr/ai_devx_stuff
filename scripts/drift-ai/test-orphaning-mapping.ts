@@ -2,36 +2,12 @@
 // classify which history paths are tests, and infer the candidate test paths for a
 // given source from configurable mapping templates. Pure string work over paths —
 // no filesystem and no git, so it stays history-only and deterministic.
+//
+// Path classification is the shared taxonomy's *orphaning* policy
+// (scripts/lib/path-taxonomy.ts) — full source-extension set, declaration
+// exclusion, `.test`/`.spec` basenames, and segment-exact test directories.
 
-// Code extensions a source candidate can carry. Ordered longest-first only where a
-// shorter suffix could mis-match a longer one (`.ts` must not claim `.mts`); the
-// endsWith checks below are exact so the order is for readability, not correctness.
-const SOURCE_EXTENSIONS: readonly string[] = [
-  ".tsx",
-  ".ts",
-  ".mts",
-  ".cts",
-  ".jsx",
-  ".js",
-  ".mjs",
-  ".cjs",
-];
-
-// Directory segments whose presence marks a path as test/spec code (so it is never
-// treated as a source needing its own test). Exact segment matches, so a feature
-// dir like `latest/` or `tests-helpers/` is not swept in.
-const TEST_DIR_SEGMENTS: ReadonlySet<string> = new Set([
-  "__tests__",
-  "__test__",
-  "test",
-  "tests",
-  "e2e",
-]);
-
-// `.test.`/`.spec.` basename rule across the same code extensions.
-const TEST_BASENAME = /\.(?:test|spec)\.[mc]?[jt]sx?$/u;
-
-const DECLARATION_SUFFIXES: readonly string[] = [".d.ts", ".d.mts", ".d.cts"];
+import { isOrphaningTestPath, orphaningSourceExtensionOf } from "../lib/path-taxonomy.js";
 
 export type SourceParts = {
   readonly dir: string; // "" for a repo-root file
@@ -47,20 +23,14 @@ export type MappingCandidate = {
 // The source extension of a path, or null when it is not a plain code file (a
 // `.d.ts` declaration is excluded — it is not test-bearing source).
 export function sourceExtensionOf(filePath: string): string | null {
-  if (DECLARATION_SUFFIXES.some((suffix) => filePath.endsWith(suffix))) return null;
-  for (const ext of SOURCE_EXTENSIONS) if (filePath.endsWith(ext)) return ext;
-  return null;
+  return orphaningSourceExtensionOf(filePath);
 }
 
 // True when a path is itself a test/spec file (sibling `.test`/`.spec`, or inside a
 // `__tests__`/`test`/`tests`/`e2e` directory). Such paths are excluded from the
 // source-candidate set rather than being treated as untested source.
 export function isTestPath(filePath: string): boolean {
-  const slash = filePath.lastIndexOf("/");
-  const base = slash < 0 ? filePath : filePath.slice(slash + 1);
-  if (TEST_BASENAME.test(base)) return true;
-  const dirSegments = (slash < 0 ? "" : filePath.slice(0, slash)).split("/");
-  return dirSegments.some((segment) => TEST_DIR_SEGMENTS.has(segment));
+  return isOrphaningTestPath(filePath);
 }
 
 // Split a code path into mapping parts, or null when it is not a source candidate

@@ -22,7 +22,7 @@ export function isPathIgnored(filePath: string, ignore: DriftAiIgnoreConfig): bo
   return false;
 }
 
-export function pathHasAnySegment(filePath: string, segments: ReadonlySet<string>): boolean {
+function pathHasAnySegment(filePath: string, segments: ReadonlySet<string>): boolean {
   return normalizeRepoPath(filePath)
     .split("/")
     .some((segment) => segments.has(segment));

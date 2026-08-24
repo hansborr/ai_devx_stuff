@@ -19,6 +19,7 @@ import {
   toolNotInstalledReason,
   toolTimedOutReason,
 } from "./knip-orphan-files.js";
+import { type KnipReportIssueRows, parseKnipReportEnvelope } from "./knip-report-envelope.js";
 import {
   type KnipRunner,
   memoizingDefaultKnipRunner,
@@ -32,14 +33,12 @@ export type KnipPassThroughServices = OrphanFilesServices;
 
 type KnipReportParseSuccess = { readonly ok: true };
 
-type KnipReportParseFailure = { readonly ok: false; readonly error: string };
-
 type KnipPassThroughCheckOptions<
   C,
   Id extends DriftCheckId,
   TParsed extends KnipReportParseSuccess,
 > = CheckConfigMetadata<C, Id> & {
-  readonly parseReport: (jsonText: string) => TParsed | KnipReportParseFailure;
+  readonly projectReport: (issues: KnipReportIssueRows) => TParsed;
   readonly buildFindings: (
     parsed: TParsed,
     ctx: CheckRunContext<KnipPassThroughServices>,
@@ -54,7 +53,7 @@ export function defineKnipPassThroughCheck<
 >(
   options: KnipPassThroughCheckOptions<C, Id, TParsed>,
 ): CheckPlugin<C, KnipPassThroughServices, Id> {
-  const { parseReport, buildFindings, ...metadata } = options;
+  const { projectReport, buildFindings, ...metadata } = options;
   return defineCheckPlugin<C, KnipPassThroughServices, Id>({
     ...metadata,
     resolveServices: resolveKnipServices,
@@ -62,7 +61,7 @@ export function defineKnipPassThroughCheck<
     run: (ctx) =>
       runKnipPassThroughCheck(ctx, {
         checkId: metadata.id,
-        parseReport,
+        projectReport,
         buildFindings,
       }),
   });
@@ -106,6 +105,7 @@ function resolveKnipRunner(env: CheckServiceEnv): KnipRunner {
   if (resolution.found) {
     return memoizingDefaultKnipRunner({
       analyzedRepoRoot: env.repoRoot,
+      commandLabel: "drift:ai",
       includeCategories: resolveKnipIncludeCategories(env.cli.checks),
       knipBin: resolution.binPath,
       // Heartbeat (J1): route the runner's start/timeout banners to stderr so the
@@ -118,7 +118,7 @@ function resolveKnipRunner(env: CheckServiceEnv): KnipRunner {
 
 type RunKnipPassThroughCheckOptions<TParsed extends KnipReportParseSuccess> = {
   readonly checkId: DriftCheckId;
-  readonly parseReport: (jsonText: string) => TParsed | KnipReportParseFailure;
+  readonly projectReport: (issues: KnipReportIssueRows) => TParsed;
   readonly buildFindings: (
     parsed: TParsed,
     ctx: CheckRunContext<KnipPassThroughServices>,
@@ -140,19 +140,21 @@ function runKnipPassThroughCheck<TParsed extends KnipReportParseSuccess>(
   const result = ctx.services.knip({ configPath: resolution.configPath });
   if (!result.ok) return outcomeFromKnipFailure(result, options.checkId, resolution.displayPath);
 
-  const parsed = options.parseReport(result.reportJson);
-  if (!parsed.ok) {
+  const envelope = parseKnipReportEnvelope(result.reportJson);
+  if (!envelope.ok) {
     return {
       status: "ran",
       findings: [
         buildKnipDiagnosticFinding(
           resolution.displayPath,
-          knipUnreadableMessage(parsed.error, result.exitCode, result.stderr),
+          knipUnreadableMessage(envelope.error, result.exitCode, result.stderr),
           options.checkId,
         ),
       ],
     };
   }
+
+  const parsed = options.projectReport(envelope.issues);
 
   return {
     status: "ran",

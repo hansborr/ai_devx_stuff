@@ -1,0 +1,80 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-01-harness-core",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L01-101",
+      "title": "Suppression allowlists cannot ratchet downward",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/data/eslint-disable-broad-allowlist.txt",
+          "line": 2,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The documented path-glob/rule format contains eleven active permission rows."
+        },
+        {
+          "path": "scripts/eslint-disable-register.sh",
+          "line": 220,
+          "endLine": 231,
+          "measurement": null,
+          "note": "The consumer only asks whether an observed broad directive matches any permission; it does not record whether each permission was exercised."
+        },
+        {
+          "path": "scripts/data/ts-nocheck-allowlist.txt",
+          "line": 2,
+          "endLine": 4,
+          "measurement": null,
+          "note": "The documented path-glob format grants two files permission to use file-level @ts-nocheck."
+        },
+        {
+          "path": "scripts/suppression-register.sh",
+          "line": 229,
+          "endLine": 237,
+          "measurement": null,
+          "note": "This consumer likewise implements only forward membership from an observed directive to an allowlist pattern."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "At the audit pin, 11 of 11 non-comment ESLint allowlist rows correspond to at least one live broad directive, but 0 of 2 non-comment @ts-nocheck rows correspond to a real @ts-nocheck directive; both listed files still exist.",
+          "note": "The TypeScript allowlist has already retained two unused grants, demonstrating that permissions survive suppression retirement."
+        }
+      ],
+      "problem": "Both registers reject newly observed suppressions outside their allowlists but never reject an allowlist row after its suppression disappears. The entirely stale @ts-nocheck list therefore remains a standing permission to reintroduce file-wide checking suppression in either named file without requiring a new policy exception, and the data inventory no longer describes current debt.",
+      "proposedDirection": "During full scans, track which allowlist rows match live directives and fail on unused rows, while preserving the existing independent source scan and glob formats. Limit stale-row validation to full-scan scope so changed-file scans do not infer repository-wide absence.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-106",
+        "novelty": "CQ25-106 establishes independent discovery and non-vacuous scanning as a standing principle; these two allowlists and the measured 0-of-2 stale @ts-nocheck grants are new paths and evidence."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Add scripts/data to the scripts layout inventory",
+      "ref": "CQ25-34",
+      "reason": "The directory is a coherent home for the two shared policy-data files, while the missing scripts/README.md directory row is already explicitly scheduled by CQ25-34."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [],
+  "coverage": {
+    "readFully": [
+      "scripts/data/eslint-disable-broad-allowlist.txt — all 13 lines at the audit pin; all filename references under scripts/ and eslint-config/ were checked, including the direct scripts/eslint-disable-register.sh consumer, path-policy routing, documentation, and smoke-test references; eslint-config/ had no references.",
+      "scripts/data/ts-nocheck-allowlist.txt — all 4 lines at the audit pin; both listed paths and their suppression state were checked, and all filename references under scripts/ and eslint-config/ were checked, including the direct scripts/suppression-register.sh consumer, path-policy routing, documentation, and smoke-test references; eslint-config/ had no references."
+    ],
+    "sampled": [],
+    "skipped": [],
+    "pointers": [],
+    "cut": []
+  }
+}

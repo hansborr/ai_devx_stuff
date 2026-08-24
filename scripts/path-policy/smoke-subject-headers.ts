@@ -3,8 +3,8 @@ import { dirname, join, relative } from "node:path";
 
 import { parseCheckModeArgs, readCurrentOutput } from "../lib/doc-generator.js";
 import { validateFixtureShellDependencies } from "./fixture-shell-dependencies.js";
+import { isSmokeTestBasename, normalizePath } from "./smoke-test-files.js";
 
-const smokeFilePattern = /^test-.+\.sh$/u;
 const smokeSubjectsHeaderPrefixPattern = /^#\s*smoke-subjects:/u;
 const smokeOrderHeaderPattern = /^#\s*smoke-order:\s*(\d+)\s*$/u;
 const missingOrderSortValue = Number.MAX_SAFE_INTEGER;
@@ -21,19 +21,12 @@ export interface SmokeSubjectGeneratedOutput {
   readonly rendered: string;
 }
 
-function normalizePath(path: string): string {
-  return path.replaceAll("\\", "/");
-}
-
 function smokeNameFromFileName(fileName: string): string {
   return fileName.slice(0, -".sh".length);
 }
 
 function listSmokeFileNames(testsDir: string): readonly string[] {
-  if (!existsSync(testsDir)) return [];
-  return readdirSync(testsDir)
-    .filter((entry) => smokeFilePattern.test(entry))
-    .sort();
+  return readdirSync(testsDir).filter(isSmokeTestBasename).sort();
 }
 
 function parseSubjects(
@@ -125,12 +118,36 @@ function compareDefinitionOrder(
   return left.name.localeCompare(right.name);
 }
 
+// Non-vacuity precondition for the smoke-subject population. Both generated
+// artifacts are projected from whatever this returns, so zero definitions would
+// silently render an empty registry and an empty all-smoke-tests fixture rather
+// than failing. The two rejections stay separate because they name different
+// ownership problems: an absent tree means the caller passed the wrong repo
+// root (or the tree was deleted wholesale), while an empty tree means the smoke
+// scripts themselves are gone.
 export function collectSmokeSubjectDefinitions(
   repoRoot: string,
   sourceOverrides: ReadonlyMap<string, string> = new Map(),
 ): readonly SmokeSubjectDefinition[] {
   const testsDir = join(repoRoot, "scripts", "tests");
-  const definitions = listSmokeFileNames(testsDir).map((fileName) =>
+  if (!existsSync(testsDir)) {
+    throw new Error(
+      `scripts/tests does not exist under ${repoRoot}. ` +
+        "Smoke-subject discovery has no tree to scan, and generating from it would project an " +
+        "empty smoke registry and an empty all-smoke-tests fixture. " +
+        "Check the repo root passed to the generator.",
+    );
+  }
+  const fileNames = listSmokeFileNames(testsDir);
+  if (fileNames.length === 0) {
+    throw new Error(
+      "scripts/tests exists but contains no test-*.sh smoke tests. " +
+        "Smoke-subject discovery found no definitions, and generating from it would project an " +
+        "empty smoke registry and an empty all-smoke-tests fixture. " +
+        "Restore the test-*.sh smoke tests under scripts/tests.",
+    );
+  }
+  const definitions = fileNames.map((fileName) =>
     parseSmokeFile(repoRoot, fileName, sourceOverrides),
   );
   assertUniqueOrders(definitions);

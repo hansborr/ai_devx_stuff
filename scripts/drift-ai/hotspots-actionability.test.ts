@@ -7,6 +7,7 @@ import {
   pairKey,
   recentSubjects,
   shellQuoteArg,
+  subjectsAtIndexes,
   tagSectionsWithBaseline,
 } from "./hotspots-actionability.js";
 import type {
@@ -108,6 +109,28 @@ describe("recentSubjects", () => {
     ];
 
     expect(recentSubjects(records, always, 3)).toEqual(["newest", "middle", "older"]);
+  });
+});
+
+describe("subjectsAtIndexes", () => {
+  it("resolves ordered record indexes and applies the shared default limit", () => {
+    const sourcePath = "src/interleaved.ts";
+    const records = [
+      rec({ subject: "unrelated newest", files: [file("other.ts")] }),
+      rec({ subject: "newest match", files: [file(sourcePath)] }),
+      rec({ subject: "unrelated middle", files: [file("other.ts")] }),
+      rec({ subject: "middle match", files: [file(sourcePath)] }),
+      rec({ subject: "unrelated older", files: [file("other.ts")] }),
+      rec({ subject: "older match", files: [file(sourcePath)] }),
+      rec({ subject: "unrelated oldest", files: [file("other.ts")] }),
+      rec({ subject: "match beyond limit", files: [file(sourcePath)] }),
+    ];
+    const subjects = subjectsAtIndexes(records, [1, 3, 5, 7]);
+
+    expect(subjects).toEqual(
+      recentSubjects(records, (record) => record.files.some((entry) => entry.path === sourcePath)),
+    );
+    expect(subjects).toEqual(["newest match", "middle match", "older match"]);
   });
 });
 
@@ -317,6 +340,8 @@ describe("tagSectionsWithBaseline", () => {
       { sections: [{}] },
       // Infinity/NaN scores pass typeof but must be rejected by the finite guard.
       { sections: [{ lens: "churn", entries: [{ path: "src/a.ts", score: Infinity }] }] },
+      // A lens the registry does not know has no row identity: its rows never match.
+      { sections: [{ lens: "mystery", entries: [{ path: "src/a.ts", score: 4 }] }] },
     ];
     for (const bad of bads) {
       const { sections } = tagSectionsWithBaseline(current, bad);

@@ -1,3 +1,4 @@
+import type { DriftAiCommandResult } from "./command-result.js";
 import { readCoverageArtifacts } from "./coverage-artifacts.js";
 import {
   buildCoverageEvidenceAdvisory,
@@ -23,10 +24,7 @@ export type CoverageEvidenceRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type CoverageEvidenceRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type CoverageEvidenceRunResult = DriftAiCommandResult;
 
 export function runCoverageEvidence(
   options: CoverageEvidenceRunOptions,

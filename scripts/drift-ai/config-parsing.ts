@@ -1,3 +1,4 @@
+import { isRecord } from "../lib/records.js";
 import { CHECK_METADATA } from "./check-metadata.js";
 import type { DriftAiChecksConfig, DriftAiConfig, DriftAiIgnoreConfig } from "./config.js";
 import { makeDefaultDriftAiConfig } from "./config-defaults.js";
@@ -11,7 +12,6 @@ import {
 import {
   assertConfigObject,
   assertKnownKeys,
-  isRecord,
   mergeNormalizedStringArray,
   readStringArray,
 } from "./config-readers.js";

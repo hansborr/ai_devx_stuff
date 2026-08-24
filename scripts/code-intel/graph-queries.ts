@@ -4,14 +4,15 @@ import { existingRelativeFile } from "./source-project.js";
 import { isSlowTestFile, isTestFile } from "./test-files.js";
 import type {
   BfsVisit,
+  DependentResult,
   ImportEdge,
   ImportGraph,
-  IntelResult,
   ProjectBucket,
   ProjectBucketSummary,
   ProjectFilter,
   QueryDependentsOptions,
   QueryTestsOptions,
+  TestResult,
 } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
 
@@ -40,16 +41,15 @@ type ReverseVisitCandidate = {
 };
 
 const TRANSITIVE_TEST_RANK = 2;
-const UNKNOWN_TEST_RANK = 3;
 
-export function queryDependents(...args: QueryDependentsArgs): IntelResult[] {
+export function queryDependents(...args: QueryDependentsArgs): DependentResult[] {
   const [resolver, graph, file, depthLimit, options = {}] = args;
   return queryDependentsByRequest({ resolver, graph, file, depthLimit, options });
 }
 
-function queryDependentsByRequest(request: QueryDependentsRequest): IntelResult[] {
+function queryDependentsByRequest(request: QueryDependentsRequest): DependentResult[] {
   const target = existingRelativeFile(request.resolver, request.file);
-  const results: IntelResult[] = [];
+  const results: DependentResult[] = [];
   for (const visit of reverseBfs(request.graph, target, request.depthLimit)) {
     results.push({
       kind: "dependent",
@@ -66,10 +66,10 @@ export function queryTests(
   graph: ImportGraph,
   file: string,
   options: QueryTestsOptions = {},
-): IntelResult[] {
+): TestResult[] {
   const target = existingRelativeFile(resolver, file);
   const depthLimit = options.depth ?? Number.POSITIVE_INFINITY;
-  const results = new Map<string, IntelResult>();
+  const results = new Map<string, TestResult>();
 
   for (const candidate of colocatedTestCandidates(target)) {
     if (!resolver.fileExistsRelative(candidate)) continue;
@@ -144,28 +144,27 @@ function colocatedTestCandidates(file: string): string[] {
 }
 
 function filterTestsByProject(
-  results: IntelResult[],
+  results: TestResult[],
   project: ProjectFilter | undefined,
-): IntelResult[] {
+): TestResult[] {
   if (!project) return results;
-  return results.filter(
-    (result) => result.kind === "test" && fileMatchesProject(result.file, project),
-  );
+  return results.filter((result) => fileMatchesProject(result.file, project));
 }
 
-function filterDependents(results: IntelResult[], options: QueryDependentsOptions): IntelResult[] {
+function filterDependents(
+  results: DependentResult[],
+  options: QueryDependentsOptions,
+): DependentResult[] {
   return results.filter((result) => {
-    if (result.kind !== "dependent") return false;
     if (options.excludeTests && isTestFile(result.file)) return false;
     if (options.project && !fileMatchesProject(result.file, options.project)) return false;
     return true;
   });
 }
 
-export function summarizeDependentProjects(results: IntelResult[]): ProjectBucketSummary {
+export function summarizeDependentProjects(results: DependentResult[]): ProjectBucketSummary {
   const summary: ProjectBucketSummary = {};
   for (const result of results) {
-    if (result.kind !== "dependent") continue;
     const bucket = projectBucketForFile(result.file);
     if (!bucket) continue;
     summary[bucket] = (summary[bucket] ?? 0) + 1;
@@ -187,11 +186,11 @@ function fileMatchesProject(file: string, project: ProjectFilter): boolean {
   return file.startsWith("packages/client/");
 }
 
-function compareTestResults(left: IntelResult, right: IntelResult): number {
+function compareTestResults(left: TestResult, right: TestResult): number {
   const leftRank = testResultRank(left);
   const rightRank = testResultRank(right);
   if (leftRank !== rightRank) return leftRank - rightRank;
-  if (leftRank === TRANSITIVE_TEST_RANK && right.kind === "test" && left.kind === "test") {
+  if (leftRank === TRANSITIVE_TEST_RANK) {
     const leftDepth = left.depth ?? Number.POSITIVE_INFINITY;
     const rightDepth = right.depth ?? Number.POSITIVE_INFINITY;
     if (leftDepth !== rightDepth) return leftDepth - rightDepth;
@@ -199,17 +198,14 @@ function compareTestResults(left: IntelResult, right: IntelResult): number {
   return compareFileResults(left, right);
 }
 
-function testResultRank(result: IntelResult): number {
-  if (result.kind !== "test") return UNKNOWN_TEST_RANK;
+function testResultRank(result: TestResult): number {
   if (result.reason === "co-located") return 0;
   if (result.reason === "direct") return 1;
   return TRANSITIVE_TEST_RANK;
 }
 
-function compareFileResults(left: IntelResult, right: IntelResult): number {
-  const leftFile = "file" in left ? left.file : "";
-  const rightFile = "file" in right ? right.file : "";
-  return leftFile.localeCompare(rightFile, "en");
+function compareFileResults(left: TestResult, right: TestResult): number {
+  return left.file.localeCompare(right.file, "en");
 }
 
 function compareVisits(left: BfsVisit, right: BfsVisit): number {

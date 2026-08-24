@@ -1,17 +1,53 @@
 // @ts-check
 
+import { builtinModules } from "node:module";
+
+import { restrictedImportsRule } from "./package-boundary-policy.js";
 import {
-  serverScriptTypeScriptFiles,
   serverSourceFiles,
   serverTestAndHelperSourceFiles,
-  sharedSchemasBarrelRestrictedImportPattern,
   sharedSourceFiles,
-} from "./shared-policy.js";
+  sharedTestAndHelperSourceFiles,
+} from "./path-glob-policy.js";
+import { serverScriptTypeScriptFiles } from "./script-test-policy.js";
 
 // One string for the four browser globals shared code may not touch, so the
 // decision id and repair stay in sync across every entry.
 const sharedRuntimeNeutralGlobalMessage =
   "Why: ADR-0006 keeps packages/shared runtime-neutral, so browser globals are unavailable to the contract layer. How to fix: Move browser code to packages/client and pass the resolved value into shared code. See docs/adr/0006-shared-package-layering.md.";
+
+const sharedDependencyRestrictedImportPatterns = [
+  {
+    group: ["@musi/server", "@musi/server/*", "@musi/client", "@musi/client/*"],
+    message:
+      "Why: ADR-0006 makes packages/shared the cross-package contract layer, so depending on client or server modules inverts the shared -> server -> client flow. How to fix: Move the dependent code into packages/client or packages/server. See docs/adr/0006-shared-package-layering.md.",
+  },
+  {
+    group: [
+      "react",
+      "react-dom",
+      "socket.io-client",
+      "@tanstack/*",
+      "@trpc/client",
+      "@trpc/server",
+    ],
+    message:
+      "Why: ADR-0006 keeps packages/shared runtime-neutral, so a browser or server adapter imported there reaches every consumer. How to fix: Put the adapter in packages/client or packages/server and pass what shared code needs as a parameter. See docs/adr/0006-shared-package-layering.md.",
+  },
+];
+
+const sharedBrowserGlobalRestrictions = [
+  "window",
+  "document",
+  "localStorage",
+  "sessionStorage",
+].map((name) => ({ name, message: sharedRuntimeNeutralGlobalMessage }));
+
+const sharedNodeBuiltinRestrictedImportPattern = {
+  group: ["node:*", ...builtinModules.filter((specifier) => !specifier.startsWith("node:"))],
+  message:
+    "Why: ADR-0006 keeps packages/shared portable across browser and server consumers, so Node builtins are unavailable to production shared code. How to fix: Move Node-specific work to packages/server and pass the resolved value into shared code. See docs/adr/0006-shared-package-layering.md.",
+};
 
 const uploadServiceRestBoundaryFile = "packages/server/src/services/upload-service.ts";
 
@@ -114,53 +150,32 @@ export const packagePolicyConfigs = [
   {
     files: sharedSourceFiles,
     rules: {
-      // Flat config replaces (not merges) rule entries by key, so the global
-      // schemas-barrel restriction must be repeated here alongside shared-only
-      // dependency restrictions.
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
-        {
-          patterns: [
-            sharedSchemasBarrelRestrictedImportPattern,
-            {
-              group: ["@musi/server", "@musi/server/*", "@musi/client", "@musi/client/*"],
-              message:
-                "Why: ADR-0006 makes packages/shared the cross-package contract layer, so depending on client or server modules inverts the shared -> server -> client flow. How to fix: Move the dependent code into packages/client or packages/server. See docs/adr/0006-shared-package-layering.md.",
-            },
-            {
-              group: [
-                "react",
-                "react-dom",
-                "socket.io-client",
-                "@tanstack/*",
-                "@trpc/client",
-                "@trpc/server",
-              ],
-              message:
-                "Why: ADR-0006 keeps packages/shared runtime-neutral, so a browser or server adapter imported there reaches every consumer. How to fix: Put the adapter in packages/client or packages/server and pass what shared code needs as a parameter. See docs/adr/0006-shared-package-layering.md.",
-            },
-          ],
-        },
-      ],
-      "no-restricted-globals": [
-        "error",
-        {
-          name: "window",
-          message: sharedRuntimeNeutralGlobalMessage,
-        },
-        {
-          name: "document",
-          message: sharedRuntimeNeutralGlobalMessage,
-        },
-        {
-          name: "localStorage",
-          message: sharedRuntimeNeutralGlobalMessage,
-        },
-        {
-          name: "sessionStorage",
-          message: sharedRuntimeNeutralGlobalMessage,
-        },
-      ],
+      "@typescript-eslint/no-restricted-imports": restrictedImportsRule(
+        sharedDependencyRestrictedImportPatterns,
+      ),
+      "no-restricted-globals": ["error", ...sharedBrowserGlobalRestrictions],
+    },
+  },
+
+  {
+    files: sharedSourceFiles,
+    ignores: sharedTestAndHelperSourceFiles,
+    rules: {
+      // Complete good-faith Node reachability fence for production shared TS:
+      // static imports (including type-only) and re-exports are restricted
+      // below; dynamic literal/template imports, `import(...)` types,
+      // import-equals, and unshadowed require are handled by the local rule;
+      // ambient identifiers (`process`, `Buffer`, `__dirname`, `__filename`,
+      // and `NodeJS`) are scope-resolved by the local rule in every value/type
+      // position while innocent local declarations and shadowing stay valid.
+      // Runtime-computed module specifiers remain outside the accidental-misuse
+      // threat model. The test/helper ignore deliberately retains Node access.
+      "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
+        ...sharedDependencyRestrictedImportPatterns,
+        sharedNodeBuiltinRestrictedImportPattern,
+      ]),
+      "no-restricted-globals": ["error", ...sharedBrowserGlobalRestrictions],
+      "local/no-node-builtin-reference": "error",
     },
   },
 
@@ -199,23 +214,14 @@ export const rawTxClientBoundaryConfigs = [
       "packages/server/src/utils/*-mutations.ts",
     ],
     rules: {
-      // Flat config replaces (not merges) rule entries by key, so the global
-      // schemas-barrel restriction must be repeated here alongside the
-      // server-only RawTxClient restriction.
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
+      "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
         {
-          patterns: [
-            sharedSchemasBarrelRestrictedImportPattern,
-            {
-              group: ["**/prisma-types.js"],
-              importNames: ["RawTxClient"],
-              message:
-                "Why: ADR-0001 restricts RawTxClient because it bypasses gated delegate types. How to fix: Use a locked helper; see docs/guides/add-race-sensitive-mutation.md.",
-            },
-          ],
+          group: ["**/prisma-types.js"],
+          importNames: ["RawTxClient"],
+          message:
+            "Why: ADR-0007 restricts RawTxClient because it bypasses gated delegate types. How to fix: Use a locked helper; see docs/guides/add-race-sensitive-mutation.md.",
         },
-      ],
+      ]),
     },
   },
 ];

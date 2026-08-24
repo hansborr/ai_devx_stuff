@@ -3,6 +3,8 @@ import { describe, expect, it } from "vitest";
 import {
   buildSourceExtensions,
   BUILT_IN_SOURCE_EXTENSIONS,
+  changedFilesFromScope,
+  type DetectorScope,
   toChangedScopeFile,
   toCurrentScopeFile,
 } from "./scope.js";
@@ -40,5 +42,37 @@ describe("scope file helpers", () => {
       scope: "current",
       path: "src/app.ts",
     });
+  });
+
+  it("projects changed-scope files back to changed-file records", () => {
+    expect(
+      changedFilesFromScope({
+        scopeMode: "changed",
+        files: [
+          toChangedScopeFile({
+            path: "src/new.ts",
+            status: "renamed",
+            previousPath: "src/old.ts",
+          }),
+        ],
+      }),
+    ).toEqual([
+      {
+        path: "src/new.ts",
+        status: "renamed",
+        previousPath: "src/old.ts",
+      },
+    ]);
+
+    const invalidScope: DetectorScope = {
+      scopeMode: "changed",
+      // @ts-expect-error -- changed scopes reject mixed changed/current file records
+      files: [
+        toChangedScopeFile({ path: "src/changed.ts", status: "modified" }),
+        toCurrentScopeFile("src/current.ts"),
+      ],
+    };
+
+    void invalidScope;
   });
 });

@@ -127,14 +127,73 @@ actionable terminal output, but ESLint does not require it.
 
 Musi integration adds repository policy on top of that portable core:
 
-- Register the rule in `eslint-config/local-plugin.js` instead of declaring a
-  one-rule plugin inline.
+- Do not declare a one-rule plugin inline. The `local` plugin registry is
+  generated from the rule files on disk into
+  `eslint-config/local-plugin.generated.js`; you create the module and run
+  `bun run lint:local-plugin`.
 - Add the extra `meta.docs` fields in [Metadata Contract](#metadata-contract)
   and follow the checked message shapes below.
-- Run the repository catalog, registry-completeness, paired-guide, and coverage
-  checks described in [Adding A New Rule](#adding-a-new-rule). These checks and
-  their `bun run` commands are Musi surfaces, not prerequisites for an external
-  ESLint plugin.
+- Run the repository catalog, paired-guide, and coverage checks described in
+  [Adding A New Rule](#adding-a-new-rule). These checks and their `bun run`
+  commands are Musi surfaces, not prerequisites for an external ESLint plugin.
+
+## Generated Registration
+
+Musi derives every registration surface a `local/*` rule needs from sources that
+already exist, so adding a rule is not a multi-file ritual:
+
+| Surface | Generated file | Refresh |
+|---|---|---|
+| `local` plugin registry | `eslint-config/local-plugin.generated.js` | `bun run lint:local-plugin` |
+| `kind: lint-rule` harness controls | `harness.controls.lint-rules.generated.json` | `bun run harness:lint-rule-controls` |
+
+Run them in that order. Control derivation reads flat-config activation, and
+flat config statically imports the generated plugin registry, so the registry
+has to exist and be current first.
+
+The plugin generator (`scripts/harness/generate-local-plugin.ts`) scans
+top-level `eslint-rules/*.js`, skips `*.test.js`, and keeps only modules whose
+default export carries both `meta` and a callable `create`. That shape test —
+not an allowlist — is what separates rules from the helper modules that live in
+the same directory, so a new helper needs no registration and no exemption.
+Rule id and module path come from the filename: `eslint-rules/<name>.js`
+becomes plugin key `<name>` and rule name `local/<name>`. Because the filename
+also becomes the generated module's import binding, `<name>` must be lowercase
+kebab-case starting with a letter and must not be a reserved word — generation
+fails by name on `2fa-required.js`, `No-Barrel.js`, or `default.js` rather than
+writing a registry that no longer parses.
+
+The output is committed and freshness-gated (`bun run lint:local-plugin:check`,
+also reached by `bun run harness:check` and warned about at pre-commit). It uses
+static imports only: `eslint.config.js` loads it synchronously on every lint
+run, so runtime discovery, a top-level `await`, or config-load IO there is not
+an option.
+
+The control generator (`scripts/harness/generate-lint-rule-controls.ts`) reuses
+that discovered rule set and derives each control's `id`, `ruleName`, `source`,
+and `invocation` — nothing about a lint-rule control is authored. `invocation`
+is `bun run lint` when flat config enables the rule and `bun run lint:ratchet`
+when only a lint ratchet claims it; when both do, normal lint wins, because that
+is the command that actually blocks a merge. **A rule activated on neither
+surface fails generation**, so choosing an activation mode is now part of adding
+a rule rather than something a late drift check notices.
+
+The output is an include: `harness.controls.json` owns every other control kind,
+this file owns lint rules, and `scripts/harness/harness-manifest.ts` merges the
+two so every manifest reader sees one assembled inventory. Per-rule `category`,
+`principle`, `pairedGuide`, `repairKind`, and `repairCommand` are still
+re-projected from the rule's own `meta.docs` by the control-doc generator, and
+still belong in neither file.
+
+Two consequences worth knowing before you add a file to `eslint-rules/`:
+
+- A stray rule-shaped module is registered automatically. That is intended —
+  a rule file can no longer be dead because someone forgot the import.
+- A non-`*.test.js` module in `eslint-rules/` must be importable **without**
+  the generated registry. Discovery imports every candidate to classify it, so
+  a helper that imports `local-plugin.generated.js` would make the generator
+  depend on its own output. Put that dependency in a `*.test.js` file instead;
+  discovery reports the rule by name if you trip it.
 
 ## Rule Catalog
 
@@ -196,10 +255,12 @@ Every local rule needs a `meta.docs` object. The guidance generator,
 - `repairCommand`: required only when `repairKind` is `codemod`; absent for all
   other repair kinds.
 
-`eslint-config/local-plugin.js` is the local registration point for this
-contract. The message-guidance suite derives `ALL_LOCAL_RULES` from
-`localPlugin.rules`, then checks each registered rule's `messageId` against the
-guidance-shape or policy-shape expectations below.
+`eslint-config/local-plugin.generated.js` is the local registration point for
+this contract, and it is generated — see
+[Generated Registration](#generated-registration). The message-guidance suite
+derives its rule set from `localPlugin.rules`, then checks each registered
+rule's `messageId` against the guidance-shape or policy-shape expectations
+below.
 
 Core and plugin rules cannot provide Musi's custom `meta.docs` fields. Selected
 high-traffic steering rules instead use the rule-keyed registry in
@@ -276,20 +337,30 @@ prose cannot drift silently:
 When you add a rule under `eslint-rules/`:
 
 1. Decide whether the diagnostic is guidance or policy.
-2. Import and register the rule in `eslint-config/local-plugin.js`.
-3. Use the guidance message shape, or add the rule's terse policy `messageId`
+2. Choose the rule's activation mode: enable `local/<name>` in the owning
+   `eslint-config/*.js` block for normal lint, or add a lint ratchet entry for
+   it (see [Lint Ratchet](lint-ratchet.md)). There is no third option — a rule
+   activated on neither surface fails control generation in the next step.
+3. Run `bun run lint:local-plugin` then `bun run harness:lint-rule-controls`,
+   and commit both generated files. See
+   [Generated Registration](#generated-registration).
+4. Use the guidance message shape, or add the rule's terse policy `messageId`
    to the policy-shape exemption set when that shape is intentional.
-4. If the rule declares a `pairedGuide` (not `none`), inline a pointer to that
+5. If the rule declares a `pairedGuide` (not `none`), inline a pointer to that
    guide in its message, or add the rule to the paired-guide exemption set in
    `eslint-rules/message-guidance.test.js` with a reason. The parity test
    enforces that every paired-guide rule either points at its guide or is
    exempted on purpose.
-5. Run `bun run test:eslint-rules` and adjust until green.
-6. Run `bun run docs:lint-guidance` if the generated local rule catalog changes.
+6. Run `bun run test:eslint-rules` and adjust until green.
+7. Run `bun run docs:lint-guidance` if the generated local rule catalog changes,
+   and `bun run docs:harness-controls` for the control inventory.
 
-A rule file that is not registered in `localPlugin.rules` fails the registry
-completeness test and will not run in lint. Register new rules with their
-implementation change so the convention tests cover their messages immediately.
+A rule whose registration is not regenerated leaves
+`eslint-config/local-plugin.generated.js` or
+`harness.controls.lint-rules.generated.json` stale, which fails
+`bun run lint:local-plugin:check`, `bun run harness:lint-rule-controls:check`,
+and `bun run harness:check`. Regenerate with the implementation change so the
+convention tests cover the rule's messages immediately.
 
 ## Probing A Single Rule Under The Flat Config
 

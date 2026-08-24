@@ -1,0 +1,1279 @@
+{
+  "step": "1c-input",
+  "builtFrom": [
+    {
+      "consult": "R5B",
+      "file": "reject-audit-r5-b.json",
+      "count": 14
+    },
+    {
+      "consult": "R5C",
+      "file": "reject-audit-r5-c.json",
+      "count": 7
+    }
+  ],
+  "candidateCount": 21,
+  "candidates": [
+    {
+      "promotionId": "R5B-L01-001",
+      "title": "Make Knip runner diagnostics caller-neutral",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/knip-runner.ts",
+          "line": 176,
+          "endLine": 203,
+          "measurement": null,
+          "note": "The exported runner accepts a generic warning callback but hard-codes drift:ai into both heartbeat messages."
+        },
+        {
+          "path": "scripts/sensor-knip-unused-exports-core.ts",
+          "line": 234,
+          "endLine": 268,
+          "measurement": null,
+          "note": "The standalone sensor wraps the callback with an anchored replacement from drift:ai to sensor:knip-unused-exports."
+        },
+        {
+          "path": "scripts/drift-ai/knip-runner.ts",
+          "line": 1,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The header still describes the runner as owned solely by the orphan-files adapter."
+        }
+      ],
+      "problem": "A reusable subprocess boundary owns one caller's diagnostic identity, forcing another production caller to parse and rewrite human-facing text. Message changes can leak the wrong command identity or silently break the replacement.",
+      "proposedDirection": "Emit caller-neutral heartbeat text or typed heartbeat events and let each caller add its command label. Remove the sensor's prefix rewrite and refresh the stale header.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[17]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Reusable sensor engines live beneath drift-ai and rewrite its diagnostic identity.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-41",
+          "residual": "The scheduled sensor-family move does not address the imported runner's hard-coded label or the sensor's text rewrite."
+        },
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-146",
+          "residual": "No drift-ai directory restructuring is proposed; this residual is caller-neutral formatting at the existing boundary."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 163 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L02-001",
+      "title": "Remove the unreachable start command from the code-intel server CLI vocabulary",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 31,
+          "endLine": null,
+          "measurement": null,
+          "note": "ServerCliCommand advertises start."
+        },
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 97,
+          "endLine": 105,
+          "measurement": null,
+          "note": "The sole parser accepts only status, stop, and restart."
+        },
+        {
+          "path": "scripts/code-intel/server-cli.ts",
+          "line": 89,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The dispatcher has no distinct start behavior."
+        }
+      ],
+      "problem": "The private command union claims a state that the parser cannot produce and the dispatcher does not distinguish, weakening exhaustiveness and misleading lifecycle maintenance.",
+      "proposedDirection": "Delete start from ServerCliCommand and retain the three-command parser and usage text as authority.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[13]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "ServerCliCommand contains an unreachable start arm",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 133 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L02-002",
+      "title": "Require rationale metadata on ghost-file allow-pair exceptions",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "drift-ai.config.json",
+          "line": 15,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Eight durable currentAllowedPairs entries contain paths only."
+        },
+        {
+          "path": "scripts/drift-ai/config.ts",
+          "line": 112,
+          "endLine": 114,
+          "measurement": null,
+          "note": "GhostFileAllowedPair has only a files tuple."
+        },
+        {
+          "path": "scripts/drift-ai/config-readers.ts",
+          "line": 149,
+          "endLine": 167,
+          "measurement": null,
+          "note": "The parser requires a positional two-path array and cannot retain rationale."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 344,
+          "endLine": 350,
+          "measurement": null,
+          "note": "The guide describes these as explicit exceptions for residual heuristic cases."
+        }
+      ],
+      "problem": "Durable suppressions cannot record why they are legitimate, so reviewers cannot distinguish deliberate module pairs from temporary or stale permissions.",
+      "proposedDirection": "Represent each pair with files and a required non-empty rationale, migrate the eight entries, and retain rationale in effective-config inspection.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[14]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Ghost-file allowlist pairs carry no rationale metadata",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-10",
+          "residual": "Its surviving analyzer-contract slices do not add rationale to currentAllowedPairs."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 169 — hint only",
+        "looks close to leaf 207 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L02-003",
+      "title": "Remove the always-false oversized field from triage packet serialization",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-packet-group.ts",
+          "line": 74,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Ordinary groups flush before exceeding packetSize."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-group.ts",
+          "line": 88,
+          "endLine": 117,
+          "measurement": null,
+          "note": "Large components are split into bounded chunks before oversized is calculated."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-types.ts",
+          "line": 30,
+          "endLine": 37,
+          "measurement": null,
+          "note": "The unreachable state is exposed in every packet."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packets.ts",
+          "line": 62,
+          "endLine": 95,
+          "measurement": null,
+          "note": "The value is copied into manifest and packet serialization."
+        }
+      ],
+      "problem": "The packet protocols advertise an oversized state that grouping structurally prevents, inviting dead consumer handling and synchronized maintenance across types and serializers.",
+      "proposedDirection": "Remove oversized from group, packet, manifest, serializers, and fixtures; keep splitPathComponent as the truthful exceptional-condition disclosure.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[17]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Packet oversized is an always-false serialized field",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-10",
+          "residual": "Its surviving triage-contract slices do not address the uninhabitable packet field."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 232 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L02-004",
+      "title": "Stop accumulating coldspot state that no coldspot calculation reads",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/coldspots-aggregate.ts",
+          "line": 12,
+          "endLine": 20,
+          "measurement": null,
+          "note": "FileAggregate includes added and oldestTouchMs."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-aggregate.ts",
+          "line": 33,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Every row increments added and mutates both touch bounds."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-coldspot.ts",
+          "line": 81,
+          "endLine": 84,
+          "measurement": null,
+          "note": "Age calculation reads newestTouchMs only."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-coldspot.ts",
+          "line": 162,
+          "endLine": 174,
+          "measurement": null,
+          "note": "Surfaced rows do not read added or oldestTouchMs."
+        }
+      ],
+      "problem": "Coldspot aggregation performs per-file writes for an added-line total and oldest-touch bound that the lens never reads, obscuring its actual age and birth requirements.",
+      "proposedDirection": "Remove added and oldestTouchMs, track only newestTouchMs for age, and retain birthMs as the live earliest-commit selector.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[19]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Coldspot aggregation retains unused accumulator state",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 209 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L03-001",
+      "title": "SRD backfills advertise scope guards built from the rows they guard",
+      "area": "server",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/seed/backfill-srd-spell-combat.ts",
+          "line": 31,
+          "endLine": 44,
+          "measurement": null,
+          "note": "The allow-looking set and query predicate are derived from the same supplied rows."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-monster-actions.ts",
+          "line": 42,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The monster backfill repeats the self-derived membership check; sourceType is the separate real constraint."
+        }
+      ],
+      "problem": "Checks that read as allowlist enforcement cannot filter any supplied row, creating false assurance about database-write scope and dead branches reviewers must reason through.",
+      "proposedDirection": "Delete the self-derived checks and redundant predicate, or validate against an independently trusted SRD-id source. Preserve the monster sourceType constraint.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[20]",
+          "lane": "lane-03-server",
+          "originalTitle": "Both SRD backfills contain tautological allowlist-looking guards.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 203 — hint only",
+        "looks close to leaf 097 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L03-002",
+      "title": "Bearer-header interpretation has two private production implementations",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/trpc/context.ts",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The tRPC boundary privately defines and parses the Bearer prefix."
+        },
+        {
+          "path": "packages/server/src/routes/upload-routes.ts",
+          "line": 49,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The upload boundary repeats prefix checking, slicing, and verification."
+        }
+      ],
+      "problem": "The two authenticated HTTP boundaries can silently diverge on scheme, whitespace, or empty-token policy despite delegating token semantics to the same verifier.",
+      "proposedDirection": "Expose one authorization-header extractor or authentication helper and use it from both boundaries, leaving REST response mapping local.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[24]",
+          "lane": "lane-03-server",
+          "originalTitle": "Bearer-token parsing is duplicated between tRPC and upload boundaries.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 205 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L03-003",
+      "title": "Database seed entrypoints duplicate a fragile forced-exit lifecycle",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/prisma/seed.ts",
+          "line": 8,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The ordinary seed configures logging and Prisma, then exits in catch before chained cleanup."
+        },
+        {
+          "path": "packages/server/prisma/seed-template.ts",
+          "line": 10,
+          "endLine": 33,
+          "measurement": null,
+          "note": "The template seed duplicates the same configuration and lifecycle."
+        }
+      ],
+      "problem": "Two entrypoints maintain the same database bootstrap, failure, and shutdown protocol by hand, and both force process exit before their chained finally purports to disconnect.",
+      "proposedDirection": "Extract a database-script runner accepting command/messages and a Prisma callback; set a nonzero exit code on failure and let finally disconnect.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[25]",
+          "lane": "lane-03-server",
+          "originalTitle": "Seed command configuration and entrypoint lifecycle are duplicated.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 087 — hint only",
+        "looks close to leaf 009 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05-001",
+      "title": "Remove the legacy DeathSaves production orphan and its stale test",
+      "area": "client",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/death-saves.tsx",
+          "line": 37,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The legacy read-only DeathSaves component remains exported."
+        },
+        {
+          "path": "packages/client/src/components/sheet/desktop-sheet-layout.tsx",
+          "line": 81,
+          "endLine": 89,
+          "measurement": null,
+          "note": "The live desktop sheet renders DeathSavesInteractive."
+        },
+        {
+          "path": "packages/client/src/components/sheet/mobile-sheet-tabs.tsx",
+          "line": 87,
+          "endLine": 95,
+          "measurement": null,
+          "note": "The live mobile sheet also renders DeathSavesInteractive."
+        },
+        {
+          "path": "packages/client/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production imports (`rg -l 'death-saves\\.js' packages/client/src --glob '!**/*.test.*' --glob '!**/*.spec.*' | wc -l`)",
+          "note": "The legacy module has no production consumer; its external consumer is a test."
+        }
+      ],
+      "problem": "A superseded production component survives only through a stale test, duplicating presentation and making coverage imply that production exercises behavior it never renders.",
+      "proposedDirection": "Delete death-saves.tsx and remove or relocate its obsolete test cases; retain coverage on DeathSavesInteractive and the shared dot primitive.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[4]",
+          "lane": "lane-05-client",
+          "originalTitle": "Legacy DeathSaves is unreferenced.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 061 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05-002",
+      "title": "Non-freehand drawing drags copy an unused growing point history",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 207,
+          "endLine": 225,
+          "measurement": null,
+          "note": "One handler sends every drawing tool's pointer moves through updateDrawing."
+        },
+        {
+          "path": "packages/client/src/stores/map-canvas-store.ts",
+          "line": 443,
+          "endLine": 452,
+          "measurement": null,
+          "note": "Every update copies and appends to freehandPoints."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 50,
+          "endLine": 87,
+          "measurement": null,
+          "note": "Only the freehand builder consumes the history."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/use-map-canvas-handlers.ts",
+          "line": 60,
+          "endLine": 72,
+          "measurement": null,
+          "note": "MapCanvas subscribes to the complete drawing object, including each replaced history array."
+        }
+      ],
+      "problem": "Line, rectangle, and circle drags grow and recopy a coordinate array their builders never read, creating quadratic cumulative allocation on a pointer-frequency path.",
+      "proposedDirection": "Append points only for draw-freehand; update currentPoint alone for other drawing tools.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[6]",
+          "lane": "lane-05-client",
+          "originalTitle": "Non-freehand drawing gestures accumulate unused freehand history.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-188",
+          "residual": "CQ25-188 declined splitting the canvas store; this candidate changes only per-tool accumulation and does not split ownership."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 047 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05-021",
+      "title": "Give dice.roll a RollResult-typed response instead of four client metadata assertions",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/dice.ts",
+          "line": 29,
+          "endLine": 61,
+          "measurement": null,
+          "note": "dice.roll validates generic chat output while always producing metadata from a concrete RollResult."
+        },
+        {
+          "path": "packages/shared/src/schemas/chat-inputs.ts",
+          "line": 52,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The generic chat schema leaves metadata unknown."
+        },
+        {
+          "path": "packages/shared/src/schemas/dice-inputs.ts",
+          "line": 26,
+          "endLine": 40,
+          "measurement": null,
+          "note": "A runtime rollResultSchema already exists."
+        },
+        {
+          "path": "packages/client/src/hooks/use-ability-roll.ts",
+          "line": 23,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The ability hook asserts metadata and falsely describes it as guaranteed by the mutation contract."
+        },
+        {
+          "path": "packages/client/src/hooks/use-weapon-roll.ts",
+          "line": 39,
+          "endLine": 80,
+          "measurement": null,
+          "note": "Three more assertions feed toast rendering and critical-damage control flow."
+        }
+      ],
+      "problem": "The procedure always returns roll metadata but exposes it as unknown, forcing four unchecked assertions. Producer/schema drift remains invisible to TypeScript, and malformed metadata can crash toast formatting or the weapon crit chain.",
+      "proposedDirection": "Add a dice-roll response schema narrowing the chat envelope to metadata validated by rollResultSchema. If generic output must remain, centralize a safeParse adapter with explicit invalid-data handling.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[21]",
+          "lane": "lane-05-client",
+          "originalTitle": "Dice roll hooks repeat the same transport adapter and JSON narrowing.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-179",
+          "residual": "CQ25-179 preserves the persisted RollResult model; this candidate leaves that shape unchanged and addresses only the procedure response boundary."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05C-001",
+      "title": "Rename elementCenter to match its intentional bottom-left menu anchor",
+      "area": "client",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/use-long-press.ts",
+          "line": 35,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The helper named elementCenter returns rect.left and rect.bottom."
+        },
+        {
+          "path": "packages/client/src/hooks/use-long-press.ts",
+          "line": 128,
+          "endLine": 135,
+          "measurement": null,
+          "note": "Shift+Enter sends the result as the keyboard-triggered menu position."
+        },
+        {
+          "path": "packages/client/src/components/sheet/roll-context-menu.tsx",
+          "line": 139,
+          "endLine": 142,
+          "measurement": null,
+          "note": "The menu consumes the point directly as CSS left/top."
+        },
+        {
+          "path": "packages/client/src/hooks/use-long-press.test.ts",
+          "line": 255,
+          "endLine": 270,
+          "measurement": null,
+          "note": "The test pins bottom-left behavior, showing that placement is intentional."
+        }
+      ],
+      "problem": "A geometry helper claims to return the center while returning the bottom-left anchor. The false name obscures the tested menu-placement contract and invites an accidental behavior change.",
+      "proposedDirection": "Keep the behavior and rename the helper to elementBottomLeft or elementMenuAnchor; update the test title accordingly.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[25]",
+          "lane": "lane-05-client",
+          "originalTitle": "elementCenter returns a bottom-left anchor.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05C-002",
+      "title": "CreateMapDialog retains its submitted draft because successful close bypasses reset",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+          "line": 203,
+          "endLine": 216,
+          "measurement": null,
+          "note": "The persistently mounted component owns form, image-mode, upload, file, and preview state."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/create-map-dialog.tsx",
+          "line": 239,
+          "endLine": 253,
+          "measurement": null,
+          "note": "State resets only through handleClose."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/maps-panel.tsx",
+          "line": 157,
+          "endLine": 168,
+          "measurement": null,
+          "note": "Success closes from the parent with setCreateOpen(false), bypassing handleClose."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/use-map-image-preview.ts",
+          "line": 48,
+          "endLine": 53,
+          "measurement": null,
+          "note": "Object URLs are revoked on hook-owner unmount, which a controlled close does not cause."
+        }
+      ],
+      "problem": "Successful creation bypasses the dialog's manual reset, so reopening can expose the submitted name, dimensions, image mode/file, and preview. The selected-file object URL also remains live while the always-mounted owner survives.",
+      "proposedDirection": "Place draft/upload/preview state in keyed dialog content so every close/reopen transition remounts and cleanup runs; add a close-after-success and reopen regression case.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[28]",
+          "lane": "lane-05-client",
+          "originalTitle": "CreateMapDialog manually reconstructs keyed-remount lifecycle.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-216",
+          "residual": "CQ25-216 declined sheet-dialog lifecycle work as outside a sheet-owner capability change. This map dialog is outside that scope and has a concrete success-close path that bypasses reset."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 055 — hint only"
+      ],
+      "overturnsRuling": "Overturns CQ25-216 only if its phrase “dialog remount/reset work” is read repository-wide. That refusal concerned sheet-dialog work outside a sheet-owner capability fix and did not inspect CreateMapDialog. Here, MapsPanel's success path closes the map dialog without invoking its reset, producing observable stale draft state and retained object-URL lifetime.",
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5B-L05D-001",
+      "title": "Preserve required route-parameter typing in parameterized pages",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/routes/character-sheet-route.ts",
+          "line": 18,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The registered route requires characterId."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet-page.tsx",
+          "line": 23,
+          "endLine": 30,
+          "measurement": null,
+          "note": "strict:false widens characterId, forcing an empty query input and missing-ID branch."
+        },
+        {
+          "path": "packages/client/src/pages/campaign-detail-page.tsx",
+          "line": 231,
+          "endLine": 251,
+          "measurement": null,
+          "note": "campaignId is read loosely while adjacent search/navigation calls retain exact route identity."
+        },
+        {
+          "path": "packages/client/src/pages/collection-detail-page.tsx",
+          "line": 149,
+          "endLine": 164,
+          "measurement": null,
+          "note": "Required collectionId is widened and normalized to an empty string."
+        },
+        {
+          "path": "packages/client/src/pages/join-page.tsx",
+          "line": 52,
+          "endLine": 70,
+          "measurement": null,
+          "note": "Required invite code becomes optional, producing fallback and enabled guards."
+        }
+      ],
+      "problem": "Four pages discard the router's compile-time guarantee that required parameters exist, spreading empty-ID fallbacks and unreachable states while allowing route/page mismatches to compile.",
+      "proposedDirection": "Bind each useParams call to its exact route and remove fallbacks and missing-parameter branches that become unreachable.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[46]",
+          "lane": "lane-05-client",
+          "originalTitle": "Required route parameters are widened through strict:false.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 248 — hint only",
+        "looks close to leaf 051 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-b.json"
+    },
+    {
+      "promotionId": "R5C-001",
+      "title": "Document the two cross-worktree status modes in the per-worktree guide",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 14,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The command table describes only unqualified worktree:status as current-worktree diagnostics."
+        },
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 64,
+          "endLine": 109,
+          "measurement": null,
+          "note": "The multi-lane orchestration section never mentions the cross-lane status dashboard, and Recovery again uses only unqualified status."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The authoritative header defines --all provisioning diagnostics and the Postgres-free --lanes Git-work summary with optional --base."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 1536,
+          "endLine": 1565,
+          "measurement": null,
+          "note": "The dispatcher implements both modes, mutual exclusion, and the --base-only-with---lanes constraint."
+        }
+      ],
+      "problem": "The dedicated worktree guide teaches multi-lane coordination without exposing the existing read-only command that summarizes ahead/behind state, staged and unstaged work, and commit age across lanes. Contributors must discover both cross-worktree modes from the large shell implementation.",
+      "proposedDirection": "Add command-table entries for worktree:status --all and worktree:status --lanes [--base <ref>], then point the multi-lane section to --lanes while preserving the script as behavioral authority.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[8]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The per-worktree multi-lane section omits worktree:status --lanes and --all.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 265 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-002",
+      "title": "Give the client character-creation wizard a local orientation contract",
+      "area": "client",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create",
+          "line": null,
+          "endLine": null,
+          "measurement": "21 production files and no MODULE.md (`find /workspace/packages/client/src/components/character-create -type f ! -name '*.test.ts' ! -name '*.test.tsx' | wc -l`)",
+          "note": "This is a large multi-step feature directory without the repository's local orientation document."
+        },
+        {
+          "path": "docs/module-docs.md",
+          "line": 24,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The charter requires MODULE docs for large feature directories and surfaces hiding non-obvious state or cross-file flow."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-state.ts",
+          "line": 229,
+          "endLine": 275,
+          "measurement": null,
+          "note": "The reducer owns cross-step invariants: class changes rewind progress and clear spells, while background changes clear equipment."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-validation.ts",
+          "line": 46,
+          "endLine": 74,
+          "measurement": null,
+          "note": "Step advancement is a keyed validation graph, including exact class-dependent spell counts."
+        },
+        {
+          "path": "packages/client/src/components/character-create/create-character-input.ts",
+          "line": 58,
+          "endLine": 91,
+          "measurement": null,
+          "note": "A separate projection converts wizard state into the shared mutation contract and intentionally leaves universal proficiencies to the server."
+        },
+        {
+          "path": "packages/client/src/pages/character-create-page.tsx",
+          "line": 8,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The page composes nine step components plus state, navigation, and submission seams."
+        }
+      ],
+      "problem": "A contributor entering this 21-file wizard has no local map of state ownership, conditional-step behavior, cross-step reset invariants, validation, or the client-to-server projection boundary. Those contracts are spread across reducer comments and implementation files despite meeting the repository's explicit MODULE threshold.",
+      "proposedDirection": "Add character-create/MODULE.md covering provider/reducer ownership, step composition, conditional spell navigation, reset invariants, validation and buildCreateInput boundaries, and focused test seams; regenerate MODULE-INDEX.md.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[14]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "Character creation is a 21-file multi-step feature without a local MODULE document.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 042 — hint only",
+        "looks close to leaf 045 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-003",
+      "title": "The claimed complete guide map omits two deliberate lint-ratchet guides",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/README.md",
+          "line": 13,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The docs landing page calls ai-harness.md the authoritative single-source inventory of every guide."
+        },
+        {
+          "path": "docs/README.md",
+          "line": 29,
+          "endLine": 31,
+          "measurement": null,
+          "note": "It explicitly claims the ai-harness Guides table indexes all task recipes."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 359,
+          "endLine": 396,
+          "measurement": null,
+          "note": "The guide inventory names lint-ratchet.md and lint-ratchet-adoption.md but has no entries for the merge runbook or internals reference."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-merges.md",
+          "line": 1,
+          "endLine": 19,
+          "measurement": null,
+          "note": "This is a substantive operator runbook for merge drivers, truth-up hooks, recovery, and portable merge handling."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-reference.md",
+          "line": 1,
+          "endLine": 12,
+          "measurement": null,
+          "note": "This is a substantive internals reference covering the kernel, registry, CI, metrics, identity, parsers, and rollout."
+        },
+        {
+          "path": "docs/guides",
+          "line": null,
+          "endLine": null,
+          "measurement": "Two guide files lack canonical docs/guides references in ai-harness.md (`comm -23 <(find /workspace/docs/guides -maxdepth 1 -type f -name '*.md' -printf 'docs/guides/%f\\n' | sort) <(rg -o 'docs/guides/[a-z0-9-]+\\.md' /workspace/docs/ai-harness.md | sort -u)`): lint-ratchet-merges.md and lint-ratchet-reference.md",
+          "note": "The omission is exactly the two intentionally separated ratchet guides."
+        },
+        {
+          "path": "scripts/drift-ai/harness-freshness.ts",
+          "line": 134,
+          "endLine": 151,
+          "measurement": null,
+          "note": "The freshness check reports files with no full-path reference anywhere in ai-harness.md but does not enforce inventory-table membership."
+        }
+      ],
+      "problem": "The docs front door promises a complete, single-source guide map, yet two operationally distinct lint-ratchet guides are absent. Readers cannot discover merge recovery or the internals reference by task, and the freshness sensor checks file-wide references rather than inventory membership.",
+      "proposedDirection": "Add dedicated inventory rows for the merge runbook and internals reference, preserving their distinct audiences. Tighten or clarify the freshness contract so a stray reference cannot satisfy a claim that the Guides table indexes every guide.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[8]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The claimed complete guide inventory omits two of 24 guides.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "ruling",
+          "ref": "CQ25-78",
+          "residual": "CQ25-78 preserves four audience-partitioned lint-ratchet guides. This candidate honors that ruling and only makes the two omitted guides discoverable; it does not fold them together."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 094 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-004",
+      "title": "The structured-logging control inventory omits its script-logger import policy",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "eslint-rules/structured-logging.js",
+          "line": 178,
+          "endLine": 187,
+          "measurement": null,
+          "note": "The rule's published description and principle describe static-message and direct-console policy only."
+        },
+        {
+          "path": "eslint-rules/structured-logging.js",
+          "line": 199,
+          "endLine": 210,
+          "measurement": null,
+          "note": "The same rule defines noScriptLoggerImport and enforces it through a separate ImportDeclaration visitor."
+        },
+        {
+          "path": "docs/generated/harness-controls.md",
+          "line": 412,
+          "endLine": 426,
+          "measurement": null,
+          "note": "The generated control inventory repeats the incomplete principle, propagating the omission to the authoritative documentation surface."
+        }
+      ],
+      "problem": "The local rule enforces a path-sensitive ban on createScriptLogger imports, but its metadata and generated inventory advertise only message-shape and console policy. Reviewers and rule authors cannot discover the third policy from the documented control contract and may misclassify failures or duplicate the restriction elsewhere.",
+      "proposedDirection": "Extend the rule description and principle to name the createScriptLogger path restriction, or split that restriction into a separately named control if ownership warrants it, then regenerate the harness inventory.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[0]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "structured-logging combines static-message, console-use, and script-import controls — valuable but lower-ranked than the broader rule-authoring and concurrency findings",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-005",
+      "title": "Max-lines exception reasons are accumulating per-change history instead of current rationale",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "eslint-config/max-lines-exceptions.baseline.json",
+          "line": 147,
+          "endLine": 159,
+          "measurement": null,
+          "note": "Two live reasons append implementation deltas (+1/+4) and a named ux-audit change to the durable exception justification."
+        },
+        {
+          "path": "eslint-config/max-lines-exceptions-codec.js",
+          "line": 101,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The shared parser checks only that reason is nonblank, so changelog-shaped prose is retained like a durable rationale."
+        },
+        {
+          "path": "scripts/max-lines-exceptions-core.ts",
+          "line": 73,
+          "endLine": 81,
+          "measurement": null,
+          "note": "Baseline updates copy each reason through unchanged, allowing per-change clauses to accumulate across cap updates."
+        }
+      ],
+      "problem": "The reason field is review metadata explaining why an oversized file remains exceptional, but two entries mix that current justification with historical line deltas and ticket-specific implementation prose. Later reviewers inherit archaeology instead of a concise statement of the live boundary and split condition.",
+      "proposedDirection": "Rewrite the affected reasons as present-tense structural justifications and document that cap adjustments update current rationale rather than append change history; keep commit history as the history source.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[3]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "max-lines baseline reasons have become per-change changelog prose — lower-value churn contributor",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-43",
+          "residual": "The prior max-lines slice moves merge-driver machinery and explicitly makes no eslint-config edits; it does not clean or govern exception-reason content."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-006",
+      "title": "Smoke-subject parsing and matching still have two correctness owners",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/smoke-subject-headers.ts",
+          "line": 33,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The generator owns subject tokenization plus repo-relative POSIX validation."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 40,
+          "endLine": 42,
+          "measurement": null,
+          "note": "The fixture precondition declares its own smoke-subject header regex rather than consuming the generator parser."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 106,
+          "endLine": 111,
+          "measurement": null,
+          "note": "The fixture precondition independently tokenizes smoke subjects with weaker validation."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 125,
+          "endLine": 129,
+          "measurement": null,
+          "note": "Changed-mode selection defines exact-path and trailing-slash-prefix matching privately."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 151,
+          "endLine": 161,
+          "measurement": null,
+          "note": "Fixture coverage hand-copies the selector semantics and claims exact parity in a comment without sharing implementation."
+        }
+      ],
+      "problem": "The generated registry and fixture-copy precondition interpret the same # smoke-subjects syntax through separate parsers, while changed-mode selection and fixture coverage separately encode the same exact-or-directory match. A syntax or normalization change can make the validator approve metadata that selects differently, undermining the check meant to prove copied inputs select their smoke.",
+      "proposedDirection": "Export one smoke-subject line parser and one normalized subject-match predicate from the path-policy vocabulary module; have generation, fixture validation, and query selection consume them while retaining the generator's stronger diagnostics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[10]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "smoke-subject syntax and matching have multiple owners — concrete but lower-ranked than the duplicate copy models",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-119",
+          "residual": "H14 centralized smoke-test filename predicates and path normalization; it did not centralize smoke-subject header parsing or exact/directory subject matching."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 151 — hint only",
+        "looks close to leaf 152 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    },
+    {
+      "promotionId": "R5C-007",
+      "title": "Codemod write plans normalize imports redundantly through three passes",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/codemods/structured-logging-fix-transforms.ts",
+          "line": 324,
+          "endLine": 328,
+          "measurement": null,
+          "note": "The structured-logging transformer sorts import blocks while constructing its rewrite result."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/run.ts",
+          "line": 26,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Expand-barrel likewise sorts each plan before passing it to the shared writer."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-writes.ts",
+          "line": 135,
+          "endLine": 161,
+          "measurement": null,
+          "note": "The shared writer sorts every plan again and, for real writes, then launches ESLint's simple-import-sort rules."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-imports.ts",
+          "line": 125,
+          "endLine": 167,
+          "measurement": null,
+          "note": "sortImportBlocks reparses the full source with a fresh ts-morph Project and rewrites import ranges, so duplicate calls are substantive repeated work."
+        }
+      ],
+      "problem": "Structured-logging and expand-barrel parse and rewrite imports at transformation time and immediately repeat the identical custom pass in writeOrPreviewFiles; successful real writes then apply another policy through ESLint. This wastes full-file parsing, obscures normalization ownership, and lets dry-run or fallback output differ from successful written output without an explicit contract.",
+      "proposedDirection": "Make the shared writer the sole owner of plan normalization and remove producer-side sortImportBlocks calls. Then document or characterize the remaining custom-sort/ESLint relationship so preview and write semantics have one deliberate contract.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[13]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "codemods contain multiple import-normalization paths — lower-ranked after extracting the broader codemod-core finding",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 149 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r5-c.json"
+    }
+  ]
+}

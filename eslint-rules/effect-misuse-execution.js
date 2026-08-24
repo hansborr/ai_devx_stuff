@@ -1,6 +1,6 @@
 // @ts-check
 
-import { unwrapChain } from "./ast-helpers.js";
+import { parentOf, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
 
 // This intentionally matches static method names without proving the receiver
@@ -13,14 +13,6 @@ const EFFECT_OWNED_SCHEDULERS = new Set([
   "setInterval",
   "setTimeout",
 ]);
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return (
-    /** @type {import('estree').Node & { parent?: import('estree').Node | null }} */ (node)
-      .parent ?? undefined
-  );
-}
 
 /**
  * @typedef {import('estree').ArrowFunctionExpression | import('estree').FunctionExpression | import('estree').FunctionDeclaration} FunctionNode

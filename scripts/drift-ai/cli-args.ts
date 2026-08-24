@@ -58,7 +58,7 @@ function usage(): string {
   ].join("\n");
 }
 
-const cliOptionsSchema = z.object({
+export const cliOptionsSchema = z.object({
   "--scope": z
     .enum(["changed", "current"], { error: "--scope requires changed or current." })
     .default(DEFAULT_SCOPE_MODE),
@@ -95,6 +95,26 @@ function booleanFlag(name: string): {
     inlineValueErrorMessage: `${name} does not accept a value.`,
   };
 }
+
+// The parseCli option registry; the parity tests in drift-ai.test.ts hold this
+// array, the Zod schema keys, and the usage text to the same option names.
+export const CLI_OPTIONS = [
+  { name: "--scope", kind: "value" },
+  { name: "--base", kind: "value" },
+  { name: "--check", kind: "value", repeatable: true },
+  { name: "--root", kind: "value", repeatable: true },
+  { name: "--config", kind: "value" },
+  { name: "--format", kind: "value" },
+  { name: "--output", kind: "value" },
+  { name: "--chunk-dir", kind: "value" },
+  { name: "--chunk-size", kind: "value" },
+  { name: "--jscpd-bin", kind: "value" },
+  { name: "--knip-config", kind: "value" },
+  { name: "--tsconfig", kind: "value" },
+  booleanFlag("--include-scope"),
+  booleanFlag("--fail-on-findings"),
+  booleanFlag("--fail-on-runtime-cycles"),
+] as const;
 
 // `--check` values resolve tool-side (not in the schema) so the exact
 // `Unknown check: <value>\n<usage>` diagnostic and the dedupe-preserving-order
@@ -162,23 +182,7 @@ export function parseArgs(argv: readonly string[]): CliOptions {
     onHelp: () => {
       throw new DriftAiHelp();
     },
-    options: [
-      { name: "--scope", kind: "value" },
-      { name: "--base", kind: "value" },
-      { name: "--check", kind: "value", repeatable: true },
-      { name: "--root", kind: "value", repeatable: true },
-      { name: "--config", kind: "value" },
-      { name: "--format", kind: "value" },
-      { name: "--output", kind: "value" },
-      { name: "--chunk-dir", kind: "value" },
-      { name: "--chunk-size", kind: "value" },
-      { name: "--jscpd-bin", kind: "value" },
-      { name: "--knip-config", kind: "value" },
-      { name: "--tsconfig", kind: "value" },
-      booleanFlag("--include-scope"),
-      booleanFlag("--fail-on-findings"),
-      booleanFlag("--fail-on-runtime-cycles"),
-    ],
+    options: CLI_OPTIONS,
     schema: cliOptionsSchema,
   });
 

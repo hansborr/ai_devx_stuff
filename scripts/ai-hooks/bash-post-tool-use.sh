@@ -10,6 +10,8 @@ set -u
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
 HOOK_LIB="$SCRIPT_DIR"
+MUSI_VERIFY_LOG_DIR_OVERRIDE="${MUSI_VERIFY_LOG_DIR:-}"
+AI_PRECOMMIT_LOG_DIR_OVERRIDE="${AI_PRECOMMIT_LOG_DIR:-}"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
 # shellcheck source=/dev/null
@@ -72,7 +74,11 @@ if ai_is_git_commit_cmd "$CMD"; then
     ai_emit_block "$(ai_commit_success_summary "$WORK_ROOT" "$HEAD_BEFORE" "$HEAD_AFTER")"
   fi
 
-  if SUMMARY=$(ai_precommit_failure_summary "$COMBINED" "$AI_PRECOMMIT_LOG_DIR"); then
+  EVIDENCE_WORK_ROOT=""
+  [ "$ATTRIBUTED" -eq 1 ] && EVIDENCE_WORK_ROOT="$WORK_ROOT"
+  if SUMMARY=$(ai_precommit_failure_summary \
+    "$COMBINED" "$AI_PRECOMMIT_LOG_DIR" "$EVIDENCE_WORK_ROOT" \
+    "$MUSI_VERIFY_LOG_DIR_OVERRIDE" "$AI_PRECOMMIT_LOG_DIR_OVERRIDE"); then
     :
   elif [ "$DRY_RUN" -eq 1 ]; then
     SUMMARY=$(ai_commit_dry_run_summary "$COMBINED")

@@ -4,6 +4,17 @@
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
 # smoke-subjects: scripts/ai-hooks/

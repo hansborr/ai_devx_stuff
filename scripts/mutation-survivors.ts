@@ -21,6 +21,7 @@ import path from "node:path";
 import { z } from "zod";
 
 import { type CliFormat, parseCli } from "./lib/cli.js";
+import { errorMessage } from "./lib/error-message.js";
 import {
   buildSurvivorSummary,
   DEFAULT_TOP_FILES,
@@ -36,9 +37,8 @@ export {
   type SurvivorSummary,
   type SurvivorSummaryOptions,
 } from "./lib/mutation-survivors-summary.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
-const PROCESS_ARG_OFFSET = 2;
 const TOOL_ERROR_EXIT_CODE = 2;
 const DEFAULT_INPUT = "reports/mutation/mutation.json";
 const JSON_INDENT = 2;
@@ -135,14 +135,14 @@ function loadSummary(options: MutationSurvivorsOptions): SurvivorSummary {
   try {
     text = readFileSync(options.input, "utf8");
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     throw new MutationSurvivorsError(`could not read report file: ${message}`);
   }
   let parsed: unknown;
   try {
     parsed = JSON.parse(text);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
+    const message = errorMessage(error);
     throw new MutationSurvivorsError(`report is not valid JSON: ${message}`);
   }
   const report = mutationReportSchema.safeParse(parsed);
@@ -180,7 +180,7 @@ export function runMutationSurvivors(
       mkdirSync(path.dirname(parsed.output), { recursive: true });
       writeFileSync(parsed.output, `${rendered}\n`);
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
+      const message = errorMessage(error);
       return {
         exitCode: TOOL_ERROR_EXIT_CODE,
         stdout: `mutation:survivors: could not write report to ${parsed.output}: ${message}`,
@@ -195,7 +195,7 @@ export function runMutationSurvivors(
 }
 
 if (isCliEntrypoint(import.meta.url)) {
-  const result = runMutationSurvivors({ argv: process.argv.slice(PROCESS_ARG_OFFSET) });
+  const result = runMutationSurvivors({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

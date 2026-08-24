@@ -4,6 +4,6 @@
   "expectedError": "found 1 concurrency guard error(s).",
   "expectedStdout": [
     "packages/server/src/routers/character.ts:4 characterStats.updateManyAndReturn/direct-gated-write ERROR",
-    "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion"
+    "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper."
   ]
 }

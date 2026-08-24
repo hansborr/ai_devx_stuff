@@ -12,7 +12,7 @@ import {
   readRequiredOptionValue,
   requireArgAllowingEmpty as requireArg,
 } from "../cli-option-values.js";
-import { isCliEntrypoint } from "../lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "../lib/process-argv.js";
 
 export type LocatorUsageFile = {
   readonly path: string;
@@ -180,8 +180,7 @@ export function runLocatorUsage(argv: readonly string[]): {
 }
 
 if (isCliEntrypoint(import.meta.url)) {
-  // eslint-disable-next-line no-magic-numbers -- standard Node argv skips node and script path
-  const result = runLocatorUsage(process.argv.slice(2));
+  const result = runLocatorUsage(process.argv.slice(PROCESS_ARGV_USER_ARGS_START));
   if (result.stdout) console.log(result.stdout);
   process.exitCode = result.exitCode;
 }

@@ -1,0 +1,1134 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-06-tests",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L06-001",
+      "title": "Server service suites redundantly wipe the database 119 times",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/test/setup.ts",
+          "line": 44,
+          "endLine": 52,
+          "measurement": null,
+          "note": "The shared server setup already invokes cleanDb before every test."
+        },
+        {
+          "path": "packages/server/src/test/clean-db.ts",
+          "line": 10,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The helper explicitly directs per-test setup helpers not to clean again."
+        },
+        {
+          "path": "packages/server/src/services",
+          "line": null,
+          "endLine": null,
+          "measurement": "119 test declarations across 15 service test files repeat cleanDb; each call performs 22 deletes",
+          "note": "The duplicate lifecycle work adds substantial database traffic without increasing isolation."
+        }
+      ],
+      "problem": "The global server lifecycle already resets the worker database, but fifteen service suites repeat the same reset inside their own hooks. Contributors cannot tell which lifecycle owns isolation, and ordinary focused runs pay for thousands of unnecessary delete statements.",
+      "proposedDirection": "Remove the redundant per-suite resets, retaining only suites that intentionally mutate state outside the shared lifecycle, and document those exceptions beside the hook.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-002",
+      "title": "A legacy invite suite duplicates the newer split suites",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/invite.test.ts",
+          "line": 20,
+          "endLine": 35,
+          "measurement": null,
+          "note": "The legacy suite repeats the same setup used by the split manage and join suites."
+        },
+        {
+          "path": "packages/server/src/routers/invite-manage.test.ts",
+          "line": 19,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The focused management suite contains the replacement setup and management contracts."
+        },
+        {
+          "path": "packages/server/src/routers/invite.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "16 of 17 cases overlap invite-manage.test.ts or invite-join.test.ts; the legacy file is 361 lines",
+          "note": "Only pasted join-URL extraction remains clearly unique."
+        }
+      ],
+      "problem": "The old monolithic suite survived after invite behavior was divided into focused files. Most invite changes now require maintaining duplicate setup and assertions, while the old filename obscures which suite is authoritative.",
+      "proposedDirection": "Move the one unique URL-extraction case into invite-join.test.ts and delete the legacy suite.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-003",
+      "title": "Encounter map behavior is duplicated across two large router suites",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/encounter-map.test.ts",
+          "line": 49,
+          "endLine": 508,
+          "measurement": null,
+          "note": "This block covers link, unlink, auto-link, and authorization behavior."
+        },
+        {
+          "path": "packages/server/src/routers/encounter-combat-map.test.ts",
+          "line": 150,
+          "endLine": 550,
+          "measurement": null,
+          "note": "A second large block repeats approximately twelve of the same contracts."
+        },
+        {
+          "path": "packages/server/src/routers/encounter-map.test.ts",
+          "line": 766,
+          "endLine": 910,
+          "measurement": null,
+          "note": "Later exact error assertions also duplicate earlier status-only failure cases."
+        }
+      ],
+      "problem": "Procedure contracts and encounter-level integration are mixed in both files, producing two partially overlapping authorities for the same map behavior and repeated failure cases within one file.",
+      "proposedDirection": "Keep procedure and authorization contracts in encounter-map.test.ts, retain only encounter create/update/list mapId integration in encounter-combat-map.test.ts, and remove weaker duplicate cases.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-004",
+      "title": "wizard-context.test.tsx is a stale duplicate of wizard-state coverage",
+      "area": "client",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/wizard-context.test.tsx",
+          "line": 11,
+          "endLine": 380,
+          "measurement": null,
+          "note": "The 27-case file tests reducer and validation behavior without rendering WizardProvider or useWizard."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-context.test.tsx",
+          "line": 343,
+          "endLine": 362,
+          "measurement": null,
+          "note": "The suite still labels Personality as step 6 and only proves that strings are stored."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-state.test.ts",
+          "line": 702,
+          "endLine": 747,
+          "measurement": null,
+          "note": "The newer 69-case authority reflects the inserted Spells step and current navigation semantics."
+        }
+      ],
+      "problem": "A context-named suite does not test the context boundary and duplicates an updated reducer suite with stale step semantics. New contributors are given two conflicting descriptions of the wizard.",
+      "proposedDirection": "Delete the duplicate behavior suite or replace it with a small provider/hook integration contract that tests the actual context façade.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-005",
+      "title": "character-sheet.test.tsx no longer tests a character-sheet composition",
+      "area": "client",
+      "category": "naming",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/character-sheet.test.tsx",
+          "line": 8,
+          "endLine": 18,
+          "measurement": null,
+          "note": "The aggregate imports eleven leaf components rather than a character-sheet composition root."
+        },
+        {
+          "path": "packages/client/src/components/sheet/character-sheet.test.tsx",
+          "line": 58,
+          "endLine": 172,
+          "measurement": null,
+          "note": "The file duplicates dedicated AbilityScores, SavingThrows, SkillsList, CombatStats, and PersonalityPanel suites."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet/sheet-layout.test.tsx",
+          "line": null,
+          "endLine": null,
+          "measurement": "The actual sheet-composition test is a separate 22,749-byte page-level suite",
+          "note": "The old aggregate has lagged the layout split and now misstates its subject."
+        }
+      ],
+      "problem": "The filename promises composition coverage, but the file is an outdated collection of leaf-component tests already covered beside their subjects. It increases churn while concealing the real layout authority.",
+      "proposedDirection": "Prune duplicate leaf describes and retain only focused coverage for components that lack colocated tests.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-195",
+        "novelty": "This is test-suite cleanup after the layout split, not the refused sheet-directory or feature-root reorganization."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-006",
+      "title": "Optimistic character-sheet mutations omit consumer-level rollback contracts",
+      "area": "client",
+      "category": "test-shape",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-inventory.ts",
+          "line": 59,
+          "endLine": 91,
+          "measurement": null,
+          "note": "Two optimistic mutations carry rollback branches and settled invalidation behavior."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/use-spell-slots.ts",
+          "line": 45,
+          "endLine": 92,
+          "measurement": null,
+          "note": "Three rollback branches restore distinct spell-slot operations."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet",
+          "line": null,
+          "endLine": null,
+          "measurement": "Seven onError rollback branches across four hooks and eight settled invalidation paths lack consumer-level assertions",
+          "note": "Existing suites mostly stop after observing optimistic state."
+        }
+      ],
+      "problem": "The restore helper is tested in isolation, but the mutation-option bindings that decide which snapshot is restored and which queries are invalidated are not. Refactors can drop a consumer's onError or settled wiring without any focused failure.",
+      "proposedDirection": "Use the existing failing-mutation seam to assert optimistic state, exact rollback, and both invalidation families for each mutation shape; replace shell assertions rather than only adding cases.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-007",
+      "title": "VTT spell tests copy full CharacterSpellWithDetails payloads",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/vtt/drawer/cast-rail.test.tsx",
+          "line": 73,
+          "endLine": 101,
+          "measurement": null,
+          "note": "This 29-line Fireball payload is copied byte-for-byte into three sibling suites."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer",
+          "line": null,
+          "endLine": null,
+          "measurement": "Six files define 18 raw CharacterSpellWithDetails objects totaling 407 lines; four exact Fireball copies account for 116 lines",
+          "note": "Most case intent is buried in invariant payload fields."
+        }
+      ],
+      "problem": "Dense raw spell objects dominate VTT casting tests and make schema changes a multi-file edit. Exact copies also encourage small, unexplained divergence between scenarios.",
+      "proposedDirection": "Add a typed spell-scenario builder with a canonical default while preserving local semantic names and explicit overrides.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-48",
+        "novelty": "CQ25-48 covers CharacterDetail fixture typing; these are new CharacterSpellWithDetails clones in six VTT test files."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-008",
+      "title": "map-inputs tests obscure mutations inside repeated payload literals",
+      "area": "shared",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/map-inputs.test.ts",
+          "line": 120,
+          "endLine": 220,
+          "measurement": null,
+          "note": "Create-map boundary cases repeat complete payloads."
+        },
+        {
+          "path": "packages/shared/src/schemas/map-inputs.test.ts",
+          "line": 425,
+          "endLine": 580,
+          "measurement": null,
+          "note": "Create-token cases repeat another large payload family."
+        },
+        {
+          "path": "packages/shared/src/schemas/map-inputs.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "895 lines with mapId repeated 55 times, zero-coordinate fields 23 times each, campaignId 15 times, and name 11 times",
+          "note": "Literal mass makes the one field under test difficult to identify."
+        }
+      ],
+      "problem": "The suite is comprehensive but reads as hundreds of near-identical object literals. Schema evolution produces broad edits, and reviewers must diff whole payloads to understand each boundary case.",
+      "proposedDirection": "Introduce file-local z.input-typed bases/builders for create-map, create-token, and move-token inputs, with labeled tables for symmetric boundaries.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-49",
+        "novelty": "The prior typed-factory slice is limited to homebrew monster payloads; this is an uncovered 895-line map-input corpus."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-009",
+      "title": "Two drift advisories duplicate the complete bounded-history fixture",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/ownership-advisory.test.ts",
+          "line": 14,
+          "endLine": 73,
+          "measurement": null,
+          "note": "Defines rec, change, and a full BoundedFullHistory default."
+        },
+        {
+          "path": "scripts/drift-ai/test-orphaning-advisory.test.ts",
+          "line": 14,
+          "endLine": 73,
+          "measurement": null,
+          "note": "Repeats the same 60-line fixture; only elapsedMs differs."
+        }
+      ],
+      "problem": "A large evolving analyzer contract is hand-copied in two advisory suites, so a harmless BoundedFullHistory field addition requires synchronized edits and hides each advisory's actual inputs.",
+      "proposedDirection": "Extract a focused test helper for commit records, changes, and bounded-history defaults.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-010",
+      "title": "Drift-AI suites leave dozens of temporary repositories behind",
+      "area": "harness",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/coldspots.test.ts",
+          "line": 47,
+          "endLine": null,
+          "measurement": null,
+          "note": "One of several raw temporary-root factories in the file without registered cleanup."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots.test.ts",
+          "line": 38,
+          "endLine": null,
+          "measurement": null,
+          "note": "The hotspot suite similarly creates raw repositories without the shared cleanup helper."
+        },
+        {
+          "path": "scripts/drift-ai",
+          "line": null,
+          "endLine": null,
+          "measurement": "Static invocation counts show approximately 58 unremoved temporary roots per full run across six files",
+          "note": "A shared registerTempRootCleanup helper is already used in neighboring suites."
+        }
+      ],
+      "problem": "Repeated local and CI runs accumulate temporary repositories, while each suite reimplements only the allocation half of lifecycle management.",
+      "proposedDirection": "Route these suites through registerTempRootCleanup and keep raw mkdtempSync only where a test explicitly owns a distinct lifecycle.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-011",
+      "title": "Eight drift command fakes bypass the strict Git helper",
+      "area": "harness",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/birth-size-delta-command.test.ts",
+          "line": 70,
+          "endLine": null,
+          "measurement": null,
+          "note": "The fake checks only args[0] and returns an empty result for unexpected Git invocations."
+        },
+        {
+          "path": "scripts/drift-ai/git-runner.test-helper.ts",
+          "line": 33,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The existing helper matches rev-parse --show-toplevel exactly and throws on every unexpected call."
+        },
+        {
+          "path": "scripts/drift-ai",
+          "line": null,
+          "endLine": null,
+          "measurement": "Eight lenient Git stubs across six command-test files",
+          "note": "The duplicated weaker idiom silently accepts new Git calls."
+        }
+      ],
+      "problem": "Command tests use two incompatible fake styles. The lenient copies can return a repository root for the wrong rev-parse operation or silently tolerate added Git calls, making those suites poor documentation of their dependency contract.",
+      "proposedDirection": "Use the strict currentRepoGit helper and add explicit local extensions only for commands a scenario intentionally permits.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-012",
+      "title": "Drift baseline tests repeatedly rebuild immutable expensive fixtures",
+      "area": "harness",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/clone-candidates.test.ts",
+          "line": 24,
+          "endLine": 103,
+          "measurement": null,
+          "note": "Read-only assertions repeatedly evaluate the same clone corpus."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates.test.ts",
+          "line": 722,
+          "endLine": 731,
+          "measurement": null,
+          "note": "committedDebtRepo performs detector update, baseline writing, Git staging, and a commit for each caller."
+        },
+        {
+          "path": "scripts/drift-ai",
+          "line": null,
+          "endLine": null,
+          "measurement": "11 clone-corpus evaluations plus six full committedDebtRepo constructions; only one determinism case requires independent evaluation",
+          "note": "No runtime timing was collected."
+        }
+      ],
+      "problem": "Multiple assertions request identical corpus discovery or rebuild the same Git baseline from scratch, making the suites heavier and obscuring which cases actually require fresh state.",
+      "proposedDirection": "Share immutable evaluated corpus results within describes and use a prepared committed baseline for admission scenarios, retaining one generated-fixture fidelity test and the independent determinism check.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-013",
+      "title": "triage-report tests bury scenarios in repeated envelope boilerplate",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-report.test.ts",
+          "line": 12,
+          "endLine": 978,
+          "measurement": null,
+          "note": "Valid-contract cases repeatedly inline complete drift, Semgrep, and Dolos envelopes."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "25 schemaVersion envelopes, 15 advisory envelopes, 15 repeated lane values, and 13-14 copies of each empty metadata array",
+          "note": "Malformed-contract tests at lines 980-1125 legitimately need raw inputs."
+        }
+      ],
+      "problem": "Most of the 1,144-line suite describes transport defaults rather than the one triage mutation each case exercises. Contract changes create broad edits and scenario differences are difficult to scan.",
+      "proposedDirection": "Add typed driftInput, semgrepInput, dolosInput, and row builders while keeping malformed-contract cases as explicit raw objects.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-014",
+      "title": "Codemod fixtures duplicate identical before and after trees",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/expand-barrel.test.ts",
+          "line": 61,
+          "endLine": 64,
+          "measurement": null,
+          "note": "This runner already establishes the readable convention that a missing after tree means unchanged."
+        },
+        {
+          "path": "scripts/codemods/fixtures",
+          "line": null,
+          "endLine": null,
+          "measurement": "35 of 90 codemod cases contain byte-identical before and after trees: 44 duplicate files and approximately 324 duplicated lines",
+          "note": "All nine concurrency cases and multiple no-op, dry-run, and failure cases carry this noise."
+        }
+      ],
+      "problem": "No-op expectations are represented by copying entire source trees, doubling fixture review surface without adding an oracle. Different codemod runners also encode unchanged cases inconsistently.",
+      "proposedDirection": "Move the missing-after fallback into the shared fixture helper and remove byte-identical after trees; retain explicit after trees whenever output differs.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-015",
+      "title": "ESLint configuration suites repeat real-repository harness plumbing",
+      "area": "tests",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "eslint-rules/e2e-selector-config.test.js",
+          "line": 12,
+          "endLine": null,
+          "measurement": null,
+          "note": "Representative suite instantiates the same root ESLint configuration as numerous siblings."
+        },
+        {
+          "path": "eslint-rules/rule-tester.js",
+          "line": 3,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The rule-test corpus already has a precedent for centralizing stable harness plumbing."
+        },
+        {
+          "path": "eslint-rules",
+          "line": null,
+          "endLine": null,
+          "measurement": "Ten suites repeat root ESLint construction; five repeat configFor, five severityOf, and four lint-message plumbing",
+          "note": "The test-only clone signal is concentrated in harness setup rather than readable RuleTester matrices."
+        }
+      ],
+      "problem": "Integration suites independently reconstruct the same repository ESLint instance and small query helpers. Configuration changes fan out across files, while the repeated setup obscures each suite's policy assertion.",
+      "proposedDirection": "Extract a resolved-eslint-config test helper for root/path/ESLint construction and common queries, leaving suites and assertions in place.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-112",
+        "novelty": "The direction centralizes test plumbing only and does not create the refused eslint-config Vitest project or move suites."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-016",
+      "title": "Portable lint-ratchet tests depend on privileged directory symlinks",
+      "area": "tests",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/edit-check.test.ts",
+          "line": 81,
+          "endLine": null,
+          "measurement": null,
+          "note": "Creates a node_modules directory symlink inside a fixture repository."
+        },
+        {
+          "path": "tools/lint-ratchet/test/fixture-context.test.ts",
+          "line": 47,
+          "endLine": null,
+          "measurement": null,
+          "note": "A package-level acceptance test repeats the same directory-symlink assumption."
+        },
+        {
+          "path": "tools/lint-ratchet",
+          "line": null,
+          "endLine": null,
+          "measurement": "Five test files call symlinkSync(...node_modules..., \"dir\")",
+          "note": "Directory symlinks can require Windows Developer Mode or administrative privileges."
+        }
+      ],
+      "problem": "A package intended to be portable has acceptance tests that depend on a host privilege commonly unavailable to new Windows contributors.",
+      "proposedDirection": "Use a junction where appropriate or inject dependency resolution so fixture repositories can borrow installed dependencies without privileged directory symlinks.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-017",
+      "title": "Server mutation Vitest config re-declares the regular server lifecycle",
+      "area": "tests",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/vitest.config.ts",
+          "line": 6,
+          "endLine": 34,
+          "measurement": null,
+          "note": "Defines DB/JWT derivation, mocks, timeout, setup, global setup, workers, sequence, and environment."
+        },
+        {
+          "path": "packages/server/vitest.mutation.config.ts",
+          "line": 25,
+          "endLine": 51,
+          "measurement": null,
+          "note": "Repeats the same lifecycle and environment fields independently."
+        },
+        {
+          "path": "packages/server/vitest.mutation.config.ts",
+          "line": 21,
+          "endLine": 22,
+          "measurement": null,
+          "note": "The Promise-like project-export comment explains avoiding a spread but not the absence of shared plain options."
+        }
+      ],
+      "problem": "Routine changes to server test environment, setup, worker, or database semantics require synchronized edits in two configs with no parity guard.",
+      "proposedDirection": "Extract plain shared server test options/constants while keeping deliberate mutation differences such as root, absolute hooks, services-only include, and in-place execution local.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-221",
+        "novelty": "The landed work removes Stryker configuration duplication; this is a separate pair of server Vitest project configs."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-018",
+      "title": "Utility and broadcast tests seed through character-create service internals",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/character-mapping.test.ts",
+          "line": 7,
+          "endLine": null,
+          "measurement": null,
+          "note": "A utility mapper suite imports buildCreateData and validateCreateInput from the character-create service."
+        },
+        {
+          "path": "packages/server/src/utils/character-mapping.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "The service-based seed pair is repeated nine times in this utility suite",
+          "note": "Mapper tests can fail on unrelated creation-service refactors."
+        },
+        {
+          "path": "packages/server/src/routers/character-updated-broadcast.test.ts",
+          "line": 5,
+          "endLine": 6,
+          "measurement": null,
+          "note": "A broadcast regression suite imports the same service internals solely to build its fixture."
+        }
+      ],
+      "problem": "Lower-level mapper and socket-contract tests depend on higher-level service implementation details for setup, reversing the intended test dependency and broadening unrelated refactor fallout.",
+      "proposedDirection": "Use a low-level typed Prisma fixture or the public character test helper for setup; reserve real service-path seeding for tests whose subject is the service workflow.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-019",
+      "title": "E2E specs bypass page objects through raw selectors and public locators",
+      "area": "e2e",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "e2e",
+          "line": null,
+          "endLine": null,
+          "measurement": "25 raw getBy* calls in six specs and at least 18 direct accesses to public page-object locator fields; wizard-validation alone has 8 and 12 respectively",
+          "note": "Selector and interaction details remain spread between specs and page objects."
+        },
+        {
+          "path": "e2e/wizard-validation.spec.ts",
+          "line": 161,
+          "endLine": null,
+          "measurement": null,
+          "note": "The largest bypass hotspot also carries custom serial interaction narratives."
+        }
+      ],
+      "problem": "Specs and page objects expose two competing automation idioms. Common control state and interaction sequences are asserted through raw locators, so UI refactors require editing narratives instead of one page-object contract.",
+      "proposedDirection": "Add atomic page-object methods for named wizard boosts and Continue-state assertions, then migrate the highest-value raw-selector and public-locator call sites without splitting encounter-combat.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-161",
+        "novelty": "The evidence is concentrated in wizard-validation and other non-encounter specs; it does not reopen the declined encounter sub-spec extraction."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-020",
+      "title": "Two command test filenames substantially overstate their coverage",
+      "area": "harness",
+      "category": "naming",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/audit-dependency-licenses.test.ts",
+          "line": 10,
+          "endLine": 46,
+          "measurement": null,
+          "note": "Tests only regexes, one mixed licenseValue case, and remedy prose, not the command's operational traversal."
+        },
+        {
+          "path": "scripts/benchmark-near-duplicates.test.ts",
+          "line": 3,
+          "endLine": null,
+          "measurement": null,
+          "note": "Imports only core helpers and never imports the 303-line benchmark entrypoint named by the file."
+        }
+      ],
+      "problem": "The filenames imply command-level coverage while omitting dependency closure selection, package traversal, output/exit behavior, worker validation, child failures, RSS accounting, report construction, and CLI parsing. Contributors can reasonably assume operational contracts exist when they do not.",
+      "proposedDirection": "Rename the current files as core/helper suites and add small injected-runner or fixture-repository command contracts for the operational boundaries.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Split the 2,765-line root drift-AI suite",
+      "ref": "CQ25-155",
+      "reason": "The prior plan permanently dropped this exact split."
+    },
+    {
+      "title": "Reorganize drift-AI tests into subdirectories",
+      "ref": "CQ25-146",
+      "reason": "The flat drift-AI layout is a recorded decision."
+    },
+    {
+      "title": "Rewrite Knip memo test call sites",
+      "ref": "CQ25-46",
+      "reason": "The env.reportCache migration and its test rewrites are already scheduled."
+    },
+    {
+      "title": "Create a shared scanning-guard assertion helper",
+      "ref": "CQ25-215",
+      "reason": "The prior pack explicitly keeps each scanning guard's reason local."
+    },
+    {
+      "title": "Add direct defaultProcessIdentityProbe coverage",
+      "ref": "CQ25-73",
+      "reason": "This focused missing test is already recorded as optional work."
+    },
+    {
+      "title": "Consolidate code-intel and logs-audit cache/context fixtures",
+      "ref": "CQ25-11",
+      "reason": "The remaining H20/H21 analyzer structure work is already recorded."
+    },
+    {
+      "title": "Create the shared shell fail/ok assertion substrate",
+      "ref": "CQ25-28",
+      "reason": "The bounded substrate and first migration are already scheduled."
+    },
+    {
+      "title": "Extract the pre-commit body from dependency-freshness smoke",
+      "ref": "CQ25-29",
+      "reason": "The exact extraction is already scheduled."
+    },
+    {
+      "title": "Split AI-hook shell test families",
+      "ref": "CQ25-30",
+      "reason": "The command, backlog, queue, and output-filter family splits are already planned."
+    },
+    {
+      "title": "Split test-lint-ratchet.sh by subject cluster",
+      "ref": "CQ25-31",
+      "reason": "The open-ended banded split already owns this giant shell suite."
+    },
+    {
+      "title": "Split skill-dispatch wrapper smokes",
+      "ref": "CQ25-33",
+      "reason": "The routable backend-group split is already scheduled."
+    },
+    {
+      "title": "Generalize a shared shell new_repo fixture",
+      "ref": "CQ25-137",
+      "reason": "The prior plan declined it until three genuinely identical seams exist."
+    },
+    {
+      "title": "Migrate every shell smoke to one substrate",
+      "ref": "CQ25-138",
+      "reason": "Wholesale migration was replaced by opportunistic retirement."
+    },
+    {
+      "title": "Rewrite stop-policy assertions as part of shell consolidation",
+      "ref": "CQ25-139",
+      "reason": "That work was moved to a separate future effort and must preserve declare-F discovery."
+    },
+    {
+      "title": "Rename test-test shell suites or rewrite shell smokes in Vitest",
+      "ref": "CQ25-140",
+      "reason": "Both directions were explicitly rejected."
+    },
+    {
+      "title": "Split fixture-shell-dependencies.test.ts",
+      "ref": "CQ25-134",
+      "reason": "Both prior consults declined this split."
+    },
+    {
+      "title": "Build a shared lint-ratchet sandbox manifest framework",
+      "ref": "CQ25-113",
+      "reason": "The focused closure assertions are the recorded endpoint."
+    },
+    {
+      "title": "Split lint-ratchet baseline.test.ts",
+      "ref": "CQ25-157",
+      "reason": "The typed-factory plan dropped this split and recorded revisit conditions."
+    },
+    {
+      "title": "Merge direct and nested concurrency test corpora",
+      "ref": "CQ25-214",
+      "reason": "The corpora intentionally remain separate because they exercise different entry points and finding shapes."
+    },
+    {
+      "title": "Retype the shared client character fixture rail",
+      "ref": "CQ25-48",
+      "reason": "CharacterDetail fixture typing and cast removal are already scheduled."
+    },
+    {
+      "title": "Split mock-trpc into domain files",
+      "ref": "CQ25-52",
+      "reason": "The optional domain split is already recorded with its prerequisite."
+    },
+    {
+      "title": "Split encounter-combat.spec.ts",
+      "ref": "CQ25-77",
+      "reason": "The standing constraint forbids this before reusable API seeding exists."
+    },
+    {
+      "title": "Extract encounter HP, drawer, or spell sub-specs",
+      "ref": "CQ25-161",
+      "reason": "Those encounter sub-spec extractions were deliberately dropped."
+    },
+    {
+      "title": "De-serialize the encounter E2E lifecycle",
+      "ref": "CQ25-162",
+      "reason": "The serial lifecycle is explicitly closed."
+    },
+    {
+      "title": "Expand E2E API wrappers and composed encounter seeding",
+      "ref": "CQ25-55",
+      "reason": "The wrapper and composed seed are demand-gated behind a second consumer."
+    },
+    {
+      "title": "Remove Stryker configuration duplication",
+      "ref": "CQ25-221",
+      "reason": "The .mjs shared-factory route already landed."
+    },
+    {
+      "title": "Build the homebrew monster payload factory and split",
+      "ref": "CQ25-49",
+      "reason": "The exact homebrew factory and seven-describe move are already scheduled."
+    },
+    {
+      "title": "Promote the server active-encounter test builder",
+      "ref": "CQ25-51",
+      "reason": "The two named encounter consumers are already owned by the scheduled slice."
+    },
+    {
+      "title": "Expand ASI coverage and relocate level-up describes",
+      "ref": "CQ25-24",
+      "reason": "Six-ability ASI coverage is already scheduled."
+    },
+    {
+      "title": "Relocate misfiled ASI describes into core.test.ts",
+      "ref": "CQ25-25",
+      "reason": "The exact three-describe relocation is already scheduled."
+    },
+    {
+      "title": "Split or reshape the production map-canvas store",
+      "ref": "CQ25-188",
+      "reason": "The production-store split and fireAfterCommit reshape were dropped."
+    },
+    {
+      "title": "Add stale-frame and surface-gate tests",
+      "ref": "CQ25-189",
+      "reason": "Those tests and gates were explicitly dropped."
+    },
+    {
+      "title": "Give eslint-config its own Vitest project",
+      "ref": "CQ25-112",
+      "reason": "The prior pack explicitly rejected a separate project for three config suites."
+    },
+    {
+      "title": "Hand-roll Prisma serialization retry tests",
+      "ref": "CQ25-98",
+      "reason": "The real-driver test is the required contract and synthetic retry shapes were rejected."
+    }
+  ],
+  "featureIdeas": [
+    "Expose an explicit player choice when multiple Unarmored Defense calculations or Finesse attack abilities are valid instead of silently choosing by class order or best modifier."
+  ],
+  "bugsSideList": [
+    {
+      "title": "Freshness smokes regenerate tracked outputs before checking them",
+      "paths": [
+        "scripts/tests/test-generate-harness-controls.sh",
+        "scripts/tests/test-generate-lint-guidance.sh"
+      ],
+      "whySuspectedBug": "Both tests can repair pre-existing drift, pass, and leave the worktree modified; missing goldens are also created implicitly.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Slow-tier regular-sentinel assertion is unreachable",
+      "paths": [
+        "scripts/tests/test-test-slow.sh"
+      ],
+      "whySuspectedBug": "The failure condition requires the already-proven slow sentinel to be absent, so the named exclusion assertion cannot fire.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Logs-audit no-sidecar tests do not observe the default write path",
+      "paths": [
+        "scripts/logs-audit/logs-audit.test.ts"
+      ],
+      "whySuspectedBug": "The unset-env cases assert only no throw or nonexistence of an unrelated path, allowing unintended default writes to pass.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Near-duplicate runner assertions can skip their substantive checks",
+      "paths": [
+        "scripts/drift-ai/near-duplicates.test.ts"
+      ],
+      "whySuspectedBug": "Several cases assert only ok and then conditionally assert details for the expected engine; returning the wrong successful engine bypasses the oracle.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Codemod stdout fixtures are partial or empty despite an expectedStdout contract",
+      "paths": [
+        "scripts/codemods/lib/fixture-runner.test-helper.ts",
+        "scripts/codemods/fixtures"
+      ],
+      "whySuspectedBug": "The helper uses substring containment and 54 of 90 fixtures omit stdout expectations, so unexpected output is widely unobserved.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Upload tests recursively delete a shared default uploads root",
+      "paths": [
+        "packages/server/src/services/upload-service.test.ts",
+        "packages/server/src/routes/upload-routes.test.ts",
+        "packages/server/src/config/env.ts"
+      ],
+      "whySuspectedBug": "Parallel workers share the default uploads directory, and test cleanup can delete another worker's files or a developer's existing uploads directory.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Spell-casting fixture can leave the seeded Fireball row mutated",
+      "paths": [
+        "packages/server/src/services/spell-casting/spell-casting.test.ts",
+        "packages/server/src/test/clean-db.ts"
+      ],
+      "whySuspectedBug": "The SRD row is mutated before entering try/finally; setup failure leaves ritual=true in a table that cleanDb deliberately preserves.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Presence multi-tab test can false-pass on a delayed leave event",
+      "paths": [
+        "packages/server/src/services/presence-multi-tab.test.ts"
+      ],
+      "whySuspectedBug": "A fixed negative sleep checks a boolean once, after which a late first-tab leave event can satisfy the waiter intended for the second disconnect.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Test database fallback derivation drops PostgreSQL query parameters",
+      "paths": [
+        "packages/server/src/test/test-database-url.ts",
+        "packages/server/vitest.config.ts",
+        "packages/server/vitest.mutation.config.ts"
+      ],
+      "whySuspectedBug": "Regex replacement consumes the final path segment together with sslmode, schema, or other query parameters.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Destructive test-database guard errors expose full credentials",
+      "paths": [
+        "packages/server/src/test/prepare-test-db.ts",
+        "packages/server/src/test/test-database-url.ts"
+      ],
+      "whySuspectedBug": "Refusal errors interpolate the complete database URL, including username and password, into CI or local logs.",
+      "suggestedOwner": "security-review"
+    },
+    {
+      "title": "Server base preparation and worker cloning use different lock scopes",
+      "paths": [
+        "packages/server/src/test/global-setup.ts",
+        "packages/server/src/test/prepare-test-db.ts",
+        "packages/server/src/test/worker-test-database.ts"
+      ],
+      "whySuspectedBug": "Concurrent test runs can reset, migrate, seed, and clone the same base database without one shared advisory lock.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Socket test helpers leak listeners, timers, and reconnecting clients",
+      "paths": [
+        "packages/server/src/test/socket-helper.ts",
+        "packages/server/src/socket/socket-auth.test.ts"
+      ],
+      "whySuspectedBug": "Success, connection-error, and timeout paths do not consistently remove opposite listeners, clear timers, or disconnect tracked rejected sockets.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Socket rate-limit error test never triggers rate limiting",
+      "paths": [
+        "packages/server/src/socket/connection-handler.test.ts"
+      ],
+      "whySuspectedBug": "The RATE_LIMIT-named case sends one successful ping and asserts only that the socket remains connected.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Refresh and logout tests do not prove the replacement or invalidation lifecycle",
+      "paths": [
+        "packages/server/src/routes/auth-refresh.test.ts",
+        "packages/server/src/routes/auth-logout.test.ts"
+      ],
+      "whySuspectedBug": "Logout checks only cookie clearing, while refresh rejects the old token without proving the returned replacement token works.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Character wizard ignores requested equipment option B",
+      "paths": [
+        "e2e/page-objects/character-wizard.po.ts"
+      ],
+      "whySuspectedBug": "CharacterBuildOptions accepts A or B, but fillWizardThroughReview always selects A.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "E2E mutation response waits are armed after the action",
+      "paths": [
+        "e2e/notifications.spec.ts",
+        "e2e/page-objects/campaign-detail.po.ts"
+      ],
+      "whySuspectedBug": "A sufficiently fast response can arrive before the waiter is registered, producing intermittent timeouts.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "A11y baseline suppresses every node sharing an existing rule ID",
+      "paths": [
+        "e2e/a11y.spec.ts"
+      ],
+      "whySuspectedBug": "Filtering by Axe rule ID hides newly introduced violations under color-contrast or another already-baselined rule.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Nested Vitest modifier chains may trigger test-file-location false positives",
+      "paths": [
+        "eslint-rules/test-file-location.js",
+        "eslint-rules/test-file-location.test.js"
+      ],
+      "whySuspectedBug": "The visitor recognizes only a MemberExpression directly rooted at an identifier, not valid chains such as test.concurrent.each or it.skip.each.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Multiclass half-caster levels are rounded independently",
+      "paths": [
+        "packages/shared/src/rules/spellcasting.ts",
+        "packages/shared/src/rules/spellcasting.test.ts"
+      ],
+      "whySuspectedBug": "Paladin 1 plus Ranger 1 becomes effective caster level 2, although SRD aggregation before rounding yields level 1.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Diagonal cones lose one wing in NE and SW",
+      "paths": [
+        "packages/shared/src/map/area-template.ts",
+        "packages/shared/src/map/area-template.test.ts"
+      ],
+      "whySuspectedBug": "For dirX*dirY=-1 the two generated cells are identical, producing duplicates and omitting the reflected wing.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Metamagic validation accepts duplicates and cannot represent Sorcery Incarnate",
+      "paths": [
+        "packages/shared/src/rules/sorcery-points.ts",
+        "packages/shared/src/rules/sorcery-points.test.ts"
+      ],
+      "whySuspectedBug": "Duplicate Empowered or Seeking choices are accepted, while the context-free validator globally rejects the two-option SRD exception.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Dice notation and freehand schemas admit impossible boundary shapes",
+      "paths": [
+        "packages/shared/src/dice/dice-notation.ts",
+        "packages/shared/src/map/drawing.ts",
+        "packages/shared/src/dice/dice-notation.test.ts",
+        "packages/shared/src/map/drawing.test.ts"
+      ],
+      "whySuspectedBug": "0d6 parses successfully, and an odd-length freehand coordinate array passes despite the documented x/y-pair contract.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "scripts/drift-ai/[n-z]*.test.ts — all 26 assigned files",
+      "eslint-rules/** and eslint-config/** test-shaped files/fixtures — all 49 test files and three JSON fixtures",
+      "tools/lint-ratchet/** test/support/config slice — every assigned file",
+      "packages/shared/src/{constants,dice,map,rules}/** tests — all 34 files, 8,444 lines",
+      "e2e/** plus playwright.config.ts — all 52 assigned files",
+      "root/package Vitest and Stryker configs, package scripts, and the parked docs test — all 15 assigned files",
+      "packages/server/src/services/** tests — 11 candidate-bearing files read fully",
+      "packages/server infra/test-helper slice — 45 lifecycle, config, fixture, and candidate-bearing files read fully",
+      "packages/client non-component slice — 34 architecture, hotspot, and candidate-bearing files read fully",
+      "packages/client other-component slice — 13 candidate-bearing files read fully",
+      "packages/client campaign/VTT slice — 13 candidate-bearing files read fully"
+    ],
+    "sampled": [
+      "scripts/drift-ai.test.ts, scripts/drift-ai/[a-m]* tests/helpers/fixtures — 132 files inventoried; 19 full reads and 113 structural/content samples using line counts, title inventories, targeted pattern scans, and pinned ranges",
+      "scripts/{drift-triage,logs-audit,code-intel,drift}/** tests — 26 files measured and targeted around fixture, assertion, subprocess, and naming signals",
+      "scripts/tests/** and scripts/ai-hooks/test*.sh — all 67 files mechanically scanned; line review covered the five largest, lexicographic positions 1/10/20/30/40/50/60, and every suspicious match",
+      "general scripts/harness/lib flat tests — 71 files; 16 full reads and 55 uniform structural scans for names, weak matchers, filesystem/process state, mocks, subprocesses, and long bodies",
+      "scripts/{lint-ratchet,path-policy,codemods}/** tests and fixtures — 30 tests, two helpers, 90 codemod cases, and 402 fixture files inventoried and targeted around clone/oracle signals",
+      "packages/shared/src/schemas/** tests — 39 files; six full reads and deterministic import/title/factory/default scans plus pinned hotspot ranges",
+      "packages/server/src/services/** tests — remaining 40 files received full-text structural scans and targeted excerpts",
+      "packages/server router/socket/tRPC/route tests — 97 files, 30,687 lines reviewed through setup, fixture, service-import, assertion, and naming lenses",
+      "packages/server utils/test/seed/prisma/config tests — remaining 70 files received pinned searches and targeted semantic samples",
+      "packages/client/src/components/** excluding campaign/VTT — seven body samples and 80 structural samples after exhaustive title, matcher, DOM, class, callback, and fixture scans",
+      "packages/client/src/** excluding components — 108 files received line/title inventories and uniform tRPC/mock, assertion, rollback, invalidation, route, and store scans",
+      "packages/client/src/components/{campaign,vtt}/** — 24 files sampled by LOC ranking and predefined fixture, CSS-state, query-cache, and pending/cancel signals"
+    ],
+    "skipped": [
+      "packages/client/src/components/{campaign,vtt}/** — 62 lower-signal files were mechanically inventoried and pattern-scanned but not semantically opened beyond matching lines"
+    ],
+    "pointers": [
+      "Lane 07: root package.json names the shared-only mutation lane test:mutation even though sibling mutation commands are explicitly qualified.",
+      "Lane 08: typed minimal scenario builders recur independently in shared schema, server fixture, client spell, and analyzer test corpora; assess whether a cross-package testing convention is warranted."
+    ],
+    "cut": [
+      "Shared magic-item and map-layer socket schema coverage gaps",
+      "Shared policy-provenance naming sweep",
+      "Server attack/spell participant-loader clone",
+      "Server concurrency-helper consolidation",
+      "Initiative-row participant builder clone",
+      "Map-canvas-store test decomposition",
+      "Ad-hoc Fastify app failure-safe teardown",
+      "Triage packet boundary-case builder",
+      "Volatile Semgrep capture-fixture reduction",
+      "Lint-ratchet message-identity golden compression",
+      "Slow-config URL pathname portability cleanup",
+      "Auth-provider render helper",
+      "Spell-filter rendered-control coverage",
+      "ToastProvider smoke-test cleanup"
+    ]
+  }
+}

@@ -7,8 +7,8 @@ import {
   DEFAULT_NEAR_DUPLICATE_SIMILARITY,
   DEFAULT_NEAR_DUPLICATE_TOKEN_BAND_RATIO,
 } from "./near-duplicates-config-values.js";
-import { changedFilesFromScope, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
 export {

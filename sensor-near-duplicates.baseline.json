@@ -8,8 +8,8 @@
   "tokenBandRatio": "0.35",
   "regenerate": "bun scripts/sensor-near-duplicates.ts --update",
   "summary": {
-    "identities": 25,
-    "pairs": 25
+    "identities": 24,
+    "pairs": 24
   },
   "entries": [
     {
@@ -34,14 +34,6 @@
       "right": "packages/client/src/components/campaign/maps/maps-panel.tsx#MapsList",
       "leftFile": "packages/client/src/components/campaign/encounters/encounters-panel.tsx",
       "rightFile": "packages/client/src/components/campaign/maps/maps-panel.tsx",
-      "count": 1
-    },
-    {
-      "key": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx#HomebrewMonsterTab <=> packages/client/src/components/sheet/homebrew-item-tab.tsx#HomebrewItemTab",
-      "left": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx#HomebrewMonsterTab",
-      "right": "packages/client/src/components/sheet/homebrew-item-tab.tsx#HomebrewItemTab",
-      "leftFile": "packages/client/src/components/campaign/npcs/homebrew-monster-tab.tsx",
-      "rightFile": "packages/client/src/components/sheet/homebrew-item-tab.tsx",
       "count": 1
     },
     {

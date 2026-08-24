@@ -6,7 +6,7 @@
  * or treat a Promise object as truthy, which makes async work silently wrong.
  */
 
-import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { parentOf, staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
 
 const ARRAY_METHODS = new Set([
@@ -24,11 +24,6 @@ const ARRAY_METHODS = new Set([
 const PREDICATE_METHODS = new Set(["every", "filter", "find", "findIndex", "some"]);
 const REDUCE_METHODS = new Set(["reduce", "reduceRight"]);
 const PROMISE_COMBINATORS = new Set(["all", "allSettled", "any", "race"]);
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
 
 /** @param {import('estree').CallExpression} node */
 function arrayMethodName(node) {

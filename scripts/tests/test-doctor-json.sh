@@ -4,11 +4,15 @@
 # smoke-subjects: scripts/dependency-freshness.sh
 # smoke-subjects: scripts/harness-emit-envelope.ts
 # smoke-subjects: scripts/harness/harness-diagnostics-output.ts
+# smoke-subjects: scripts/lib/harness-finding.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-doctor-json.sh
 # smoke-subjects: harness.controls.json
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
-# smoke-subjects: eslint-config/shared-policy.js
+# smoke-subjects: tools/harness-diagnostics/
+# smoke-subjects: eslint-config/code-quality-configs.js
+# smoke-subjects: eslint-config/max-lines-policy.js
+# smoke-subjects: eslint-config/package-boundary-policy.js
+# smoke-subjects: eslint-config/path-glob-policy.js
 # smoke-subjects: scripts/harness-check.ts
 # smoke-subjects: scripts/harness/local-rule-config.ts
 # test-doctor-json.sh — contract smoke tests for `bash scripts/doctor.sh --json`.
@@ -50,6 +54,9 @@ command -v jq >/dev/null 2>&1 || fail "jq is required for these tests"
 REAL_BUN="$(command -v bun)"
 FAST_ROOT="$(mktemp -d)"
 FAST_FAKE_BIN="$(mktemp -d)"
+DOCTOR_HELP_OUT="$FAST_ROOT/doctor-help.out"
+DOCTOR_BAD_OUT="$FAST_ROOT/doctor-bad.out"
+[[ "$DOCTOR_HELP_OUT" == "$FAST_ROOT/"* && "$DOCTOR_BAD_OUT" == "$FAST_ROOT/"* && "$DOCTOR_HELP_OUT" != "$DOCTOR_BAD_OUT" ]] || fail "doctor argument captures must be distinct children of the private fixture root"
 
 # Provide stub eslint/prettier/taplo/node-actionlint/hadolint in $1 so
 # check_lint_tools resolves them and emits no findings in the fixture. Each
@@ -230,8 +237,8 @@ setup_fast_doctor_fixture
 bash -n "$SCRIPT" || fail "doctor.sh fails bash -n"
 ok "doctor.sh passes bash -n"
 
-bash "$SCRIPT" --help >/tmp/doctor-help.out 2>&1 || fail "doctor --help should succeed"
-grep -qF -- '--json' /tmp/doctor-help.out \
+bash "$SCRIPT" --help >"$DOCTOR_HELP_OUT" 2>&1 || fail "doctor --help should succeed"
+grep -qF -- '--json' "$DOCTOR_HELP_OUT" \
   || fail "doctor --help should mention --json"
 ok "doctor --help exits 0 and mentions --json"
 
@@ -239,7 +246,7 @@ ok "doctor --help exits 0 and mentions --json"
 # Capture exit explicitly: `if cmd; ...; fi` resets $? to 0 after `fi`, so a
 # bare `bad_rc=$?` outside the if cannot read the script's true exit code.
 bad_rc=0
-bash "$SCRIPT" --does-not-exist >/tmp/doctor-bad.out 2>&1 || bad_rc=$?
+bash "$SCRIPT" --does-not-exist >"$DOCTOR_BAD_OUT" 2>&1 || bad_rc=$?
 [ "$bad_rc" -eq 2 ] || fail "doctor unknown-arg exit should be 2, got $bad_rc"
 ok "doctor with unknown arg exits 2"
 
@@ -664,7 +671,13 @@ git clone -q --shared "$REPO_ROOT" "$MARKER_ROOT"
 cp "$REPO_ROOT/scripts/harness-check.ts" "$MARKER_ROOT/scripts/harness-check.ts"
 cp "$REPO_ROOT/scripts/harness/local-rule-config.ts" \
   "$MARKER_ROOT/scripts/harness/local-rule-config.ts"
-cp "$REPO_ROOT/eslint-config/shared-policy.js" "$MARKER_ROOT/eslint-config/shared-policy.js"
+cp "$REPO_ROOT/eslint-config/code-quality-configs.js" \
+  "$MARKER_ROOT/eslint-config/code-quality-configs.js"
+cp "$REPO_ROOT/eslint-config/max-lines-policy.js" "$MARKER_ROOT/eslint-config/max-lines-policy.js"
+cp "$REPO_ROOT/eslint-config/package-boundary-policy.js" \
+  "$MARKER_ROOT/eslint-config/package-boundary-policy.js"
+cp "$REPO_ROOT/eslint-config/path-glob-policy.js" \
+  "$MARKER_ROOT/eslint-config/path-glob-policy.js"
 ln -s "$REPO_ROOT/node_modules" "$MARKER_ROOT/node_modules"
 cp -R "$FAST_ROOT/.devcontainer" "$MARKER_ROOT/.devcontainer"
 cp "$FAST_ROOT/.env" "$MARKER_ROOT/.env"
@@ -801,7 +814,7 @@ rm -rf "$LINT_OVERRIDE_BIN"
 rm -f "$LINT_OVERRIDE_OUT"
 
 # --- cleanup ----------------------------------------------------------------
-rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$SUBDIR_JSON" "$SUBDIR_ERR" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" "$MARKER_PLAIN" "$MARKER_JSON" "$MARKER_JSON_ERR" /tmp/doctor-help.out /tmp/doctor-bad.out
+rm -f "$DOCTOR_JSON" "$DOCTOR_STDERR" "$REGISTERED_CONTROLS" "$EMITTED_CONTROLS" "$SUBDIR_JSON" "$SUBDIR_ERR" "$DEFAULT_OUT" "$EMPTY_ENV" "$BLOCK_JSON" "$BLOCK_ERR" "$HARNESS_FAIL_JSON" "$HARNESS_FAIL_ERR" "$MARKER_PLAIN" "$MARKER_JSON" "$MARKER_JSON_ERR"
 rm -rf "$FAST_ROOT" "$FAST_FAKE_BIN" "$BLOCK_ROOT" "$BLOCK_FAKE_BIN" "$MARKER_ROOT"
 
 printf '\n%d/%d tests passed\n' "$PASS" "$PASS"

@@ -165,16 +165,20 @@ musi_dev_prebuild_shared() {
   # `packages/shared/dist/**`. If `dist/` is missing — which is the case on a
   # cold worktree before `tsc -b --watch` has emitted — the scan fails with
   # "Failed to run dependency scan. Skipping dependency pre-bundling." Run a
-  # one-shot incremental build first when cold so the scan succeeds.
+  # one-shot build first when cold so the scan succeeds. Force the build
+  # because stale incremental metadata can otherwise leave a missing output
+  # absent while reporting the shared project as up to date.
   local dist_dir="packages/shared/dist"
-  if [[ -d "$dist_dir/schemas" && -f "$dist_dir/constants.js" ]]; then
+  if [[ -d "$dist_dir/schemas" \
+     && -f "$dist_dir/constants.js" \
+     && -f "$dist_dir/logging-policy.js" ]]; then
     return 0
   fi
 
-  musi_dev_log "shared/dist not populated; running one-shot build before fan-out"
+  musi_dev_log "shared/dist missing required output; running one-shot build before fan-out"
 
   set +e
-  bun run --filter @musi/shared build >/dev/null
+  bun run --filter @musi/shared build -- --force >/dev/null
   local rc=$?
   set -e
 

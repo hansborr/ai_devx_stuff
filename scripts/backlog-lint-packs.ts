@@ -13,8 +13,9 @@
  * findings back down to what the edit is actually about.
  */
 
-import type { DriftLeaf } from "./backlog-lint-drift.js";
+import type { DriftLeaf, DriftLinkSource } from "./backlog-lint-drift.js";
 import { collectDriftFindings } from "./backlog-lint-drift.js";
+import { declaredIndexCatalogBases } from "./backlog-lint-index-table.js";
 import { extractMetadata } from "./backlog-lint-metadata.js";
 import { recognizedStatus } from "./backlog-lint-status.js";
 import type { BacklogLintFile, BacklogLintFinding } from "./backlog-lint-types.js";
@@ -44,17 +45,15 @@ interface Pack {
 /**
  * How a finding becomes relevant in `--file` mode:
  * - `dir`: revealed when an edit touches any file in the pack directory.
- * - `leaf`: revealed when the linked leaf itself, or the pack index, is edited.
- * - `index`: revealed only when the pack index is edited.
+ * - `paths`: revealed when any source or leaf related to the finding is edited.
  */
-type RevealOn = "dir" | "leaf" | "index";
+type RevealOn = "dir" | "paths";
 
 interface ScopedFinding {
   readonly finding: BacklogLintFinding;
   readonly packDir: string;
   readonly revealOn: RevealOn;
-  readonly leafPath?: string;
-  readonly indexPath?: string;
+  readonly revealPaths?: readonly string[];
 }
 
 const CANONICAL_INDEX_BASE = "00-index.md";
@@ -209,6 +208,15 @@ function driftLeaves(pack: Pack): DriftLeaf[] {
     }));
 }
 
+function declaredCatalogMembers(pack: Pack): DriftLinkSource[] {
+  if (pack.index === undefined) return [];
+  const memberByBase = new Map(pack.members.map((member) => [member.base, member]));
+  return [...declaredIndexCatalogBases(pack.index.file.text)].flatMap((base) => {
+    const member = memberByBase.get(base);
+    return member === undefined ? [] : [{ base, path: member.file.path, text: member.file.text }];
+  });
+}
+
 function packDriftFindings(pack: Pack): ScopedFinding[] {
   // Drift, dangling links, and unlisted leaves only make sense against the
   // canonical task index; a pack that has not adopted 00-index.md is already
@@ -219,15 +227,15 @@ function packDriftFindings(pack: Pack): ScopedFinding[] {
     indexPath,
     indexBase: pack.index.base,
     indexText: pack.index.file.text,
+    catalogs: declaredCatalogMembers(pack),
     memberBases: new Set(pack.members.map((member) => member.base)),
     leaves: driftLeaves(pack),
   });
   return drift.map((entry) => ({
     finding: entry.finding,
     packDir: pack.dir,
-    revealOn: entry.reveal,
-    leafPath: entry.leafPath,
-    indexPath,
+    revealOn: "paths",
+    revealPaths: entry.revealPaths,
   }));
 }
 
@@ -240,13 +248,8 @@ function keepScoped(scoped: ScopedFinding, focus: FocusContext): boolean {
   switch (scoped.revealOn) {
     case "dir":
       return focus.dirs.has(scoped.packDir);
-    case "leaf":
-      return (
-        (scoped.leafPath !== undefined && focus.paths.has(scoped.leafPath)) ||
-        (scoped.indexPath !== undefined && focus.paths.has(scoped.indexPath))
-      );
-    case "index":
-      return scoped.indexPath !== undefined && focus.paths.has(scoped.indexPath);
+    case "paths":
+      return scoped.revealPaths?.some((path) => focus.paths.has(path)) ?? false;
   }
 }
 

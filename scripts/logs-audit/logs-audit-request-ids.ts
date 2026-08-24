@@ -1,10 +1,8 @@
 // Request-ID correlation auditing for the logs-audit script.
 
-import type { LogsAuditFinding } from "../logs-audit.js";
-import type { ParsedLogRecord } from "./logs-audit-checks.js";
-import { isJsonObject } from "./logs-audit-redaction.js";
-
-type JsonObject = Record<string, unknown>;
+import { isRecord as isJsonObject } from "../lib/records.js";
+import { isBusinessEvent } from "./logs-audit-event-policy.js";
+import type { JsonObject, LogsAuditFinding, ParsedLogRecord } from "./logs-audit-types.js";
 
 interface RequestIdCandidate {
   readonly field: string;
@@ -44,9 +42,7 @@ function requestIdCandidates(record: JsonObject): RequestIdCandidate[] {
 
 function businessEventName(record: JsonObject): string | undefined {
   const event = record["event"];
-  if (typeof event !== "string") return undefined;
-  if (event.startsWith("script.")) return undefined;
-  return event;
+  return isBusinessEvent(event) ? event : undefined;
 }
 
 function hasRequestEnvelope(record: JsonObject): boolean {

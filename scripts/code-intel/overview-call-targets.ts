@@ -2,6 +2,7 @@ import type { CallExpression, Node, Project } from "ts-morph";
 import { Node as MorphNode, SyntaxKind } from "ts-morph";
 
 import { unwrapExpression } from "./declaration-utils.js";
+import { DEFAULT_OVERVIEW_CONVENTIONS, type OverviewConventions } from "./overview-conventions.js";
 
 type SourceFile = ReturnType<Project["getSourceFileOrThrow"]>;
 
@@ -20,9 +21,12 @@ export type OverviewCallTargets = {
   serviceCalls: string[];
 };
 
-export function collectOverviewCallContext(sourceFile: SourceFile): OverviewCallContext {
+export function collectOverviewCallContext(
+  sourceFile: SourceFile,
+  conventions: OverviewConventions = DEFAULT_OVERVIEW_CONVENTIONS,
+): OverviewCallContext {
   return {
-    imports: collectImportedCallTargets(sourceFile),
+    imports: collectImportedCallTargets(sourceFile, conventions),
     localCallBodies: localCallableBodies(sourceFile),
   };
 }
@@ -30,11 +34,12 @@ export function collectOverviewCallContext(sourceFile: SourceFile): OverviewCall
 export function collectOverviewCallTargets(
   resolver: Node | undefined,
   context: OverviewCallContext,
+  conventions: OverviewConventions = DEFAULT_OVERVIEW_CONVENTIONS,
 ): OverviewCallTargets {
   const calls = resolverCalls(resolver, context.localCallBodies);
   return {
     serviceCalls: collectServiceCalls(calls, context.imports),
-    broadcasts: collectBroadcasts(calls, context.imports),
+    broadcasts: collectBroadcasts(calls, context.imports, conventions),
   };
 }
 
@@ -74,27 +79,36 @@ function resolverBody(resolver: Node | undefined): Node | undefined {
   return undefined;
 }
 
-function collectImportedCallTargets(sourceFile: SourceFile): ImportedCallTargets {
+function collectImportedCallTargets(
+  sourceFile: SourceFile,
+  conventions: OverviewConventions,
+): ImportedCallTargets {
   const targets: ImportedCallTargets = new Map();
   for (const importDeclaration of sourceFile.getImportDeclarations()) {
     if (importDeclaration.isTypeOnly()) continue;
     const source = importDeclaration.getModuleSpecifierValue();
     const defaultImport = importDeclaration.getDefaultImport();
-    if (defaultImport) addImportTarget(targets, defaultImport.getText(), source);
+    if (defaultImport) addImportTarget(targets, defaultImport.getText(), source, conventions);
     for (const specifier of importDeclaration.getNamedImports()) {
       if (specifier.isTypeOnly()) continue;
       const localName = specifier.getAliasNode()?.getText() ?? specifier.getName();
-      addImportTarget(targets, localName, source);
+      addImportTarget(targets, localName, source, conventions);
     }
   }
   return targets;
 }
 
-function addImportTarget(targets: Map<string, ImportMatch>, name: string, source: string): void {
+function addImportTarget(
+  targets: Map<string, ImportMatch>,
+  name: string,
+  source: string,
+  conventions: OverviewConventions,
+): void {
   const existing = targets.get(name) ?? { broadcast: false, service: false };
   targets.set(name, {
-    broadcast: existing.broadcast || isBroadcastImport(source, name),
-    service: existing.service || source.includes("/services/"),
+    broadcast: existing.broadcast || isBroadcastImport(source, name, conventions),
+    service:
+      existing.service || includesAnyFragment(source, conventions.serviceImportPathFragments),
   });
 }
 
@@ -122,10 +136,14 @@ function collectServiceCalls(calls: CallExpression[], imports: ImportedCallTarge
   );
 }
 
-function collectBroadcasts(calls: CallExpression[], imports: ImportedCallTargets): string[] {
+function collectBroadcasts(
+  calls: CallExpression[],
+  imports: ImportedCallTargets,
+  conventions: OverviewConventions,
+): string[] {
   return sortedUnique(
     calls.flatMap((call) => {
-      const socketEmit = socketEmitName(call);
+      const socketEmit = socketEmitName(call, conventions);
       if (socketEmit) return [socketEmit];
       const importedCall = importedCallName(call, imports);
       return importedCall?.match.broadcast ? [importedCall.name] : [];
@@ -150,34 +168,50 @@ function identifierCallName(call: CallExpression): string | undefined {
   return MorphNode.isIdentifier(callee) ? callee.getText() : undefined;
 }
 
-function socketEmitName(call: CallExpression): string | undefined {
+function socketEmitName(
+  call: CallExpression,
+  conventions: OverviewConventions,
+): string | undefined {
+  const emitMethod = conventions.socketEmitMethod;
   const callee = call.getExpression();
-  if (MorphNode.isIdentifier(callee) && callee.getText() === "emit") return "emit";
-  if (!MorphNode.isPropertyAccessExpression(callee) || callee.getName() !== "emit") {
+  if (MorphNode.isIdentifier(callee) && callee.getText() === emitMethod) return emitMethod;
+  if (!MorphNode.isPropertyAccessExpression(callee) || callee.getName() !== emitMethod) {
     return undefined;
   }
-  return isSocketIoEmitTarget(callee.getExpression()) ? "emit" : undefined;
+  return isSocketEmitChainTarget(callee.getExpression(), conventions) ? emitMethod : undefined;
 }
 
-function isSocketIoEmitTarget(target: Node): boolean {
-  if (MorphNode.isIdentifier(target)) return target.getText() === "io";
+function isSocketEmitChainTarget(target: Node, conventions: OverviewConventions): boolean {
+  const { socketRoomMethod, socketServerIdentifier } = conventions;
+  if (MorphNode.isIdentifier(target)) return target.getText() === socketServerIdentifier;
   if (!MorphNode.isCallExpression(target)) return false;
   const callee = target.getExpression();
-  if (MorphNode.isIdentifier(callee)) return callee.getText() === "to";
-  if (!MorphNode.isPropertyAccessExpression(callee) || callee.getName() !== "to") return false;
+  if (MorphNode.isIdentifier(callee)) return callee.getText() === socketRoomMethod;
+  if (!MorphNode.isPropertyAccessExpression(callee) || callee.getName() !== socketRoomMethod) {
+    return false;
+  }
   const owner = callee.getExpression();
-  return MorphNode.isIdentifier(owner) && owner.getText() === "io";
+  return MorphNode.isIdentifier(owner) && owner.getText() === socketServerIdentifier;
 }
 
-function isBroadcastImport(source: string, name: string): boolean {
-  if (isBroadcastHelperName(name)) return true;
-  if (source.includes("/socket/")) return true;
-  if (source.includes("/utils/character-campaign")) return true;
-  return false;
+function isBroadcastImport(
+  source: string,
+  name: string,
+  conventions: OverviewConventions,
+): boolean {
+  if (isBroadcastHelperName(name, conventions)) return true;
+  return includesAnyFragment(source, conventions.broadcastImportPathFragments);
 }
 
-function isBroadcastHelperName(name: string): boolean {
-  return name.startsWith("broadcast") || name.startsWith("emit") || name.endsWith("Broadcast");
+function isBroadcastHelperName(name: string, conventions: OverviewConventions): boolean {
+  return (
+    conventions.broadcastNamePrefixes.some((prefix) => name.startsWith(prefix)) ||
+    conventions.broadcastNameSuffixes.some((suffix) => name.endsWith(suffix))
+  );
+}
+
+function includesAnyFragment(source: string, fragments: readonly string[]): boolean {
+  return fragments.some((fragment) => source.includes(fragment));
 }
 
 function sortedUnique(values: string[]): string[] {

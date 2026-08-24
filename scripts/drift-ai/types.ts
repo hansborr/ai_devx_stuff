@@ -18,13 +18,15 @@ export type DriftCheckId =
   | "duplicate-constants"
   | "unused-exports";
 
-// Bumped to 4 for the additive per-check timing evidence (task 15):
-// `DriftReport.checkTimings` and `DriftReport.totalDurationMs`. Both are optional,
-// so a tolerant reader can ignore them and a v3 consumer degrades gracefully; a
-// strict reader must accept the new version. The v3 fields stay: v2 -> v3 added
-// the knip orphan-files adapter's `DriftFinding.provenance` and
-// `SkippedDriftCheck.code`.
-export const DRIFT_SCHEMA_VERSION = 4 as const;
+// Bumped to 5 for the additive `changed-scope-only` skip code: the native
+// suppressions check now emits a machine-readable `SkippedDriftCheck.code`
+// alongside its unchanged current-scope reason. Additive for tolerant readers
+// (`code` itself dates to v3), but a strict reader must accept the widened
+// `SkipReasonCode` union. Earlier bumps under the same discipline: v3 -> v4
+// added the optional per-check timing evidence (`DriftReport.checkTimings`,
+// `DriftReport.totalDurationMs`); v2 -> v3 added the knip orphan-files
+// adapter's `DriftFinding.provenance` and `SkippedDriftCheck.code`.
+export const DRIFT_SCHEMA_VERSION = 5 as const;
 
 // Who authored the verdict behind an adapter finding (adapter contract §0/§6):
 // the target's own config, a tool's published default, or a drift:ai baseline.
@@ -39,15 +41,19 @@ export type FindingProvenance = {
   readonly configPath?: string;
 };
 
-// Machine-readable skip codes the adapter layer standardizes on (adapter
-// contract §4). A skip is an *expected absence* (nothing went wrong), never a
-// finding. Carried alongside the human reason so JSON consumers can branch on it.
+// Machine-readable skip codes carried alongside the human reason so JSON
+// consumers (and the text formatter) branch on the code, never on the reason
+// prose. The adapter layer standardized them first (adapter contract §4), but
+// they are not adapter-only: native checks carry them too — `changed-scope-only`
+// is the suppressions check's current-scope skip. A skip is an *expected
+// absence* (nothing went wrong), never a finding.
 export type SkipReasonCode =
   | "tool-not-installed"
   | "tool-timeout"
   | "target-not-installed"
   | "no-target-config"
-  | "resolution-too-partial";
+  | "resolution-too-partial"
+  | "changed-scope-only";
 
 export type ChangedFileStatus = "added" | "modified" | "renamed" | "copied" | "deleted";
 

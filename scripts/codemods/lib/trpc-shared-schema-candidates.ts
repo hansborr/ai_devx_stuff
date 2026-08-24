@@ -11,11 +11,11 @@ import {
   type VariableStatement,
 } from "ts-morph";
 
+import { CodemodError } from "./codemod-errors.js";
+import { createProject } from "./codemod-project.js";
 import { collectSharedSchemaValueImports } from "./trpc-shared-schema-imports.js";
 import { discoverRouterFiles } from "./trpc-shared-schema-paths.js";
 import {
-  CodemodError,
-  createProject,
   ROUTER_ROOT,
   type SharedSchemaCodemodCandidate,
   type SharedSchemaDiscoveryResult,

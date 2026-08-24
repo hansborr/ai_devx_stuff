@@ -1,0 +1,1771 @@
+{
+ "batch": "wave1-lanes-04-09-plus-wave2",
+ "pin": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "verifiedCount": 157,
+ "note": "codex verification consults over the 157 judge-approved candidates; 16 chunks (chunk-LV = the 10 lightVerify L06-111..122 promotions, re-confirmation pass only). Session ids per chunk in consults[].",
+ "consults": [
+  {
+   "chunk": "chunk-01",
+   "file": "chunk-01.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-02",
+   "file": "chunk-02.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-03",
+   "file": "chunk-03.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-04",
+   "file": "chunk-04.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-05",
+   "file": "chunk-05.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-06",
+   "file": "chunk-06.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-07",
+   "file": "chunk-07.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-08",
+   "file": "chunk-08.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-09",
+   "file": "chunk-09.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-10",
+   "file": "chunk-10.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-11",
+   "file": "chunk-11.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-12",
+   "file": "chunk-12.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-13",
+   "file": "chunk-13.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-14",
+   "file": "chunk-14.msg",
+   "sessionId": null,
+   "results": 10
+  },
+  {
+   "chunk": "chunk-15",
+   "file": "chunk-15.msg",
+   "sessionId": null,
+   "results": 7
+  },
+  {
+   "chunk": "chunk-LV",
+   "file": "chunk-LV.msg",
+   "sessionId": null,
+   "results": 10
+  }
+ ],
+ "results": [
+  {
+   "candidateId": "D-001",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The shared emitting project includes all of src, uses tsc -b, and has wildcard exports for schemas/rules/dice/map. The pin contains 73 .test TypeScript files, 69 under wildcard-exported directories, and 73 non-test TypeScript files; excluding the intentional src/test/parse-helpers.ts API leaves the reported 72 production modules. CQ25-115 did not cover production test emission.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-002",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The banked note calls SavingThrowInput a 14-field input, but the interface has 13 fields, including optional rollMode."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "rollSavingThrowCheck reads only four input fields. The final phase independently accepts the original input and a check containing derived totalSave/saved, while the multi-target caller maintains parallel input and check arrays joined by index. The off-by-one field count does not undermine the problem.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-003",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The five projections copy 33 canonical fields: 3 in campaignMemberCharacter, 7 in campaignSummary, 6 in magicItemSummary, 10 in monsterSummary, and 7 in encounterSummary. Campaign character level loses MAX_LEVEL, while monsterSummary loses challenge-rating refinement and multiple numeric bounds. CQ25-115/S3 covered only characterSummarySchema; the other paths and count are materially new.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-004",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The 'high-churn' characterization is not supported by a history or churn measurement; the evidence establishes current size and shared edit topology only."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "encounter-inputs.ts is exactly 329 lines and exports 20 *InputSchema declarations. There are 10 production importers, including all three named router boundaries, and the file visibly spans the claimed CRUD, lifecycle, participant, turn, log, and map concerns. The live pack's instruction not to alter encounter-inputs.test.ts concerns test factories, not this production-module boundary.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-005",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "spellcasting.ts is exactly 380 lines and contains the five claimed areas: effective-caster resolution, slot progression/multiclassing, prepared limits, cantrip fallback policy, and level-one selection. CQ25-115 changed tables and constants within this file but neither scheduled nor ruled on splitting these remaining concerns.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-006",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The 200-line file contains all eight claimed concern blocks when weapon and spell bonuses are counted separately. CQ25-115's weapon work changed catalog and adapter behavior but contains no ruling preserving this aggregate module boundary.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-008",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "addMonsterParticipantInputSchema declares the three provenance fields independently optional. Only the outer addParticipantInputSchema superRefine enforces exclusion and id/version pairing, so inference retains invalid combinations and direct parsing through the exported monster schema bypasses those checks. The server consequently still sees homebrewMonsterEntryVersion as optional after narrowing on the id.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-009",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "conditions.ts type-imports ConditionEntry from encounter.ts, while encounter.ts value-imports conditionNameSchema from conditions.ts. conditions.ts also owns vocabulary, validation, normalization, and executable condition behavior; damage-types.ts combines the analogous vocabulary/contracts with persisted JSON normalization. CQ25-115/S2 renamed the condition validator but did not rule on ownership or dependency direction.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-010",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Only getWeaponDataFromItem requires a complete InventoryItem. isWeaponProficient already accepts a focused Pick<CharacterProficiency, \"type\" | \"name\">, and computeWeaponAttack has a focused rules input.",
+    "The second as unknown as assertion in resolve-attack.ts is caused by the server projection widening proficiency.type to string, not by the full-InventoryItem requirement.",
+    "Client callers currently possess complete wire entities, so the evidence proves coupling to that shape but not a present client-side assertion or adaptation failure."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The core problem survives: getWeaponDataFromItem takes the 16-field InventoryItem contract while reading only itemType, name, and properties, directly causing the focused Prisma item row to be asserted through unknown to InventoryItem. CQ25-115 addressed weapon representation behavior, not this helper signature.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-011",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The behavioral consequence is qualified by downstream validation: applyMetamagicCost calls validateMetamagicCombination, which independently enforces MAX_METAMAGIC_PER_CAST = 2. Raising METAMAGIC_PICKS_PER_LEVEL would loosen input parsing but still be rejected downstream; lowering it could tighten the effective limit."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The semantic coupling at the input boundary is real: castSpellInputSchema uses the learned-options constant as its array cap despite a separately named per-cast constant in the rules module. No prior-pack ruling or scheduled slice covers this constant mismatch.",
+   "chunk": "chunk-01"
+  },
+  {
+   "candidateId": "D-012",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The drift claim overstates notation duplication: both files already consume shared DICE_NOTATION_REGEX, DICE_NOTATION_MESSAGE, MAX_DICE_NOTATION_LENGTH, and MAX_NAME_LENGTH. Changes to those definitions need only one edit; the duplicated Zod composition and private -10/99 bounds remain."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The cited validators and equal bonus bounds are present. CQ25-115 covered adjacent constants/schema work but neither scheduled nor declined consolidating these combat field validators.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-013",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "A production-wide search finds exactly the claimed three declarations: PARTICIPANT_TYPES plus the independent DifficultyParticipant and XpParticipant unions. CQ25-110 is a straggler-sweep requirement, not a ruling against fixing discovered stragglers.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-014",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "MAX_ATTUNED_ITEMS is unused by every schema in inventory-inputs.ts and is imported by the service and both cited UI surfaces. No July-pack ruling or scheduled slice covers its ownership.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-015",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "homebrew-campaign.ts is exactly a 19-line output-only module, while all four matching inputs and the router imports are split as claimed. CQ25-175 concerns spell/auth/SRD input extraction and generic output renames; it does not adjudicate this homebrew split. The current schemas MODULE merely lists homebrew-campaign.ts as unpaired without justifying its boundary.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-017",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "WeaponData has the closed types, but WeaponAttackResult.damageType, CATEGORY_PROFICIENCY_MAP, and isWeaponProficient widen them exactly as claimed. All three production proficiency callers pass weaponData.weaponCategory, strengthening the lost-precision finding. W2/CQ25-115 narrowed WeaponData.damageType but did not rule on these downstream widenings.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-018",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The schema suites explicitly accept fixtures omitting both rollMode and the second-roll field under tests labelled backward compatible. The finding omits this evidence of intentional compatibility, although no current noncanonical producer or persisted parser requiring the omission was found."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both schemas make rollMode optional, while resolveD20Roll, resolveAttackRoll, and the saving-throw production path always return it. The backward-compatibility tests create doubt about intent, but they do not disprove the claimed mismatch in current production flows; no prior-pack ruling covers it.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-019",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Each cited export is mutable at the public type boundary, while DIFFICULTY_XP_BUDGETS demonstrates the readonly form. R2 expressly allowed the current mutable SKILL_NAMES implementation as one way to close its key vocabulary, but it did not adjudicate mutability consistency, and the other cited tables were outside that slice.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-020",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "DICE_TERM_REGEX has four positional captures; parseDiceTerm consumes match[1] through match[4] and asserts match[3]. The assertion describes a runtime regex invariant and is misclassified as framework rather than interop. CQ25-179 protects persisted dice result shapes and does not rule on parser capture mechanics.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-021",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The count of 14 is a static intersection of JSX component usages, not proof that all 14 mobile panel instances are simultaneously mounted: the mobile panels sit in TabsContent elements without forceMount. SheetBody still mounts both layout roots, the desktop layout mounts its complete hidden panel suite, and the active mobile tab duplicates part of it."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The 14 shared panel types and unconditional mounting of both responsive layout roots are confirmed. CQ25-117/C1 documented this as a gotcha only; leaf 48 explicitly allowed separately recording code problems surfaced by that documentation, so it did not rule out structural follow-up.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-022",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The compact spell implementation omits the dedicated tab's prepared, slot, cantrip, and ritual eligibility logic. Its feature Use button only logs, while the dedicated tab invokes useFeatureUse and enforces exhaustion, pending, and read-only state. The July pack mentions these files only incidentally and contains no ruling or scheduled consolidation.",
+   "chunk": "chunk-02"
+  },
+  {
+   "candidateId": "D-023",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Exactly nine production hook modules call useCharacterKeys(characterId), and each exposes at least one identity-bearing mutation input while invalidating or optimistically updating the captured character's keys. CQ25-199 rejects identity branding for different boundaries; it does not reject captured-id injection or rule out this mismatch.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-024",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Inventory spreads the entire update input, including campaignId, into InventoryItem rows; stats removes a three-field denylist; personality removes only id. useCampaignScopedMutation attaches campaignId before onMutate. The three incompatible projection conventions are present.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-025",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Calling WizardState a submission projection is imprecise: it also contains navigation and editing-only fields, and buildCreateInput performs a separate final transport projection."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The substantive problem survives: ability method/scores and background boosts have paired local/reducer writes and bidirectional conversion, while a personality field edit reconstructs all seven personality values. Prior Q2 only extracted and tested buildCreateInput; it did not rule on draft-state ownership.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-026",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Editing defines ability metadata, standard array, point-buy rules, modifier math, and boost aggregation; validation independently repeats point-buy and standard-array rules; review repeats metadata/modifier math and another boost map; submission has another boost aggregation and six-field projection. No prior slice owns this consolidation.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-027",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "MapCanvas accepts EncounterDetail and invokes a maps helper that derives turn, HP, conditions, and participant state. maps/MODULE.md explicitly assigns combat-specific behavior to ../combat. CQ25-190 ruled out configurable shared canvas-shell extraction, not moving combat adaptation out of the map renderer.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-028",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "ToolHandler uses a runtime coordinateSpace discriminator with identical point callback types, target-pick supplies a mandatory no-op onStart, and draw-eraser is separately special-cased. Prior leaf 11 landed MapTool-union narrowing and documented eraser hit detection, but did not rule on coordinate-domain typing or capability-shaped descriptors.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-029",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "encounter-detail-view.tsx is exactly 384 lines and owns participant adapters, initiative/log mutations, HP behavior, queries, dialogs, and composition. useEncounterDetailMutations constructs six mutations inside encounter-participants.tsx, and EncounterDetailCard receives its ReturnType plus callbacks. Prior encounter work touches isolated behaviors, not this controller-ownership problem.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-030",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The banked combat citations directly support duplicated statistics and visibility but omit the combat identity-markup citation; duplicate name/type-icon presentation is independently present in initiative-row-info.tsx."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Setup independently renders participant identity, type, HP, AC, initiative, and visibility. Combat has separate identity, HP/AC, and visibility implementations under the combat directory. No prior ruling or scheduled slice owns this participant-presentation duplication.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-032",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "route-tree.ts places public and protected routes together as direct root children. Exactly eleven production route modules import AuthGuard and define per-route wrappers. No matching prior ruling or scheduled slice was found.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-033",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The banked evidence omits a direct citation for the page-boundary contract, although pages/MODULE.md:7-15 and 107-108 independently verify it."
+   ],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "CQ25-187 / leaf 08 step 7",
+   "refuted": true,
+   "notes": "The 332-line file and its three complete workflows are real, but the live prior pack explicitly considered splitting settings-page.tsx into components/account-settings, characterized it as optional file-size hygiene rather than a finding, and dropped that step permanently. CQ25-195 is not the controlling overlap; CQ25-187 and live leaf 08 are.",
+   "chunk": "chunk-03"
+  },
+  {
+   "candidateId": "D-034",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All eight identifiers occur in CAMPAIGN_TABS, CampaignTabTriggers, and TabsContent. The settings gate is independently repeated in trigger and content rendering, and pages/MODULE.md explicitly requires synchronized edits. CQ25-117 changed adjacent viewer/query concerns but did not rule on this registry.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-035",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "FilterSelectProps types value, option.value, and onValueChange as string. There are exactly 12 production call sites across four files, and magic-item-list uses two assertion-boundary casts to recover schema-derived unions. CQ25-187 concerns a broad Label/Input sweep, not this typed component API.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-036",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "MonsterAddData independently makes all three origin fields optional, admitting neither origin, both origins, and an unpaired version. The three cited adapters exist and repeat the common encounter-participant initialization. CQ25-117's NPC editor typing slice did not cover this monster-origin carrier.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-037",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "TokenContextMenuProps has 13 props, not 14: seven required base props and six optional combat-related props, not seven optional combat props."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The underlying type problem remains: isInCombat can be true while adjustment/link callbacks are absent, producing enabled combat branches whose handlers only close the menu. Leaf 13/CQ25-190 recorded the same 7+6 surface split while rejecting additional configurable shell extraction; it did not rule out narrowing or splitting this existing component's unsafe props contract.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-038",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both hooks independently query map tokens, derive eligible targets, configure the same mutation and two invalidations, close the drawer, activate target-pick, and restore the appropriate drawer on pick or cancel. drawer-targeting.ts shares only eligibility mapping. Prior pack references to these hooks concern naming and drawer-state modeling, not this duplicated lifecycle.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-039",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "pendingTokenCell drives a useEffect that invokes an openDialog wrapper, which ultimately sets addTokenOpen. The lint rule recognizes direct useState setter calls and does not follow this callback indirection. Dialog close and mutation-success paths both update the boolean and clear placement. CQ25-117/leaf 10 addressed other effect sites, not this placement effect.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-040",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The summary's claim that only the implementation registry is compiler-enforced is false. HOMEBREW_DATA_SCHEMAS uses an exhaustive satisfies Record, ENTRY_TYPE_LABELS is an exhaustive Record, EntryFormByType is constrained through generic indexing, and EDITOR_REGISTRY is exhaustive.",
+    "A new type cannot compile while merely omitting every label/schema/editor entry. The silent omission risk is specifically the non-exhaustive ENTRY_TYPE_OPTIONS and TYPE_FILTER_OPTIONS arrays."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Seven parallel inventories do exist and currently enumerate the same nine types. The central problem survives in narrower form: create-selector and collection-filter arrays are not exhaustive, so a fully implemented new type can compile while remaining unavailable from creation or filtering. Leaf 24 only fixed type erosion inside HOMEBREW_DATA_SCHEMAS and did not address the client inventories.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-041",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The component is exactly 60 lines. Across the re-derived set of 389 production client TS/TSX files, RollModeToggle appears only in its definition and the module path has zero production imports; references otherwise occur only in its test and MODULE.md. No July-pack leaf or ruling owns this orphan.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-042",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Each filter member has exactly two production matches—its declaration and initializer—and no read. Exactly nine external production modules call useCharacterKeys, consuming only characterKey, spellsKey, or inventoryKey. CQ25-117's query-layer work did not rule on these unread return members.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-043",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The banked 119 figure is the number of test declarations in the 15 files, not the number of static cleanDb call sites, which is 27. It describes the baseline per-test local hook executions, while explicit in-test, loop, and afterEach cleanups make total runtime invocations higher."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The server Vitest project wires src/test/setup.ts, whose global beforeEach calls cleanDb. All 15 cited service test files add a local pre-test cleanup path, and they contain exactly 119 test declarations. cleanupDeletes contains exactly 22 deleteMany operations. Leaf 39/CQ25-202 covered app lifecycle preambles, helper signatures, fixtures, and declined import/context-wrapper tidies—not redundant global-versus-local database cleaning.",
+   "chunk": "chunk-04"
+  },
+  {
+   "candidateId": "D-044",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "invite.test.ts exists at 361 lines with 17 cases. Nine management cases and seven join cases overlap the focused suites; the pasted-URL extraction case is the sole clear exception. No matching July ruling or scheduled slice was found.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-045",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The two cited suites exist at 912 and 744 lines. The combat-map block repeats approximately twelve link, unlink, auto-link, failure, and authorization contracts, while encounter-map.test.ts later repeats six failure scenarios to add exact error assertions. CQ25-50 only concerns different helper duplication involving encounter-map.test.ts.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-046",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The context-named suite has 27 cases and imports only state/validation re-exports; it never renders WizardProvider or calls useWizard. The newer suite has 69 cases and current nine-step spell-aware behavior. The old line 343 still calls personality step 6, while current step 6 is Spells and personality is step 7.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-047",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The broad summary overstates how completely the aggregate is duplicated: direct dedicated suites were confirmed for the five cited describes, but several of the other six imported leaf components lack same-named colocated suites."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "character-sheet.test.tsx imports eleven leaf components and never renders a composition root; the five cited describes duplicate dedicated suites. The actual CharacterSheetContent composition suite is sheet-layout.test.tsx and is exactly 22,749 bytes. CQ25-195 refuses directory/package reorganization, not pruning a misleading duplicate test aggregate.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-048",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Across use-inventory, use-spell-slots, use-sorcery-points, and use-character-spells there are eight optimistic mutations with onError/onSettled wiring. Only togglePrepared has a consumer-level rollback assertion, leaving seven rollback branches uncovered; none of the eight corresponding settled invalidation bindings has a focused assertion. The helper itself is separately tested.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-049",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The six selected files contain exactly 18 top-level CharacterSpellWithDetails fixture blocks totaling 407 lines. Four Fireball bodies are byte-identical and occupy 29 lines each, totaling 116 lines. CQ25-48 covers CharacterDetail fixture typing and casts, not these spell payloads.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-050",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "map-inputs.test.ts is exactly 895 lines. The repeated base literals match the finding: mapId: \"m1\" occurs 55 times, campaignId: \"c1\" 15 times, name: \"Map\" 11 times, and x/y zero forms 23 times each. CQ25-49 is restricted to homebrew monster payloads.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-051",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Lines 14-73 in both advisory suites define the same rec, change, and BoundedFullHistory fixture. A direct comparison finds only elapsedMs differing, 12 versus 9. No July slice or ruling covers this fixture.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-052",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Six files use raw mkdtempSync without rmSync, cleanup hooks, or registerTempRootCleanup. Static call-site expansion gives 23 roots from coldspots, 25 from hotspots, seven from harness-freshness, and three command-config roots, totaling 58. The shared helper registers recursive cleanup after each test. CQ25-136 concerns a rejected shell cleanup registry, not adoption of this existing TypeScript helper.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-053",
+   "evidenceHolds": false,
+   "evidenceDefects": [
+    "The inventory is an undercount: 15 lenient rev-parse Git callbacks were found across seven command-test files, not eight across six. Counts by file are test-orphaning 4, ownership 4, birth-size-delta 3, and one each in class-construction, coverage-evidence, coverage-unused-correlation, and env-branches."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The substantive problem is stronger than reported: birth-size-delta line 70 exemplifies args[0]-only matching with an empty fallback, while currentRepoGit exactly matches rev-parse --show-toplevel and throws on every miss. CQ25-137 concerns differing shell new_repo fixtures, not these existing GitRunner fake contracts.",
+   "chunk": "chunk-05"
+  },
+  {
+   "candidateId": "D-055",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The headline counts include intentionally raw malformed-contract cases: only 20 of the 25 schemaVersion: 4 instances and 12 of the 15 advisory envelopes occur in the valid-contract block.",
+    "The claim that boilerplate occupies \"most\" of the suite is not established by a line-based measurement."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The file is exactly 1,144 lines. Full-suite counts re-derive as 25 schemaVersion: 4 properties, 15 advisory/lane envelopes, and 14/14/13 empty prerequisites/degradations/caps arrays. CQ25-47 concerns production input-parser narrowing, not test-envelope duplication.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-056",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "There are exactly 90 fixture cases. Directory comparison finds 35 byte-identical before/after trees containing 44 duplicated files and 324 duplicated lines. expand-barrel.test.ts:61-64 already falls back to before when after is absent.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-057",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Exactly ten suites construct ESLint against the real repository config; the additional restricted-syntax-builder constructor is synthetic and correctly excluded. Five suites define configFor and five define severityOf. CQ25-112 rejects a separate eslint-config Vitest project, not a shared test helper.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-058",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Five distinct test files explicitly call symlinkSync(real node_modules, fixture node_modules, \"dir\"). The package manifest and README explicitly describe the package as portable. CQ25-113/leaf 68 governs import-closure lists and fixture-framework expansion, not host privileges for directory symlinks.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-059",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both configs independently derive the DB URL and JWT secret and repeat clearMocks, timeout, node environment, setup/global setup, worker count, sequence order, and environment values. No parity assertion was found. CQ25-221 centralized Stryker configuration fields across mutation lanes; it did not address these two Vitest projects.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-060",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "character-mapping.test.ts imports both character-create internals and repeats the validateCreateInput/buildCreateData pair nine times. character-updated-broadcast.test.ts imports and uses the same pair for setup. Prior mapper work U2 covered malformed choiceData behavior, not this fixture dependency.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-061",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The member finding's wizard-validation subcount says 12 direct public-locator accesses, but the pinned file has 18 occurrences: 11 continueButton accesses and seven boost-field accesses. This undercount strengthens the aggregate claim."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The 25 raw getBy calls across six specs re-derive exactly. wizard-validation alone contains eight raw getBy calls and 18 direct locator-field accesses, with additional direct accesses elsewhere. CQ25-161 only drops encounter-combat sub-spec extraction and does not rule on page-object encapsulation.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-062",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The 47-line license suite tests only two regexes, licenseValue, and remedy text while its command module is 367 lines. The 41-line benchmark suite imports only the 60-line core and never the 303-line entrypoint. Root scripts audit:licenses and sensor:near-duplicates:benchmark both exist. Prior CLI-substrate work only touched benchmark argv-offset ownership.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-063",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The blanket statement that later cases cannot run alone is too broad: some cases inside serial groups create their own immediate prerequisites. The group-level failure suppression and substantial shared-state dependency remain."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Twelve specs have whole-describe serial mode. Excluding encounter-combat leaves eleven groups with exactly 77 tests; character-data-integrity has eight tests in its serial group plus one separate non-serial test. Testsuite-audit leaf 04 preserved current serialization because these groups are stateful, but it did not rule out representing dependent flows as scenarios and explicitly identifies independent seeding as the prerequisite for future parallelization. CQ25-162 is encounter-specific.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-064",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The summary loosely calls all discriminators \"cursor keys\": magic-item and monster use unique ID cursor values while their potentially tied fields are ordering keys.",
+    "For chat, notification, and combat-log, production currently uses timestamp-only cursors with no tie-breaker, so equal-key coverage could expose an existing defect rather than merely prevent a future cursor-composition regression."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The five cited suites total exactly 1,385 lines. Notification fixtures space createdAt by one second, combat logs use strictly increasing timestamps, chat posts sequentially without forcing equality, and magic-item/monster rely on seed data without equal boundary tuples. No intentional equal-order-key page-boundary case was found, and no prior-pack pagination ruling owns this server-side test gap.",
+   "chunk": "chunk-06"
+  },
+  {
+   "candidateId": "D-065",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Server, scripts, and lint-ratchet configs all set inPlace:true and explicitly acknowledge stranded mutations after a hard kill. Their package scripts trap only stryker-setup-*.js cleanup. CQ25-221/leaf 43 governs shared config construction and preserves per-lane inPlace semantics; it does not rule on interruption recovery.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-067",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The coverage globs include exactly nine test-support modules totaling 490 physical lines: shared 53, client 126, and scripts 311. Existing July coverage rulings concern project routing or behavioral coverage, not production-denominator contamination.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-068",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The two cited aggregate tests contain 22+28 JSON.stringify rows and 15+25 expected diagnostics, with expectations coupled to JSONL line positions. CQ25-11/H19 addresses logs-audit production type boundaries, not this test-corpus shape.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-069",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "daemon-query.test.ts has 18 cases: eight route/resident-daemon cases, eight daemon-client protocol/fallback cases, and two direct cache/manifest cases. graph-cache.test.ts covers only gitdir helpers. CQ25-66/H21 is an optional production cache-plumbing extraction and does not own test authority placement.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-070",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The file is 1,039 lines with 11 describes and 53 test declarations (52 plain it calls plus one it.each table), and imports ten distinct relative modules. It is the sole test importer for duplicates-check and jscpd-bin and the central authority for duplicates-runner. CQ25-155 rejected splitting the different 2,765-line root scripts/drift-ai.test.ts barrel; its file-specific ruling does not settle this suite.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-071",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The five FogOverlay and two FogDrawPreview cases contain exactly seven assertions, limited to truthiness, existence, or element count. None observes geometry, fill, or opacity, although the Konva mock retains those props. No matching July ruling or slice exists.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-072",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The golden is 45,113 bytes with 25 records; its captured worktree root occurs 50 times and the repeated React diagnostic sentence 42 times. The cited cursor-list file is absent, and repository searches find no regeneration or freshness owner. The July pack's scheduled deletion of that source file explains staleness but does not rule on the golden.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-085",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The six advertised hook/control files have exactly 18 unique direct relative-import targets outside the list. The minimal diagnostics starter also omits required helpers, and generate-harness-controls.ts imports the Musi-specific lint-ratchet registry. Leaf 68 and its constraint concern two test-sandbox copy lists, not these public adoption recipes.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-086",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Tier 1 first declares tools/lint-ratchet self-contained, then instructs adopters to edit or stub Musi scripts/lib and scripts/lint-ratchet files outside that package. The reference names missing scripts/lint-ratchet/ratchet-globs.ts and obsolete runtimeFiles/expandDirectories guidance. CQ25-12 governs kernel vocabulary and package-seam implementation, not this stale documentation.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-087",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The quick start documents only env-file setup and opening VS Code, while the Dockerfile requires localhost/claude-devcontainer:latest, Compose requires devcontainers.slice from an external base repository, and persist is external:true. No base-image source, host bootstrap, or matching July ruling exists in the repository.",
+   "chunk": "chunk-07"
+  },
+  {
+   "candidateId": "D-088",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The queue is the only file under in_progress. Ten of its eleven bounded entries are resolved, Done, closed, or reference removed leaves; only mutation-coverage-2026-06/75 was not disproved.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-089",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The pin has exactly 301 backlog files, including 297 Markdown files. Exactly 95 have a genuine Status header containing Done within the first 16 lines; a naive scan produces 96 only by falsely counting an index whose status is 'largely landed' and merely mentions two Done items.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-090",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Counts re-derived exactly: 147 root scripts and 177 across six manifests. The stated documentation corpus leaves exactly 21 root keys unmentioned. CQ25-37 governs scripts-directory layout, not contributor-facing command metadata or documentation.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-091",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The guide expressly permits reasoned raw locators, while the local rule reports every .locator call without inspecting comments or context and is configured as an E2E error. Its focused invalid cases confirm the unconditional behavior.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-092",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The opening makes A/B/C exhaustive and forbids a fourth pattern. The same guide and prepared-spell implementation explicitly identify a Serializable set-level shape that none can express. CQ25-205 settled the mechanism, not this taxonomy contradiction.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-093",
+   "evidenceHolds": false,
+   "evidenceDefects": [
+    "The pinned client tree has two levelChoices matches, not three; both are non-production.",
+    "architecture-plan.md explicitly describes stable architecture and directs readers elsewhere for current execution status. Its wording says the records enable review and rollback; it does not claim a currently shipped UI or router workflow.",
+    "character.get already exposes mapped levelChoices through CharacterDetail, so the assertion that review data is wholly unexposed is also overstated."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": true,
+   "notes": "There is no rollback mutation or production UI, but that absence does not contradict the cited data-model rationale. The candidate materially overreads an architectural-enablement statement as a promise of a shipped reversible workflow.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-094",
+   "evidenceHolds": false,
+   "evidenceDefects": [
+    "The exact baseline remains reproducibly recoverable from git history: commits 54f2eb910 and 3b8b1b488 contain docs/agent_notes/in_progress/codebase-audit/coverage.md with the full AUD-COV-001 and AUD-COV-002 metric tables.",
+    "Searching git history for the guide's supplied AUD-COV identifiers locates those commits, consistent with the guide's instruction to use git log -p. Thus zero current-tree artifacts does not establish that no retained comparison baseline exists."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": true,
+   "notes": "The current guide has stale pointers and would benefit from a direct current-tree baseline, but operators can recover and compare against the exact historical baseline. The claimed literal irreproducibility does not hold.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-095",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The guide says two sanctioned readers remain, while MANIFEST_DIRECT_READERS contains five, all categorized sanctioned-reader. CQ25-119 records the broader landed harness cluster but does not rule or schedule correction of this post-landing documentation drift.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-096",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "docs/README.md calls ai-harness.md the authoritative single-source inventory of every guide, rule, sensor, and gate. The generated controls document independently calls itself authoritative for every harness control, while ai-harness.md labels its local-rule rows selected examples.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-097",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The ownership table labels the entire map hand-maintained and instructs direct editing, whereas the map and generator establish hybrid ownership and prohibit edits inside the generated marker span. CQ25-44 schedules a scripts-family relocation, not correction of this ownership classification.",
+   "chunk": "chunk-08"
+  },
+  {
+   "candidateId": "D-098",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The parent MODULE names only caster-form-utils.ts and directs registry edits to entry-dialog.tsx; the child MODULE documents six shared exports and identifies entry-editor-registry.ts as the sole registry. CQ25-117 covered landed homebrew helper work, not this remaining parent-index drift.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-099",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "There are 46 direct non-test TypeScript files in server/src/utils and no local MODULE document. The cited mutation, Prisma-delegate, and authorization boundaries are present. CQ25-103 protects the useful mutation headers from trimming but does not rule out a directory-level orientation map.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-100",
+   "evidenceHolds": false,
+   "evidenceDefects": [
+    "The member finding says scripts/harness has 42 direct tracked non-test TypeScript files, but the pin has 41; the count becomes 42 only when generated-surface-freshness.generated.sh is included."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The headline 42-file count is defensible for all direct non-test files, and scripts/code-intel has the claimed 36 non-test TypeScript files. Neither directory has a local MODULE document. Existing remote guides describe selected harness seams and code-intel usage, but not a complete directory-wide ownership/layering map. CQ25-66 contains only an optional code-intel module-note rider to cache work and does not cover scripts/harness or the broader finding.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-101",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The guide presents automatic provisioning without this prerequisite. admin_url resolves the primary checkout and exclusively sources its .devcontainer/.env, failing if that file or DATABASE_URL is absent; the root .env setup is distinct. No July-pack ruling or scheduled slice covers this documentation gap.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-102",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "README prerequisites list only Bun and Docker, while the first development command maps to bash scripts/dev.sh. The onboarding provides no Windows, WSL, Git Bash, or devcontainer runtime path. No matching prior-pack scope was found.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-103",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "scripts/README correctly explains nearest-package script lookup, then suggests bun run scripts/harness-check.ts, whose module path remains relative to the nested current directory. The implementation's own doctor path uses an absolute module path for this reason. No prior ruling or scheduled slice covers the bad recovery command.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-104",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both package scripts exist and invoke implementations that write through Prisma using serverEnv.databaseUrl. A non-agent-notes search found no documentation reference to either backfill command. CQ25-220 and the seed-pipeline records concern generators and provenance, not operator guidance for these database-writing backfills.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-105",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "harness.controls.json contains exactly 12 generatedSurface carriers. scripts/README names three corresponding generator families and includes the explicitly nongenerated lint-ratchet demo in the same list. The cited loader and freshness projection consume every registered record. CQ25-34 schedules unrelated scripts layout-table corrections, not this generated-surface inventory.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-106",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The README is exactly 890 lines, 7,176 words, and 33 H2/H3 headings. The cited spans contain repeated external invocation material, detailed per-check rationale, portability guidance, Musi-only behavior, and historical status; parity tests bind README inventories to live registries. CQ25-35 schedules an implementation MODULE, while CQ25-146 rejects source-directory restructuring; neither rules out audience-focused documentation decomposition.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-107",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "CONCURRENCY.md points updateParticipant and PARTICIPANT_FIELD_KIND at routers/encounter.ts, while the router delegates and participant-action.ts owns both the writer and exhaustive map. The guide says code-point ordering although compareCodeUnits explicitly implements UTF-16 code-unit order. CQ25-21 schedules the same terminology correction only in spell-casting implementation/MODULE/test files; it does not cover CONCURRENCY.md or the stale participant locations.",
+   "chunk": "chunk-09"
+  },
+  {
+   "candidateId": "D-108",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The alleged router-rule contradiction is debatable: routers-MODULE.md assigns input/output contracts to routers, so homebrew per-entry validation can be read as input-boundary work rather than business logic. The socket omission and exact seed inventory still hold."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Confirmed the direct Prisma import, omitted persistence collaborator, 46 non-test TypeScript files, 18 tests, 21 JSON assets, no seed root map, and thirteen-step seed order. CQ25-220 governs seed implementation caveats, not contributor orientation.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-109",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The listed magic-item test exists and is substantive; the area-template import graph contradicts the documented consumer list; xp.ts says SRD 5.1 while the independent exhaustive oracle identifies SRD 5.2.1. CQ25-117 and CQ25-181 do not schedule these remaining documentation corrections.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-110",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Confirmed VttSurface renders only children plus InVttDrawer, the encounter directory has 14 production files and 1,888 lines, RollModeToggle has no production consumer, and CombatLogPanel owns expansion rather than paging. CQ25-190 rejects a shared-shell refactor but does not preserve the false composition wording.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-111",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Re-derived 42 production hook files, all eight named omitted exports with production consumers, 13 top-level page exports with 11 absent from the map, and file-private CampaignTabs. No matching ruling or scheduled slice was found.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-112",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The callback accepts and receives no snapshot; all three CharacterKeys filters have only declaration/initialization reads; and the upload comment names a nonexistent path instead of upload-routes.ts. CQ25-117 does not own these residual comments.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-113",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both Compose files independently mount separate 12-line SQL files with identical blob 083577183b7044314d060e11c051ca3c82954c0e. A hidden-inclusive search found no equality or generation guard, and the root copy names .devcontainer/post-create.sh. No prior ruling covers this duplication.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-114",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The demo requirements omit flock, the installer invokes it without a preflight, the cited leaf is absent, and the live zone already includes tools/lint-ratchet. CQ25-168 rejected a broad coordinate sweep, not this concrete broken link and missing prerequisite.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-115",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "CQ25-168 / leaf 44 step 6",
+   "refuted": true,
+   "notes": "The inventory is accurate: 24 annotations across four files, with nine opaque identifiers; the L100 guard is now at line 98. However, leaf 44 permanently dropped the same bare historical-coordinate cleanup as maintenance busywork, so this narrower schema-test instance overlaps that ruling.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-116",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Exactly three configs set inPlace:true and each warns that a hard kill may leave mutated sources. The plan retains contradictory sandbox prose, the operator guide labels only server as in-place, and all four package scripts exist but provide no source-recovery workflow. CQ25-221 concerns the landed .mjs feasibility decision, not operator documentation.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-117",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Confirmed 11 non-test tooling consumers, all importing the shared source by repository-relative path, zero client/server production consumers, and no package export for the schema. CQ25-119 used and extended this protocol but did not rule on or schedule its package ownership.",
+   "chunk": "chunk-10"
+  },
+  {
+   "candidateId": "D-118",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The redaction definitions overlap but are not literal copies: the auditor accepts four sentinel values and additional sensitive spellings such as password/setcookie, while the producer emits two sentinel values and has a narrower query-key set."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The three outcome sets are exact producer/auditor duplicates, and the redaction policy substantially shadows producer behavior. CQ25-119 H19 moved logs-audit-local types only; S14 relocated producer documentation but did not adjudicate producer/auditor policy ownership.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-119",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The devcontainer copy derives database names for provisioning rather than returning complete selected database URLs, although it repeats the same precedence and fallback-name contract."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "All four cited locations exist and encode the claimed TEST/E2E/DATABASE_URL rules. db-status imports DEFAULT_TEST_DATABASE_NAME from the server test module. The db:status script exists. CQ25-109's ruling concerns duplicated destructive allowlist alphabets, not URL-selection precedence.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-120",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Invite handling uses four case-sensitive substrings, character loading compares exactly against Character not found, and account deletion uses one exact and one substring comparison. Corresponding server prose is present. No matching ruling or scheduled slice was found.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-121",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "CQ25-115 (SHARED-CLUSTER-PLAN S1)",
+   "refuted": true,
+   "notes": "The 14-router count is exact, and the three weaker boolean schemas exist. However, S1 explicitly documented the cross-domain auth.ts ownership and ruled Do not move successResponseSchema; schemas/MODULE.md records the decision. The weaker copies are real residue, but the candidate substantially reopens that adjudicated ownership problem.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-123",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "There are exactly 32 static plugin registrations and 32 kind=lint-rule manifest controls repeating id, source, and invocation. bun run lint and bun run lint:ratchet both exist. CQ25-119 projected meta.docs fields only, while leaf 38 guarded registry completeness; neither owns the newly evidenced cross-surface authoring catalog.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-124",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "At least five implementations were re-derived, including two codemod copies, code-intel, hardened harness projection, and scripts/lib/git.ts. They demonstrably differ on root acceptance, separator-aware versus broad '..' checks, normalization, and symlink handling. H14 only unified vocabulary inside scripts/path-policy and does not rule out this cross-tree problem.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-125",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The seed module repeats all nine category and seven rarity literals exactly, with no relationship to the exported shared schemas. The neighboring spell seed imports shared contracts. No prior ruling covers these magic-item seed copies.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-126",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The server comment describes the bundle as character-sheet-specific, but useSrdLookups is also consumed by VTT drawer feature/action tabs. There is still only one direct client hook consuming srd.getAll."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The endpoint selects only five partial collections, its shared contract is generically named getAllOutputSchema, and useSrdLookups is its sole direct client consumer. CQ25-167 rejected splitting routers/srd.ts by content family; this candidate instead concerns the existing endpoint/read-model name and shape.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-127",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "href itself is a documented public NavigateOptions property usable instead of to; only the precedence when both props are supplied is undocumented. The headline's broad 'undocumented' wording is therefore overstated."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both guards pass conflicting destinations and the installed router implementation overwrites to from href. The unit stub cannot verify that behavior, while the cited E2E explicitly guards it. No matching July-pack ruling was found.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-129",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The server error is not itself generic: it includes Invalid <type> data plus the Zod error text. The client discards that detail and displays the generic retry message, so the user-facing claim still holds."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The outer create/update schemas accept opaque records, concrete validation occurs only after the mutation reaches the server, and the dialog already has fieldErrors plus an exhaustive editor registry. Leaf 24 deliberately retained the opaque wire shape but did not rule out client-side use of validateHomebrewData before submission.",
+   "chunk": "chunk-11"
+  },
+  {
+   "candidateId": "D-130",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "Notification data exposes optional campaignId/messageId; offline whispers populate both and campaign-accepted notices populate campaignId. NotificationItem only marks unread items read, while /campaigns/$campaignId validates tab deep links including chat. CQ25-115/176 concern notification schema layout and rejected discriminated payloads, not navigation.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-131",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "auth.deleteAccount blocks owners of campaigns having other members and instructs them to transfer or delete. Settings repeats that instruction. Campaign settings offer deletion but no transfer, and production searches found no ownership-transfer mutation or ownerId update path.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-133",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "The E2E helper explicitly disambiguates same-name copies by href. The import dialog submits parsed.data unchanged, persistence copies input.collection.name, and cards expose no import provenance. The envelope validates an independently replaceable collection.name.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-134",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "Applying the detector's literal built-in exclusions leaves 577 source-like files under scripts/ and eslint-rules/, not 570. The stated 570 is obtained only after additionally removing seven *.test-helper.ts files, which is not an exclusion implemented by isExcludedFromComments."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "Both trees are analyzer roots yet comments.excludePrefixes excludes them wholesale. The comments sensor otherwise filters tests, fixtures, declarations and configured prefixes and drift:ai is report-only. The seven-file counting nuance does not affect the coverage gap.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-135",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "Shared's tsconfig grants Node types. Its runtime-neutral lint block restricts framework imports and browser globals but not Node builtins, Buffer, NodeJS, or general process use; unrelated global policy only bans process.env and process.exit. The tree has 146 TS/TSX files and 73 non-*.test files; actual Node-global use is confined to the two test-tier sentinels.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-136",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "admin_url unconditionally reads the primary checkout's .devcontainer/.env. Root Compose is configured through root .env on localhost:8002, while the devcontainer example uses db:5432. CQ25-5 and CQ25-125/126 concern worktree state codecs/decomposition, not credential-source precedence.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-137",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The summary's unqualified claim that there is no change-count summary is overstated: runSrdBackfill logs each callback's final report, and both reports contain updated counts. What is absent is a pre-write target/planned-change summary."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "Both package scripts exist. The common runner constructs a client from serverEnv.databaseUrl and immediately invokes the mutating callback with no CLI options, confirmation, or preview. The spell and monster callbacks perform updateMany inside row loops; no prior-pack slice schedules this safety boundary.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-138",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "ProposeSummary and source selection admit only core/local. The engine already receives the binding containing the third-party allowlist, but proposeSourceKind rejects third-party IDs and the CLI rejects --plugin. The guide documents both the deferral and the manual allowlist/source/parser-profile setup. No prior-pack record schedules third-party proposal previews.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-139",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "Leaf 24 (24-homebrew-registry-typing.md, Scope / caveats)",
+   "refuted": true,
+   "notes": "Current evidence is accurate: validation returns an erased Record<string, unknown>, homebrewEntrySchema exposes opaque data, EditorHandler accepts that record, and exactly eight non-monster getDefault adapters repeat the signature. However, live leaf 24 explicitly adjudicates the same boundary: keep the wire payload opaque for stub/partial rows and do not expose typed {type,data} variants. That exact ruling, not CQ25-117's later form-helper consolidation, rules this out.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-140",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The CR-to-proficiency example is not demonstrated as a semantic copy of an existing shared authority; it is a client-local rule adjacent to shared CR-to-XP logic. The other four cited duplication/discoverability examples are direct."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": "null",
+   "refuted": false,
+   "notes": "RollMode is both attack-module-owned and independently redeclared by the client; server spell-slot sync hard-codes 9 beside shared MAX_SPELL_LEVEL; map state hard-codes 20 beside DEFAULT_TEMPLATE_SIZE_FT; and the monster spellcasting UI mirrors the shared frequency tuple. CQ25-110 is an acceptance criterion requiring semantic-straggler searches, not a scheduled disposition of these newly identified consumers; K1-K3 likewise addressed different concrete copies.",
+   "chunk": "chunk-12"
+  },
+  {
+   "candidateId": "D-141",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Encounter detail includes and serializes every combat log without a limit. The visible query defaults to the oldest 50 records, receives nextCursor, and neither its caller nor CombatLogPanel offers continuation. No matching prior ruling or scheduled slice was found.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-142",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The DM-only restriction is a client workflow gate, not a server authorization boundary: monster.get is a publicProcedure and player encounter detail exposes monsterId.",
+    "HpControlStrip proves only HP controls are isolated; BestiaryBody also wires ability-roll and attack actions directly, so the citation does not establish that all DM controls are already separable."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The supported UI still denies players monster drawers, token context menus expose monster sheets only to DMs, and the reveal button is disabled. There is no persisted reveal state or spectator-safe rendering mode. Prior drawer rulings concern effect cleanup and E2E layout, not party stat-block revelation.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-143",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "getWeaponAttackAbility selects the greater modifier, while the seeded Finesse text explicitly grants a Strength-or-Dexterity choice. The strict attack input and client mutation omit any ability selection. No matching prior-pack record was found.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-144",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "CharacterDetail contains structured levelChoices, and the only client references are test fixtures/tests; production client TS/TSX has zero consumers. The July level-choice work concerns schema/read-path modeling, not presenting history.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-145",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The first baseline citation points to line 18, which is configHash; the first ruleSourceHash is on line 19."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The baseline has 19 ruleSourceHash fields with 13 distinct values. Commit 45e57e33 changed 20 hashes, and a81fda0dc reverted those 20 changes because the producing lane had stale typescript-eslint dependencies. The update command exists and has no dependency-freshness preflight of its own.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-146",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The stated count is exact: 11 literal bun run lint:ratchet references across five non-test kernel files, with additional governance leakage and a hard-coded baseline filename. CQ25-12 handled repairKind and scripts-tsconfig inference and separately deferred testId naming; it did not rule on host command or filename bindings.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-147",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The demo scripts contain 15 files totaling exactly 1,245 lines, versus a 17-line application. Its 11 scripts/git files mirror root files as five byte-identical copies and six forks. CQ25-83 only rules out re-parameterizing the already-parameterized in-repository merge-driver family; it does not address distributing the operational rail to external adopters.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-148",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The 445-line measurement is the combined size of rule-source.ts and rule-source-import-guard.ts, not the size of the bespoke lexer itself; much of rule-source.ts implements closure resolution, package-version identity, and hashing."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The correctness-critical import extraction is nevertheless regex-based, uses a naive comment stripper plus custom literal/regex masking, and rejects second imports on one physical line. The two cited files do total 445 lines, and no prior ruling covers replacing this parser.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-150",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The summary overstates that every logical concurrency change edits every named surface: lint and codemod scanners consume shared/generated sets automatically, and helper-shape tables need changes only when helper policy changes. The duplicated suggestion maps and separate helper-policy inventories are still real."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Gated delegates and mutators feed generation, while helper classifications and repair guidance remain separately maintained; direct-write suggestions are duplicated in the codemod and lint rule with only key-set drift coverage. CQ25-100 prohibits returning to hand-listed relation graphs and makes the generated graph authoritative; extending adjacent policy metadata does not reopen that ruling.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-151",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The tRPC-named barrel exports seven modules, while generic CodemodError/fail, project construction, import normalization, preview/write orchestration, and ESLint fixing live behind it. Expand-barrel, structured-logging, and concurrency codemods import this generic infrastructure through the domain-specific surface. CQ25-80/81 concern merging distinct input/output rule or candidate finders, not extracting neutral codemod foundations.",
+   "chunk": "chunk-13"
+  },
+  {
+   "candidateId": "D-152",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Engine context exposes repository and data paths, while localRulePath hard-codes eslint-rules and eslint-config/eslint-runner independently reconstruct node_modules/.cache/eslint-ratchet. Prior portable-kernel work addressed different Musi bindings.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-153",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Confirmed 14 modes and exactly 963 lines across cli-types.ts, cli.ts, cli-validate.ts, cli-usage.ts, and modes.ts. CQ25-119/H3-H5 covered earlier CLI cleanup, not this surviving command-registration surface.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-154",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The metric-strategies.ts header qualifies its registration claim to collection, comparison, and merge; calling it an unconditional registration-only promise overstates the text.",
+    "An item-schema edit is necessary only when a new metric introduces new item fields, not for every conceivable metric."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The closed metric union, hand-enumerated baseline/propose parsing, IMPLEMENTED_METRICS, manual rule pairing, and production-unused metricStrategies enumerator are all present. The narrower registration-surface problem survives.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-155",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The models are not wholly independent tokenizers: both reuse commandOperands and other fixture-copy/helper primitives. They nevertheless perform separate cp-recognition, resolution, grouping, and root-attribution passes."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "collectSmokeFixtureFailures sends the same scoped lines through collectCopiedShellSourcesByFixture and collectFixtureSandboxes. CQ25-17 documented the analyzer, while CQ25-113 concerns different lint-ratchet sandbox copy lists.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-156",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "The query core's dependency on the 913-line generated registry is transitive through path-policy.ts and path-policy-smoke-subjects.ts, rather than a direct import from path-policy-query-core.ts."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Confirmed 913 lines, 53 registry entries, and 22 query names, only two of which consume smoke-test names/subjects. CQ25-64/H15 only schedules lazy discovery and does not make policy or smoke resolution injectable.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-157",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "There are five rule-value uses of sharedSchemasBarrelRestrictedImportPattern total: one global installation and four scoped restatements, not five restatements.",
+    "tools-configs.js has another scoped no-restricted-imports block without this exact pattern, but its broader @musi/shared/** restriction independently subsumes the schemas-barrel import."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The flat-config replacement hazard and four manual scoped copies are real, with comments explicitly requiring synchronization. No prior-pack ruling or scheduled slice owns this invariant.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-159",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The file is exactly 562 lines. One create function owns separate delegate/model alias maps, direct-write reporting, and the model-aware nested traversal. CQ25-19 addresses duplication between the nested lint and runtime walkers, not direct-versus-nested organization inside this rule.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-160",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "no-broadcast-in-transaction.js:24-29 defines transaction-call recognition, not callback or alias state; its actual callback/stack state begins at line 110.",
+    "The broadcast rule has no transaction-client alias model comparable to no-outer-client-in-transaction, so the claim that alias tracking itself is duplicated is overstated."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both rules still independently recognize $transaction calls, discover inline callbacks, and maintain function-entry/exit transaction state. CQ25-218 rejects a general classification framework, not a focused transaction-callback tracker.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-162",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "TypeScript emits fixed-position target, checked, regression, and coverage rows, while ratchet-regression-check.sh and lint-coverage-check.sh manually repeat shell field lists. Only target rows have a TypeScript decoder. Leaf 37 merely cautions that one shell parser must remain aligned.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-163",
+   "evidenceHolds": true,
+   "evidenceDefects": [
+    "scripts/lint-message-eval.test.ts:213-226 verifies the committed pilot fixture against the named working-tree file range, so sourceEndLine is not wholly dead and that one fixture has a current-tree provenance check.",
+    "The existing check does not read the named gitCommit and is absent from the evaluator and arbitrary --trace path, so it does not validate the reported commit provenance."
+   ],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Production parsing validates only SHA syntax, evaluation lints copied source, and the reporter labels the unverified SHA as Evaluated commit. The core problem survives the limited working-tree test.",
+   "chunk": "chunk-14"
+  },
+  {
+   "candidateId": "D-164",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "shared-policy.js contains all claimed domains across lines 21-270 and has numerous direct config/script consumers. CQ25-43 only schedules moving max-lines script internals and expressly excludes eslint-config edits, so it leaves this cohesion problem untouched.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-165",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The declaration is exactly 113 lines with five wildcard modules and duplicated ConfigSurfaceEntry declarations. Exactly 10 non-test production TypeScript files import the declared JavaScript modules. The existing sanctioned ambient bridge and shallow parity test mitigate export drift but still require the independently maintained semantic type surface.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-166",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The query matcher translates only asterisk and escapes question marks and brackets; expandLiteralGlob translates asterisk/question mark while leaving bracket syntax to RegExp; loop parsing separately rejects remaining glob-shaped tokens. CQ25-17 concerns analyzer documentation and test placement and explicitly avoided behavior changes, not this cross-implementation grammar conflict.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-168",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Accepted-debt entries lack kind in the interface, schema, current writer, and committed JSONL. They are identified through acceptanceReason; parsing defaults absent or unknown kinds to the accepted schema; rendering uses predicate chains. CQ25-74 addresses the separate testId-to-ratchetId vocabulary migration.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-169",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Both register functions only test observed directives against allowlist rows and never track unused rows. The ESLint allowlist has 11 active rows with live matches; both ts-nocheck paths exist but contain no actual ts-nocheck directive. The suppression ledger independently blocks reintroduction without a ledger update, but it does not retire the stale policy grants. CQ25-106 governs vacuous discovery and same-allowlist discovery, not unused-row ratcheting.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-170",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "drift-ai.ts re-exports exactly 23 distinct internal module paths. Exactly six TypeScript test files import the root facade and no non-test production TypeScript file does; parseColdspotsArgs is exposed while the sibling parseHotspotsArgs is omitted. CQ25-155 only dropped splitting the barrel test, and CQ25-146 only rejected reorganizing drift-ai into subdirectories; neither adjudicates the selective facade API.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-171",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "The flat executable owns option parsing, JSONL ingestion, report merging, file reads, and run orchestration, while logs-audit-checks.ts is exactly a three-export barrel. CQ25-119/H19 moved core types and established the checks barrel but expressly left runtime imports through the entrypoint; it did not schedule or rule against relocating the remaining ingestion core.",
+   "chunk": "chunk-15"
+  },
+  {
+   "candidateId": "D-073",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed the 1,986-line shared-process shell suite, four concern bands, shared assertion counter, fail-fast behavior, and global function replacements. CQ25-27 schedules documentation of the two-tier test contract, not this suite's split; H11 also preserves this aggregate suite.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-074",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed one TypeScript and four shell fixture writers carrying private config declarations; the exported authority has allowEmpty, typeAwareProject, and a more refined parser-profile union absent from the copies. CQ25-113 rules against rebuilding shared copy-list fixture infrastructure, not against eliminating duplicated exported type vocabulary.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-076",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed four view baselines and ID-only subtraction of serious/critical violations with no assertion that baselined debt remains present. No matching ruling or scheduled slice was found.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-077",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed the 809-line file, spawnSync runner, 22 direct runtime calls plus 10 seed calls, and a five-launch 60-second scenario. CQ25-31 schedules splitting the separate shell suite test-lint-ratchet.sh, not this Vitest acceptance file.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-078",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed request-schema describes in character.test.ts and encounter.test.ts alongside dedicated *-inputs.test.ts files, contrary to the documented inputs/entity ownership distinction. CQ25-158's encounter-inputs prohibition concerns payload-factory rewriting; it does not adjudicate these misfiled request-contract blocks.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-079",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed the 235-line runNearDuplicatesCli block, seven gate tests, three dedicated fixtures, and absence of sensor-near-duplicates.test.ts. CQ25-42 inventories and schedules moving the nine top-level sensor-near-duplicates-prefixed files; it does not name or capture this mixed block inside scripts/drift-ai/near-duplicates.test.ts.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-080",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed exactly 22 and 31 inline id properties across the two generator suites and repeated four-consumer envelopes in adjacent verify-policy cases. CQ25-13/CQ25-48..51 cover fixture work in other named client, shared, and server suites, not these harness-generator scenarios.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-081",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed the 46-line private project/root/package-map/source/resolver harness and the existing shared helper exporting those facilities. Four of five overview tests use the private fork. No matching ruling or scheduled slice was found.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-082",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": true,
+   "ruledOutBy": "CQ25-64",
+   "refuted": true,
+   "notes": "The evidence is accurate: discovery runs privately at import from process.cwd(), and four cases use chdir plus module-reset/re-import choreography. However, CQ25-64/H15 already schedules this exact surface: replace SCRIPT_SMOKE_TEST_NAMES with a lazy function, explicitly allowing an injected repo root instead of process.cwd(), and update its consumers.",
+   "chunk": "chunk-LV"
+  },
+  {
+   "candidateId": "D-083",
+   "evidenceHolds": true,
+   "evidenceDefects": [],
+   "alreadyRuledOut": false,
+   "ruledOutBy": null,
+   "refuted": false,
+   "notes": "Reconfirmed the shared setTimeout-based delay and three scheduler scenarios using 2ms, 5ms, and 20ms timing to establish order, overlap, or pending workers. No matching ruling or scheduled slice was found.",
+   "chunk": "chunk-LV"
+  }
+ ]
+}

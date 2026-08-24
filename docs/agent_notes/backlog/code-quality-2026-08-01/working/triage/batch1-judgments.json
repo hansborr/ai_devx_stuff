@@ -1,0 +1,411 @@
+{
+ "batch": "wave1-lanes-01-03",
+ "judgments": [
+  {
+   "candidateId": "C-002",
+   "severity": "high",
+   "size": "XL",
+   "worthIt": true,
+   "reason": "Fully verified: 2,121 lines across common.sh/policy.sh fusing safety policy with multiple bespoke shell tokenizers plus an embedded awk parser, 90 functions. This is the safety-critical command gate of a repo whose stated purpose is being a copyable harness reference — every policy-rule change taxes several private parsers, and the subsystem is effectively uncopyable as-is. That meets the high bar (taxes most changes in its area, and copyability is a first-class criterion here). XL is right: any typed-core remedy needs its own plan with slices because it must budget hot-path hook latency (arch-plans-2026-07/05 records the no-bun-spawn constraint and the awk exception as accepted decisions) and preserve the documented over-match/under-match asymmetry between the two git-commit parsers (common.sh:211-219). Worth it despite churn — this is the single highest-leverage copyability fix in the harness, and no prior-pack record covers or fences it (leaf 29's fence was scoping, not a decline)."
+  },
+  {
+   "candidateId": "C-004",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Downgraded from the high hint: the verifier showed the discoverability half of the claim is overstated — docs/guides/harness-manifest-parser.md documents the three-module seam with a division-of-labor table, and manifest-contract-check.ts:112-127 records the generator's direct read as a sanctioned, rationale-backed decision (granular diagnostics must survive schema-level failures). So contributors are not actively misled; this is real drift risk on a real path, i.e. medium. The duplication itself is genuine and confirmed: two same-named RawControl interfaces (generate-harness-controls.ts:46 vs harness-check-validation.ts:22, spot-checked), hand-rolled guards re-implementing Zod checks with a self-acknowledged 'schema divergence' branch. Worth fixing per the documented-decision rule (weigh which side moves, don't auto-reject): a canonical typed model can preserve the past-schema-failure diagnostics rationale, and the fix must carry the guide and contract-check doc updates in scope. L, needs-split — three consumer modules plus the recorded rationale to renegotiate make it more than one coherent commit train."
+  },
+  {
+   "candidateId": "C-005",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Confirmed live: three checks (registration-preflight-wiring.ts:44-139, harness-gate-parity.ts:117-181, pre-push-scope-pin.ts:15-80) infer wiring from literal shell fragments, whitespace-normalized regexes, indexOf source order, and line-oriented YAML — and the prior pack itself named the registration-preflight fingerprinting a hazard and reopen precondition (HARNESS-CLUSTER-PLAN 'Operational risk: the commit gate'), which corroborates rather than covers. Medium, not high: pre-push-scope-pin documents its brittleness by design and fails loudly with paste-ready fix text, so the failure mode is self-repairing friction, not silent misleading; the tax lands on refactors of gate text, not most changes in the area. L with needs-split: the fix space is constrained by CQ25-130's five do-not-reopen conditions on the pre-commit dispatcher and CQ25-142's admission-budget rule, so each check needs its own generate-or-expose-contract treatment rather than one sweep. Worth it — fingerprint parity checks are the harness pattern outsiders would copy, and the current mechanism is the wrong thing to teach."
+  },
+  {
+   "candidateId": "C-006",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Evidence re-derived exactly by the verifier: four hand-authored ordered slot programs in harness.controls.json (verify and verify-parallel byte-identical 16-slot arrays; verify-changed vs pre-commit sharing 15 pairs, 13 byte-identical), consumed by generate-verify-steps.ts, so the duplication is in authored source of truth. Medium rather than the high hint: the bridge-divergence check with MARKER_BRIDGE_DIVERGENCE_ALLOWLIST (spot-checked) already guards the pre-commit/superset drift axis, so 'intentional differences are indistinguishable from drift' is overstated — but the verify/verify-parallel axis is unguarded and every slot addition or retarget still requires four synchronized edits. Slot-program changes are common enough in this harness-heavy repo for the fix to pay for itself in-area. M and single-leaf as hinted: one canonical slot catalog plus named gate profiles with include/exclude/override, then regenerate — a coherent multi-commit change with the existing generator as the seam. Clear copyability win at modest churn; no prior-pack coverage (AUDIT-SUMMARY explicitly scoped manifest internals out)."
+  },
+  {
+   "candidateId": "C-007",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Measurements re-derived exactly (12 generatedSurface controls, 158 trigger refs, 123 fixture refs, 85 overlapping, all 12 sources self-listed in their own triggerPaths) and the finding is novel — CQ25-67 targets a different surface. Medium, not high: registering or reshaping a generated boundary is a genuinely common path here, but the closure validator and parity aliases already catch omissions (misses fail loudly rather than mislead), so the cost is tedium and obscured semantics, not active misdirection. Worth it: 85 overlapping references across 12 controls is exactly the concrete, already-materialized need that satisfies the CQ25-113 derive-only-on-need spirit — this is consolidating existing repetition, not building a speculative framework — and a single producer/source/output/fixture/freshness graph is far more copyable than hand-copied facet lists. L with needs-split: the graph model, the derived projections, and the migration of 12 controls with their intentional facet differences preserved are separable parts that need a plan section, and the fix should stay a projection over the existing manifest rather than a new framework layer."
+  },
+  {
+   "candidateId": "C-008",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Downgraded from the high hint per verifier calibration: post-3e9b28df the manifest IS the single authority with generated shims and harness:wiring:check, so the provenance-ambiguity half is largely solved and nothing actively misleads. The surviving substance is real: 23 identical-shape command templates (14 claude + 9 codex) derivable from body+adapter, repeated across 32 bindings, taxing every hook addition and bloating the repo's marquee public artifact. Read at 2243/2389: records mix derivable boilerplate with genuine per-adapter divergence (aggregator matchers, timeouts, deliberate-divergence notes) that must stay expressible, so the fix is a generator/schema extension deriving command templates plus a manifest migration — a coherent multi-commit change on existing shim-generation infra, M not L. Worth it: the manifest is the showcase copyable surface of a public harness reference."
+  },
+  {
+   "candidateId": "C-009",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified clean: 2,859 lines, 179 controls, 12 kinds, no $schema/version, contract only in internal Zod (harness-manifest-schema.ts). Medium is right — internal contributors have the parser and checks, so this is not an internal tax, but the documented public-reference goal makes the missing external validation/versioning signal a real gap for exactly the audience the repo exists for. Fix is cheap relative to payoff: generate JSON Schema from the existing Zod model, add a format version and migration note, wire a drift check — single-leaf, M. No prior-pack coverage. Highest copyability-per-churn ratio in this batch."
+  },
+  {
+   "candidateId": "C-010",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "High confirmed by reading the code: steps.generated.sh declares only consumers/step-lists/fastCommitSkip and says 'Do not edit by hand', which affirmatively signals that slot registration is complete there — yet the typecheck-produces-dist relationship, its lint/ratchet consumers (hard-coded case in musi_defer_dist_slot:205-211), memory-budget admission, and all scheduling live in hand-coded bash (13-positional musi_drain_memory_pending_slots, 120-line musi_run_parallel_verify_steps reconstructing producer semantics). A new slot with a dist dependency silently misses deferral — that actively misleads, in the single most-copied harness surface (the verify gate). L: typed slot graph consumed by both runners is a multi-part plan section but does not need its own sliced plan doc. Verifier's path defect (verify-steps-lib.sh vs steps-lib.sh) is transcription only; content matched. Any fix must not reopen the CQ25-130 pre-commit-dispatcher refusal."
+  },
+  {
+   "candidateId": "C-011",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": false,
+   "reason": "Problem is real (verified: dual directive vocabularies in bash PATTERN and DIRECTIVE_PATTERNS, four-column TSV wire, four coordinated surfaces per spelling/scope change) but it is a documented deliberate design, not an oversight: scanners must run in bare temp repos with no node_modules (register smoke context), the TSV is 'deliberately dumb' by design, and the fail-closed divergence check at identity.ts:197-204 converts vocabulary drift into a loud failure rather than silent corruption. Directive-vocabulary changes are rare, so the coordinated-change tax bites infrequently and never silently — medium, not high. Rejecting: a typed single-core rewrite must either bundle a standalone binary to survive the no-node_modules constraint or restructure the smoke design, and must clear the CQ25-124/125 measured bar for bash-facade splits; that churn exceeds the payoff for a mitigated, low-frequency seam. Reopen if the smoke-context constraint is lifted or a third directive consumer appears."
+  },
+  {
+   "candidateId": "C-012",
+   "severity": "high",
+   "size": "XL",
+   "worthIt": true,
+   "reason": "High confirmed: 893 lines (measurement exact) of privately maintained TypeScript/Bun/Node resolution — extension probing, @musi/* aliasing, createRequire/loader-alias AST fixed-point walks — that must track the real toolchain forever; any new alias or import syntax anywhere in seeded surfaces breaks the check until this private compiler layer learns it, and the tax is now spreading (CONSTRAINTS.md:48 reuse for lint-ratchet sandbox copy-set assertions gives it consumers beyond seeding). This is exactly the bespoke infrastructure a public harness reference should not ask copiers to maintain; the explicit-seed-manifest direction replaces a resolver with a checked list. XL stands: needs its own sliced plan to carry the two new consumers, keep allow/terminal policy separate, and sequence against the still-open CQ25-63/H12 file relocation (scheduling overlap only — the pin covers relocation, not the resolver, so novelty holds). Minor evidence-range undershoots do not weaken the claim."
+  },
+  {
+   "candidateId": "C-013",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: lint-coverage policy for 227 hand-maintained rows lives under docs/generated/ and is consumed by reverse-parsing Markdown with fixed column offsets, an order-dependent code-span grammar, and a private glob dialect parallel to the canonical matchesRatchet. High because it both misleads (generated-dir hand-maintained policy; ordinary doc edits silently change or break lint-coverage semantics) and taxes every change in the lint-coverage area. Fix (typed manifest as sole source, canonical matcher, fully generated Markdown) is multi-part with migration of 227 rows and must coordinate with CQ25-44 slice 28.11 relocating the same file family, hence L/needs-split. Clearly worth it at this repo's bar: a Markdown-reverse-parsing policy engine is a direct copyability liability for a public harness reference, and no prior-pack record covers or declines it."
+  },
+  {
+   "candidateId": "C-014",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Measurements re-derived: 1,406 lines / 74 functions conflating repo identity, commit-queue state, fast-commit provenance, path policy, marker codecs, and run-meta reporting behind one ambient shell API. Medium: the conflated domains (fast-commit, markers, path policy) are among the highest-churn harness surfaces, so gate-metadata changes routinely require whole-file regression reasoning, but it does not actively mislead. Worth it: live leaf 29 explicitly scoped the file out while noting its continued growth (1,334 to 1,406), so it is open, not declined; unlike the single-domain worktree-db.sh whose decomposition CQ25-125/126 shrank, this file is genuinely multi-domain, and even a seam-split pays. Planner constraint carried forward: the typed-module remedy must clear the arch-plan-05 measured cost bar per the decomposition-skeptical precedents; the evidence path defect (scripts/verify/lib/ vs actual scripts/lib/) must be normalized in the leaf."
+  },
+  {
+   "candidateId": "C-015",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Confirmed at the pin including my spot-check: three runner variants with different implicit check protocols (prefix-grep, rc-keyed, WARN-line-parsed), two special-case bypasses, ambient globals, an imperatively hand-assembled sequence of 8 check_* calls plus 10 runner invocations, and an in-file 'Do NOT unify without re-checking' landmine. Medium: real friction on a recurring path — diagnostics keep being added as harness surfaces grow, and each addition forces a convention choice with no common definition/execution/aggregation record shape (H8 fixed only the emission leg). L because the fix must thread between the recorded rejected full-TS rewrite (HARNESS-CLUSTER-PLAN) and the Substrate Ruling that analysis belongs in TS, which needs a plan section. Worth it: doctor is a flagship copyable pattern for the public harness reference, and the current design is its own documented cautionary example."
+  },
+  {
+   "candidateId": "C-016",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Problem survives after discounting the overstated prongs: the core defect is a 653-line Bash program (actual path scripts/migration-safety-scan.sh, which the leaf must use) inseparably coupling an embedded awk SQL lexer, policy evaluation (guidance_for feeding both renderers), and JSON plus human output with no typed intermediate results. Medium rather than high: migration-rule extension is less frequent than the verify-metadata surfaces, but wrong analysis here has real safety consequences and the coupling makes rule changes error-prone. Worth it: pure analysis logic is exactly what the repo's Substrate Ruling assigns to TS, making the extraction case materially stronger than the declined worktree-db one (CQ25-125 was process/DB glue), and CQ25-124 is precedent to follow, not a bar. L: TS core with dual-run parity proofs, facade retention, and renderer separation is multi-part. Leaf must note jq-based emission is an accepted pattern, so JSON serialization is not part of the problem."
+  },
+  {
+   "candidateId": "C-017",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Independently confirmed by the verifier despite three wrong/fabricated evidence paths (real counterparts all exist: baseline-drivers.sh, baseline-merge-driver.sh case plus recipe heredocs, baseline-merge-cli-table.ts, generate-baseline-conflict-recipes.ts, baseline-post-merge-truth-up.sh): five hand-maintained per-family registries with verbatim-duplicated labels and baseline paths. Medium: the repo demonstrably keeps adding baseline families (doctor.sh already checks four merge drivers), and a missed registry silently degrades merge/conflict handling with completeness review resting on folklore. M/single-leaf: one declarative registry with generate-time projections is a coherent multi-commit change. Worth it — classic drift hazard with a clean single-source fix. Leaf constraints: centralization must be generate-time (installed driver stays standalone and dependency-free), carry the scope-decision doc comments in scope, cite CQ25-83 as a standing ruling (not landed), and correct the evidence paths."
+  },
+  {
+   "candidateId": "C-018",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified in code: greps route only stderr repair advisories (exit codes govern marker consumption and all state), so no gate outcomes are wrong — caps below high. But diagnostic wording from three independent tools is load-bearing on the every-merge truth-up path, wording drift silently misroutes repair instructions with no test failure, and each new baseline family invites another capture-grep-advise handler. Adjacent harness-diagnostics envelope prior art makes the fix cheap; output-scraping-as-control-data is the wrong pattern for a public harness reference. Evidence path misnaming is clerical (baseline- prefix), line ranges match exactly."
+  },
+  {
+   "candidateId": "C-019",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "All cited regions verified; ~110 shell lines of reporting/GitHub-API behavior live only in YAML, unrunnable locally and untestable. Friction is confined to workflow edits and CI debugging (medium, not high), but workflows are among the most-copied surfaces of a harness-engineering reference, and extracting to versioned commands with structured I/O is precisely the pattern this repo should demonstrate. No dedup overlap per verifier. Scope note for the fixer: update the ci.yml:72-74 hand-written-steps comment, which addresses generated-vs-hand-written, not inline-vs-extracted."
+  },
+  {
+   "candidateId": "C-020",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Documented decision (harness.controls.json canonical/mirror declaration; portability.md wholesale-copy path) keeps within-repo maintenance machine-consistent and caps severity at medium. But the documented remedy makes codex-only adopters carry a .claude tree to get a working skill — a genuine copyability defect at this repo's stated bar, since the adapter is provider-neutral by design. Relocating executables to a neutral home with generated per-provider projections preserves the mirror machinery's intent rather than contradicting it. M: ~19 references, manifest entry, portability docs, smoke-subject and mirror regeneration. Prior rulings only rejected a Bun rewrite, not relocation."
+  },
+  {
+   "candidateId": "C-021",
+   "severity": "high",
+   "size": "XL",
+   "worthIt": true,
+   "reason": "Fully verified across all three analyzer families: empty declared configs alongside hard-coded Musi layer rules, path-fragment and naming heuristics with no unmatched-case reporting, and a closed source/taxonomy switch. Silent heuristic misses presenting as authoritative empty results actively mislead contributors, and Musi renames tax multiple private switchboards — high. Landed leaf-36 precedent treats exactly this kernel/policy interleaving as a defect, and no ruling declines adapter extraction for these families. Three families each needing policy-adapter design means its own NN-PLAN.md with per-family slices: XL, needs-split as banked."
+  },
+  {
+   "candidateId": "C-022",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Downgraded from high per verified defects: order parity is already test-enforced (check-metadata.test.ts asserts id-order and defaults alignment) and the correlation restorer is a compile-time interop cast, so mis-registration is caught by tests, not silent — this is recurring 4-list coordination friction (metadata, plugin registry, config map, DriftCheckId union) on the common add-a-check path, not active misleading. Still worth fixing: a single typed authority with an exhaustive Record keyed by check id gives compiler verification while honoring the standing do-not-merge ruling and the lightweight-import boundary. M because respecting those constraints and the parity tests makes it a careful coherent multi-commit change, not a one-commit collapse."
+  },
+  {
+   "candidateId": "C-023",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Downgraded from high: the shallow envelope guard is a documented deliberate decision (daemon-protocol.ts:48-49, introduced by H18 polish 42d877830), both endpoints are same-repo and protocolVersion-checked, and leaf 35 already acknowledges the correlation gap as unscheduled — so it neither actively misleads nor taxes most changes; residual risk is a long-lived daemon across a type-changing checkout without a version bump. The ping/pong lifecycle arm is the real defect worth fixing: raw JSON built outside CodeIntelDaemonRequest and a fabricated {kind:'results',header:'pong'} response make the protocol module lie about the wire contract. Worth it as an M scoped to an explicit lifecycle arm plus deriving wire types; a full parallel runtime codec would re-litigate the documented shallow-guard decision and should not be the core of the fix."
+  },
+  {
+   "candidateId": "C-024",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified in full with novelty intact: drift-triage-options.ts spells each option in six parallel places (help text, Zod schema, parseCli specs, dependency list, raw argv rescan, result assembly) inside a CLI that already fully adopted the shared parsers, proving CQ25-127/128's converge-on-touch rulings target a different problem. Option edits are a common path across the harness's many CLIs and omissions are invisible to the shared parsers. Typed declarative option descriptors are exactly the copyable harness pattern this repo exists to demonstrate. L and needs-split per the two independent CLI stacks; scoping must avoid wholesale migration of hand-rolled walkers (subcommand-args.ts) to respect the CQ25-127 ruling."
+  },
+  {
+   "candidateId": "C-025",
+   "severity": "low",
+   "size": "L",
+   "worthIt": false,
+   "reason": "Rejected: the bag-read is an explicitly documented design (check-plugin.ts:38-40 'Small and stable: a new check reads what it needs from overrides/cli without adding fields here') and the doc side wins — CliOptions is ~15 well-commented fields consumed within a single directory, the env stays stable precisely because plugins pull from the bag, and a three-way contract split re-introduces per-check interface churn while colliding with scheduled CQ25-46 which also edits CheckServiceEnv. The one genuine wart, prototype-command.ts fabricating gate/check defaults, is an S-sized converge-on-touch cleanup that cannot carry an L decomposition. Fix churn exceeds payoff at this repo's bar."
+  },
+  {
+   "candidateId": "C-026",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Divergence is concrete, not hypothetical: inverse boolean edge semantics (typeOnly vs runtime) and differing vi.mock/test-file filtering mean the two graphs already classify the same file differently, taxing anyone comparing analyzer outputs, and every import-syntax fix must land twice. Medium not high because the duplicated traversal is small (~65+72 lines) and TS import syntax is stable. Worth it: one canonical import-edge-semantics kernel with injected resolution policy is high-copyability value for a public harness reference, no prior ruling declines cross-analyzer unification, and CQ25-65/66 are code-intel-internal. Keep the kernel minimal (edge extraction + classification only, resolvers stay adapters) and respect leaf 28's no-subdirectory constraint and leaf 34's structural-typing seam rule."
+  },
+  {
+   "candidateId": "C-027",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Five verified classifiers that provably disagree on concrete paths (foo.spec.ts, fixtures/x.ts, foo.mts), with code-intel's isTestFile recognizing only .test.ts/.test.tsx. H9 deleted only a drift-ai-internal duplicate; no prior ruling declines a shared classification service, so this is genuine residual scope. Test-path conventions actively evolve here (-test-helper suffixes, fixtures/test-support dirs), so the five-edit tax sits on a real path and classifier disagreement directly undermines analyzer-result comparability, a core property of a reference harness. Single-leaf M: one configurable service with explicit strict/broad and declaration/helper/directory policies plus five call-site migrations. The 'reintroduced after H9' novelty wording is imprecise (test-orphaning-mapping predates the pack) but does not affect the finding."
+  },
+  {
+   "candidateId": "C-028",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified five-module parallel switchboard where an omission still compiles and silently mis-tags rows (rowKey null -> NEW via untyped PATH_KEYED_LENSES set) — a correctness trap on the hotspot subsystem's primary extension axis, and lens additions are the expected change there. A typed concrete-lens registry is one coherent multi-commit refactor confined to the five drift-ai modules, and an exhaustive registry/visitor is exactly the copyable pattern this public harness reference wants to model. Novelty over CQ25-10/leaf-34 verified (zero hotspot/lens mentions in that leaf or its plan)."
+  },
+  {
+   "candidateId": "C-029",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Four (verifier: arguably more) independent enumerations of the env-provider set with nothing enforcing exhaustiveness, plus a live latent defect shape: readEnvAssumption silently maps 'define' to undefined. Adding a provider is a plausible recurring change in this subsystem and currently requires four synchronized hand edits. A single typed provider-descriptor table deriving parser, matrix type, advisory listing, and read-resolution is one coherent change; no prior-pack overlap (CQ25-146's no-restructuring ruling doesn't bar an in-family table). Descriptor-table-drives-everything is a high-copyability pattern for the reference repo."
+  },
+  {
+   "candidateId": "C-030",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "The perf angle is marginal (one knip spawn dominates three JSON reparses), but the substantive problem verifies: three adapters each own an independent copy of the empty-output/JSON.parse/isRecord/issues-envelope and malformed-report policy, so error semantics can drift per category, and each future knip category adapter copies the envelope again. Parse-once into a normalized issue-row model composes cleanly with CQ25-46's memo relocation (which never touches the parsers — novelty verified). Medium on the drift-risk/growth axis, not perf; one coherent multi-commit change across runner cache plus three adapters and the pass-through check."
+  },
+  {
+   "candidateId": "C-031",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Sync burden is real and verified (untyped key arrays, hand-rebuilt arms, bespoke strict validation), but the surface is small — 2 arms, 11 keys — on a prototype subcommand, so field changes are infrequent and the blast radius local: this is polish, not a common-path tax; downgrading the medium/M hints per the verifier's own doubt. Still worth doing at the minimal end: typing LOCAL_SOURCE_KEYS/REGISTRY_SOURCE_KEYS against keyof and deriving the source union from the strict parser is a one-commit change that cheaply prevents drift while the semgrep plan's remaining slices evolve this manifest, and it keeps the exemplar honest. Outside CQ25-47's triage-contracts carve-out per verifier."
+  },
+  {
+   "candidateId": "C-032",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Reading both walkers at the pin shows the genuinely shared substance is small (verbatim readDirSafe, skip-dir policy, a seen set) while the bulk of the 111 lines is deliberately divergent semantics: ancestor-dir expansion, scan --exclude glob pruning, and short-circuit single-filename probing with a directory-cycle guard versus source-walk's ignore-config source-file enumeration with file dedup. Several of the claimed drift axes (skipped dirs, cycle behavior) are intended differences, not latent bugs. The proposed shared repository-walk primitive would need enumerate-vs-probe, dedup-vs-cycle, and ignore-config-vs-glob parameterization — more abstraction surface than the duplication it removes, and an over-parameterized walker is a worse copyability exemplar than two focused, well-commented ones. A minimal extraction (shared readDirSafe or moving the probe to its own module) doesn't clear the churn bar on its own."
+  },
+  {
+   "candidateId": "C-033",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Merge keys with undocumented delimiter grammars (including JSON.stringify(row.ranges)) are published as packet/verdict IDs, and triage-verdict-collect.ts hard-errors on itemId mismatch, so any producer or ordering refactor silently becomes a breaking protocol change for externally authored verdict files. The drift-triage swarm protocol is actively used by cross-model runs, making this a real risk on a live path; separating typed internal keys from centrally generated, branded public IDs is one coherent multi-commit change. For a public harness reference, an implicit ID codec in a cross-agent protocol is exactly the kind of uncopyable hazard worth removing."
+  },
+  {
+   "candidateId": "C-034",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Every triage producer and both branches of addReviewItem maintain locations and locationDetails in parallel, and a prior landed leaf explicitly deferred the locationDetails merge path — so the dual representation taxes every change to triage locations within the area. triage-packet-staleness.ts already proves the structured form can be authoritative, so making display strings derived at serialization boundaries is a well-scoped M that pays for itself in the area and composes naturally with the C-033 identity work in the same module."
+  },
+  {
+   "candidateId": "C-035",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Downgrading from the medium hint: the duplication is one repeated script.-prefix exclusion plus an implicit auditMutationFields fallback, and the silent-inheritance footgun only fires on the rare path of adding a new event family — the verifier's 'arguably modest' read is correct. Still worth fixing because the remedy is a single small typed policy table (one commit touching event-fields, request-ids, and tests) that removes a silent-misclassification trap and makes the logs-audit event taxonomy legible and copyable, which is cheap churn at this repo's bar."
+  },
+  {
+   "candidateId": "C-036",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Copy edits to human-facing prose silently change remediation selection (logs-audit) and nothing-to-run formatting (drift-ai) with TypeScript accepting both sides — this actively misleads in the classic way string-typed discriminants do. The drift-ai half is especially clear-cut: a bounded SkipReasonCode union already exists in types.ts but suppressions-check and report-format bypass it for exact prose matching, so half the fix is just adopting an existing type. Two small independent halves (per the needs-split leafability) across two modules make this a coherent M; the logs-audit half should acknowledge the existing deliberate-choice comment when replacing it with a typed subtype."
+  },
+  {
+   "candidateId": "C-037",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "A ~45-line TypeScript reimplementation of the shell musi_standard_state_path contract (sha256 worktree identity, state-root normalization with the root-slash special case, name.key scheme) guarded only by a keep-in-sync comment is a cross-language protocol fork whose drift fails silently; borderline medium since it only bites the direct-CLI fallback path and state-layout changes are infrequent, but the verify state layout has evolved before and the failure mode is invisible when it happens. One machine-readable/TS owner consumed by both sides is a coherent M — the fixer must respect verify-metadata-core.ts's deliberate self-containment (shell tests copy it into sandbox repos), which shapes the design toward a generated or spec-driven owner rather than a shared import. Cross-language single-sourcing is squarely on-mission for a copyable harness reference."
+  },
+  {
+   "candidateId": "C-038",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified dead facade (~100 lines, 0 import sites, re-derived two ways) in the entrypoint of a frequently-touched harness tool; it misleads readers about the CLI lifecycle and is anti-exemplary for a public harness reference where code-intel is a headline copyable surface. M not S: the delete-vs-api.ts decision (external copyability may want a supported api.ts), the top-level-await/conditional-export unwind, and smoke-subject/coverage-map fixture regeneration make this a coherent multi-commit change rather than one trivial commit."
+  },
+  {
+   "candidateId": "C-039",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real O(paths x records) rescan despite the needed index already existing, fully verified — but downgraded from the high hint: test-orphaning is a prototype-lane advisory subcommand run on demand (prototype-subcommand-definitions.ts via runner.ts:212), not in any gate, and 100M is a cap-permitted ceiling, not a typical run, so it taxes occasional advisory runs, not most changes in the area. Worth fixing: touchesByPath already holds the record indexes recentSubjects needs, so the fix is a focused change to rowForSource in test-orphaning-analysis.ts plus its test — one commit, and the pattern (index-then-rescan) is exactly what a harness reference should not model."
+  },
+  {
+   "candidateId": "C-040",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "All four evidence entries verified: module-doc-paths imports generic git-ignore behavior through a self-declared ratchet-appeasement module whose errors hard-code 'harness-freshness' vocabulary (harness-freshness-io.ts:38,43), so a module-doc-paths failure misattributes its own diagnostics — a real debugging trap in an actively-extended sensor directory, and metric-appeasement-decided boundaries are the opposite of what a public harness reference should teach. Fix is a two-file relocation into repo-io.ts with a caller-supplied diagnostic label; must respect the CQ25-146 flat-layout ruling (move between existing flat files, no subdirectories)."
+  },
+  {
+   "candidateId": "C-041",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": false,
+   "reason": "The naming/discoverability problem is real (auth-service.ts holds only crypto primitives while the 342-line router owns the full account/session lifecycle), but the proposed L-sized staged workflow extraction does not pay at this repo's bar: it re-litigates two documented decisions — the 2026-07-25 SERVER-COMMENTS-PLAN ruling that the server layering is sound ('no service to invent', routers keeping request adaptation blessed, services/README.md is the rubric not line count) and leaf-08's twice-refreshed 'auth.ts:223 inline by design' exemption — without any new failure evidence, and it concentrates churn plus regression risk in security-critical flows (cookie serialization, timing-guarded credential checks, $transaction session rotation). The genuinely unadjudicated core, the misleading auth-service name, is clearable by an S-scale rename (e.g. auth-primitives/token-crypto) plus a services/README pointer; re-nominate that narrower fix instead of this candidate as scoped."
+  },
+  {
+   "candidateId": "C-042",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified with zero evidence defects: six production chatMessage.create writers each own their persist/map/broadcast/failure sequencing with at least four distinct failure policies, so every new message-producing feature (the repo keeps adding them: dice, spells, rest, combat) re-invents delivery semantics and drifts — real recurring tax in the chat area, though shared low-level primitives (mapChatMessage, broadcastChatMessage) keep it at medium rather than high. The prior pack itself flagged the adjacent placement question as 'worth its own leaf' (CQ25-75, deferred not ruled), and the coordination-layer scope here is novel. L/needs-split as proposed; the plan must carry combat-chat.ts's documented persist-vs-emit boundary decision and the CQ25-75 taxonomy question in scope."
+  },
+  {
+   "candidateId": "C-043",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Verified but the seam is a recorded deliberate contract, not drift: commit a7dcbc292 extracted persistence per the services/README $transaction rubric, the JSDoc and homebrew-import-MODULE.md state 'validation stays in the router', and README:146 lists persistImportedCollection as a canonical shape-2 caller-owned example. The 78-line helper block is transport-level untrusted-input validation, a defensible router concern; friction is confined to the single import flow. Moving it would churn 17 homebrew-import.test.ts cases plus three doc surfaces against the documented taxonomy for a marginal comprehension gain — the documented side wins the weigh-which-moves call."
+  },
+  {
+   "candidateId": "C-044",
+   "severity": "low",
+   "size": "S",
+   "worthIt": false,
+   "reason": "Verified, but the split follows a rational and documented rule: capacity/race-sensitive operations (preview, join) live in invite-service while create/list/revoke are simple single-write CRUD of the shape services/README explicitly blesses inline (the updatePersonality precedent and the 'lightest structure' rubric). The inline code read is clean; the only real complaint is that the service name implies broader ownership, which a one-line doc clarification in invite-MODULE.md would cover without relocating working, tested code. Extraction adds indirection without reducing any risk."
+  },
+  {
+   "candidateId": "C-045",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Problem is real but overstated: note.ts (250 lines) and npc.ts (195 lines) are cohesive single-write CRUD with no transactions, broadcasts, or concurrency invariants — exactly the shape services/README blesses as legitimate inline routers, and its three-question rubric would deny these domains a service (helpers route to utils/ at most). The visibility/redaction policy is colocated and easy to find within each small file, so 'transport changes risk modifying domain rules' is theoretical here. Extraction contradicts the documented taxonomy by construction while reducing no risk; sizeHint L was inflated (verifier concurs) and severity medium was generous. Not worth the churn at this repo's bar."
+  },
+  {
+   "candidateId": "C-046",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Genuine organizational drift, all evidence exact at the pin: a 640-line four-file unit with a real type-only import cycle (character-create-helpers.ts:10 re-imports ValidatedSrdRefs from its own facade) and a stale in-repo classification — services/README.md:198 lists character-create as flat '+helpers' and omits character-create-spells.ts entirely. That combination actively misleads anyone touching character creation, a real feature path. The fix is a coherent multi-commit change (folder or types-file + MODULE.md + README inventory correction) and must engage the promotion rubric at README:21-28, which the finding itself flags. For a public harness-reference repo, a drifted taxonomy inventory plus an import cycle is precisely the kind of defect worth clearing; the fix pays."
+  },
+  {
+   "candidateId": "C-047",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified doc-vs-code contradiction: spell-casting MODULE.md lists three external entry points and explicitly forbids internal-file imports, yet character-spell.ts:16 imports resolveCombatEligibility from combat-eligibility.js with two production call sites, and the router is the sole cross-module importer. This misleads contributors who trust the facade contract and silently blocks internal reorganization of the spell-casting module. The MODULE.md facade discipline is a centerpiece of this repo's harness-reference value, so restoring the invariant (facade export or named shared utility, plus the MODULE.md line) is high copyability payoff for a one-commit fix. Prior implicit acceptance in leaf 05/S7 was descriptive, not a ruling."
+  },
+  {
+   "candidateId": "C-048",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified at the pin: narrowCasterRaw routes an inferred Prisma result through unknown into a hand-mirrored CasterRaw that weakens always-selected fields (source, prepared, spellSlots) to optional, so include/consumer drift compiles silently and downstream code carries dead fallback branches (known.source ?? \"class\", assertSlot's spellSlots?.find) for states the fixed CASTER_INCLUDE never produces. This taxes every change to the spell-resolution query shape and actively misrepresents the data contract, but the blast radius is one query/consumer chain, so medium not high. Prior-pack check clears it: CQ25-22's dropped Step 8 rejected relocating the mirror, not retiring it. Fix is a coherent multi-commit change (derive payload type from the include, delete manufactured optionals, remove the dead fallbacks across resolve-spell/resolve-character-spell) matching the character-mapping.ts house convention — pays for its churn."
+  },
+  {
+   "candidateId": "C-049",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "14 handwritten row shapes across encounter-query.ts, homebrew-helpers.ts, and map-types.ts verified, each requiring synchronized edits alongside its include/select constant on any query change — recurring friction on commonly-edited server query surfaces, with character-mapping.ts already demonstrating the GetPayload convention. Landed leaf 01's 'keep exactly as it is' reads as step-scoping (its own step 1 offered GetPayload derivation as acceptable, and CONSTRAINTS.md records no ruling against it), so this is open, not refuted. worthIt with hard carried constraints: ParticipantRow's optional mapToken?/character? dual-projection cannot be a straight GetPayload swap (leaf 01's landed caveat; the finding's multi-projection carve-out must be honored), and the leaf brief must cite leaf 01 plus the leaf 46/S19 srd.ts scope guard as adjacent. Three files with per-shape judgment calls = one coherent multi-commit change, M."
+  },
+  {
+   "candidateId": "C-050",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified divergence is more than duplication: the map-helpers detail path uses unchecked fromJson against the documented fromJsonValidated convention (prisma-json.ts), so malformed DB JSON flows unvalidated through one of two mappers of the same table while the CRUD path validates — a real correctness/convention gap on the map feature path, not just dual maintenance. The date-format divergence is code-level only (both routers' .output(mapLayerSchema) converges the wire format), which caps this at medium rather than anything higher. No prior-pack coverage; landed leaf 01 touched MapLayerResult typing but never unified the mappers. One shared validating mapper consumed by both call sites is a single-commit, couple-file fix that pays for itself immediately."
+  },
+  {
+   "candidateId": "C-051",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified exactly with zero evidence defects: buildAddParticipantData constructs a discriminated union then erases it to Record<string, unknown>, forcing the caller to mutate conditions via an unknown[] cast and re-stamp the whole object as Prisma create data — a future required participant column fails at neither site, on the participant-creation mutation path that evolves with the schema. Landed leaf 01 explicitly carved this cast out of its scope ('survives all of the above'), so it is known-adjacent but unaddressed and no ruling blocks it. The house counter-example (buildBlindData -> BlindParticipantFields at participant-action.ts:150) shows the exact target shape, making this a small, convention-following fix; the leaf brief should link leaf 01's caveat as context. Helper plus one caller = S."
+  },
+  {
+   "candidateId": "C-052",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: consume/recover are byte-for-byte the same 29-line Pattern B protocol differing only in bound predicate, increment/decrement, and messages, adjacent in one well-headed file. Downgrading to low: the protocol is a rarely-edited, deliberately-audited surface (sanctioned-escape header, CONCURRENCY.md Pattern B), so the dual-maintenance tax is infrequent and the InTx alias collision is trivial — this is local polish, not common-path friction. Still worth an S fix: a silently diverged CAS protocol (e.g. affected-row handling updated in one direction) would be a nasty race bug, and the proposed private table-local primitive with thin named wrappers preserves the auditability that made a panel reject the assertTurnLock merge (CQ25-167/223 — adjacent precedent, explicitly scoped to that function, and two whole duplicated bodies is a stronger case than two branches). Fixer constraints to carry: keep the sanctioned-escape header verbatim (CQ25-103), keep the primitive private and table-local, and expect panel scrutiny per the 167/223 precedent."
+  },
+  {
+   "candidateId": "C-053",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified in code: prisma-types.ts:173-181 declares toDbClient the single greppable narrowing point, yet presence-service.ts:72 and session-cleanup.ts:3 type production consumers against raw PrismaClient, so the documented one-place boundary audit silently misses them. Runtime guard is intact, but the compile-time gap undermines the repo's auditable-boundary reference story and the exceptions are trivially copyable. Fix is two signature changes (DbClient or Pick<DbClient,...>) — S, single-leaf, clearly pays for itself."
+  },
+  {
+   "candidateId": "C-054",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Character-for-character identical snapshot->cascade->clear-turn-origins sequences in two distant deleters, synchronized only by per-file comments, in the most concurrency-sensitive area of the server — a future single-sided edit diverges silently. Verifier confirmed no prior leaf covers the executable duplication (leaf 45 only single-sourced the prose) and no ruling protects it. M not S: the coordinator extraction must provably preserve the writer-class-3 / read-before-cascade semantics ruled in docs/CONCURRENCY.md, with tests on both deleters."
+  },
+  {
+   "candidateId": "C-055",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Chat is the lone facade of five that forces a concrete socket server and caller-resolved room, so 7 call sites duplicate registry-owned policy and the registry's no_socket_server skipped log structurally never fires for chat (verifier re-derived the 7/6 measurement exactly). Aligning it with the other four facades removes duplicated guards and restores observability parity — a consistency win that makes the registry pattern copyable. Verifier confirmed leaf 04's do-not list scoped chat-broadcast out of the declined wrapper-churn ruling. M: facade + registry derivation + 7 call sites + JSDoc + tests."
+  },
+  {
+   "candidateId": "C-056",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Module-load capture of the prisma singleton and auth service in upload-routes, trpc/context, and campaign-room-handler (plus socket/index.ts:61 per the verifier caveat) means BuildServerOptions does not describe real dependencies and alternate construction requires module replacement — a standing tax on server test construction and a visible dishonesty in the composition root of a public harness reference. Verifier confirmed CQ25-118 covered socket typing, not this, and no ruling opposes injection. L with needs-split honored: the seam spans buildServer and setupSocketIO and must include the socket/index.ts capture site."
+  },
+  {
+   "candidateId": "C-057",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "All 4 of 4 seed generators downgrade parse failures, missing records, and missing descriptions to warnings and still write, so a routine regeneration can exit 0 while dropping records or blanking descriptions and overwrite attested committed artifacts — silent completeness loss that only large-diff review can catch. Verifier confirmed the 4/4 measurement and that CQ25-172 is an attestation-tradeoff decision, not an error-policy ruling, so novelty holds. Validate-before-write with fail-closed default is unit-testable with fixtures; the docs/refs provisioning constraint only limits end-to-end verification, not the fix. M across four generators plus tests."
+  },
+  {
+   "candidateId": "C-058",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified 3-vs-6 split across nine seed consumers with no directory-level rule for what the unknown-returning loader boundary guarantees; every new consumer improvises, and double-assertions (as unknown as SpellcastingJson) show the drift. Contained risk (vendored shape-stable data, operator-driven runs) keeps it medium, and one arm is a documented per-site decision that must be weighed, not steamrolled. Sizing is L: per-corpus validation levels, consumed-fields schemas for large corpora, migration of six modules, and explicit avoidance of CQ25-171-parked table-driving/rename work in the same directory warrant a plan section. Worth it — a named, copyable validation-boundary policy is squarely on the public-harness-reference axis."
+  },
+  {
+   "candidateId": "C-059",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Consciously managed and well-annotated seam, and the evidence defect halves the instability claim (zod/v4/core is semi-public; type-only DefaultErrorShape import is the sanctioned tRPC v11 pattern), so this is not the hack the title implies. But the sanitization policy is security-relevant (strips raw inputs that could leak DB fields on schema drift) and sanitized children are cast back into framework $ZodIssue despite SafeIssue already existing, so framework/Zod upgrades change private shapes under casts on that path — real recurring risk, hence medium. Fix is a single coherent change (transport-owned recursive SafeIssue with errors/issues fields, narrow compatibility seam) that removes ~3 of 5 casts with small blast radius: M, pays for its churn."
+  },
+  {
+   "candidateId": "C-060",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Upgraded from the low hint: both misstatements are verified, and they sit in a header the prior pack ruled load-bearing (CQ25-103 refused to trim it as highest-value) and are mirrored nearly verbatim in docs/CONCURRENCY.md:94-102 — the doc race-sensitive work is directed to read first. Falsely attributing visibility edits and conditions writes to the wrong helpers actively misleads exactly where the repo concentrates its concurrency guidance, so this is risk on a guarded common path, not local polish. Fix is S — correct the two false statements in participant-stats-mutations.ts plus the CONCURRENCY.md mirror, preserving header structure per CQ25-103 — and trivially pays for itself; a targeted accuracy fix is not the trim CQ25-103 refused."
+  }
+ ]
+}

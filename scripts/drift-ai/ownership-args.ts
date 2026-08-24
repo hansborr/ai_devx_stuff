@@ -1,11 +1,26 @@
-import { readNonEmpty, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { positiveIntValue } from "./arg-readers.js";
+import {
+  BOUNDED_HISTORY_CLI_OPTIONS,
+  boundedHistoryArgsFromOptions,
+  boundedHistorySchemaShape,
+} from "./bounded-history-options.js";
 import { DriftAiError } from "./errors.js";
 import {
   DEFAULT_AGENT_IDENTITY_PATTERNS,
   DEFAULT_OWNERSHIP_TOP,
   OWNERSHIP_SUBCOMMAND,
 } from "./ownership-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const OWNERSHIP_USAGE = [
   "Usage:",
@@ -33,49 +48,36 @@ export type ParsedOwnershipArgs = {
   readonly agentIdentityPatterns: readonly string[];
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+  ...BOUNDED_HISTORY_CLI_OPTIONS,
+  { name: "--agent-identity-pattern", kind: "value", repeatable: true },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_OWNERSHIP_TOP),
+  ...boundedHistorySchemaShape,
+  "--agent-identity-pattern": z
+    .array(z.string().transform((value) => parseRegexPattern(value, "--agent-identity-pattern")))
+    .default([]),
+});
+
 export function parseOwnershipArgs(argv: readonly string[]): ParsedOwnershipArgs {
-  let top = DEFAULT_OWNERSHIP_TOP;
-  let since: string | null = null;
-  let maxCommits: number | null = null;
-  let maxFiles: number | null = null;
-  let maxOutputBytes: number | null = null;
-  let timeoutMs: number | null = null;
-  const extraAgentPatterns: string[] = [];
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: OWNERSHIP_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--since": (value) => {
-        since = readNonEmpty(value, "--since");
-      },
-      "--max-commits": (value) => {
-        maxCommits = readPositiveInt(value, "--max-commits");
-      },
-      "--max-files": (value) => {
-        maxFiles = readPositiveInt(value, "--max-files");
-      },
-      "--max-output-bytes": (value) => {
-        maxOutputBytes = readPositiveInt(value, "--max-output-bytes");
-      },
-      "--timeout-ms": (value) => {
-        timeoutMs = readPositiveInt(value, "--timeout-ms");
-      },
-      "--agent-identity-pattern": (value) => {
-        extraAgentPatterns.push(parseRegexPattern(value, "--agent-identity-pattern"));
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
+  const extraAgentPatterns = options["--agent-identity-pattern"];
   return {
-    base,
-    top,
-    since,
-    maxCommits,
-    maxFiles,
-    maxOutputBytes,
-    timeoutMs,
+    base: subcommandBaseFromOptions(options),
+    top: options["--top"],
+    ...boundedHistoryArgsFromOptions(options),
     agentIdentityPatterns:
       extraAgentPatterns.length === 0
         ? DEFAULT_AGENT_IDENTITY_PATTERNS

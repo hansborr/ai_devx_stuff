@@ -1,40 +1,91 @@
-import { type CallExpression, Node, type ObjectLiteralExpression, SyntaxKind } from "ts-morph";
+import {
+  type CallExpression,
+  Node,
+  type ObjectLiteralExpression,
+  SyntaxKind,
+  VariableDeclarationKind,
+} from "ts-morph";
 
 import { GATED_DELEGATES, GATED_MUTATORS } from "./constants.js";
 import type { DelegateCall } from "./types.js";
 
 function staticString(node: Node | undefined): string | undefined {
   if (!node) return undefined;
-  if (Node.isStringLiteral(node) || Node.isNoSubstitutionTemplateLiteral(node)) {
-    return node.getLiteralText();
+  return Node.isStringLiteral(node) ? node.getLiteralValue() : undefined;
+}
+
+function unwrapTransparent(node: Node | undefined): Node | undefined {
+  let current = node;
+  while (
+    current !== undefined &&
+    (Node.isAsExpression(current) ||
+      Node.isSatisfiesExpression(current) ||
+      Node.isNonNullExpression(current) ||
+      Node.isParenthesizedExpression(current))
+  ) {
+    current = current.getExpression();
   }
-  return undefined;
+  return current;
+}
+
+function staticMemberName(node: Node): { name: string; receiver: Node } | undefined {
+  if (Node.isPropertyAccessExpression(node)) {
+    return { name: node.getName(), receiver: node.getExpression() };
+  }
+  if (!Node.isElementAccessExpression(node)) return undefined;
+  const name = staticString(node.getArgumentExpression());
+  return name === undefined ? undefined : { name, receiver: node.getExpression() };
+}
+
+function isConstBinding(declaration: Node): boolean {
+  for (const ancestor of declaration.getAncestors()) {
+    if (Node.isVariableDeclarationList(ancestor)) {
+      return ancestor.getDeclarationKind() === VariableDeclarationKind.Const;
+    }
+    if (Node.isFunctionLikeDeclaration(ancestor)) return false;
+  }
+  return false;
+}
+
+function destructuredDelegateName(declaration: Node): string | undefined {
+  if (!Node.isBindingElement(declaration)) return undefined;
+  if (!Node.isObjectBindingPattern(declaration.getParent())) return undefined;
+  const nameNode = declaration.getPropertyNameNode() ?? declaration.getNameNode();
+  const name = Node.isIdentifier(nameNode) ? nameNode.getText() : staticString(nameNode);
+  return name !== undefined && GATED_DELEGATES.has(name) ? name : undefined;
+}
+
+function initializedDelegateName(declaration: Node): string | undefined {
+  if (!Node.isVariableDeclaration(declaration)) return undefined;
+  const initializer = unwrapTransparent(declaration.getInitializer());
+  if (initializer === undefined) return undefined;
+  const name = staticMemberName(initializer)?.name;
+  return name !== undefined && GATED_DELEGATES.has(name) ? name : undefined;
+}
+
+function boundDelegateName(identifier: Node): string | undefined {
+  const declaration = identifier.getSymbol()?.getValueDeclaration();
+  if (declaration === undefined || !isConstBinding(declaration)) return undefined;
+  return destructuredDelegateName(declaration) ?? initializedDelegateName(declaration);
 }
 
 function delegateName(node: Node): string | undefined {
-  if (Node.isIdentifier(node)) {
-    const name = node.getText();
-    return GATED_DELEGATES.has(name) ? name : undefined;
+  const receiver = unwrapTransparent(node);
+  if (receiver === undefined) return undefined;
+  if (Node.isIdentifier(receiver)) {
+    const name = receiver.getText();
+    return GATED_DELEGATES.has(name) ? name : boundDelegateName(receiver);
   }
-  if (Node.isPropertyAccessExpression(node)) {
-    const name = node.getName();
-    return GATED_DELEGATES.has(name) ? name : undefined;
-  }
-  if (Node.isElementAccessExpression(node)) {
-    const name = staticString(node.getArgumentExpression());
-    return name && GATED_DELEGATES.has(name) ? name : undefined;
-  }
-  return undefined;
+  const name = staticMemberName(receiver)?.name;
+  return name !== undefined && GATED_DELEGATES.has(name) ? name : undefined;
 }
 
 export function delegateCall(call: CallExpression): DelegateCall | undefined {
-  const expression = call.getExpression();
-  if (!Node.isPropertyAccessExpression(expression)) return undefined;
-  const method = expression.getName();
-  if (!GATED_MUTATORS.has(method)) return undefined;
-  const delegate = delegateName(expression.getExpression());
+  const expression = staticMemberName(call.getExpression());
+  if (expression === undefined || !GATED_MUTATORS.has(expression.name)) return undefined;
+  const delegate = delegateName(expression.receiver);
   if (!delegate) return undefined;
-  return { call, delegate, method };
+  return { call, delegate, method: expression.name };
 }
 
 function objectPropertyValue(

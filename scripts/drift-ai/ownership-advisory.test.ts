@@ -1,76 +1,22 @@
 import { describe, expect, it } from "vitest";
 
-import type { BoundedFullHistory } from "./bounded-full-history.js";
-import { FULL_HISTORY_RENAME_CAVEAT } from "./bounded-full-history-disclosure.js";
-import type { CommitRecord } from "./hotspots-history.js";
+import {
+  createCommitRecord as rec,
+  createCompleteBoundedHistory,
+  createFileChange as change,
+} from "./bounded-history.test-helper.js";
 import {
   buildOwnershipAdvisory,
   DEFAULT_OWNERSHIP_TOP,
   formatOwnershipAdvisoryJson,
   formatOwnershipAdvisoryText,
 } from "./ownership-advisory.js";
-import type { PrototypeCap } from "./prototype-advisory.js";
-
-function rec(overrides: Partial<CommitRecord>): CommitRecord {
-  return {
-    hash: "h",
-    authorName: "Ada",
-    authorEmail: "ada@example.com",
-    authorDate: "2026-05-29T00:00:00Z",
-    committerDate: "2026-05-29T00:00:00Z",
-    subject: "subject",
-    coAuthors: [],
-    files: [],
-    ...overrides,
-  };
-}
-
-function change(path: string, added = 1, deleted = 0): CommitRecord["files"][number] {
-  return { path, added, deleted, binary: false };
-}
 
 function history(
-  records: readonly CommitRecord[],
-  overrides: Partial<BoundedFullHistory> = {},
-): BoundedFullHistory {
-  const prototypeCaps: PrototypeCap[] = [
-    { label: "full-history commits", limit: 5000, hit: false, detail: null },
-  ];
-  return {
-    records,
-    commitCount: records.length,
-    distinctFileCount: new Set(records.flatMap((record) => record.files.map((file) => file.path)))
-      .size,
-    requestedCaps: {
-      since: null,
-      maxCommits: 5000,
-      maxFiles: 20000,
-      maxOutputBytes: 512,
-      timeoutMs: 30000,
-    },
-    scannedRange: {
-      since: null,
-      newestCommitHash: records[0]?.hash ?? null,
-      newestCommitDate: records[0]?.authorDate ?? null,
-      oldestCommitHash: records.at(-1)?.hash ?? null,
-      oldestCommitDate: records.at(-1)?.authorDate ?? null,
-    },
-    partial: false,
-    stoppedReason: "completed",
-    moreCommitsObserved: false,
-    moreHistoryMayExist: false,
-    unexamined: {
-      commits: { kind: "known", count: 0 },
-      files: { kind: "known", count: 0 },
-    },
-    linesAvailable: true,
-    elapsedMs: 12,
-    renameCaveat: FULL_HISTORY_RENAME_CAVEAT,
-    degradations: [],
-    prototypeCaps,
-    gitError: null,
-    ...overrides,
-  };
+  records: Parameters<typeof createCompleteBoundedHistory>[0],
+  overrides: Partial<ReturnType<typeof createCompleteBoundedHistory>> = {},
+): ReturnType<typeof createCompleteBoundedHistory> {
+  return createCompleteBoundedHistory(records, { elapsedMs: 12, ...overrides });
 }
 
 describe("buildOwnershipAdvisory", () => {

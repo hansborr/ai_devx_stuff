@@ -1,12 +1,20 @@
 #!/usr/bin/env bash
 # smoke-order: 030
 # smoke-subjects: scripts/verify-logs.sh
+# smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/tests/test-verify-logs.sh
 # smoke-subjects: scripts/ai-hooks/cache.sh
 # smoke-subjects: scripts/ai-hooks/output-filter.sh
 # smoke-subjects: scripts/harness-emit-envelope.ts
 # smoke-subjects: scripts/harness/harness-diagnostics-output.ts
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: scripts/lib/harness-finding.sh
+# smoke-subjects: tools/harness-diagnostics/
 # test-verify-logs.sh — pure-shell smoke tests for scripts/verify-logs.sh.
 #
 # Stages fake logs and bun-run-quiet markers in a sandbox, then checks the
@@ -189,6 +197,37 @@ output=$(run_logs)
 grep -qE 'lint +STALE +\?' <<< "$output" \
   || fail "stale wrapper marker should leave STATE=STALE (log is from a later, possibly failed run)"
 ok "stale wrapper marker does not falsely promote a pre-commit row"
+
+# A wrapper marker with a duplicate field is corrupt under the canonical
+# success-marker codec and must not promote the row to OK*.
+{
+  printf 'LAST_TS=%s\n' "$(date +%s)"
+  printf 'LAST_TS=%s\n' "$(date +%s)"
+  printf 'LAST_HEAD=deadbeef\n'
+  printf 'LAST_HASH=%s\n' "$(printf 'a%.0s' {1..64})"
+} > "$VERIFY_MARKER_CHANGED"
+output=$(run_logs)
+grep -qE 'lint +STALE +\?' <<< "$output" \
+  || fail "wrapper marker with duplicate LAST_TS should leave STATE=STALE"
+grep -q 'verify --changed.*(corrupt)' <<< "$output" \
+  || fail "wrapper marker with duplicate LAST_TS should be shown as corrupt"
+ok "wrapper marker validation rejects duplicate fields"
+rm -f "$VERIFY_MARKER_CHANGED"
+
+# The canonical codec accepts a complete final field without a trailing
+# newline; the viewer must apply the same verdict.
+{
+  printf 'LAST_TS=%s\n' "$(date +%s)"
+  printf 'LAST_HEAD=deadbeef\n'
+  printf 'LAST_HASH=%s' "$(printf 'a%.0s' {1..64})"
+} > "$VERIFY_MARKER_CHANGED"
+output=$(run_logs)
+grep -qE 'lint +OK\* +0' <<< "$output" \
+  || fail "wrapper marker without trailing newline should promote the row to OK*"
+grep -qE 'verify --changed +[^[:space:]]+ ago' <<< "$output" \
+  || fail "wrapper marker without trailing newline should show a readable age"
+ok "wrapper marker validation accepts a complete final line without a newline"
+rm -f "$VERIFY_MARKER_CHANGED"
 
 # A wrapper marker with an unknown key is rejected by validation.
 {
@@ -632,15 +671,16 @@ run_logs --json > "$JSON_OUT" || fail "--json must exit 0 when wrapper promotes 
 assert_envelope "$JSON_OUT" 0 0
 ok "--json emits no findings when a fresh wrapper marker promotes OK*"
 
-# Corrupt wrapper marker → warn finding.
+# Duplicate-field wrapper marker → corrupt-marker warn finding.
 rm -f "$VERIFY_MARKER_CHANGED"
 {
   printf 'LAST_TS=%s\n' "$(date +%s)"
+  printf 'LAST_TS=%s\n' "$(date +%s)"
   printf 'LAST_HEAD=deadbeef\n'
-  printf 'BOGUS=oops\n'
+  printf 'LAST_HASH=%s\n' "$(printf 'a%.0s' {1..64})"
 } > "$VERIFY_MARKER_CHANGED"
 JSON_OUT="$SANDBOX/json-corrupt.json"
-run_logs --json > "$JSON_OUT" || fail "--json must exit 0 when wrapper marker is corrupt"
+run_logs --json > "$JSON_OUT" || fail "--json must exit 0 when wrapper marker has a duplicate field"
 ASSERT_FILE="$JSON_OUT" bun -e '
   const fs = require("fs");
   const assertionFailed = (message) => { console.error(message); process.exit(1); };
@@ -649,8 +689,8 @@ ASSERT_FILE="$JSON_OUT" bun -e '
   if (!f) assertionFailed("missing wrapper-marker-corrupt-verify-changed finding");
   if (f.severity !== "warn") assertionFailed(`expected warn, got ${f.severity}`);
   if (!f.path.endsWith("verify-changed")) assertionFailed(`bad path ${f.path}`);
-' || fail "wrapper-marker-corrupt envelope shape mismatch"
-ok "--json emits warn finding for each corrupt wrapper marker"
+' || fail "duplicate-field wrapper-marker-corrupt envelope shape mismatch"
+ok "--json emits a corrupt-marker warning for duplicate fields"
 rm -f "$VERIFY_MARKER_CHANGED" "$PRECOMMIT_LOG_DIR/lint.log"
 
 # --- --json argument-shape validation --------------------------------------

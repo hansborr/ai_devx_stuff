@@ -6,11 +6,13 @@
   // the strict base would drown the drift signal in JSDoc-light parameter
   // errors.
   //
-  // eslint-config/local-plugin.js stays excluded for now: it imports every
-  // eslint-rules/*.js rule file, and those carry estree-vs-TSESTree JSDoc
+  // eslint-config/local-plugin.generated.js stays excluded for now: it imports
+  // every eslint-rules/*.js rule file, and those carry estree-vs-TSESTree JSDoc
   // typedef mismatches (harness-sweep-2026-07 leaf 22c, parked). Nothing else
   // in eslint-config imports it, so excluding it keeps the rule files out of
-  // this program.
+  // this program. The file is emitted by
+  // scripts/harness/generate-local-plugin.ts; the exclusion must follow the
+  // generated name.
   "compilerOptions": {
     "allowJs": true,
     "checkJs": true,
@@ -23,5 +25,5 @@
     "skipLibCheck": true
   },
   "include": ["eslint-config/*.js"],
-  "exclude": ["eslint-config/local-plugin.js"]
+  "exclude": ["eslint-config/local-plugin.generated.js"]
 }

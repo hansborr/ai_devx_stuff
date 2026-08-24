@@ -8,8 +8,9 @@ sources directly through per-layer subpath exports.
 
 - `kernel/` — baseline codec, current-state collection, comparison, update, and
   the injected engine context (`LintRatchetEngineContext`).
-- `git-rail/` — pure merge-driver operations, merge-driver presence checks, and
-  the `.git/info/attributes` block renderer.
+- `git-rail/` — merge-driver operations and the versioned executable that owns
+  install/check, bootstrap generation, semantic merge, preflight, truth-up, and
+  stage restore.
 - `governance/` — debt log, zero-baseline lifecycle audit, trend, summary,
   propose, edit-check, retirement, baseline debt-accounting, the shared
   `WorseBaselineError`, and the neutral gate/update application operations
@@ -17,7 +18,7 @@ sources directly through per-layer subpath exports.
   gated apply, as pure data-in/data-out functions).
 
 The package carries **layers 1–3 only**. The repo adapter — registry data,
-path/context construction, harness wiring, CLI composition, and the
+path/context construction, the typed git-rail binding, harness wiring, CLI composition, and the
 harness-diagnostics envelope render — stays outside the package (in Musi it
 lives under `scripts/`). See
 `docs/agent_notes/backlog/lint-arch-review-2026-07/02-slice-plan.md`.
@@ -27,8 +28,11 @@ lives under `scripts/`). See
 Copy `tools/lint-ratchet` into your repo, declare its dependencies, and write a
 thin adapter that:
 
-1. constructs a `LintRatchetEngineContext` for your repository, and
-2. supplies your own ratchet registry.
+1. constructs a `LintRatchetEngineContext` with your repository paths and
+   required `LintRatchetWorkflowVocabulary`, and
+2. supplies your own ratchet registry and collection binding, and
+3. exports `lintRatchetGitRailAdapter` when using the recommended semantic
+   merge protection.
 
 `examples/lint-ratchet-demo` is a second, non-Musi adapter that proves the seam.
 
@@ -45,7 +49,7 @@ proves private modules stay unimportable.
 
 ### kernel/ — engine binding and the sensor toolkit
 
-- `kernel/engine-context.js` — construct the injected `LintRatchetEngineContext` an adapter binds the engine with.
+- `kernel/engine-context.js` — construct the injected `LintRatchetEngineContext` and required host-command `LintRatchetWorkflowVocabulary` an adapter binds the engine with.
 - `kernel/config-types.js` — the registry/config type vocabulary adapters author their ratchet registry in.
 - `kernel/runtime-config.js` — runtime-config resolution for the bound engine.
 - `kernel/baseline.js` — the committed baseline codec: parse, serialize, validate.
@@ -66,7 +70,7 @@ proves private modules stay unimportable.
 - `kernel/rule-source.js` — resolve which config source declares each ratcheted rule.
 - `kernel/rule-source-drift.js` — detect drift between baseline rule sources and the live config.
 - `kernel/removed-path-improvements.js` — classify baseline entries freed by deleted paths.
-- `kernel/recovery-command.js` — the single source of truth for baseline-update recovery commands in output.
+- `kernel/recovery-command.js` — package-neutral composition for recovery prose derived from the adapter-owned `LintRatchetWorkflowVocabulary`.
 - `kernel/metrics-types.js` — shared metric/result types and `ConfigError`.
 - `kernel/markdown-escape.js` — markdown escaping that keeps engine finding prose (inline code spans) intact in reports.
 
@@ -82,6 +86,14 @@ funnel them through one local seam (Musi: `scripts/lib/*.ts`).
 
 ### git-rail/ — merge-driver integration
 
+- `git-rail/executable-cli.js` — the supported operational rail (`install`,
+  `check`, `merge`, `preflight`, `post-merge`, and `restore-stage`); the package
+  also declares the `lint-ratchet-git-rail` binary for installed consumers.
+- `git-rail/executable-config.js` — the typed adopter binding loaded by the
+  executable.
+- `git-rail/conflict-recovery.js` — render adopter-specific manual merge
+  recovery from the binding's workflow vocabulary; the package driver and
+  generated runbook share this authority.
 - `git-rail/merge-cli.js` — the merge-driver CLI kernel sensors wrap into their `%O %A %B` entry points.
 - `git-rail/merge-driver-presence.js` — detect whether the clone has the baseline merge driver installed.
 - `git-rail/info-attributes.js` — render the managed `.git/info/attributes` block.
@@ -113,4 +125,6 @@ whose package root is a declared, portably-versioned dependency in this
 `package.json`. No `@musi/*` other than this package itself, no repo-relative
 reach, no unresolved import. The boundary checker is resolver-aware and
 fail-closed; its exception set is sealed (see `ALLOWED_IGNORE_PATHS`) and the
-`package structure` test pins it so no engine or test file can be excluded.
+`package structure` test pins it so no engine or test file can be excluded. The
+single computed import is the executable's declared adapter-module loader; the
+same test pins that exact file as the only such boundary.

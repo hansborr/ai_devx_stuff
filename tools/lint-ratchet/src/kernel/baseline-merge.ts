@@ -11,6 +11,7 @@ import {
   lintRatchetBaselineToGrouped,
 } from "./baseline-spec.js";
 import { parseLintRatchetBaselineStructure } from "./baseline-validation.js";
+import { DEFAULT_BASELINE_FILENAME, type LintRatchetWorkflowVocabulary } from "./engine-context.js";
 import { mergeGroupedBaseline, type MergeGroupedBaselineResult } from "./group-baseline.js";
 import { validateMetricItem } from "./metric-strategies.js";
 import type { LintRatchetMetricItem } from "./metrics-types.js";
@@ -20,6 +21,8 @@ export interface MergeLintRatchetBaselinesOptions {
   readonly currentText: string;
   readonly otherText: string;
   readonly versionPolicy?: LintRatchetBaselineVersionPolicy;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+  readonly baselineFile?: string;
 }
 
 export interface MergeLintRatchetBaselinesResult {
@@ -53,17 +56,29 @@ function parseMergeBaseline(
   label: string,
   text: string,
   failures: string[],
-  versionPolicy: LintRatchetBaselineVersionPolicy,
+  options: {
+    readonly versionPolicy: LintRatchetBaselineVersionPolicy;
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+    readonly baselineFile: string;
+  },
 ): LintRatchetBaseline | undefined {
   if (label === "base" && text.trim() === "") {
-    const regenerate = lintRatchetBaselineRegenerateForVersion(versionPolicy.writeVersion);
+    const regenerate = lintRatchetBaselineRegenerateForVersion(
+      options.versionPolicy.writeVersion,
+      options.workflowVocabulary.updateCommand,
+    );
     return {
-      version: versionPolicy.writeVersion,
+      version: options.versionPolicy.writeVersion,
       ...(regenerate === undefined ? {} : { regenerate }),
       tests: {},
     };
   }
-  const result = parseLintRatchetBaselineStructure(text, versionPolicy);
+  const result = parseLintRatchetBaselineStructure(
+    text,
+    options.workflowVocabulary,
+    options.versionPolicy,
+    options.baselineFile,
+  );
   if (result.baseline !== undefined) return result.baseline;
   failures.push(...result.failures.map((failure) => `${label} ${failure}`));
   return undefined;
@@ -84,19 +99,31 @@ export function mergeLintRatchetBaselines(
   options: MergeLintRatchetBaselinesOptions,
 ): MergeLintRatchetBaselinesResult {
   const versionPolicy = options.versionPolicy ?? LINT_RATCHET_BASELINE_VERSION_POLICY;
+  const codecOptions = {
+    versionPolicy,
+    workflowVocabulary: options.workflowVocabulary,
+    baselineFile: options.baselineFile ?? DEFAULT_BASELINE_FILENAME,
+  };
   const parseFailures: string[] = [];
-  const base = parseMergeBaseline("base", options.baseText, parseFailures, versionPolicy);
-  const current = parseMergeBaseline("current", options.currentText, parseFailures, versionPolicy);
-  const other = parseMergeBaseline("other", options.otherText, parseFailures, versionPolicy);
+  const base = parseMergeBaseline("base", options.baseText, parseFailures, codecOptions);
+  const current = parseMergeBaseline("current", options.currentText, parseFailures, codecOptions);
+  const other = parseMergeBaseline("other", options.otherText, parseFailures, codecOptions);
   if (base === undefined || current === undefined || other === undefined) {
     return { failures: parseFailures, postMergeTruthUpRequired: false };
   }
 
-  const grouped = mergeGroupedBaseline(lintRatchetBaselineSpec(versionPolicy), {
-    base: lintRatchetBaselineToGrouped(base),
-    current: lintRatchetBaselineToGrouped(current),
-    other: lintRatchetBaselineToGrouped(other),
-  });
+  const grouped = mergeGroupedBaseline(
+    lintRatchetBaselineSpec(
+      versionPolicy,
+      options.workflowVocabulary,
+      options.baselineFile ?? DEFAULT_BASELINE_FILENAME,
+    ),
+    {
+      base: lintRatchetBaselineToGrouped(base),
+      current: lintRatchetBaselineToGrouped(current),
+      other: lintRatchetBaselineToGrouped(other),
+    },
+  );
   const baseline = mergedBaseline(grouped, versionPolicy);
   if (baseline === undefined) {
     throw new Error("grouped lint-ratchet merge returned without a baseline");
@@ -107,7 +134,7 @@ export function mergeLintRatchetBaselines(
   ];
   if (failures.length > 0) return { failures, postMergeTruthUpRequired: false };
   return {
-    mergedText: formatLintRatchetBaseline(baseline),
+    mergedText: formatLintRatchetBaseline(baseline, options.workflowVocabulary),
     failures: [],
     postMergeTruthUpRequired: grouped.postMergeTruthUpRequired,
   };

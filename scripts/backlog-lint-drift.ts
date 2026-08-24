@@ -9,7 +9,11 @@
  * same way.
  */
 
-import { indexLinkedBases, parseIndexTaskTable } from "./backlog-lint-index-table.js";
+import {
+  declaredIndexCatalogBases,
+  indexLinkedBases,
+  parseIndexTaskTable,
+} from "./backlog-lint-index-table.js";
 import { terminalStatus } from "./backlog-lint-status.js";
 import type { BacklogLintFinding } from "./backlog-lint-types.js";
 
@@ -19,10 +23,17 @@ export interface DriftLeaf {
   readonly statusValue?: string;
 }
 
+export interface DriftLinkSource {
+  readonly base: string;
+  readonly path: string;
+  readonly text: string;
+}
+
 interface PackDriftInput {
   readonly indexPath: string;
   readonly indexBase: string;
   readonly indexText: string;
+  readonly catalogs: readonly DriftLinkSource[];
   readonly memberBases: ReadonlySet<string>;
   readonly leaves: readonly DriftLeaf[];
 }
@@ -30,8 +41,7 @@ interface PackDriftInput {
 /** A drift finding plus how it becomes relevant in `--file` mode. */
 interface DriftFinding {
   readonly finding: BacklogLintFinding;
-  readonly reveal: "leaf" | "index";
-  readonly leafPath?: string;
+  readonly revealPaths: readonly string[];
 }
 
 const STATUS_SNIPPET_MAX = 48;
@@ -59,8 +69,7 @@ function rowDrift(
       line,
       message: `index row marks ${leaf.path} ${indexState} (Status "${statusSnippet(statusText)}") but the leaf Status is "${statusSnippet(leaf.statusValue)}"`,
     },
-    reveal: "leaf",
-    leafPath: leaf.path,
+    revealPaths: [indexPath, leaf.path],
   };
 }
 
@@ -81,23 +90,50 @@ function driftFindings(
   return findings;
 }
 
-function danglingFindings(input: PackDriftInput, linked: ReadonlySet<string>): DriftFinding[] {
+function danglingFindings(
+  source: DriftLinkSource,
+  memberBases: ReadonlySet<string>,
+  linked: ReadonlySet<string>,
+): DriftFinding[] {
   const findings: DriftFinding[] = [];
   for (const base of linked) {
-    if (base === input.indexBase || input.memberBases.has(base)) continue;
+    if (base === source.base || memberBases.has(base)) continue;
     findings.push({
       finding: {
         kind: "dangling-index-link",
-        path: input.indexPath,
+        path: source.path,
         message: `index links ${base}, which is not present in the pack`,
       },
-      reveal: "index",
+      revealPaths: [source.path],
     });
   }
   return findings;
 }
 
-function unlistedFindings(input: PackDriftInput, linked: ReadonlySet<string>): DriftFinding[] {
+function missingCatalogFindings(
+  input: PackDriftInput,
+  rootLinked: ReadonlySet<string>,
+): DriftFinding[] {
+  const findings: DriftFinding[] = [];
+  for (const base of declaredIndexCatalogBases(input.indexText)) {
+    if (input.memberBases.has(base) || rootLinked.has(base)) continue;
+    findings.push({
+      finding: {
+        kind: "dangling-index-link",
+        path: input.indexPath,
+        message: `index declares catalog ${base}, which is not present in the pack`,
+      },
+      revealPaths: [input.indexPath],
+    });
+  }
+  return findings;
+}
+
+function unlistedFindings(
+  input: PackDriftInput,
+  linked: ReadonlySet<string>,
+  sourcePaths: readonly string[],
+): DriftFinding[] {
   const findings: DriftFinding[] = [];
   for (const leaf of input.leaves) {
     if (leaf.base === input.indexBase || linked.has(leaf.base)) continue;
@@ -107,7 +143,7 @@ function unlistedFindings(input: PackDriftInput, linked: ReadonlySet<string>): D
         path: leaf.path,
         message: "leaf note is present in the pack but not linked from the index",
       },
-      reveal: "index",
+      revealPaths: sourcePaths,
     });
   }
   return findings;
@@ -115,10 +151,28 @@ function unlistedFindings(input: PackDriftInput, linked: ReadonlySet<string>): D
 
 export function collectDriftFindings(input: PackDriftInput): DriftFinding[] {
   const leafByBase = new Map(input.leaves.map((leaf) => [leaf.base, leaf]));
-  const linked = indexLinkedBases(input.indexText);
+  const root: DriftLinkSource = {
+    base: input.indexBase,
+    path: input.indexPath,
+    text: input.indexText,
+  };
+  const sources = [root, ...input.catalogs];
+  const linkedBySource = sources.map((source) => ({
+    source,
+    linked: indexLinkedBases(source.text),
+  }));
+  const linked = new Set(linkedBySource.flatMap(({ linked: bases }) => [...bases]));
+  const rootLinked = linkedBySource[0]?.linked ?? new Set<string>();
   return [
     ...driftFindings(input, leafByBase),
-    ...danglingFindings(input, linked),
-    ...unlistedFindings(input, linked),
+    ...linkedBySource.flatMap(({ source, linked: bases }) =>
+      danglingFindings(source, input.memberBases, bases),
+    ),
+    ...missingCatalogFindings(input, rootLinked),
+    ...unlistedFindings(
+      input,
+      linked,
+      sources.map((source) => source.path),
+    ),
   ];
 }

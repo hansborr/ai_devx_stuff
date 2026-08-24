@@ -1,0 +1,556 @@
+{
+  "contractVersion": 1,
+  "step": "2b-round-2",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewShaConfirmed": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "consults": [
+    {
+      "chunk": "gate-r2-01",
+      "files": 9
+    },
+    {
+      "chunk": "gate-r2-02",
+      "files": 9
+    }
+  ],
+  "results": [
+    {
+      "file": "107-ai-hook-policy-2121-line-shell-parsing.md",
+      "promotionId": "R2B-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 15,
+        "commandsChecked": 7,
+        "linksChecked": 7,
+        "priorPackRecordsOpened": [
+          "CQ25-122",
+          "CQ25-129",
+          "27-PLAN.md",
+          "37-ai-hooks-contracts.md",
+          "29-bash-to-ts-cores.md"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf supplies no reproducible commands for its line, function, dispatcher, native-deny, parser-span, adapter, and test-corpus measurements. Re-derived values are 708/34, 1413/56, 155 dispatcher lines, 19 message-return branches, 81 deny entries, 22/287 comment-parser lines, 116 adapter lines, 4457 aggregate-test lines, 9 sibling suites plus one helper, and 8939 total corpus lines.",
+          "correction": {
+            "oldString": "## Evidence\n\n- Measured at the pin: `scripts/ai-hooks/common.sh` is 708 lines /\n  34 function definitions; `scripts/ai-hooks/policy.sh` is 1,413 lines /\n  56 function definitions — 2,121 lines, 90 functions total.",
+            "newString": "## Evidence\n\nMeasurement commands (run from the repository root at the pin): line/function totals: `for f in scripts/ai-hooks/{common,policy}.sh; do git show ebf096580b31f604861fadb3d4cbd4079da4f017:$f | wc -l; git show ebf096580b31f604861fadb3d4cbd4079da4f017:$f | rg -c '^[[:alpha:]_][[:alnum:]_]*[(][)][[:space:]]*[{]'; done`; dispatcher span/branch count: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/policy.sh | sed -n '1059,1213p' | wc -l` and `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/policy.sh | sed -n '1059,1213p' | rg -c '^    return 0$'`; native deny count: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:.claude/settings.json | jq '.permissions.deny | length'`; spec/parser spans: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/policy.sh | sed -n '248,269p' | wc -l` and `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/policy.sh | sed -n '270,556p' | wc -l`; adapter/main-corpus counts: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/bash-pre-tool-use.sh | wc -l` and `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/ai-hooks/test.sh | wc -l`; sibling-suite count: `git ls-tree -r --name-only ebf096580b31f604861fadb3d4cbd4079da4f017 scripts/ai-hooks | rg '^scripts/ai-hooks/test-[^/]+[.]sh$' | rg -v '/test-support[.]sh$' | wc -l`; all corpus lines: `git ls-tree -r --name-only ebf096580b31f604861fadb3d4cbd4079da4f017 scripts/ai-hooks | rg '^scripts/ai-hooks/(test[.]sh|test-[^/]+[.]sh)$' | while read -r f; do git show ebf096580b31f604861fadb3d4cbd4079da4f017:$f; done | wc -l`.\n\n- Measured at the pin: `scripts/ai-hooks/common.sh` is 708 lines /\n  34 function definitions; `scripts/ai-hooks/policy.sh` is 1,413 lines /\n  56 function definitions — 2,121 lines, 90 functions total."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "policy.sh:1059-1213 has 19 message-emitting return branches, not 18: the 18 constant-message branches are joined by the dynamic protected-file violation branch at 1098-1100. The approximate direct/procedural subtotals are also unreproduced.",
+          "correction": {
+            "oldString": "  central hard-deny dispatcher: one ordered if-chain with 18\n  message-emitting branches (measured). Roughly a dozen are single\n  regex/`grep` matches (postgres/redis/docker CLIs, `--amend`, history\n  rewrite, force-push, `git clean -f`, `gh auth`/`gh pr` mutations, …); seven\n  route through named procedural predicates (hook-bypass flags,",
+            "newString": "  central hard-deny dispatcher: one ordered if-chain with 19\n  message-emitting branches (measured). Several use direct\n  regex/`grep` matches (postgres/redis/docker CLIs, `--amend`, history\n  rewrite, force-push, `git clean -f`, `gh auth`/`gh pr` mutations, …); others\n  route through named procedural predicates (hook-bypass flags,"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The bespoke claude_destructive_git_family classifier begins at test.sh:174; lines 253-301 contain only the parity corpus and the classifier call.",
+          "correction": {
+            "oldString": "`scripts/ai-hooks/test.sh:253-301`",
+            "newString": "`scripts/ai-hooks/test.sh:174-301`"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "ai_resolve_target_dir is declared at common.sh:452 and spans 452-470; line 441 is part of the preceding helper.",
+          "correction": {
+            "oldString": "`ai_resolve_target_dir` (`:441-470`)",
+            "newString": "`ai_resolve_target_dir` (`:452-470`)"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "There are nine sibling test suites, not ten. The tenth test-*.sh file is test-support.sh, whose header identifies it as a sourced assertion-helper library. The 8939-line total is correct only because it includes that helper.",
+          "correction": {
+            "oldString": "- Behavioral spec is a shell corpus, not prose:\n  `scripts/ai-hooks/test.sh` is 4,457 lines, plus ten sibling\n  `test-*.sh` suites — 8,939 lines total — run via the registered smoke\n  `scripts/tests/test-ai-hooks.sh` (`:25` execs `test.sh`).",
+            "newString": "- Behavioral spec is a shell corpus, not prose:\n  `scripts/ai-hooks/test.sh` is 4,457 lines, plus nine sibling\n  `test-*.sh` suites and the sibling `test-support.sh` helper — 8,939 lines\n  total — run via the registered smoke `scripts/tests/test-ai-hooks.sh`\n  (`:25` execs `test.sh`)."
+          }
+        },
+        {
+          "kind": "command",
+          "severity": "P1",
+          "detail": "The named measurement command `git log --follow` is incomplete and exits 128 because --follow requires exactly one pathspec; it cannot reproduce either churn count. Full pinned commands reproduce 84 total and 61 since 2026-06-01.",
+          "correction": {
+            "oldString": "- Churn: 84 commits touch `policy.sh` over its history\n  (`git log --follow`), 61 of them since 2026-06-01.",
+            "newString": "- Churn: 84 commits touch `policy.sh` over its history (reproduce with\n  `git log ebf096580b31f604861fadb3d4cbd4079da4f017 --follow --format=%H -- scripts/ai-hooks/policy.sh | wc -l`),\n  61 of them since 2026-06-01 (reproduce with\n  `git log ebf096580b31f604861fadb3d4cbd4079da4f017 --since=2026-06-01 --follow --format=%H -- scripts/ai-hooks/policy.sh | wc -l`)."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "Arch-plan lines 108-114 present an unresolved S2 choice; they do not record jq as allowed. The actual allowed-exception ruling is at lines 207-223.",
+          "correction": {
+            "oldString": "`:108-114` records hook-local jq as an allowed exception territory.",
+            "newString": "`:207-223` records hook-local jq as an allowed exception territory."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The Scope section repeats the wrong pre-decision jq range. Lines 207-223, not 108-114, record the accepted hook-/CLI-local jq exception.",
+          "correction": {
+            "oldString": "`arch-plans-2026-07/05-verify-metadata-ts-analytical-core.md:91-97,108-114`",
+            "newString": "`arch-plans-2026-07/05-verify-metadata-ts-analytical-core.md:91-97,207-223`"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The proposed-direction estimates ~12 and ~7 have no reproducer and inherit the branch-accounting ambiguity that missed the dynamic protected-file branch. The design does not need numerical subtotals.",
+          "correction": {
+            "oldString": "   The dispatcher collapses to a generic ordered loop: the ~12 pure-regex\n   rules become data rows; the ~7 procedural predicates (protected-file",
+            "newString": "   The dispatcher collapses to a generic ordered loop: the pure-pattern\n   rules become data rows; the procedural predicates (protected-file"
+          }
+        },
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The packet requires the linked 107-PLAN S0/S1 sequence to be updated in lockstep. `git diff HEAD~1 HEAD -- 107-PLAN.md` is empty. The live plan omits native-projectable metadata, expected deny-array generation/freshness checking, and intentional non-projection fixtures; S0 still says 18 branches and the Scope paragraph still says five binding rulings. This cannot be repaired by replacing text in the assigned leaf; 107-PLAN.md must be augmented.",
+          "correction": null
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-122 covers generated provider shims but not Claude permissions.deny; CQ25-129 rejects replacing the localized settings scanner but not projecting existing command-policy data. Live 27-PLAN remains Planned for test-family splits, 37 is Done and narrow, and 29 remains only a bash-to-TS scoping fence.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All seven Markdown links resolve. Existing package commands harness:wiring, harness:wiring:check, and harness:check exist; the future harness:policy:explain command is accurately labeled illustrative and absent. Predecessor comparison found no pre-existing leaf claim dropped or contradicted. The companion-plan omission requires an out-of-file correction."
+    },
+    {
+      "file": "230-single-source-edited-path-decoding-and-eslint-file.md",
+      "promotionId": "R2B-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 5,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The Problem and Proposed direction make exact quantitative claims about three copies/consumers without supplying a reproducible command. The count is correct at the pin: the proposed pinned git grep returns exactly the predicate lines in tidy-edited-file.sh, lint-coverage-check.sh, and stop-policy.sh.",
+          "correction": {
+            "oldString": "- `scripts/ai-hooks/stop-policy.sh:705-715` — Stop-time lint warnings carry a\n  third copy of that complete predicate.",
+            "newString": "- `scripts/ai-hooks/stop-policy.sh:705-715` — Stop-time lint warnings carry a\n  third copy of that complete predicate. Reproduce the three-copy count with\n  `git grep -n '\\*\\.js|\\*\\.jsx|\\*\\.mjs|\\*\\.cjs|\\*\\.ts|\\*\\.tsx|\\*\\.mts|\\*\\.cts|\\*\\.json|\\*\\.jsonc|\\*\\.json5' ebf096580b31f604861fadb3d4cbd4079da4f017 -- scripts/ai-hooks/tidy-edited-file.sh scripts/ai-hooks/lint-coverage-check.sh scripts/ai-hooks/stop-policy.sh`,\n  which returns the three cited predicate lines."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All six cited ranges match the audit target. The five unique named shell-script paths exist. Leaf 134 resolves and confirms the hook-local taxonomy boundary. Packet metadata, settled direction, and all three author constraints are honored."
+    },
+    {
+      "file": "231-fail-closed-when-similarity-ts-output-no-longer.md",
+      "promotionId": "R2B-003",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack residual or record; current-pack leaf 140 has a distinct scope.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "README lines 536-539 contain the unversioned similarity-ts installation instruction. Runner lines 156-159 accept status 0 after parsing even with zero recognized pairs; lines 180-198 discard unrecognized lines; lines 215-246 implement the cited exact text grammar. The sole link resolves, and the direction preserves both packet constraints."
+    },
+    {
+      "file": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+      "promotionId": "R2B-004",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-47"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-47 remains an optional Zod conversion limited to triage-report-input.ts and triage-report-drift-input.ts; it explicitly excludes triage-verdict-input.ts and does not cover the packet/verdict-contract seam.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four cited ranges support the claims. The sole link resolves. No executable commands or quantitative measurements are named. Packet metadata, direction, and both constraints are honored."
+    },
+    {
+      "file": "233-bulk-load-encounter-participants-before-character.md",
+      "promotionId": "R2B-005",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack record and records no residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "character-delete.ts contains the initial active-participant query and the serial awaited ordered query inside the loop. The tests model that query shape and pin independent transaction writes. The sole link resolves; leaf 007 explicitly excludes this reconciliation loop. All packet constraints are retained."
+    },
+    {
+      "file": "234-route-manual-combat-logs-through-encounter-combat-s.md",
+      "promotionId": "R2B-006",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-75"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The fifth evidence entry says an empty req.server makes both post-persistence delivery paths no-ops. At the pin, encounter emission and the combat-chat socket emit become no-ops, but broadcastCombatChat still persists the combat-chat row before its io guard at packages/server/src/utils/combat-chat.ts:78-85.",
+          "correction": {
+            "oldString": "- `packages/server/src/services/encounter-combat/combat-log.test.ts:21-23` —\n  current focused tests deliberately supply an empty server, making both\n  post-persistence delivery paths no-ops rather than verifying their\n  coordination.",
+            "newString": "- `packages/server/src/services/encounter-combat/combat-log.test.ts:21-23` —\n  current focused tests deliberately supply an empty server, making the\n  encounter update and combat-chat socket emit no-ops while leaving combat-chat\n  persistence unasserted; they do not verify the paths' coordination."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-75 leaves the utils/combat-chat.ts placement/documentation taxonomy question open and does not cover addCombatLog's fanOutBroadcasts bypass.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The four packet citations and added test citation were opened at the pin. Both links resolve, no commands appear, grades match, the settled direction is preserved, and all author constraints are explicit."
+    },
+    {
+      "file": "235-preserve-gridtype-through-client-map-component.md",
+      "promotionId": "R2B-007",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The leaf names no prior-pack record; the packet residual is none.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited source files match the audit target. The exact rg command returns the stated three declarations at lines 88, 43, and 12. The sole link resolves, and packet metadata, direction, and both constraints are honored."
+    },
+    {
+      "file": "236-use-tanstack-router-for-the-campaign-homebrew.md",
+      "promotionId": "R2B-008",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 2,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither packet nor leaf names a prior-pack record.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Both citations are accurate at the audit target. The proposed test file, router mock, /homebrew route, and client dependency exist. Packet metadata, direction, and both author constraints are faithfully carried into the leaf."
+    },
+    {
+      "file": "237-associate-homebrew-validation-errors-with-their.md",
+      "promotionId": "R2B-009",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 3,
+        "commandsChecked": 1,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-187"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "ruled-out",
+      "priorPackNote": "CQ25-187 permanently dropped the broad roughly 49-site normalization sweep; its landed work established the shared field accessibility contract while preserving the primitive boundary, but did not cover the eleven measured error-bearing components reopened here.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All three evidence entries are accurate. The repository-root measurement pipeline reproduces 11 matching components, both links resolve, and the live prior-pack lines support the stated residual. Packet metadata, settled direction, and all four constraints match."
+    },
+    {
+      "file": "238-share-class-and-subclass-caster-selection-fields.md",
+      "promotionId": "R2B-010",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack residual; current-pack leaf 025 covers shared rules-module organization, not these client form fields.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations match the pin; the sole link resolves; packet metadata, constraints, and settled direction are honored."
+    },
+    {
+      "file": "239-extract-the-duplicated-homebrew-confirm-by-name.md",
+      "promotionId": "R2B-011",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 3,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The leaf names no prior-pack record.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All three pinned evidence ranges and both current-pack link occurrences were opened; no defects found."
+    },
+    {
+      "file": "240-classify-the-below-low-trivial-encounter-tier-as.md",
+      "promotionId": "R2C-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-95"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The exact ranges prove two examples exist but do not reproduce the exhaustive count “two shared tests.” The leaf supplies no command. `rg -c 'expect\\(result\\.rating\\)\\.toBe\\(\"trivial\"\\)' packages/shared/src/rules/encounter-difficulty.test.ts` returns 2 at the pin.",
+          "correction": {
+            "oldString": "- `packages/shared/src/rules/encounter-difficulty.test.ts:22-35,161-169` —\n  two shared tests directly protect trivial results for below-Low XP and for\n  an encounter with no monsters, but neither test name identifies the result\n  as Musi policy.",
+            "newString": "- `packages/shared/src/rules/encounter-difficulty.test.ts:22-35,161-169` —\n  two shared tests directly protect trivial results for below-Low XP and for\n  an encounter with no monsters, but neither test name identifies the result\n  as Musi policy. Re-derived at the pin: `rg -c\n  'expect\\(result\\.rating\\)\\.toBe\\(\"trivial\"\\)'\n  packages/shared/src/rules/encounter-difficulty.test.ts` returns 2."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-95 remains a standing provenance requirement; no live prior-pack record covers this concrete Trivial-tier classification.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "EvidenceEntries counts the eight independently opened ranges. The correction anchor is unique."
+    },
+    {
+      "file": "241-share-the-repeated-initiative-tracker-participant.md",
+      "promotionId": "R2C-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 1,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-13"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The first evidence entry says the Goblin scenario has ten fixed fields, but the pinned block contains eleven fields before the override spread: id, encounterId, type, name, initiative, initiativeModifier, maxHp, currentHp, tempHp, ac, and challengeRating.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/campaign/combat/initiative-tracker/initiative-row.test.tsx:29-44`\n  — defines a Goblin participant scenario with ten fixed fields followed by an\n  override seam.",
+            "newString": "- `packages/client/src/components/campaign/combat/initiative-tracker/initiative-row.test.tsx:29-44`\n  — defines a Goblin participant scenario with eleven fixed fields followed by an\n  override seam."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf measures four copies but supplies no reproducible inventory command. At the pin, `rg -n '^function makeParticipant' packages/client/src/components/campaign/combat/initiative-tracker/*.test.tsx` returns exactly the four cited definitions.",
+          "correction": {
+            "oldString": "- `packages/client/src/test/fixtures-encounter.ts:32-44` — the existing\n  `buildParticipant` supplies structural defaults and required-field typing,\n  but does not own the initiative-tracker Goblin scenario.",
+            "newString": "- `packages/client/src/test/fixtures-encounter.ts:32-44` — the existing\n  `buildParticipant` supplies structural defaults and required-field typing,\n  but does not own the initiative-tracker Goblin scenario.\n- Measured at the pin: `rg -n '^function makeParticipant'\n  packages/client/src/components/campaign/combat/initiative-tracker/*.test.tsx`\n  returns exactly the four definitions cited above."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-13 is superseded by 40-PLAN's scheduled fixture slices 40.1–40.4; none covers this client initiative-tracker Goblin scenario.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citation ranges match the pin; the four helper bodies are identical; both links resolve; the focused bun test command exists and supports explicit files. Both correction anchors are unique."
+    },
+    {
+      "file": "242-derive-slow-test-project-roots-with-fileurltopath.md",
+      "promotionId": "R2C-003",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The leaf asserts that the derived value anchors all three package projects without a reproducible measurement command. The cited range visibly enumerates three assignments, but the gate requires a command for the count. The proposed command reports 3.",
+          "correction": {
+            "oldString": "  package project paths.",
+            "newString": "  package project paths (measured: `rg -c '^  root: path\\.join\\(repoRoot, \"packages/(shared|server|client)\"\\),$' vitest.slow.config.ts` reports `3`)."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack residual or named record; current-pack leaf 073 covers lint-ratchet fixture junction portability only.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four citations support the claims at the pin; `bun run test:slow` is registered and its script exists; the correction anchor is unique."
+    },
+    {
+      "file": "243-correct-prototype-headers-that-deny-registered.md",
+      "promotionId": "R2C-004",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 4,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-168",
+          "CQ25-35"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The Problem and Proposed direction quantify three stale headers and four live prototype commands, but the leaf provides no reproducible count command. The cited files and registry support the enumeration manually; the proposed commands return 3 stale-header files and 4 registered handlers at the pin.",
+          "correction": {
+            "oldString": "- `scripts/drift-ai/prototype-subcommands.ts:49-60` — the production handler\n  registry exposes `coverage-evidence`, `coverage-unused-exports`,\n  `clone-candidates`, and `class-construction`.",
+            "newString": "- `scripts/drift-ai/prototype-subcommands.ts:49-60` — the production handler\n  registry exposes `coverage-evidence`, `coverage-unused-exports`,\n  `clone-candidates`, and `class-construction`.\n\nReproduce the counts with `rg -l 'no check, subcommand, or|library/test-only' scripts/drift-ai/{config,clone-candidates,class-construction}.ts | wc -l` for the stale headers and `rg -c '^\\s+\"?(coverage-evidence|coverage-unused-exports|clone-candidates|class-construction)\"?:' scripts/drift-ai/prototype-subcommands.ts` for the registered handlers."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-168 still refuses the bulk coordinate sweep and the upload-routes/harness-diagnostics header trims, while CQ25-35 remains scheduled for a drift-ai MODULE.md; neither covers these three false source-local milestone headers.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All six cited ranges support the claims; all four prototype commands are registered; all links resolve; the correction anchor is unique."
+    },
+    {
+      "file": "189-downstream-packages-keep-semantic-copies.md",
+      "promotionId": "R2C-005",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 16,
+        "commandsChecked": 0,
+        "linksChecked": 7,
+        "priorPackRecordsOpened": [
+          "CQ25-110",
+          "20-rules-tables-to-formulas.md"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The final dependency bullet reverses the actual implementation overlap. Leaf 193 edits `attack-damage.ts` and `resolve-attack.ts`, neither of which leaf 189 proposes to edit. Leaf 032 edits `packages/shared/src/rules/xp.ts`, which leaf 189 also targets for the CR-proficiency homing move; claiming leaf 032 shares no implementation artifacts can cause conflicting work to be scheduled together.",
+          "correction": {
+            "oldString": "- [193-shared-weapon-rules-helpers-demand-full.md](./193-shared-weapon-rules-helpers-demand-full.md) has minor import-line overlap in `resolve-attack.ts`. [032-encounter-calculators-re-declare-participant.md](./032-encounter-calculators-re-declare-participant.md) shares the prior-pack single-sourcing constraint but no implementation artifacts.",
+            "newString": "- [032-encounter-calculators-re-declare-participant.md](./032-encounter-calculators-re-declare-participant.md) shares the prior-pack single-sourcing constraint and has minor file-level overlap in `packages/shared/src/rules/xp.ts`."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-110 still requires identifier-and-semantic-role whole-tree straggler sweeps; prior leaf 20 is Done and covers formatCr/parseCr, not CR-to-proficiency behavior.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The augmentation preserves the committed predecessor's substantive claims, adds the packet's independent ability and spell-school subparts, and extends the acceptance sweep. The defective dependency bullet predates the augmentation; its replacement anchor is unique."
+    },
+    {
+      "file": "244-let-multiclass-characters-choose-their-unarmored.md",
+      "promotionId": "R2C-006",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-219",
+          "CQ25-174"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-219 explicitly excludes UNARMORED_DEFENSE_CLASSES and persisted normalization, while CQ25-174 rejects moving the existing shield handling; neither covers formula choice, persistence, or AC-authority reconciliation.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": null
+    },
+    {
+      "file": "245-reject-empty-fixture-and-smoke-discovery-sets.md",
+      "promotionId": "R2C-007",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 1,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-106",
+          "CQ25-215"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-106 remains the standing non-vacuity rule; completed CQ25-215 covers the eslint-rules sweep and rejects a shared helper, leaving these codemod-fixture and smoke-definition preconditions residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": null
+    }
+  ],
+  "orchestratorRulings": [
+    {
+      "subject": "107-PLAN.md lockstep update (R2B-001 packet-fidelity/P1)",
+      "ruling": "honored out-of-file",
+      "detail": "The gate's only defect without a local correction: the R2B-001 packet requires leaf 107's companion plan to move in lockstep with the augmentation, and git diff showed 107-PLAN.md untouched. Closed by a separate authoring consult that returned the complete revised plan; it folded native-projectable metadata, deny-array generation plus freshness checking, and explicit intentional non-projection (stash and every other rule whose contextual shared-policy reason native denial would preempt) into slices S0 and S1, dropped no existing slice or section, and carried the corrected 19-branch and nine-sibling-suite counts through so the plan and the leaf now agree."
+    },
+    {
+      "subject": "augmented host leaf headers",
+      "ruling": "not raised this round",
+      "detail": "Round 1 skipped three packet-fidelity defects that proposed rewriting each augmented host leaf header from its packet. Round 2 encodes that ruling in the augment packets themselves and enforces it in apply-2a-blocks.mjs, and neither gate consult proposed the rewrite."
+    }
+  ],
+  "corrections": {
+    "proposed": 17,
+    "applied": 17,
+    "skipped": 1,
+    "skippedDetail": [
+      "107 packet-fidelity/P1 — no local correction possible; closed out-of-file (see orchestratorRulings)"
+    ]
+  },
+  "summary": {
+    "filesChecked": 18,
+    "clean": 10,
+    "needsFix": 8,
+    "kill": 0,
+    "defectsByKind": {
+      "evidence": 15,
+      "command": 1,
+      "link": 0,
+      "priorPack": 0,
+      "packetFidelity": 1,
+      "coherence": 1
+    },
+    "notes": [
+      "Leaf 107's packet-fidelity defect requires an out-of-file update to 107-PLAN.md; no local replacement in the assigned leaf can satisfy the lockstep-plan instruction."
+    ]
+  }
+}

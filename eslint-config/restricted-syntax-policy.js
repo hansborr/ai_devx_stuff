@@ -15,6 +15,7 @@ import {
   restrictedSyntaxException,
   restrictedSyntaxPolicy,
 } from "./restricted-syntax-builder.js";
+import { tsConfigFiles } from "./config-surfaces.js";
 import {
   clientSourceFiles,
   clientTestAndHelperSourceFiles,
@@ -22,8 +23,7 @@ import {
   eslintConfigJsFiles,
   serverTestAndHelperSourceFiles,
   testAndHelperFiles,
-  tsConfigFiles,
-} from "./shared-policy.js";
+} from "./path-glob-policy.js";
 
 const queryClientArrayKeyArgumentSelectors = [
   "ArrayExpression.arguments:first-child",
@@ -215,9 +215,15 @@ const exceptions = [
       // Implements the HARNESS_DIAGNOSTICS_OUTPUT sidecar contract; reading
       // that env var here IS the boundary every producer shares.
       "scripts/harness/harness-diagnostics-output.ts",
-      // Implements the MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS fixture
-      // opt-out; reading that env var here IS the fail-closed boundary.
+      // Implement the MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS fixture
+      // opt-out; reading that env var here IS the fail-closed boundary shared
+      // by validation and projection generation.
       "scripts/harness/fixture-closure-check.ts",
+      "scripts/harness/generate-verify-steps.ts",
+      // Implements the MUSI_MIGRATION_ALLOWLIST override; the migration
+      // scanner's effects layer IS its environment boundary, and the CLI it
+      // feeds takes that value as injected data.
+      "scripts/lib/migration-safety-io.ts",
       "scripts/lint-ratchet/output.ts",
       "scripts/lint-ratchet.ts",
       "scripts/max-lines-exceptions.ts",

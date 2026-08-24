@@ -1,6 +1,9 @@
 import { configSurfaceEntries as rawConfigSurfaceEntries } from "../../eslint-config/config-surfaces.js";
-import { jsTsLintableExtensions as rawJsTsLintableExtensions } from "../../eslint-config/shared-policy.js";
-import { HARNESS_MANIFEST_FILENAME } from "../harness/harness-manifest.js";
+import { jsTsLintableExtensions as rawJsTsLintableExtensions } from "../../eslint-config/path-glob-policy.js";
+import {
+  HARNESS_LINT_RULE_CONTROLS_FILENAME,
+  HARNESS_MANIFEST_FILENAME,
+} from "../harness/harness-manifest.js";
 import {
   CLAUDE_SETTINGS_PATH,
   CODEX_HOOKS_PATH,
@@ -23,6 +26,7 @@ export type PathPolicySelector =
     }
   | {
       readonly kind: "single-segment-glob";
+      /** `*` is the only pattern character; it matches within one path segment. */
       readonly pattern: string;
     }
   | {
@@ -143,6 +147,13 @@ export const PATH_POLICY = {
       { kind: "exact", path: BASELINE_FILENAME },
       { kind: "exact", path: DEBT_LOG_FILENAME },
       { kind: "exact", path: HARNESS_MANIFEST_FILENAME },
+      // The other half of the assembled manifest. It is generated, but that is
+      // not what decides source-relevance here: the staging guard is the only
+      // thing that stops a regenerated root include from staying out of the
+      // index while the rest of the change commits, and
+      // `harness:lint-rule-controls:check` cannot cover that gap because it
+      // reads the working tree, not the index.
+      { kind: "exact", path: HARNESS_LINT_RULE_CONTROLS_FILENAME },
       { kind: "exact", path: "docs/generated/lint-coverage-map.md" },
       { kind: "exact", path: CLAUDE_SETTINGS_PATH },
       { kind: "exact", path: CODEX_HOOKS_PATH },
@@ -211,7 +222,6 @@ export const PATH_POLICY = {
       { kind: "single-segment-glob", pattern: ".codex/hooks/*.sh" },
       { kind: "single-segment-glob", pattern: ".claude/hooks/*.sh" },
       { kind: "single-segment-glob", pattern: ".copilot/hooks/*.sh" },
-      { kind: "prefix-extension", prefix: ".claude/skills/", extension: ".sh" },
       { kind: "single-segment-glob", pattern: ".devcontainer/*.sh" },
     ],
     excludedDirectoryNames: ["node_modules", "worktrees", ".playwright-cli"],

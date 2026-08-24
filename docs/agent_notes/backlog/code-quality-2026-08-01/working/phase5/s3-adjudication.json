@@ -1,0 +1,2011 @@
+{
+ "contractVersion": 1,
+ "step": "s3",
+ "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "assignmentsCollected": 15,
+ "components": [
+  {
+   "assignment": "s3-c01",
+   "files": [
+    "023-five-summary-projections-hand-copy-canonical.md",
+    "027-condition-damage-modules-mix-contracts.md",
+    "030-attack-spell-contracts-duplicate-behavior.md",
+    "036-combat-result-schemas-make-always-produced.md",
+    "049-player-monster-attack-hooks-duplicate-target.md",
+    "189-downstream-packages-keep-semantic-copies.md",
+    "191-let-players-choose-strength-dexterity.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "027-condition-damage-modules-mix-contracts.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "023 edits the summary declarations (023-five-summary-projections-hand-copy-canonical.md:84-100), while 027 relocates condition/damage contracts and ConditionEntry (027-condition-damage-modules-mix-contracts.md:47-65). In the shared files these are separate declarations, so neither implementation disturbs the other's premise."
+    },
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "030-attack-spell-contracts-duplicate-behavior.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "023 is confined to five entity-summary projections (023-five-summary-projections-hand-copy-canonical.md:82-100); 030 extracts combat-name, damage-dice, and bonus validators from attack/spell contracts (030-attack-spell-contracts-duplicate-behavior.md:41-56). They share no edited declaration."
+    },
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "036-combat-result-schemas-make-always-produced.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "023 changes encounter and monster summary projections, whereas 036 changes only result-side rollMode fields and fixtures (036-combat-result-schemas-make-always-produced.md:69-90). Its encounter-schema citation merely establishes that persisted rolls remain opaque."
+    },
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "049-player-monster-attack-hooks-duplicate-target.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "023 operates entirely in shared entity summaries and their tests (023-five-summary-projections-hand-copy-canonical.md:82-110); 049 operates in client target-pick hooks and module documentation (049-player-monster-attack-hooks-duplicate-target.md:73-118)."
+    },
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "189-downstream-packages-keep-semantic-copies.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "023 rewrites monsterSummarySchema, while 189 only consumes MONSTER_SPELL_FREQUENCIES from the monster schema as authority for a downstream client component (189-downstream-packages-keep-semantic-copies.md:85-92). It does not rewrite the monster entity or summary declaration."
+    },
+    {
+     "pair": [
+      "023-five-summary-projections-hand-copy-canonical.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "023 concerns derived list projections (023-five-summary-projections-hand-copy-canonical.md:71-100); 191 adds a Finesse ability choice across attack rules, inputs, server validation, and client dispatch (191-let-players-choose-strength-dexterity.md:24-44). Their targets and invariants do not intersect."
+    },
+    {
+     "pair": [
+      "027-condition-damage-modules-mix-contracts.md",
+      "030-attack-spell-contracts-duplicate-behavior.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "027 only repoints damage-type imports in the combat contracts while moving that authority to schemas/damage-type.ts (027-condition-damage-modules-mix-contracts.md:60-65,78-87). 030 extracts different local field validators and bounds (030-attack-spell-contracts-duplicate-behavior.md:43-56); neither changes the other's authority or invariant."
+    },
+    {
+     "pair": [
+      "027-condition-damage-modules-mix-contracts.md",
+      "036-combat-result-schemas-make-always-produced.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "027 changes damage-type import ownership and moves ConditionEntry; 036 changes the optionality of result-side rollMode at two independent fields (036-combat-result-schemas-make-always-produced.md:67-88). The imported damage-type field and roll-mode requirement do not affect one another."
+    },
+    {
+     "pair": [
+      "027-condition-damage-modules-mix-contracts.md",
+      "049-player-monster-attack-hooks-duplicate-target.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "027 relocates shared condition and damage-type contracts and their imports (027-condition-damage-modules-mix-contracts.md:45-108); 049 extracts a client attack target-pick coordinator (049-player-monster-attack-hooks-duplicate-target.md:73-118). No coordinator target consumes the relocated contracts."
+    },
+    {
+     "pair": [
+      "027-condition-damage-modules-mix-contracts.md",
+      "189-downstream-packages-keep-semantic-copies.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "027 relocates condition and damage-type definitions and repoints their imports. 189 relocates rollMode and consolidates unrelated downstream rule authorities (189-downstream-packages-keep-semantic-copies.md:85-106). Their edits may occupy the same import blocks, but neither implementation changes the other's semantic premise."
+    },
+    {
+     "pair": [
+      "027-condition-damage-modules-mix-contracts.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "027 already declares this textual coordination: both may touch attack-damage.ts, but there is no semantic dependency and landing order should be coordinated (027-condition-damage-modules-mix-contracts.md:134-141). Under the adjudication rule, that documented dependency is distinct rather than a collision."
+    },
+    {
+     "pair": [
+      "030-attack-spell-contracts-duplicate-behavior.md",
+      "036-combat-result-schemas-make-always-produced.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "030 extracts combatNameField, damageDiceField, and shared bonus bounds while retaining family-specific validators (030-attack-spell-contracts-duplicate-behavior.md:43-56). 036 changes only rollMode optionality in result objects (036-combat-result-schemas-make-always-produced.md:69-88), so the edits are independent declarations in the same files."
+    },
+    {
+     "pair": [
+      "030-attack-spell-contracts-duplicate-behavior.md",
+      "049-player-monster-attack-hooks-duplicate-target.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "030 consolidates shared Zod field fragments; 049 consolidates a client stateful target-pick lifecycle. Their proposed directions and target files are disjoint (030-attack-spell-contracts-duplicate-behavior.md:41-56; 049-player-monster-attack-hooks-duplicate-target.md:73-118)."
+    },
+    {
+     "pair": [
+      "030-attack-spell-contracts-duplicate-behavior.md",
+      "189-downstream-packages-keep-semantic-copies.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "030 single-sources combat names, dice fields, and -10/99 bounds; 189 moves the separate rollMode authority and consumes spellSchoolSchema downstream (189-downstream-packages-keep-semantic-copies.md:87-106). The optional spell.ts bounds repoint in 030 does not modify the spell-school authority."
+    },
+    {
+     "pair": [
+      "030-attack-spell-contracts-duplicate-behavior.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "030 changes shared helper declarations and custom-combat field references, while 191 adds abilityOverride only to characterAttackInputSchema (191-let-players-choose-strength-dexterity.md:26-35). Adding that independent object field does not disturb the extracted combat-field fragment."
+    },
+    {
+     "pair": [
+      "036-combat-result-schemas-make-always-produced.md",
+      "049-player-monster-attack-hooks-duplicate-target.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "036 tightens server response/result contracts; 049 preserves attack payload construction in thin client adapters while extracting target-pick mechanics (049-player-monster-attack-hooks-duplicate-target.md:87-106). The coordinator neither constructs nor consumes the result rollMode fields."
+    },
+    {
+     "pair": [
+      "036-combat-result-schemas-make-always-produced.md",
+      "189-downstream-packages-keep-semantic-copies.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "189 relocates rollModeSchema without changing its values or behavior (189-downstream-packages-keep-semantic-copies.md:87-87,122-125). 036 makes two uses of that schema required rather than optional (036-combat-result-schemas-make-always-produced.md:69-73); the requirement remains valid before or after relocation."
+    },
+    {
+     "pair": [
+      "036-combat-result-schemas-make-always-produced.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "036 edits result schemas and result fixtures, while 191 edits the character attack input and its input-focused coverage (191-let-players-choose-strength-dexterity.md:33-44). Sharing the schema file and test file does not make the input and result contracts interdependent."
+    },
+    {
+     "pair": [
+      "049-player-monster-attack-hooks-duplicate-target.md",
+      "189-downstream-packages-keep-semantic-copies.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "049 extracts the client target-pick protocol and explicitly leaves rollMode behavior unchanged (049-player-monster-attack-hooks-duplicate-target.md:120-125). 189 relocates the shared roll-mode authority and edits a different client roll context menu, not either attack hook."
+    },
+    {
+     "pair": [
+      "049-player-monster-attack-hooks-duplicate-target.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "049 promises to keep useWeaponAttack's public argument/result shapes byte-compatible while replacing its implementation with a payload adapter (049-player-monster-attack-hooks-duplicate-target.md:75-106). 191 must widen that same hook's apply input and payload forwarding with abilityOverride (191-let-players-choose-strength-dexterity.md:37-44). Without a declared relation, either landing changes the interface premise the other must preserve or extend."
+    },
+    {
+     "pair": [
+      "189-downstream-packages-keep-semantic-copies.md",
+      "191-let-players-choose-strength-dexterity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "189 removes the local rollMode declaration and repoints its consumers (189-downstream-packages-keep-semantic-copies.md:87-87). 191 adds an unrelated optional abilityOverride field to characterAttackInputSchema (191-let-players-choose-strength-dexterity.md:28-35); neither changes the other's field or invariant."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Add reciprocal serialization and rebasing notes between 049 and 191. The notes must make 049's public-contract preservation relative to the interface present when it lands and tell either implementation how to preserve or add abilityOverride after the hook becomes a thin adapter.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "049-player-monster-attack-hooks-duplicate-target.md",
+      "to": "191-let-players-choose-strength-dexterity.md",
+      "kind": "serialize",
+      "recordIn": "049-player-monster-attack-hooks-duplicate-target.md ## Scope / caveats",
+      "text": "**Coordination with [191-let-players-choose-strength-dexterity.md](./191-let-players-choose-strength-dexterity.md):** serialize edits to `use-weapon-attack.ts` and its test. If 191 lands first, preserve its optional `abilityOverride` apply argument and mutation forwarding when shrinking the hook to an adapter; if this leaf lands first, 191 must add the override to the thin weapon adapter and capture it in the coordinator payload builder. The byte-compatible contract promise applies to the public interface present when this refactor lands."
+     },
+     {
+      "from": "191-let-players-choose-strength-dexterity.md",
+      "to": "049-player-monster-attack-hooks-duplicate-target.md",
+      "kind": "serialize",
+      "recordIn": "191-let-players-choose-strength-dexterity.md ## Scope / caveats",
+      "text": "**Coordination with [049-player-monster-attack-hooks-duplicate-target.md](./049-player-monster-attack-hooks-duplicate-target.md):** serialize edits to `use-weapon-attack.ts` and its test. If 049 lands first, add `abilityOverride` to its thin weapon adapter and capture it in the coordinator payload builder; if 191 lands first, 049 must preserve the widened apply contract and forwarding while extracting the lifecycle. There is no semantic dependency outside this adapter rebase."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "189-downstream-packages-keep-semantic-copies.md",
+   "notes": "Only 049×191 is a true component collision. The other nominated overlaps are separate declarations or import-path repoints that do not disturb one another's premises; 027×191 is already explicitly documented."
+  },
+  {
+   "assignment": "s3-c02",
+   "files": [
+    "001-chat-persistence-delivery-policy.md",
+    "008-chat-broadcast-facade-bypasses-registry.md",
+    "015-participant-create-data-helpers-erase-their.md",
+    "024-encounter-inputs-monolith-spanning-three.md",
+    "064-pagination-suites-systematically-avoid-tie.md",
+    "234-route-manual-combat-logs-through-encounter-combat-s.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "001-chat-persistence-delivery-policy.md",
+      "008-chat-broadcast-facade-bypasses-registry.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "The work is separate and already coordinated reciprocally: 001-chat-persistence-delivery-policy.md:194-199 requires serialization and rebasing on 008's resulting facade, while 008-chat-broadcast-facade-bypasses-registry.md:133-138 records the same constraint."
+    },
+    {
+     "pair": [
+      "001-chat-persistence-delivery-policy.md",
+      "015-participant-create-data-helpers-erase-their.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "001-chat-persistence-delivery-policy.md:87-140 creates and adopts a chat-message coordination boundary; 015-participant-create-data-helpers-erase-their.md:81-100 types an encounter-participant create builder and removes caller casts. They share neither a target nor an implementation premise."
+    },
+    {
+     "pair": [
+      "001-chat-persistence-delivery-policy.md",
+      "024-encounter-inputs-monolith-spanning-three.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "001-chat-persistence-delivery-policy.md:87-140 reorganizes server chat persistence and delivery, whereas 024-encounter-inputs-monolith-spanning-three.md:74-114 mechanically partitions shared encounter contracts and imports. Neither changes the other's surface."
+    },
+    {
+     "pair": [
+      "001-chat-persistence-delivery-policy.md",
+      "064-pagination-suites-systematically-avoid-tie.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "The shared file does not create premise disturbance: 001 extracts the chat helpers and send mutation described at 001-chat-persistence-delivery-policy.md:125-130, corresponding to packages/server/src/routers/chat.ts:24-157, while 064 changes only the independent list query at packages/server/src/routers/chat.ts:160-201."
+    },
+    {
+     "pair": [
+      "001-chat-persistence-delivery-policy.md",
+      "234-route-manual-combat-logs-through-encounter-combat-s.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Their indirect combat-chat dependency is already declared: 234-route-manual-combat-logs-through-encounter-combat-s.md:65-68 requires rebasing on 001 and forbids concurrent overlapping combat-chat edits."
+    },
+    {
+     "pair": [
+      "008-chat-broadcast-facade-bypasses-registry.md",
+      "015-participant-create-data-helpers-erase-their.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "008-chat-broadcast-facade-bypasses-registry.md:71-105 changes the chat socket facade and its callers; 015-participant-create-data-helpers-erase-their.md:79-103 changes an encounter-participant Prisma payload builder. Their targets and invariants are independent."
+    },
+    {
+     "pair": [
+      "008-chat-broadcast-facade-bypasses-registry.md",
+      "024-encounter-inputs-monolith-spanning-three.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "008-chat-broadcast-facade-bypasses-registry.md:71-105 changes chat broadcast arity, room resolution, and null-io logging; 024-encounter-inputs-monolith-spanning-three.md:74-114 moves encounter schemas and import paths. No implementation surface overlaps."
+    },
+    {
+     "pair": [
+      "008-chat-broadcast-facade-bypasses-registry.md",
+      "064-pagination-suites-systematically-avoid-tie.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "008 edits the broadcast helper and call at packages/server/src/routers/chat.ts:39-54; 064 edits the separate list procedure at packages/server/src/routers/chat.ts:160-201. Neither edit changes the other's premises despite sharing the router file."
+    },
+    {
+     "pair": [
+      "008-chat-broadcast-facade-bypasses-registry.md",
+      "234-route-manual-combat-logs-through-encounter-combat-s.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "008's caller migration is explicitly behavior-preserving for live delivery at 008-chat-broadcast-facade-bypasses-registry.md:73-90. 234 consumes the existing encounter-combat coordinator and tests manual-log fan-out at 234-route-manual-combat-logs-through-encounter-combat-s.md:39-56; it neither edits nor depends on the old facade arity."
+    },
+    {
+     "pair": [
+      "015-participant-create-data-helpers-erase-their.md",
+      "024-encounter-inputs-monolith-spanning-three.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "024 explicitly keeps all participant schemas in encounter-inputs.ts and continues serving participant-action.ts and encounter-participant-helpers.ts from that unchanged defining path at 024-encounter-inputs-monolith-spanning-three.md:82-89. Thus its intended split does not rewrite the builder/caller seam that 015 changes at 015-participant-create-data-helpers-erase-their.md:81-100."
+    },
+    {
+     "pair": [
+      "015-participant-create-data-helpers-erase-their.md",
+      "064-pagination-suites-systematically-avoid-tie.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "015-participant-create-data-helpers-erase-their.md:81-100 changes participant-create payload construction; 064-pagination-suites-systematically-avoid-tie.md:108-134 changes pagination fixtures, cursors, and ordering. There is no shared target or dependency."
+    },
+    {
+     "pair": [
+      "015-participant-create-data-helpers-erase-their.md",
+      "234-route-manual-combat-logs-through-encounter-combat-s.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "015 changes addParticipant's builder and create payload, while 234 changes addCombatLog's post-persistence fan-out. Their distinct service paths and invariants do not interact."
+    },
+    {
+     "pair": [
+      "024-encounter-inputs-monolith-spanning-three.md",
+      "064-pagination-suites-systematically-avoid-tie.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "024 moves the combat-log schemas into encounter-combat-inputs.ts and splits their tests into encounter-combat-inputs.test.ts at 024-encounter-inputs-monolith-spanning-three.md:90-94 and :104-114. 064 independently edits combat-log pagination and explicitly changes the cursor literal still named at encounter-inputs.test.ts at 064-pagination-suites-systematically-avoid-tie.md:118-128 and :167-170. Landing 024 relocates 064's named test target, and neither leaf declares the required serialization/rebase edge."
+    },
+    {
+     "pair": [
+      "024-encounter-inputs-monolith-spanning-three.md",
+      "234-route-manual-combat-logs-through-encounter-combat-s.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "024's combat-log service edit is the schema import-path change at packages/server/src/services/encounter-combat/combat-log.ts:1-4 and expressly excludes schema behavior changes at 024-encounter-inputs-monolith-spanning-three.md:116-122. 234 rewrites the independent addCombatLog fan-out body at packages/server/src/services/encounter-combat/combat-log.ts:18-72."
+    },
+    {
+     "pair": [
+      "064-pagination-suites-systematically-avoid-tie.md",
+      "234-route-manual-combat-logs-through-encounter-combat-s.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "The common files contain separate seams: 234 changes addCombatLog and its tests at packages/server/src/services/encounter-combat/combat-log.ts:18-73 and combat-log.test.ts:109-173; 064 changes listCombatLogs and its pagination tests at combat-log.ts:75-109 and combat-log.test.ts:175-269. The MODULE wording at MODULE.md:19 and :71 is generic cursor-pagination prose, so 064's conditional documentation edit is not triggered and does not disturb 234's consumed fan-out contract."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record reciprocal serialization/rebase guidance only for 024 and 064. In 024's Scope / caveats, state that its contract/test split should land before 064 or be serialized with it. In 064's Scope / caveats, replace the false no-sequencing claim with instructions to target encounter-combat-inputs.test.ts after 024 and to preserve 064's cursor fixture if 024 lands second.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "024-encounter-inputs-monolith-spanning-three.md",
+      "to": "064-pagination-suites-systematically-avoid-tie.md",
+      "kind": "serialize",
+      "recordIn": "024-encounter-inputs-monolith-spanning-three.md ## Scope / caveats",
+      "text": "Serialize this mechanical contract/test split with leaf 064 and prefer landing this leaf first; after the split, 064's combat-log cursor fixture belongs in encounter-combat-inputs.test.ts. Do not implement the two leaves concurrently."
+     },
+     {
+      "from": "064-pagination-suites-systematically-avoid-tie.md",
+      "to": "024-encounter-inputs-monolith-spanning-three.md",
+      "kind": "rebaseOn",
+      "recordIn": "064-pagination-suites-systematically-avoid-tie.md ## Scope / caveats",
+      "text": "Serialize with leaf 024. If 024 lands first, apply the id-shaped combat-log cursor fixture update in encounter-combat-inputs.test.ts; if 064 lands first, 024 must carry that updated fixture while splitting the test file."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-c03",
+   "files": [
+    "112-public-lint-ratchet-demo-asks-adopters.md",
+    "122-portable-lint-ratchet-package-hard-codes.md",
+    "124-ratchet-cli-has-no-authoritative-command.md",
+    "127-public-harness-manifest-has-no-versioned.md",
+    "178-local-lint-rules-lack-one-canonical.md",
+    "188-let-lint-ratchet-proposal-previews-evaluate.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "112-public-lint-ratchet-demo-asks-adopters.md",
+      "122-portable-lint-ratchet-package-hard-codes.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "112 packages the operational git rail and deletes demo forks, while 122 injects host command vocabulary through kernel/governance and adapters (112-public-lint-ratchet-demo-asks-adopters.md:86-135; 122-portable-lint-ratchet-package-hard-codes.md:87-136). The demo adapter is retained by 112 and modified by 122, so neither change disturbs the other's premise."
+    },
+    {
+     "pair": [
+      "112-public-lint-ratchet-demo-asks-adopters.md",
+      "124-ratchet-cli-has-no-authoritative-command.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "The directions do not pull opposite ways: 112 changes rail distribution, while 124 derives CLI registration from a catalog. The possible rewrite overlap is already declared explicitly by 112: coordinate ordering if 124 restructures CLI files that 112 migrates or deletes (112-public-lint-ratchet-demo-asks-adopters.md:161-165)."
+    },
+    {
+     "pair": [
+      "112-public-lint-ratchet-demo-asks-adopters.md",
+      "127-public-harness-manifest-has-no-versioned.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "112 moves merge-driver and recovery operations into the portable package; 127 publishes a generated JSON Schema for the harness manifest (112-public-lint-ratchet-demo-asks-adopters.md:86-127; 127-public-harness-manifest-has-no-versioned.md:71-121). 112's conditional instruction to regenerate harness outputs if hook wiring moves is downstream verification, not a competing manifest edit."
+    },
+    {
+     "pair": [
+      "112-public-lint-ratchet-demo-asks-adopters.md",
+      "178-local-lint-rules-lack-one-canonical.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "112 owns lint-ratchet operational-rail distribution and explicitly leaves unrelated driver families and registries untouched (112-public-lint-ratchet-demo-asks-adopters.md:113-121,146-151); 178 generates local ESLint plugin registration and lint-rule controls (178-local-lint-rules-lack-one-canonical.md:30-65)."
+    },
+    {
+     "pair": [
+      "112-public-lint-ratchet-demo-asks-adopters.md",
+      "188-let-lint-ratchet-proposal-previews-evaluate.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "112 packages the merge-driver/install/truth-up rail and deletes its forks, whereas 188 adds third-party behavior to the proposal command and root CLI (112-public-lint-ratchet-demo-asks-adopters.md:90-127; 188-let-lint-ratchet-proposal-previews-evaluate.md:25-41). 188 expressly excludes new modes and demo feature parity beyond compatibility (188-let-lint-ratchet-proposal-previews-evaluate.md:43-48)."
+    },
+    {
+     "pair": [
+      "122-portable-lint-ratchet-package-hard-codes.md",
+      "124-ratchet-cli-has-no-authoritative-command.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "122 supplies adapter-owned command strings; 124 centralizes mode registration without changing spellings or behavior (122-portable-lint-ratchet-package-hard-codes.md:87-136; 124-ratchet-cli-has-no-authoritative-command.md:65-117). 122 already declares the light adjacency and instructs that the lanes not run concurrently (122-portable-lint-ratchet-package-hard-codes.md:162-170), so this is a documented coordination edge, not contradictory direction."
+    },
+    {
+     "pair": [
+      "122-portable-lint-ratchet-package-hard-codes.md",
+      "127-public-harness-manifest-has-no-versioned.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "122 changes portable engine remediation vocabulary and adapters (122-portable-lint-ratchet-package-hard-codes.md:97-136); 127 changes the manifest's Zod/schema publication and generated-surface registration (127-public-harness-manifest-has-no-versioned.md:77-121). Their generic package metadata involvement does not create a shared invariant."
+    },
+    {
+     "pair": [
+      "122-portable-lint-ratchet-package-hard-codes.md",
+      "178-local-lint-rules-lack-one-canonical.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "122 modifies command vocabulary in the portable kernel, governance layer, and engine binding; 178 only consumes `lintRatchets[].ruleId` as activation truth while generating local-rule registration (122-portable-lint-ratchet-package-hard-codes.md:97-136; 178-local-lint-rules-lack-one-canonical.md:44-57). Shared root package-script maintenance is incidental."
+    },
+    {
+     "pair": [
+      "122-portable-lint-ratchet-package-hard-codes.md",
+      "188-let-lint-ratchet-proposal-previews-evaluate.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "122 threads workflow vocabulary through `governance/propose.ts`, including its registry-paste hint (122-portable-lint-ratchet-package-hard-codes.md:97-105,127-132), while 188 changes the same proposal types, binding use, builders, allowlist handling, and promotable formatting (188-let-lint-ratchet-proposal-previews-evaluate.md:25-39). Neither leaf declares this edge, and either implementation changes the function signatures and formatting premises the other must edit."
+    },
+    {
+     "pair": [
+      "124-ratchet-cli-has-no-authoritative-command.md",
+      "127-public-harness-manifest-has-no-versioned.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "124 derives parser, validation, usage, and dispatch surfaces from a CLI catalog (124-ratchet-cli-has-no-authoritative-command.md:65-117); 127 emits and registers a public manifest schema (127-public-harness-manifest-has-no-versioned.md:71-121). They share neither an implementation target nor an invariant."
+    },
+    {
+     "pair": [
+      "124-ratchet-cli-has-no-authoritative-command.md",
+      "178-local-lint-rules-lack-one-canonical.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "The proposed directions are compatible and have separate ownership: 124's catalog owns CLI mode metadata, while 178 generates lint-rule registration. Moreover, 178 already declares coordination with 124 and says to avoid concurrent restructuring of `lint-ratchet-config.ts` exports (178-local-lint-rules-lack-one-canonical.md:77-81), so S2's independence-text mismatch is not a direction contradiction."
+    },
+    {
+     "pair": [
+      "124-ratchet-cli-has-no-authoritative-command.md",
+      "188-let-lint-ratchet-proposal-previews-evaluate.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "188 adds three options across five surfaces that 124 would derive from its catalog, but it expressly declares this overlap and states how either landing order reconciles it (188-let-lint-ratchet-proposal-previews-evaluate.md:39-41,49). The feature addition and catalog refactor are compatible, and the documented dependency therefore makes the pair distinct under the adjudication vocabulary."
+    },
+    {
+     "pair": [
+      "127-public-harness-manifest-has-no-versioned.md",
+      "178-local-lint-rules-lack-one-canonical.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "127 adds `$schema` to `harness.controls.json`, emits its contract, validates the live manifest, and changes registration checks and package metadata (127-public-harness-manifest-has-no-versioned.md:77-121). 178 removes 32 controls from that same file, makes `readHarnessManifest` assemble a generated include, and changes the same registration/freshness surfaces (178-local-lint-rules-lack-one-canonical.md:42-65). That decomposition directly changes whether 127 is publishing and round-tripping the authored file or the assembled manifest, and no relation is declared."
+    },
+    {
+     "pair": [
+      "127-public-harness-manifest-has-no-versioned.md",
+      "188-let-lint-ratchet-proposal-previews-evaluate.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "127 concerns external JSON Schema publication for harness controls (127-public-harness-manifest-has-no-versioned.md:71-121); 188 concerns third-party lint-ratchet proposal evaluation, CLI options, and proposal documentation (188-let-lint-ratchet-proposal-previews-evaluate.md:25-41). There is no shared target or premise."
+    },
+    {
+     "pair": [
+      "178-local-lint-rules-lack-one-canonical.md",
+      "188-let-lint-ratchet-proposal-previews-evaluate.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "178 reads the existing ratchet registry solely to classify local-rule activation (178-local-lint-rules-lack-one-canonical.md:44-57). 188 expressly makes previews read-only and excludes registry or baseline writes (188-let-lint-ratchet-proposal-previews-evaluate.md:31-37,43-48), so it does not disturb 178's activation truth."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record the two missing serialization edges. In leaf 122, add the 188 edge to `## Scope / caveats` so workflow-vocabulary threading and third-party proposal work are reconciled in `governance/propose.ts`. In leaf 127, add the 178 edge and explicitly settle that schema emission and round-trip validation describe the assembled manifest, including the generated lint-rule include, if 178's ownership seam lands.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "122-portable-lint-ratchet-package-hard-codes.md",
+      "to": "188-let-lint-ratchet-proposal-previews-evaluate.md",
+      "kind": "serialize",
+      "recordIn": "122-portable-lint-ratchet-package-hard-codes.md ## Scope / caveats",
+      "text": "Soft edge to [188-let-lint-ratchet-proposal-previews-evaluate.md](./188-let-lint-ratchet-proposal-previews-evaluate.md): both modify `tools/lint-ratchet/src/governance/propose.ts`; serialize or explicitly rebase-coordinate them so workflow-vocabulary threading and third-party preview changes share the final proposal option, binding, remediation-hint, and formatting paths."
+     },
+     {
+      "from": "127-public-harness-manifest-has-no-versioned.md",
+      "to": "178-local-lint-rules-lack-one-canonical.md",
+      "kind": "serialize",
+      "recordIn": "127-public-harness-manifest-has-no-versioned.md ## Scope / caveats",
+      "text": "Serialize with [178-local-lint-rules-lack-one-canonical.md](./178-local-lint-rules-lack-one-canonical.md): both change `harness.controls.json`, `package.json`, registration checks, and generated-surface freshness. If 178 lands first, this leaf must publish and round-trip the assembled manifest contract, including the generated lint-rule-controls include, rather than treating the authored root fragment as complete; if this leaf lands first, 178 must preserve the `$schema` pointer and schema freshness while introducing include ownership."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": "S2's apparent 124 hub dissolves under the normative relation vocabulary: an independence-text mismatch is not `contradicts` unless proposed directions pull opposite ways, and the sibling leaves already declare their coordination with 124. Full-component reading exposed the separate, non-nominated 122/188 collision."
+  },
+  {
+   "assignment": "s3-c04",
+   "files": [
+    "004-character-creation-large-pseudo-module-loose.md",
+    "021-shared-production-builds-expose-colocated.md",
+    "025-spellcastingts-contains-five-independently.md",
+    "065-server-service-suites-redundantly-wipe.md",
+    "211-reuse-validated-class-references-during.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "004-character-creation-large-pseudo-module-loose.md",
+      "021-shared-production-builds-expose-colocated.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "004 moves the server character-creation module and tests (004-character-creation-large-pseudo-module-loose.md:117-186), while 021 changes shared TypeScript build projects and preflight bookkeeping (021-shared-production-builds-expose-colocated.md:63-112); neither changes the other's targets or premises."
+    },
+    {
+     "pair": [
+      "004-character-creation-large-pseudo-module-loose.md",
+      "025-spellcastingts-contains-five-independently.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "004 renames and moves `character-create-helpers.ts`, `character-create-spells.ts`, and their tests into new module paths (004-character-creation-large-pseudo-module-loose.md:131-149), while 025 requires import repoints in those old-path files (025-spellcastingts-contains-five-independently.md:60-74,133-149). Landing the move first invalidates 025's target paths, and neither leaf declares this edge."
+    },
+    {
+     "pair": [
+      "004-character-creation-large-pseudo-module-loose.md",
+      "065-server-service-suites-redundantly-wipe.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "004 moves five character-creation suites into the new module folder (004-character-creation-large-pseudo-module-loose.md:139-149), while 065 removes hooks and imports from four of those exact suites (065-server-service-suites-redundantly-wipe.md:53-63,83-100). The move changes the cleanup leaf's concrete paths and makes concurrent work unsafe, but no relation is declared."
+    },
+    {
+     "pair": [
+      "004-character-creation-large-pseudo-module-loose.md",
+      "211-reuse-validated-class-references-during.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "The overlap is already governed explicitly: 211 says to land after or rebase onto 004 and apply its consolidation to the post-move layout (211-reuse-validated-class-references-during.md:60-66). Under the adjudication vocabulary this documented dependency is distinct, not a collision."
+    },
+    {
+     "pair": [
+      "021-shared-production-builds-expose-colocated.md",
+      "025-spellcastingts-contains-five-independently.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "021's claim is narrowly that no other leaf edits shared tsconfigs or test-dist preflight (021-shared-production-builds-expose-colocated.md:155-156), which 025 does not. Moreover, 025 explicitly records the census drift and requires serialization without ordering (025-spellcastingts-contains-five-independently.md:216-220), so the directions are compatible and their dependency is already documented."
+    },
+    {
+     "pair": [
+      "021-shared-production-builds-expose-colocated.md",
+      "065-server-service-suites-redundantly-wipe.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "021 changes shared build configuration and preflight scripts (021-shared-production-builds-expose-colocated.md:63-112); 065 only removes redundant database-cleaning calls from server service tests and expressly leaves the global lifecycle unchanged (065-server-service-suites-redundantly-wipe.md:81-117)."
+    },
+    {
+     "pair": [
+      "021-shared-production-builds-expose-colocated.md",
+      "211-reuse-validated-class-references-during.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "021's invariant concerns which shared source files emit into `dist` (021-shared-production-builds-expose-colocated.md:63-107), whereas 211 changes server-side class/subclass query ownership and spell-validation inputs (211-reuse-validated-class-references-during.md:38-58); neither alters the other's implementation assumptions."
+    },
+    {
+     "pair": [
+      "025-spellcastingts-contains-five-independently.md",
+      "065-server-service-suites-redundantly-wipe.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Their only common file is `character-create-spells.test.ts`: 025 mechanically repoints its shared-rule import (025-spellcastingts-contains-five-independently.md:68-74,133-149), while 065 removes the independent `cleanDb` import and hook (065-server-service-suites-redundantly-wipe.md:53-63,83-100). Neither edit disturbs the other's premise."
+    },
+    {
+     "pair": [
+      "025-spellcastingts-contains-five-independently.md",
+      "211-reuse-validated-class-references-during.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "025 only changes the shared-rule module paths imported by the server spell service and test while preserving the APIs and behavior (025-spellcastingts-contains-five-independently.md:133-151,162-169). 211 independently changes the service parameter, removes class/subclass queries, and updates callers/tests (211-reuse-validated-class-references-during.md:38-58); the import-path split does not invalidate that query-consolidation premise or establish an incompatible invariant."
+    },
+    {
+     "pair": [
+      "065-server-service-suites-redundantly-wipe.md",
+      "211-reuse-validated-class-references-during.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "065 deletes only redundant lifecycle hooks and their imports (065-server-service-suites-redundantly-wipe.md:81-106), whereas 211 rewrites validated-reference inputs and assertions in the same suites (211-reuse-validated-class-references-during.md:40-58). The hooks are independent of the reference-loading behavior, so either implementation leaves the other's premises intact."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record the two missing move-sensitive serialization edges. Add one cross-reference bullet to 025 and one to 065 using the exact text below; the other overlaps are independent or already documented.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "025-spellcastingts-contains-five-independently.md",
+      "to": "004-character-creation-large-pseudo-module-loose.md",
+      "kind": "serialize",
+      "recordIn": "025-spellcastingts-contains-five-independently.md ## Scope / caveats",
+      "text": "Cross-reference: 004-character-creation-large-pseudo-module-loose.md moves and renames the character-creation files this leaf repoints. No hard ordering, but do not work the leaves concurrently: if 004 lands first, apply these shared-rule import repoints to its post-move `nested-creates.ts`, `spells.ts`, and `spells.test.ts`; if 025 lands first, 004 must move the already-repointed files without restoring the old shared imports."
+     },
+     {
+      "from": "065-server-service-suites-redundantly-wipe.md",
+      "to": "004-character-creation-large-pseudo-module-loose.md",
+      "kind": "serialize",
+      "recordIn": "065-server-service-suites-redundantly-wipe.md ## Scope / caveats",
+      "text": "Cross-reference: 004-character-creation-large-pseudo-module-loose.md moves the character-creation suites named here. No hard ordering, but do not work the leaves concurrently: if 004 lands first, remove the redundant cleans at the post-move suite paths; if 065 lands first, 004 must move the cleaned suites without reintroducing the deleted hooks or imports."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-c05",
+   "files": [
+    "046-generic-map-canvas-performs-combat-domain.md",
+    "054-tokencontextmenu-option-bag-two-different.md",
+    "055-token-placement-mirrors-store-state-dialog.md",
+    "179-turn-disabled-stat-block-placeholder-party.md",
+    "215-converge-destructive-client-actions-on-one.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "046-generic-map-canvas-performs-combat-domain.md",
+      "054-tokencontextmenu-option-bag-two-different.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "046:93-97 changes the MapCanvas projection block in combat-map-content.tsx and requires no combat projection at the ordinary-map caller; 054:52-65 changes the separate TokenContextMenu props block. Neither edit changes the other's contract or premises."
+    },
+    {
+     "pair": [
+      "046-generic-map-canvas-performs-combat-domain.md",
+      "055-token-placement-mirrors-store-state-dialog.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "046:75-105 replaces MapCanvas encounter projection, whereas 055:40-56 removes usePlacementSlice's effect and derives add-token dialog visibility. Their only shared composition file contains independent canvas and dialog-state blocks."
+    },
+    {
+     "pair": [
+      "046-generic-map-canvas-performs-combat-domain.md",
+      "179-turn-disabled-stat-block-placeholder-party.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "046:84-94 moves the combat-token projection and changes the MapCanvas prop; 179:100-110 changes reveal-aware token-menu discovery. Sharing combat-map-content.tsx does not couple the MapCanvas projection to the open-sheet permission input."
+    },
+    {
+     "pair": [
+      "046-generic-map-canvas-performs-combat-domain.md",
+      "215-converge-destructive-client-actions-on-one.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "046:75-105 is confined to combat projection, MapCanvas, its bridge, and documentation; 215:47-69 generalizes confirmation UI and migrates destructive-action callers. Their targets and invariants do not intersect."
+    },
+    {
+     "pair": [
+      "054-tokencontextmenu-option-bag-two-different.md",
+      "055-token-placement-mirrors-store-state-dialog.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "054:52-65 rewrites the TokenContextMenu variant props at map-detail-content.tsx's menu call site; 055:48-56 rewrites the component's add-token state and MapEditorDialogs wiring. The edits share a composition file but neither disturbs the other's state or prop premises."
+    },
+    {
+     "pair": [
+      "054-tokencontextmenu-option-bag-two-different.md",
+      "179-turn-disabled-stat-block-placeholder-party.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "054:52-65 defines the complete discriminated combat-menu prop set and corresponding caller/test rewrite. 179:100-110 requires a new reveal-aware input resolved by the combat caller and consumed by resolveOpenSheetIntent, thereby changing that same combat variant, call site, and test contract. Neither leaf declares the edge; 054:90-91 instead denies it."
+    },
+    {
+     "pair": [
+      "054-tokencontextmenu-option-bag-two-different.md",
+      "215-converge-destructive-client-actions-on-one.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "054:74-76 promises a type-level rewrite with menu behavior unchanged and 054:86-89 requires new variant-specific test bags. 215:59-69 changes TokenContextMenu removal behavior, callback ownership, its callers, and the same test coverage. Landing either first changes the premises and test structure the other must preserve, but no relation is declared."
+    },
+    {
+     "pair": [
+      "055-token-placement-mirrors-store-state-dialog.md",
+      "179-turn-disabled-stat-block-placeholder-party.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "055:40-61 concerns placement-derived add-token dialog state on the ordinary map; 179:68-130 concerns persisted reveal state, monster access, and spectator rendering. They share no edited contract or implementation premise."
+    },
+    {
+     "pair": [
+      "055-token-placement-mirrors-store-state-dialog.md",
+      "215-converge-destructive-client-actions-on-one.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "055:40-56 derives visibility for the add-token editor dialog from placement state; 215:47-69 consolidates destructive confirmations. Similar dialog vocabulary does not reflect a shared target, state owner, or invariant."
+    },
+    {
+     "pair": [
+      "179-turn-disabled-stat-block-placeholder-party.md",
+      "215-converge-destructive-client-actions-on-one.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "179:100-110 changes open-sheet discovery and reveal input in TokenContextMenu, while 215:59-62 changes the separate removal action and confirmation ownership. The component and test file are shared, but the open-sheet and removal branches do not disturb one another's contracts."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace 054's final Scope / caveats bullet at lines 90-91 with the two soft-sequencing sentences listed below. Replace 179's line 147 with a reciprocal sentence stating that it has a soft sequencing edge with 054 and that whichever lands second must carry the reveal input through 054's discriminated combat variant and tests. No relation is needed for the other eight pairs.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "054-tokencontextmenu-option-bag-two-different.md",
+      "to": "179-turn-disabled-stat-block-placeholder-party.md",
+      "kind": "soft-sequencing",
+      "recordIn": "054-tokencontextmenu-option-bag-two-different.md ## Scope / caveats",
+      "text": "Soft sequencing edge with [179-turn-disabled-stat-block-placeholder-party.md](./179-turn-disabled-stat-block-placeholder-party.md): both change TokenContextMenu's combat contract, combat-map-content.tsx, and variant tests; whichever lands second must carry the reveal-aware open-sheet input through the discriminated combat props and explicit combat test bag."
+     },
+     {
+      "from": "054-tokencontextmenu-option-bag-two-different.md",
+      "to": "215-converge-destructive-client-actions-on-one.md",
+      "kind": "soft-sequencing",
+      "recordIn": "054-tokencontextmenu-option-bag-two-different.md ## Scope / caveats",
+      "text": "Soft sequencing edge with [215-converge-destructive-client-actions-on-one.md](./215-converge-destructive-client-actions-on-one.md): both change TokenContextMenu, its onRemove caller semantics, and its test helper; whichever lands second must preserve the discriminated map/combat bags while carrying the confirmation-owner and user-level dialog coverage changes."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "054-tokencontextmenu-option-bag-two-different.md",
+   "notes": "S2's two overturned nominations were composition-file proximity without premise disturbance; its two menu-contract nominations are genuine collisions."
+  },
+  {
+   "assignment": "s3-c06",
+   "files": [
+    "111-lint-coverage-map-reverse-parses-generated.md",
+    "153-global-restricted-import-policy-survives.md",
+    "157-shared-policyjs-grab-bag-unrelated-lint.md",
+    "197-shared-runtime-neutrality-enforcement.md",
+    "251-remove-closed-implementation-residue-from-the-active.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "111-lint-coverage-map-reverse-parses-generated.md",
+      "153-global-restricted-import-policy-survives.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 111 only consumes shared glob constants for coverage-map membership (111:92-119), while leaf 153 adds a restricted-import composer and rewrites its callers (153:58-83); neither changes the other's symbols or invariant."
+    },
+    {
+     "pair": [
+      "111-lint-coverage-map-reverse-parses-generated.md",
+      "157-shared-policyjs-grab-bag-unrelated-lint.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "Leaf 111 proposes importing shared globs from `eslint-config/shared-policy.js` (111:92-119), which leaf 157 deletes and replaces with focused modules (157:27-41). This is a missing rebase relation, not a contradiction: leaf 157 preserves every glob and policy value rather than deleting the constants leaf 111 needs (157:37,45)."
+    },
+    {
+     "pair": [
+      "111-lint-coverage-map-reverse-parses-generated.md",
+      "197-shared-runtime-neutrality-enforcement.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 111 consumes shared scope globs without changing their meaning (111:117-119), while leaf 197 uses those existing globs to add a production-only rule override in `package-boundary-configs.js` (197:49-58). Leaf 197 does not rename or redefine the glob authority, so it does not disturb leaf 111."
+    },
+    {
+     "pair": [
+      "111-lint-coverage-map-reverse-parses-generated.md",
+      "251-remove-closed-implementation-residue-from-the-active.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "Leaf 251 explicitly declares that its content-truth cleanup lands before leaf 111's representation migration and explains the ownership boundary (251:79-94). The directions are complementary, so this is a documented dependency, although leaf 111's terminal exclusivity claim at 111:180-181 should be corrected."
+    },
+    {
+     "pair": [
+      "153-global-restricted-import-policy-survives.md",
+      "157-shared-policyjs-grab-bag-unrelated-lint.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Both leaves explicitly declare the rebase protocol: the composer moves with leaf 157's package-boundary module if leaf 153 lands first, or is created there if leaf 157 lands first (153:109-113; 157:48-53)."
+    },
+    {
+     "pair": [
+      "153-global-restricted-import-policy-survives.md",
+      "197-shared-runtime-neutrality-enforcement.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 153 converts every restricted-import site, including the shared-package site in `package-boundary-configs.js`, to its composer (153:60-83), while leaf 197 adds Node patterns at that same shared-package rule site and requires existing schemas-barrel restrictions to survive replacement (197:49-58). Neither leaf declares how the new patterns enter the composer."
+    },
+    {
+     "pair": [
+      "153-global-restricted-import-policy-survives.md",
+      "251-remove-closed-implementation-residue-from-the-active.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 153 changes restricted-import composition while preserving effective policy (153:60-83); leaf 251 merely consults live lint configuration during a full-document prose audit and does not edit it (251:48-71). Either resulting config state remains a valid truth source for that audit."
+    },
+    {
+     "pair": [
+      "157-shared-policyjs-grab-bag-unrelated-lint.md",
+      "197-shared-runtime-neutrality-enforcement.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 197's production/test tiering relies on `sharedSourceFiles` and `sharedTestAndHelperSourceFiles` (197:37-45,54-60), while leaf 157 moves those globs out of `shared-policy.js`, deletes that module, and retargets its importers (157:27-41). No ordering or rebase relation is declared."
+    },
+    {
+     "pair": [
+      "157-shared-policyjs-grab-bag-unrelated-lint.md",
+      "251-remove-closed-implementation-residue-from-the-active.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 157 reorganizes ESLint policy modules and harness registrations while preserving resolved behavior (157:25-45); leaf 251 edits only the hand-maintained coverage-map prose and preserves its generated span (251:46-71,92-97). The module split does not disturb the cleanup's factual-claim boundary."
+    },
+    {
+     "pair": [
+      "197-shared-runtime-neutrality-enforcement.md",
+      "251-remove-closed-implementation-residue-from-the-active.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 197 adds runtime-neutrality enforcement and ADR text without proposing a coverage-map edit (197:47-71), while leaf 251 removes stale implementation prose without changing lint policy (251:46-71,95-97). Their scopes and invariants remain independent."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace leaf 111's false terminal claim at 111:180-181 with the two exact Scope/caveats sentences below, acknowledging the existing 251 ordering and coordinating with leaf 157. Add the two exact coordination bullets below to leaf 197's Scope/caveats. Leave the already reciprocal 153/157 relation and leaf 251's existing 251-before-111 declaration unchanged.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "111-lint-coverage-map-reverse-parses-generated.md",
+      "to": "251-remove-closed-implementation-residue-from-the-active.md",
+      "kind": "prefersAfter",
+      "recordIn": "111-lint-coverage-map-reverse-parses-generated.md ## Scope / caveats",
+      "text": "Land after [251-remove-closed-implementation-residue-from-the-active.md](./251-remove-closed-implementation-residue-from-the-active.md), whose full-document truth pass removes stale policy prose before this leaf migrates that corrected content into the typed manifest and renderer."
+     },
+     {
+      "from": "111-lint-coverage-map-reverse-parses-generated.md",
+      "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+      "kind": "rebaseOn",
+      "recordIn": "111-lint-coverage-map-reverse-parses-generated.md ## Scope / caveats",
+      "text": "Coordinate with [157-shared-policyjs-grab-bag-unrelated-lint.md](./157-shared-policyjs-grab-bag-unrelated-lint.md): if leaf 157 lands first, import shared lint globs from its focused path/glob vocabulary module; if this leaf lands first, leaf 157 must retarget the new manifest importer when it deletes `shared-policy.js`. Do not recreate a compatibility barrel."
+     },
+     {
+      "from": "197-shared-runtime-neutrality-enforcement.md",
+      "to": "153-global-restricted-import-policy-survives.md",
+      "kind": "rebaseOn",
+      "recordIn": "197-shared-runtime-neutrality-enforcement.md ## Scope / caveats",
+      "text": "Coordinate with [153-global-restricted-import-policy-survives.md](./153-global-restricted-import-policy-survives.md): build the production shared Node-builtin restriction through `restrictedImportsRule`; if this leaf lands first, leaf 153 must convert the new rule site while preserving its Node patterns, and if leaf 153 lands first, pass the Node patterns as composer extras."
+     },
+     {
+      "from": "197-shared-runtime-neutrality-enforcement.md",
+      "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+      "kind": "rebaseOn",
+      "recordIn": "197-shared-runtime-neutrality-enforcement.md ## Scope / caveats",
+      "text": "Coordinate with [157-shared-policyjs-grab-bag-unrelated-lint.md](./157-shared-policyjs-grab-bag-unrelated-lint.md): after the split, import `sharedSourceFiles` and `sharedTestAndHelperSourceFiles` from the focused path/glob module; if this leaf lands first, leaf 157 must retarget those imports when deleting `shared-policy.js`."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "notes": "The post-split authority is coherent: leaf 157's path/glob module owns shared scope globs, and its package-boundary module owns leaf 153's restricted-import composer. Leaf 251 remains the declared content cleanup before leaf 111's renderer migration."
+  },
+  {
+   "assignment": "s3-c07",
+   "files": [
+    "033-attunement-game-rule-lives-request-schema.md",
+    "041-character-hooks-expose-second-identity.md",
+    "044-optimistic-writers-spread-transport.md",
+    "050-optimistic-character-sheet-mutations-omit.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "033-attunement-game-rule-lives-request-schema.md",
+      "041-character-hooks-expose-second-identity.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "033-attunement-game-rule-lives-request-schema.md:94-126 relocates a rules constant and corrects server documentation, whereas 041-character-hooks-expose-second-identity.md:72-127 narrows client action payloads and injects hook-captured identity. Their incidental inventory-tab contact does not disturb either premise or invariant."
+    },
+    {
+     "pair": [
+      "033-attunement-game-rule-lives-request-schema.md",
+      "044-optimistic-writers-spread-transport.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": true,
+     "reason": "033-attunement-game-rule-lives-request-schema.md:154-160 explicitly says to avoid concurrent edits with 044 because both modify inventory-inputs.ts, while 044-optimistic-writers-spread-transport.md:181-182 claims there are no sequencing edges against any pack leaf. The implementations are compatible, but these scheduling assertions are incompatible."
+    },
+    {
+     "pair": [
+      "033-attunement-game-rule-lives-request-schema.md",
+      "050-optimistic-character-sheet-mutations-omit.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "033-attunement-game-rule-lives-request-schema.md:94-138 changes constant ownership and service commentary without changing hook behavior; 050-optimistic-character-sheet-mutations-omit.md:79-119 changes only four consumer test suites for rollback and invalidation wiring. Neither work item changes the other's target or premise."
+    },
+    {
+     "pair": [
+      "041-character-hooks-expose-second-identity.md",
+      "044-optimistic-writers-spread-transport.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "Full-leaf reading reveals a stronger conflict than S2's collision: 041-character-hooks-expose-second-identity.md:160-163 explicitly requires retaining characterId in UPDATE_STATS_CONTROL_FIELDS and says removing it would leak the injected identity, while 044-optimistic-writers-spread-transport.md:104-117 explicitly deletes that helper and transfers stripping to patch-schema parsing. The final invariants can coexist, but the written implementation directions pull oppositely over the same helper."
+    },
+    {
+     "pair": [
+      "041-character-hooks-expose-second-identity.md",
+      "050-optimistic-character-sheet-mutations-omit.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "041-character-hooks-expose-second-identity.md:101-127 changes action signatures and adjacent tests for all four hook implementations consumed by 050, while 050-optimistic-character-sheet-mutations-omit.md:81-119 adds action-driving rollback and invalidation tests to those suites. The new tests must use 041's narrowed payloads, but neither leaf declares this coordination."
+    },
+    {
+     "pair": [
+      "044-optimistic-writers-spread-transport.md",
+      "050-optimistic-character-sheet-mutations-omit.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": true,
+     "reason": "The pre-seeded defect is confirmed: 050-optimistic-character-sheet-mutations-omit.md:149-152 explicitly requires avoiding concurrent edits because 044 changes the exact use-inventory onMutate behavior its tests surround, while 044-optimistic-writers-spread-transport.md:181-182 claims no sequencing edges. The production and coverage directions are complementary, but their declared scheduling invariants conflict."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Delete 044-optimistic-writers-spread-transport.md's final blanket sentence, \"No sequencing edges against other leaves in this pack,\" and replace it with the three edge sentences below. Add the fourth edge sentence to 050-optimistic-character-sheet-mutations-omit.md. Leave 033's existing relation to 044 and 050's existing relation to 044 intact.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "044-optimistic-writers-spread-transport.md",
+      "to": "033-attunement-game-rule-lives-request-schema.md",
+      "kind": "serialize",
+      "recordIn": "044-optimistic-writers-spread-transport.md ## Scope / caveats",
+      "text": "Coordinate with [033-attunement-game-rule-lives-request-schema.md](./033-attunement-game-rule-lives-request-schema.md): it relocates MAX_ATTUNED_ITEMS from inventory-inputs.ts while this leaf restructures schemas in that module; avoid concurrent edits, with no hard ordering."
+     },
+     {
+      "from": "044-optimistic-writers-spread-transport.md",
+      "to": "041-character-hooks-expose-second-identity.md",
+      "kind": "requires",
+      "recordIn": "044-optimistic-writers-spread-transport.md ## Scope / caveats",
+      "text": "Land [041-character-hooks-expose-second-identity.md](./041-character-hooks-expose-second-identity.md) before this leaf: 041 injects character identity and preserves UPDATE_STATS_CONTROL_FIELDS, after which this leaf deletes that denylist and makes the positive patch schema responsible for stripping the injected identity."
+     },
+     {
+      "from": "044-optimistic-writers-spread-transport.md",
+      "to": "050-optimistic-character-sheet-mutations-omit.md",
+      "kind": "serialize",
+      "recordIn": "044-optimistic-writers-spread-transport.md ## Scope / caveats",
+      "text": "Coordinate with [050-optimistic-character-sheet-mutations-omit.md](./050-optimistic-character-sheet-mutations-omit.md): it adds rollback tests around use-inventory's onMutate behavior and edits the same inventory test suite; avoid concurrent edits, with no hard ordering."
+     },
+     {
+      "from": "050-optimistic-character-sheet-mutations-omit.md",
+      "to": "041-character-hooks-expose-second-identity.md",
+      "kind": "requires",
+      "recordIn": "050-optimistic-character-sheet-mutations-omit.md ## Scope / caveats",
+      "text": "Land [041-character-hooks-expose-second-identity.md](./041-character-hooks-expose-second-identity.md) before this leaf so the new rollback and invalidation tests use the narrowed action payloads; 041 changes all four hook implementations consumed here and their adjacent suites."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "044-optimistic-writers-spread-transport.md",
+   "notes": "The known 044/050 contradicted-independence defect is confirmed. Full-leaf review also upgrades S2's 041/044 collision hypothesis to contradiction because 041 preserves a helper that 044 explicitly deletes."
+  },
+  {
+   "assignment": "s3-c08",
+   "files": [
+    "003-seed-json-boundaries-alternate-between.md",
+    "097-two-database-writing-srd-backfill-commands.md",
+    "203-add-previewapply-safety-boundary-srd.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "003-seed-json-boundaries-alternate-between.md",
+      "097-two-database-writing-srd-backfill-commands.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "Leaf 003 only classifies current corpora and updates assertion-policy breadcrumbs (003-seed-json-boundaries-alternate-between.md:94-114,131-133), whereas 097's removal branch deletes both backfill implementations (097-two-database-writing-srd-backfill-commands.md:74-79). Removal would require rebasing 003's table and marker-edit slice, but it does not oppose 003's directory-level validation invariant; this is an undeclared conditional target collision, not a contradiction."
+    },
+    {
+     "pair": [
+      "003-seed-json-boundaries-alternate-between.md",
+      "203-add-previewapply-safety-boundary-srd.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "In the backfill files, 003's proposed work is limited to making existing assertion markers cite the directory policy (003-seed-json-boundaries-alternate-between.md:131-133). Leaf 203 changes runner gating and removes tautological callback guards while preserving the callbacks and effective write scopes (203-add-previewapply-safety-boundary-srd.md:54-85,87-94). The edits occupy independent concerns and neither disturbs the other's premises, so shared filenames alone do not establish a collision."
+    },
+    {
+     "pair": [
+      "097-two-database-writing-srd-backfill-commands.md",
+      "203-add-previewapply-safety-boundary-srd.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "The leaves already document their conditional dependency in both directions: 097 says removal moots 203 and retention requires the runbook to describe preview-by-default behavior (097-two-database-writing-srd-backfill-commands.md:85-91), while 203 says retention should sequence its boundary before or with 097's documentation branch (203-add-previewapply-safety-boundary-srd.md:98-104). Under the adjudication vocabulary, this declared keep/remove and ordering relationship is distinct with no additional remedy."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record the conditional 003/097 dependency in both leaves. State that 097's removal branch moots only 003's two backfill corpus-table rows and assertion-marker edits, requiring removal-first sequencing or a rebase; retention leaves 003's policy work independent. No relation should be added for 003/203, and the existing 097/203 declarations should remain unchanged.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "003-seed-json-boundaries-alternate-between.md",
+      "to": "097-two-database-writing-srd-backfill-commands.md",
+      "kind": "rebaseOn",
+      "recordIn": "003-seed-json-boundaries-alternate-between.md ## Scope / caveats",
+      "text": "Coordinate with [097-two-database-writing-srd-backfill-commands.md](./097-two-database-writing-srd-backfill-commands.md): decide its keep-vs-remove branch before finalizing this leaf's corpus table and assertion-marker updates. If it removes the backfills, omit both backfill rows and marker edits; if it retains them, the validation-policy work remains independent."
+     },
+     {
+      "from": "097-two-database-writing-srd-backfill-commands.md",
+      "to": "003-seed-json-boundaries-alternate-between.md",
+      "kind": "moots-slice",
+      "recordIn": "097-two-database-writing-srd-backfill-commands.md ## Scope / caveats",
+      "text": "Coordinate the removal branch with [003-seed-json-boundaries-alternate-between.md](./003-seed-json-boundaries-alternate-between.md): removing these commands moots only that leaf's two backfill corpus-table rows and assertion-marker edits, so land removal first or rebase its corpus inventory; the remaining seed-boundary policy is independent."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "003-seed-json-boundaries-alternate-between.md",
+   "notes": null
+  },
+  {
+   "assignment": "s3-c09",
+   "files": [
+    "010-trpc-error-sanitization-depends-unstable.md",
+    "184-human-readable-server-messages-act-client.md",
+    "248-preserve-registered-route-typing-through.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "010-trpc-error-sanitization-depends-unstable.md",
+      "184-human-readable-server-messages-act-client.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 010 refactors the types, imports, and recursive validation-error handling surrounding `formatTrpcError` and its tests (010:77-103), while leaf 184 adds `data.reasonCode` at that same formatter/test boundary (184:49-53). Leaf 010 also says the wire output must stay exactly as it is and claims no sequencing edges (010:112-116,134-135), so either implementation changes the formatter shape on which the other must operate. The invariants compose, but the undeclared shared edit requires serialization."
+    },
+    {
+     "pair": [
+      "010-trpc-error-sanitization-depends-unstable.md",
+      "248-preserve-registered-route-typing-through.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 010 keeps its owned validation-issue type server-local and exposes it only through existing AppRouter inference (010:82-94); leaf 248 changes client route-link and page-parameter boundaries (248:64-96). They share neither an edited target nor an invariant, and completing either leaves the other's premises intact."
+    },
+    {
+     "pair": [
+      "184-human-readable-server-messages-act-client.md",
+      "248-preserve-registered-route-typing-through.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 184 migrates `JoinPage` and `CharacterSheetPage` error branches away from message comparisons, explicitly including the locally manufactured missing-code message (184:25-29,55-63). Leaf 248 makes those pages' parameters required and removes the missing-parameter fallbacks while preserving domain error handling (248:76-88). Thus leaf 248 deletes one concrete branch leaf 184 otherwise migrates, and both rewrite the surviving page boundaries without declaring an edge. Leaf 248's existing no-order sentence concerns only leaf 236 (248:114-118), not leaf 184."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record two serialization edges. Replace leaf 010's false `No sequencing edges` bullet with the first sentence below, and add the second sentence as a new bullet in leaf 184's `## Scope / caveats`.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "010-trpc-error-sanitization-depends-unstable.md",
+      "to": "184-human-readable-server-messages-act-client.md",
+      "kind": "serialize",
+      "recordIn": "010-trpc-error-sanitization-depends-unstable.md ## Scope / caveats",
+      "text": "Serialize this leaf with [184-human-readable-server-messages-act-client.md](./184-human-readable-server-messages-act-client.md): both edit `formatTrpcError` and `trpc.test.ts`; if 184 lands first, preserve `data.reasonCode` while refactoring only validation-error typing, and if this leaf lands first, 184 must extend the transport-owned formatter without restoring the unstable tRPC import or Zod-derived `SafeIssue` type."
+     },
+     {
+      "from": "184-human-readable-server-messages-act-client.md",
+      "to": "248-preserve-registered-route-typing-through.md",
+      "kind": "serialize",
+      "recordIn": "184-human-readable-server-messages-act-client.md ## Scope / caveats",
+      "text": "Serialize the `JoinPage` and `CharacterSheetPage` edits with [248-preserve-registered-route-typing-through.md](./248-preserve-registered-route-typing-through.md): if 248 lands first, migrate only the surviving invite and character error branches; if this leaf lands first, 248 removes the now-impossible missing-parameter branch while preserving reason-code-based domain error handling."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "184-human-readable-server-messages-act-client.md",
+   "notes": "The c7 evidence for leaf 248 overread a relation-specific no-order statement about leaf 236 as a global independence claim; the 184/248 collision nevertheless remains supported by their direct overlap on JoinPage's missing-code branch."
+  },
+  {
+   "assignment": "s3-c10",
+   "files": [
+    "080-public-harness-copy-recipes-not-closed-over.md",
+    "119-migration-safety-validation-embeds-multiple.md",
+    "181-harness-diagnostics-live-application.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "080-public-harness-copy-recipes-not-closed-over.md",
+      "119-migration-safety-validation-embeds-multiple.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "Leaf 080 replaces the Portable Core copy lists with generated closure pointers (`080-public-harness-copy-recipes-not-closed-over.md:90-120`) and excludes package extraction and file moves (`:124-129`). Leaf 119 ports the migration scanner and only adds a worked-precedent sentence to the separate Substrate Ruling (`119-migration-safety-validation-embeds-multiple.md:143-150,195-196`). Their shared `docs/ai-harness.md` target does not create premise-disturbing overlap."
+    },
+    {
+     "pair": [
+      "080-public-harness-copy-recipes-not-closed-over.md",
+      "181-harness-diagnostics-live-application.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 080 replaces the hand-maintained diagnostics copy set and starters with entrypoints and a generated closure (`080-public-harness-copy-recipes-not-closed-over.md:90-115`), while leaf 181 moves the schema into a new workspace package and requires the same copy-set and adoption guidance to describe that package (`181-harness-diagnostics-live-application.md:70-90,112-115`). Leaf 080 expressly excludes package extraction (`080-public-harness-copy-recipes-not-closed-over.md:124-129`), so the intents are separate, but leaf 181 changes the package boundary against which leaf 080's manifest and prose must be written; neither leaf declares this relation."
+    },
+    {
+     "pair": [
+      "119-migration-safety-validation-embeds-multiple.md",
+      "181-harness-diagnostics-live-application.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": true,
+     "reason": "Leaf 119 directs its new core to consume `harnessFindingSchema` from `packages/shared/src/schemas/harness-diagnostics.ts` (`119-migration-safety-validation-embeds-multiple.md:100-125`), but leaf 181 deletes that file and makes `@musi/harness-diagnostics/schema.js` the sole import boundary (`181-harness-diagnostics-live-application.md:70-90`). They additionally rewrite the same envelope emitter and generated path-policy surface, yet neither declares the dependency."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Make leaf 181 the prerequisite package-boundary change. Add a `requires` edge from each dependent leaf to 181 so both are implemented against the relocated schema rather than the path that 181 deletes.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "080-public-harness-copy-recipes-not-closed-over.md",
+      "to": "181-harness-diagnostics-live-application.md",
+      "kind": "requires",
+      "recordIn": "080-public-harness-copy-recipes-not-closed-over.md ## Scope / caveats",
+      "text": "**Sequencing:** Requires [181-harness-diagnostics-live-application.md](./181-harness-diagnostics-live-application.md) to land first. Define the public recipe entrypoints and generated closure against `@musi/harness-diagnostics`, let leaf 181 own the schema move and package-oriented adoption guidance, and then replace the resulting hand-maintained copy lists with generated-manifest pointers."
+     },
+     {
+      "from": "119-migration-safety-validation-embeds-multiple.md",
+      "to": "181-harness-diagnostics-live-application.md",
+      "kind": "requires",
+      "recordIn": "119-migration-safety-validation-embeds-multiple.md ## Scope / caveats",
+      "text": "**Sequencing:** Requires [181-harness-diagnostics-live-application.md](./181-harness-diagnostics-live-application.md) to land first. Import `harnessFindingSchema` from `@musi/harness-diagnostics/schema.js`, not the deleted `packages/shared/src/schemas/harness-diagnostics.ts`, and rebase the envelope-emitter, generated path-policy, and harness-guide edits onto that relocated package boundary."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "181-harness-diagnostics-live-application.md",
+   "notes": null
+  },
+  {
+   "assignment": "s3-c11",
+   "files": [
+    "096-per-worktree-guide-omits-mandatory.md",
+    "198-worktree-provisioning-hard-wired.md",
+    "265-document-cross-worktree-status-modes.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "096-per-worktree-guide-omits-mandatory.md",
+      "198-worktree-provisioning-hard-wired.md"
+     ],
+     "relation": "subsumes",
+     "subsumer": "198-worktree-provisioning-hard-wired.md",
+     "s2Hypothesis": "subsumes",
+     "agreesWithS2": true,
+     "reason": "198 contains the credential-resolution implementation, tests, script documentation, and the guide alignment that constitutes 096's entire doc-only outcome: it explicitly requires the guide to describe the new precedence and reachability contract (198:43-68). 096 itself says its prerequisite text must rebase onto 198's contract and that 198 carries the follow-up edit if 096 lands first (096:68-77)."
+    },
+    {
+     "pair": [
+      "096-per-worktree-guide-omits-mandatory.md",
+      "265-document-cross-worktree-status-modes.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "096 adds an early credential prerequisite (096:48-66), whereas 265 documents status variants in the command table and multi-lane workflow (265:37-59). 265 expressly declares the scopes independent and records shared-file coordination with 096 (265:70-72), so this is a documented dependency rather than a collision."
+    },
+    {
+     "pair": [
+      "198-worktree-provisioning-hard-wired.md",
+      "265-document-cross-worktree-status-modes.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "198 changes admin credential selection and its prerequisite documentation (198:41-68); 265 is documentation-only, forbids provisioning or argument-parsing changes, and documents the existing status modes (265:37-69). Their script premises are disjoint—admin_url at scripts/worktree-db.sh:222-240 versus the status dispatcher at scripts/worktree-db.sh:1536-1565—and their proposed guide edits occupy different sections, so implementing either does not disturb the other's premises."
+    }
+   ],
+   "remedy": {
+    "kind": "merge",
+    "detail": "Retain 198-worktree-provisioning-hard-wired.md and remove 096 as a separate leaf. Fold 096:50-66 into 198's Proposed direction by requiring an early `Prerequisites` section after the guide introduction that documents override → primary `.devcontainer/.env` → primary root `.env` precedence, distinguishes the two env files, links `.devcontainer/README.md`, states PostgreSQL reachability, and keeps the script authoritative. Delete 198's coordination references to leaf 096 because the material is then internal. In 265:70-72, replace the link to 096 with a shared-file coordination note naming 198 and stating that credential prerequisites remain independent of status-mode documentation.",
+    "survivingFile": "198-worktree-provisioning-hard-wired.md",
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-c12",
+   "files": [
+    "131-codex-agent-skill-depends-claude-owned.md",
+    "152-path-policy-query-core-closed-over-musis.md",
+    "159-path-policy-gives-single-segment-glob-two.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "131-codex-agent-skill-depends-claude-owned.md",
+      "152-path-policy-query-core-closed-over-musis.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 131 changes `path-policy.ts`, `path-policy.test.ts`, the generated smoke-subject registry, and `harness.controls.json` for wrapper relocation (131-codex-agent-skill-depends-claude-owned.md:109-124), while leaf 152 changes those same surfaces to remove the registry from `PATH_POLICY`, relocate its type, and register the extracted engine (152-path-policy-query-core-closed-over-musis.md:113-146). In particular, 131 regenerates the artifact whose ownership and emitted form 152 changes, so concurrent implementation would disturb the other's generated-output premise. No relation is declared; leaf 131 instead incorrectly denies all sequencing edges at lines 182-184."
+    },
+    {
+     "pair": [
+      "131-codex-agent-skill-depends-claude-owned.md",
+      "159-path-policy-gives-single-segment-glob-two.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 131 deletes a `PATH_POLICY` shell-surface selector and repoints an assertion in `path-policy.test.ts` (131-codex-agent-skill-depends-claude-owned.md:109-120), while leaf 159 documents that selector type, replaces the test-local matcher used by such assertions, and registers its new module in `harness.controls.json` (159-path-policy-gives-single-segment-glob-two.md:27-42). These are different intents over a shared selector-and-test surface, and 159's matcher extraction changes the test premise under 131's assertion edit. Neither leaf declares this edge; 131 affirmatively denies it at lines 182-184."
+    },
+    {
+     "pair": [
+      "152-path-policy-query-core-closed-over-musis.md",
+      "159-path-policy-gives-single-segment-glob-two.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": null,
+     "agreesWithS2": null,
+     "reason": "The problems remain separate: leaf 152 extracts the portable query engine and smoke-metadata boundary, whereas leaf 159 establishes named pattern dialects. Their shared query-core work is already properly declared and sequenced by leaf 159: “Both leaves edit `path-policy-query-core.ts`; either may land first, but they should not run concurrently” (159-path-policy-gives-single-segment-glob-two.md:50)."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace the false no-sequencing statement in `131-codex-agent-skill-depends-claude-owned.md` lines 182-184 with the two serialization bullets specified below. Preserve leaf 159's existing serialization edge to leaf 152.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "131-codex-agent-skill-depends-claude-owned.md",
+      "to": "152-path-policy-query-core-closed-over-musis.md",
+      "kind": "serialize",
+      "recordIn": "131-codex-agent-skill-depends-claude-owned.md ## Scope / caveats",
+      "text": "[152-path-policy-query-core-closed-over-musis.md](./152-path-policy-query-core-closed-over-musis.md) also edits `path-policy.ts`, `path-policy.test.ts`, `path-policy-smoke-subjects-data.ts`, and `harness.controls.json`. Either leaf may land first, but do not implement them concurrently; after both changes are combined, regenerate smoke subjects so 131's relocated wrapper paths use 152's new registry type and ownership boundary."
+     },
+     {
+      "from": "131-codex-agent-skill-depends-claude-owned.md",
+      "to": "159-path-policy-gives-single-segment-glob-two.md",
+      "kind": "serialize",
+      "recordIn": "131-codex-agent-skill-depends-claude-owned.md ## Scope / caveats",
+      "text": "[159-path-policy-gives-single-segment-glob-two.md](./159-path-policy-gives-single-segment-glob-two.md) also edits `path-policy.ts`, `path-policy.test.ts`, and `harness.controls.json`. Either leaf may land first, but do not implement them concurrently; preserve 131's relocated-script shell coverage while routing its updated assertion through 159's canonical star-only matcher, then refresh the combined manifest closures."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": "131-codex-agent-skill-depends-claude-owned.md",
+   "notes": "Leaf 131 is the undeclared hub. Leaf 159 already records the 152/159 serialization edge."
+  },
+  {
+   "assignment": "s3-p01",
+   "files": [
+    "002-request-socket-boundaries-capture-production.md",
+    "205-rename-auth-service-to-reflect-its.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "002-request-socket-boundaries-capture-production.md",
+      "205-rename-auth-service-to-reflect-its.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 002 converts both `upload-routes.ts` and `trpc/context.ts` to injected database boundaries while retaining direct auth-primitive imports (002:93-117), whereas leaf 205 renames those imports and replaces each boundary's Bearer parsing with a shared extractor (205:52-76). Their intents are separate, but concurrent implementation would rewrite the same functions, and 002 incorrectly claims no cross-leaf ordering dependency (002:190-192)."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace leaf 002's absolute no-ordering-dependency sentence with an explicit serialization edge to leaf 205.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "002-request-socket-boundaries-capture-production.md",
+      "to": "205-rename-auth-service-to-reflect-its.md",
+      "kind": "serialize",
+      "recordIn": "002-request-socket-boundaries-capture-production.md ## Scope / caveats",
+      "text": "Leaf 205 renames the auth-primitives import and consolidates Bearer-header extraction in `upload-routes.ts` and `trpc/context.ts`, while this leaf refactors both request boundaries for database injection. Either order works, but do not implement the two leaves concurrently."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p01",
+   "files": [
+    "042-flat-character-creation-contract-forces.md",
+    "056-wizard-contexttesttsx-stale-duplicate-wizard.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "042-flat-character-creation-contract-forces.md",
+      "056-wizard-contexttesttsx-stale-duplicate-wizard.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": true,
+     "reason": "Leaf 042 explicitly says its state reshape migrates `wizard-state.test.ts` and touches the context suite, and records 056 among leaves to avoid implementing concurrently (042:108-113,160-168). Leaf 056 instead requires `wizard-state.test.ts` to stay untouched and claims no other leaf touches these wizard test files (056:81-95). Those scope and independence statements are incompatible even though the underlying work can be serialized."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace leaf 056's false no-sequencing claim with the serialization edge already declared by leaf 042.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "056-wizard-contexttesttsx-stale-duplicate-wizard.md",
+      "to": "042-flat-character-creation-contract-forces.md",
+      "kind": "serialize",
+      "recordIn": "056-wizard-contexttesttsx-stale-duplicate-wizard.md ## Scope / caveats",
+      "text": "Leaf 042 reshapes `WizardState`, migrates `wizard-state.test.ts`, and may touch `wizard-context.test.tsx`. Either order works, but do not implement the two leaves concurrently; if leaf 042 lands first, rebase this cleanup onto its new reducer and test shapes."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": "This confirms the pre-seeded contradicted-independence defect."
+  },
+  {
+   "assignment": "s3-p01",
+   "files": [
+    "007-cascade-deleters-duplicate-load-bearing-turn.md",
+    "017-participant-mutation-comments-misstate.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "007-cascade-deleters-duplicate-load-bearing-turn.md",
+      "017-participant-mutation-comments-misstate.md"
+     ],
+     "relation": "contradicts",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": true,
+     "reason": "Leaf 007 explicitly records that both leaves edit `participant-stats-mutations.ts`, in different header paragraphs, and therefore may land in either order but must not be worked concurrently (007:164-169). Leaf 017's absolute statement that it can land independently of every other leaf contradicts that declared serialization requirement (017:117-123)."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Replace leaf 017's absolute independence sentence with a serialization edge to leaf 007 while preserving the either-order conclusion.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "017-participant-mutation-comments-misstate.md",
+      "to": "007-cascade-deleters-duplicate-load-bearing-turn.md",
+      "kind": "serialize",
+      "recordIn": "017-participant-mutation-comments-misstate.md ## Scope / caveats",
+      "text": "Leaf 007 modifies the same `participant-stats-mutations.ts` header while introducing the cascade-origin coordinator: it rewrites the shape-4 block, while this leaf corrects shapes 1–3 and the `BlindParticipantFields` JSDoc. Either order works, but do not implement the two leaves concurrently."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p01",
+   "files": [
+    "040-vtt-actions-tab-duplicates-two-dedicated.md",
+    "058-vtt-spell-tests-copy-full.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "040-vtt-actions-tab-duplicates-two-dedicated.md",
+      "058-vtt-spell-tests-copy-full.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 040 rewrites `actions-tab.test.tsx` and `spells-tab.test.tsx` to assert shared casting eligibility and the real feature mutation (040:128-136), while leaf 058 mechanically replaces spell fixtures in those same suites with builder calls (058:69-81). Neither declares the other, and concurrent work would change the same scenario setup and assertions."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Record the test-suite serialization edge in leaf 058 beside its existing warning about another overlapping drawer change.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "058-vtt-spell-tests-copy-full.md",
+      "to": "040-vtt-actions-tab-duplicates-two-dedicated.md",
+      "kind": "serialize",
+      "recordIn": "058-vtt-spell-tests-copy-full.md ## Scope / caveats",
+      "text": "Leaf 040 rewrites `tabs/actions-tab.test.tsx` and `tabs/spells-tab.test.tsx` for shared eligibility and real feature-use behavior, while this leaf converts their spell fixtures. Either order works, but do not implement the two leaves concurrently; if leaf 040 lands first, include any spell fixtures it adds in this builder migration."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p02",
+   "files": [
+    "094-two-documents-both-claim-be-authoritative.md",
+    "220-add-a-joined-explain-view-for-harness-control.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "094-two-documents-both-claim-be-authoritative.md",
+      "220-add-a-joined-explain-view-for-harness-control.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "094's “Related leaves, no ordering dependency” heading is immediately scoped to leaves 114 and 093, not 220 (094-two-documents-both-claim-be-authoritative.md:150-157). Leaf 220 instead preserves 094's authority model while adding a separate joined query (220-add-a-joined-explain-view-for-harness-control.md:88-90); the directions establish compatible invariants."
+    }
+   ],
+   "remedy": {
+    "kind": "no-action",
+    "detail": "Keep both leaves unchanged: 094 resolves documentation authority, while 220 consumes that authority in a distinct provenance-query proposal.",
+    "survivingFile": null,
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p02",
+   "files": [
+    "109-musi-repository-policy-embedded-throughout.md",
+    "134-analyzer-families-maintain-divergent-source.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "109-musi-repository-policy-embedded-throughout.md",
+      "134-analyzer-families-maintain-divergent-source.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "contradicts",
+     "agreesWithS2": false,
+     "reason": "Leaf 109 explicitly distinguishes its narrow drift-triage pathArea extraction from 134's broader source/test taxonomy and records serialization rather than incompatible direction (109-musi-repository-policy-embedded-throughout.md:236-242). Leaf 134's named classification policies address a separate invariant (134-analyzer-families-maintain-divergent-source.md:68-98), but its blanket no-dependencies sentence at lines 125-126 should acknowledge the documented edge."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "In 134-analyzer-families-maintain-divergent-source.md, replace the blanket “No sequencing dependencies” sentence at lines 125-126 with the reciprocal serialization relation below.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "134-analyzer-families-maintain-divergent-source.md",
+      "to": "109-musi-repository-policy-embedded-throughout.md",
+      "kind": "serialize",
+      "recordIn": "134-analyzer-families-maintain-divergent-source.md ## Scope / caveats",
+      "text": "Serialize with [109-musi-repository-policy-embedded-throughout.md](./109-musi-repository-policy-embedded-throughout.md): leaf 109's drift-triage `pathArea` extraction is narrower than this leaf's source/test taxonomy, but both alter drift-triage taxonomy code; either may land first, but do not implement them concurrently."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p02",
+   "files": [
+    "140-analyzer-presentation-logic-uses-english.md",
+    "182-logging-producers-their-auditor-separately.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "140-analyzer-presentation-logic-uses-english.md",
+      "182-logging-producers-their-auditor-separately.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "Leaf 140 adds a finding discriminator and changes producer/formatter routing (140-analyzer-presentation-logic-uses-english.md:82-94). Leaf 182 imports only canonical policy data into the auditor while keeping normalization and checking local (182-logging-producers-their-auditor-separately.md:120-132), and expressly expects the existing logs-audit fixtures and expectations to remain unchanged (lines 134-140). Their edits occupy separate invariants within logs-audit-redaction.ts and do not disturb each other's premises."
+    }
+   ],
+   "remedy": {
+    "kind": "no-action",
+    "detail": "Keep both leaves unchanged; shared filenames alone do not require an edge because one changes finding representation and remedy dispatch while the other changes ownership of policy constants.",
+    "survivingFile": null,
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p02",
+   "files": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "161-drift-ai-executable-exposes-incoherent-23.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "142-code-intelts-maintains-unused-pseudo-library.md",
+      "161-drift-ai-executable-exposes-incoherent-23.md"
+     ],
+     "relation": "duplicate",
+     "subsumer": null,
+     "s2Hypothesis": "duplicate",
+     "agreesWithS2": true,
+     "reason": "Leaf 142 expressly calls 161 “the identical problem” and gives both one executable-only convention and shared acceptance criteria (142-code-intelts-maintains-unused-pseudo-library.md:141-159). Leaf 161 reciprocally requires joint planning under that same convention (161-drift-ai-executable-exposes-incoherent-23.md:57-72). Different root files and per-file commits are implementation slices of one problem, not separate findings."
+    }
+   ],
+   "remedy": {
+    "kind": "merge",
+    "detail": "Retitle surviving leaf 142 to cover both analyzer root entrypoints, then fold in leaf 161's drift-ai evidence, six-test importer-retarget map, synchronous runDriftAi/exitCode details, prior-pack constraints, and drift-specific acceptance checks. Preserve two implementation slices and separate commits—code-intel first as the template, drift-ai second—then retire leaf 161.",
+    "survivingFile": "142-code-intelts-maintains-unused-pseudo-library.md",
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p03",
+   "files": [
+    "149-generic-codemod-infrastructure-hidden-behind.md",
+    "185-repository-path-containment-has-several.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "149-generic-codemod-infrastructure-hidden-behind.md",
+      "185-repository-path-containment-has-several.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "Leaf 149 only repoints structured-logging's generic helper imports while moving normalization ownership (149-generic-codemod-infrastructure-hidden-behind.md:110-122); leaf 185 replaces that file's independent path-containment check while preserving tool-specific rules (185-repository-path-containment-has-several.md:60-64). Neither edit invalidates the other's premise."
+    }
+   ],
+   "remedy": {
+    "kind": "no-action",
+    "detail": "Keep both leaves unchanged; their sole shared production file contains separable import/normalization and path-containment edits that require no pack relation.",
+    "survivingFile": null,
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p03",
+   "files": [
+    "164-drift-ai-suites-leave-dozens-temporary.md",
+    "165-eight-drift-command-fakes-bypass-strict-git.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "164-drift-ai-suites-leave-dozens-temporary.md",
+      "165-eight-drift-command-fakes-bypass-strict-git.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "Leaf 164 explicitly changes fixture lifecycle without changing scenarios or Git responses (164-drift-ai-suites-leave-dozens-temporary.md:23-27), whereas leaf 165 changes only the permissiveness of complete Git-command matching (165-eight-drift-command-fakes-bypass-strict-git.md:23-27). Their edits coexist in the three shared suites without disturbing either invariant."
+    }
+   ],
+   "remedy": {
+    "kind": "no-action",
+    "detail": "Keep both leaves unchanged; temporary-root tracking and strict Git fakes are orthogonal fixture properties even in the three shared command suites.",
+    "survivingFile": null,
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p03",
+   "files": [
+    "180-homebrew-entry-type-vocabulary-enumerated.md",
+    "195-validate-concrete-homebrew-entry-data-before.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "180-homebrew-entry-type-vocabulary-enumerated.md",
+      "195-validate-concrete-homebrew-entry-data-before.md"
+     ],
+     "relation": "distinct",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": false,
+     "reason": "Leaf 180 replaces selector presentation metadata and adds order/label coverage (180-homebrew-entry-type-vocabulary-enumerated.md:70-89); leaf 195 inserts concrete validation inside handleSubmit and adds mutation-blocking field-error coverage (195-validate-concrete-homebrew-entry-data-before.md:25-33). The shared dialog and test files contain separate surfaces, and neither direction changes the other's assumptions."
+    }
+   ],
+   "remedy": {
+    "kind": "no-action",
+    "detail": "Keep both leaves unchanged; metadata derivation and submission validation remain independently implementable, consistent with leaf 180's no-sequencing-dependency caveat.",
+    "survivingFile": null,
+    "edges": [],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  },
+  {
+   "assignment": "s3-p03",
+   "files": [
+    "231-fail-closed-when-similarity-ts-output-no-longer.md",
+    "255-make-exact-token-collection-explicit-at-the.md"
+   ],
+   "matrix": [
+    {
+     "pair": [
+      "231-fail-closed-when-similarity-ts-output-no-longer.md",
+      "255-make-exact-token-collection-explicit-at-the.md"
+     ],
+     "relation": "collides",
+     "subsumer": null,
+     "s2Hypothesis": "collides",
+     "agreesWithS2": true,
+     "reason": "Leaf 231 adds several new direct similarity-ts runner fixtures (231-fail-closed-when-similarity-ts-output-no-longer.md:43-54), while leaf 255 makes includeExactTokens required and mandates updating every direct runner construction (255-make-exact-token-collection-explicit-at-the.md:46-52). Whichever lands second must rebase over the other's runner/test changes, but neither leaf declares that relation."
+    }
+   ],
+   "remedy": {
+    "kind": "add-relation",
+    "detail": "Add the specified coordination sentence to leaf 255's Scope / caveats so its exhaustive required-option sweep includes fixtures introduced by leaf 231 while keeping the two semantic changes separate.",
+    "survivingFile": null,
+    "edges": [
+     {
+      "from": "255-make-exact-token-collection-explicit-at-the.md",
+      "to": "231-fail-closed-when-similarity-ts-output-no-longer.md",
+      "kind": "serialize",
+      "recordIn": "255-make-exact-token-collection-explicit-at-the.md ## Scope / caveats",
+      "text": "Coordinate this required-option change with [231-fail-closed-when-similarity-ts-output-no-longer.md](./231-fail-closed-when-similarity-ts-output-no-longer.md): if 231 lands first, include its new similarity-ts runner fixtures in the explicit-boolean caller sweep; if this leaf lands first, 231 must set `includeExactTokens: false` in each new similarity-ts fixture. Keep protocol validation and exact-token policy as separate changes."
+     }
+    ],
+    "narrowedFile": null,
+    "boundary": null
+   },
+   "hubFile": null,
+   "notes": null
+  }
+ ],
+ "summary": {
+  "componentsRuled": 24,
+  "pairsRuled": 114,
+  "byRelation": {
+   "duplicate": 1,
+   "subsumes": 1,
+   "collides": 21,
+   "contradicts": 6,
+   "distinct": 85
+  },
+  "s2Overturned": 36,
+  "byRemedy": {
+   "merge": 2,
+   "add-relation": 17,
+   "narrow-scope": 0,
+   "no-action": 5
+  },
+  "filesCovered": 77
+ },
+ "validation": {
+  "errors": [],
+  "warnings": []
+ }
+}

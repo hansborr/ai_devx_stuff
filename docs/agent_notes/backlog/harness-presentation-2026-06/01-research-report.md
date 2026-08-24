@@ -65,7 +65,7 @@ The *problem* is well-measured (CMU peer-reviewed; GitClear correlational trend)
 
 ### The argument
 
-Readable code and cheap lint guardrails handle maintainability and architecture. Tests handle the axis neither can touch: **behavior** — does the code actually do the right thing? Birgitta Böckeler (Thoughtworks) names three regulation dimensions — maintainability, architecture fitness, and behavior — and calls behavior the weakest: "we still have a lot to do to figure out good harnesses for functional behaviour." Musi says the same about itself: **"Behavior confidence is still weaker than maintainability and architecture fitness"** (`docs/ai-harness.md:223`). That honesty is the point — the team names its weakest sensor axis rather than pretending green CI means correctness.
+Readable code and cheap lint guardrails handle maintainability and architecture. Tests handle the axis neither can touch: **behavior** — does the code actually do the right thing? Birgitta Böckeler (Thoughtworks) names three regulation dimensions — maintainability, architecture fitness, and behavior — and calls behavior the weakest: "we still have a lot to do to figure out good harnesses for functional behaviour." Musi says the same about itself: **"Behavior confidence is still weaker than maintainability and architecture fitness"** (`docs/ai-harness.md` **Current Gaps**). That honesty is the point — the team names its weakest sensor axis rather than pretending green CI means correctness.
 
 **Coverage is theater.** Line coverage proves code *executed*; it does not prove your tests would *notice* if behavior broke — and AI-written tests make the gap a chasm because AI is excellent at the happy path and poor at adversarial assertions. Lead with Böckeler's reproduced numbers (credible, named source): a file at **100% statement / 75% branch coverage with zero unit tests, 13 mutants surviving.** The punchy restatement — **100% line coverage with a 4% mutation score, 96% of injected bugs surviving undetected** (OutSight AI) — is *one team's internal example, illustrative*, a single practitioner blog; use it as the kicker, not the anchor.
 
@@ -190,7 +190,7 @@ Every primary source here has a commercial angle (Anthropic sells Claude, Chroma
 
 ## What this repo does well
 
-- **A written constitution.** `docs/ai-harness.md` names the vocabulary (Guide = feedforward, Sensor = feedback; Computational vs Inferential) and states the **Promotion Rule** (`docs/ai-harness.md:238-248`): every new control ships *all three* — a guide, a sensor, and repair text/codemod — and "Do not add more global instructions to AGENTS.md unless every agent needs them on every session start." This caps bloat while capability grows.
+- **A written constitution.** `docs/ai-harness.md` names the vocabulary (Guide = feedforward, Sensor = feedback; Computational vs Inferential) and states the **Promotion Rule**: every new control ships *all three* — a guide, a sensor, and repair text/codemod — and "Do not add more global instructions to AGENTS.md unless every agent needs them on every session start." This caps bloat while capability grows.
 - **One gate, four consumers.** A single 8-step verify matrix (lint, ratchet, zero-baseline, coverage-map, format-check, typecheck, test, scripts) runs **identically** across `verify`, `verify:changed`, `verify:parallel`, and pre-commit, generated from one schema — no "works on my machine" gap for humans or agents.
 - **One source of truth, governed.** `harness.controls.json` (**108 controls**) generates the verify matrix, the agent-facing docs, and the Claude/Codex hook wiring, all `--check`'d for drift — the harness polices its own consistency.
 - **Signal fusion — the maturity step most teams skip.** Nine tools emit one shared, Zod-validated `HarnessDiagnostics` envelope; `harness:audit` reads them all into one report; `.github/workflows/slow-drift.yml` runs that fused report weekly (cron Monday) as a report-only continuous-monitoring lane. Most teams over-build signal *emission* and under-build *consumption*; Musi built the boring spine.
@@ -295,7 +295,7 @@ The rest of the corpus's ~25 improvement ideas map to existing R-numbers/backlog
 | `packages/server/src/services/README.md` | Three-tier taxonomy + "promote when ALL THREE hold" rubric — a folder is earned, not defaulted. |
 | `packages/server/src/services/character-live-state/MODULE.md:75` | **The live, unfixed bug** — claims a deleted `index.ts` facade; catching sensor is `runByDefault: false`. |
 | `scripts/drift-ai/module-doc-paths-check-config.ts:21` | `runByDefault: false` — proof that "a sensor you don't run doesn't protect you." |
-| `docs/ai-harness.md:238-248` | The Promotion Rule — every control ships guide + sensor + repair; keep AGENTS.md lean. |
+| `docs/ai-harness.md` **Promotion Rule** | Every control ships guide + sensor + repair; keep AGENTS.md lean. |
 | `harness.controls.json` (108 controls) | One authoritative manifest generates verify matrix + agent docs + hook wiring, all `--check`'d for drift. |
 | `scripts/harness-audit.ts` + `.github/workflows/slow-drift.yml` | Nine tools, one Zod envelope, one weekly fused report — the signal-fusion step most teams skip. |
 | `scripts/verify/steps.generated.sh` | The same 8-step gate across verify / changed / parallel / pre-commit — no "works on my machine" gap. |

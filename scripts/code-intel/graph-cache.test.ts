@@ -1,10 +1,68 @@
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { graphCacheTest } from "./graph-cache.js";
+import { computeWorkspaceManifest, GraphCache, graphCacheTest } from "./graph-cache.js";
+import {
+  addSource,
+  createFixtureProject,
+  createFixtureResolver,
+  graphFor,
+} from "./test-fixtures.test-helper.js";
+
+describe("GraphCache.ensure", () => {
+  it("rebuilds cached state when the manifest fingerprint changes", () => {
+    let manifest = "first";
+    let rebuildCount = 0;
+    const project = createFixtureProject();
+    addSource(project, "packages/shared/src/rules/core.ts", "export const core = () => 1;\n");
+    const resolver = createFixtureResolver(project);
+    const graph = graphFor(project, resolver);
+    const cache = new GraphCache("/repo", {
+      computeManifest: () => manifest,
+      rebuild: () => {
+        rebuildCount += 1;
+        return { graph, manifest, resolver };
+      },
+    });
+    cache.ensure();
+    cache.ensure();
+    expect(rebuildCount).toBe(1);
+    manifest = "second";
+    cache.ensure();
+    expect(rebuildCount).toBe(2);
+  });
+});
+
+describe("computeWorkspaceManifest", () => {
+  let tempRoot: string;
+  let repoRoot: string;
+
+  beforeEach(() => {
+    tempRoot = mkdtempSync(path.join(tmpdir(), "code-intel-manifest-"));
+    repoRoot = path.join(tempRoot, "repo");
+    const sourceRoot = path.join(repoRoot, "packages/shared/src/rules");
+    mkdirSync(sourceRoot, { recursive: true });
+    writeFileSync(path.join(sourceRoot, "mutable.ts"), "export const mutableValue = 1;\n");
+  });
+
+  afterEach(() => {
+    rmSync(tempRoot, { force: true, recursive: true });
+  });
+
+  it("fingerprints source contents for same-size edits", () => {
+    const target = path.join(repoRoot, "packages/shared/src/rules/mutable.ts");
+    const originalStat = statSync(target);
+    const before = computeWorkspaceManifest(repoRoot);
+
+    writeFileSync(target, "export const mutableValue = 2;\n");
+    utimesSync(target, originalStat.atime, originalStat.mtime);
+
+    expect(computeWorkspaceManifest(repoRoot)).not.toBe(before);
+  });
+});
 
 describe("resolveGitDir", () => {
   const longGitdirPaddingLength = 4_000;

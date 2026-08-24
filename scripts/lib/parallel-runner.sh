@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # Live-output fanout runner for lint-style wrappers.
 #
-# Called by scripts/lint.sh and scripts/lint-changed.sh. Owns temporary FIFOs
-# for child stdout/stderr, prefixes streamed lines with step labels, installs
-# INT/TERM/EXIT traps, waits every child and reader, and records the aggregate
-# result in MUSI_PARALLEL_EXIT. Keep separate from scripts/lib/parallel-step.sh:
-# this helper is for direct terminal output and internal wait/aggregation, not
-# per-step log files, metadata, or verify/pre-commit wrapper lifecycle.
+# Called by direct-output wrappers including lint and typecheck. Owns temporary
+# FIFOs for child stdout/stderr, prefixes streamed lines with step labels,
+# installs INT/TERM/EXIT traps, waits every child and reader, and records the
+# aggregate result in MUSI_PARALLEL_EXIT. Callers may opt individual lanes into
+# temporary stream retention for their own post-wait reporting. Keep separate
+# from scripts/lib/parallel-step.sh: this helper does not own per-step metadata,
+# durable logs, or verify/pre-commit wrapper lifecycle.
 set -euo pipefail
 
 MUSI_PARALLEL_TMP_DIR=""
@@ -16,6 +17,7 @@ MUSI_PARALLEL_EXIT=0
 MUSI_PARALLEL_READER_PIDS=()
 MUSI_PARALLEL_PIDS=()
 MUSI_PARALLEL_LABELS=()
+MUSI_PARALLEL_LOGS=()
 
 musi_parallel_init() {
   local tmp_prefix="$1"
@@ -27,6 +29,7 @@ musi_parallel_init() {
   MUSI_PARALLEL_READER_PIDS=()
   MUSI_PARALLEL_PIDS=()
   MUSI_PARALLEL_LABELS=()
+  MUSI_PARALLEL_LOGS=()
 }
 
 musi_parallel_kill_pid() {
@@ -89,25 +92,35 @@ musi_parallel_install_traps() {
 
 musi_parallel_prefix_stream() {
   local label="$1"
+  local log_file="${2:-}"
   local line
+  local formatted
 
   while IFS= read -r line || [ -n "$line" ]; do
-    printf '[%s] %s\n' "$label" "$line"
+    formatted="[$label] $line"
+    printf '%s\n' "$formatted"
+    if [ -n "$log_file" ]; then
+      printf '%s\n' "$formatted" >> "$log_file"
+    fi
   done
 }
 
-musi_parallel_start() {
+musi_parallel_start_internal() {
   local label="$1"
   local key="$2"
+  local log_file="$3"
   local stdout_fifo="$MUSI_PARALLEL_TMP_DIR/$key.stdout"
   local stderr_fifo="$MUSI_PARALLEL_TMP_DIR/$key.stderr"
 
-  shift 2
+  shift 3
   mkfifo "$stdout_fifo" "$stderr_fifo"
+  if [ -n "$log_file" ]; then
+    : > "$log_file"
+  fi
 
-  musi_parallel_prefix_stream "$label" < "$stdout_fifo" &
+  musi_parallel_prefix_stream "$label" "$log_file" < "$stdout_fifo" &
   MUSI_PARALLEL_READER_PIDS+=("$!")
-  musi_parallel_prefix_stream "$label" < "$stderr_fifo" >&2 &
+  musi_parallel_prefix_stream "$label" "$log_file" < "$stderr_fifo" >&2 &
   MUSI_PARALLEL_READER_PIDS+=("$!")
 
   printf '=== %s ===\n' "$label"
@@ -115,7 +128,25 @@ musi_parallel_start() {
   MUSI_PARALLEL_RUN_PID=$!
   MUSI_PARALLEL_PIDS+=("$MUSI_PARALLEL_RUN_PID")
   MUSI_PARALLEL_LABELS+=("$label")
+  MUSI_PARALLEL_LOGS+=("$log_file")
   MUSI_PARALLEL_RUNNING=1
+}
+
+musi_parallel_start() {
+  local label="$1"
+  local key="$2"
+
+  shift 2
+  musi_parallel_start_internal "$label" "$key" "" "$@"
+}
+
+musi_parallel_start_logged() {
+  local label="$1"
+  local key="$2"
+  local log_file="$MUSI_PARALLEL_TMP_DIR/$key.log"
+
+  shift 2
+  musi_parallel_start_internal "$label" "$key" "$log_file" "$@"
 }
 
 musi_parallel_wait_readers() {
@@ -140,6 +171,7 @@ musi_parallel_record_exit() {
 
 musi_parallel_wait_all() {
   local context="$1"
+  local failure_reporter="${2:-}"
   local exit_code index pid
   local -a statuses=()
 
@@ -157,8 +189,13 @@ musi_parallel_wait_all() {
   for index in "${!statuses[@]}"; do
     exit_code="${statuses[$index]}"
     if [ "$exit_code" -ne 0 ]; then
-      printf '%s: %s failed with exit %s\n' "$context" "${MUSI_PARALLEL_LABELS[$index]}" "$exit_code" >&2
       musi_parallel_record_exit "$exit_code"
+      if [ -n "$failure_reporter" ]; then
+        "$failure_reporter" "${MUSI_PARALLEL_LABELS[$index]}" "$exit_code" \
+          "${MUSI_PARALLEL_LOGS[$index]}"
+      else
+        printf '%s: %s failed with exit %s\n' "$context" "${MUSI_PARALLEL_LABELS[$index]}" "$exit_code" >&2
+      fi
     fi
   done
 }

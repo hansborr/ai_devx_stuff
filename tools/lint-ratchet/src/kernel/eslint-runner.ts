@@ -14,7 +14,12 @@ import { dirname, join, resolve } from "node:path";
 
 import { isRecord } from "./baseline-hash.js";
 import type { LintRatchetConfig } from "./config-types.js";
-import { type LintRatchetEngineBinding, safeRatchetId } from "./engine-context.js";
+import {
+  cacheRootFor,
+  configRootFor,
+  type LintRatchetEngineBinding,
+  safeRatchetId,
+} from "./engine-context.js";
 import {
   CACHE_HASH_PREFIX_LENGTH,
   cacheKeyHashFor,
@@ -100,13 +105,13 @@ function escapeRegExp(value: string): string {
 function sweepStaleCacheEntries(
   ratchet: LintRatchetConfig,
   currentHash: string,
-  repoRoot: string,
+  binding: LintRatchetEngineBinding,
 ): void {
   const id = safeRatchetId(ratchet.id);
   const liveCachePrefix = `${id}-${currentHash}`;
   const liveConfigName = `${liveCachePrefix}.mjs`;
-  const cacheRoot = join(repoRoot, "node_modules/.cache/eslint-ratchet");
-  const configRoot = join(cacheRoot, "configs");
+  const cacheRoot = cacheRootFor(binding);
+  const configRoot = configRootFor(binding);
   const hexHash = `[0-9a-f]{${String(CACHE_HASH_PREFIX_LENGTH)}}`;
   const cacheEntryPattern = new RegExp(`^${escapeRegExp(id)}-${hexHash}$`);
   const configEntryPattern = new RegExp(`^${escapeRegExp(id)}-${hexHash}\\.mjs$`);
@@ -133,9 +138,9 @@ function sweepStaleCacheEntries(
 export function sweepStaleCacheSiblings(
   ratchet: LintRatchetConfig,
   ruleSourceHash: string,
-  repoRoot: string,
+  binding: LintRatchetEngineBinding,
 ): void {
-  sweepStaleCacheEntries(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash), repoRoot);
+  sweepStaleCacheEntries(ratchet, cacheKeyHashFor(ratchet, ruleSourceHash), binding);
 }
 
 let eslintOutputFileCounter = 0;
@@ -245,7 +250,7 @@ export async function runEslintForFiles(
   const configPath = writeEslintConfig(ratchet, ruleSourceHash, binding);
   const cacheArgs: string[] = [];
   if (usesEslintCache(ratchet)) {
-    const cachePath = eslintCachePathFor(ratchet, ruleSourceHash, binding.repoRoot);
+    const cachePath = eslintCachePathFor(ratchet, ruleSourceHash, binding);
     mkdirSync(dirname(cachePath), { recursive: true });
     cacheArgs.push("--cache", "--cache-location", cachePath);
   }

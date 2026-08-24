@@ -1,0 +1,80 @@
+{
+  "base": 246,
+  "chunks": [
+    {
+      "chunk": "au2a-01",
+      "members": [
+        {
+          "promotionId": "R3B-002",
+          "file": "246-replace-the-eslint-cache-shell-to-typescript-text.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3B-002.md"
+        },
+        {
+          "promotionId": "R3B-003",
+          "file": "184-human-readable-server-messages-act-client.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3B-003.md"
+        },
+        {
+          "promotionId": "R3B-004",
+          "file": "247-unify-character-create-choice-chips-around.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3B-004.md"
+        },
+        {
+          "promotionId": "R3B-005",
+          "file": "248-preserve-registered-route-typing-through.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3B-005.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-02",
+      "members": [
+        {
+          "promotionId": "R3B-007",
+          "file": "249-keep-charactertab-on-the-inferred-campaign-output.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3B-007.md"
+        },
+        {
+          "promotionId": "R3C-001",
+          "file": "250-correct-two-shared-assertion-boundary-categories.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3C-001.md"
+        },
+        {
+          "promotionId": "R3C-101",
+          "file": "053-filterselect-erases-schema-derived-option.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3C-101.md"
+        },
+        {
+          "promotionId": "R3C-271",
+          "file": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3C-271.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-03",
+      "members": [
+        {
+          "promotionId": "R3C-272",
+          "file": "251-remove-closed-implementation-residue-from-the-active.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3C-272.md"
+        },
+        {
+          "promotionId": "R3C-301",
+          "file": "252-expose-persisted-notification-history-beyond-the.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r3/packets/R3C-301.md"
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,8 @@
-import { DEFAULT_BASELINE_FILENAME, DEFAULT_DEBT_LOG_FILENAME } from "../kernel/engine-context.js";
+import {
+  DEFAULT_BASELINE_FILENAME,
+  DEFAULT_DEBT_LOG_FILENAME,
+  type LintRatchetWorkflowVocabulary,
+} from "../kernel/engine-context.js";
 import type { BaselineDebtAccountingFailure } from "./baseline-debt-accounting.js";
 
 type LifecycleFailure = Extract<
@@ -62,6 +66,7 @@ function increaseDetail(increase: BaselineDebtAccountingFailure): string {
 // failure message points the reader at the files they actually committed.
 export function formatBaselineDebtAccountingFailures(
   failures: readonly BaselineDebtAccountingFailure[],
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
   baselineName: string = DEFAULT_BASELINE_FILENAME,
   debtLogName: string = DEFAULT_DEBT_LOG_FILENAME,
 ): string {
@@ -69,6 +74,6 @@ export function formatBaselineDebtAccountingFailures(
     `${baselineName} has ${String(failures.length)} unaccounted baseline increase(s): ` +
     `${failures.map(increaseDetail).join("; ")}; ` +
     `use --retire-ratchet for a proven promotion or accept intentional debt with ` +
-    `bun run lint:ratchet:update -- --allow-worse --reason "<why>", and commit the paired ${debtLogName} line`
+    `${workflowVocabulary.debtAcceptanceCommand}, and commit the paired ${debtLogName} line`
   );
 }

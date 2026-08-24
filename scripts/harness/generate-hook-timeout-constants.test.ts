@@ -3,11 +3,16 @@ import { describe, expect, it } from "vitest";
 import { type HarnessManifest, parseHarnessManifest } from "./harness-manifest-schema.js";
 import { renderHookTimeoutConstantsShellFromManifest } from "./hook-timeout-constants.js";
 
+// `shim` is the shared body's basename: the surface declaration makes the
+// binding's matcher and command canonical projections of it, so the fixture
+// stays a well-formed control rather than leaning on the tripwire's note
+// opt-out for an asymmetry it does not actually have.
 function quietHookControl(
   id: string,
-  command: string,
+  shim: string,
   timeout: number | undefined,
 ): Record<string, unknown> {
+  const body = `scripts/ai-hooks/${shim}`;
   return {
     id,
     kind: "hook",
@@ -15,16 +20,17 @@ function quietHookControl(
     principle: "Fixture quiet hook used by the timeout-constant generator tests.",
     pairedGuide: "none",
     repairKind: "manual",
-    source: "scripts/ai-hooks/fixture.sh",
+    source: body,
     invocation: "bun run harness:wiring",
     hookWiring: {
       event: "PreToolUse",
-      body: "scripts/ai-hooks/fixture.sh",
+      body,
       order: id.includes("bun-run") ? 10 : 20,
+      surface: "bash",
       harnesses: {
         claude: {
           matcher: "Bash",
-          command,
+          command: `bash $CLAUDE_PROJECT_DIR/.claude/hooks/${shim}`,
           ...(timeout === undefined ? {} : { timeout }),
         },
       },
@@ -51,12 +57,8 @@ function manifestWithTimeouts(
   gitTimeout: number | undefined,
 ): HarnessManifest {
   return manifestOf([
-    quietHookControl("hook/ai-bun-run-quiet", "bash .claude/hooks/bun-run-quiet.sh", bunTimeout),
-    quietHookControl(
-      "hook/ai-git-commit-quiet",
-      "bash .claude/hooks/git-commit-quiet.sh",
-      gitTimeout,
-    ),
+    quietHookControl("hook/ai-bun-run-quiet", "bun-run-quiet.sh", bunTimeout),
+    quietHookControl("hook/ai-git-commit-quiet", "git-commit-quiet.sh", gitTimeout),
   ]);
 }
 
@@ -89,9 +91,7 @@ GIT_COMMIT_QUIET_HOOK_TIMEOUT=1260
   it("reports a bound quiet hook that the manifest does not declare at all", () => {
     expect(() =>
       renderHookTimeoutConstantsShellFromManifest(
-        manifestOf([
-          quietHookControl("hook/ai-bun-run-quiet", "bash .claude/hooks/bun-run-quiet.sh", 1260),
-        ]),
+        manifestOf([quietHookControl("hook/ai-bun-run-quiet", "bun-run-quiet.sh", 1260)]),
       ),
     ).toThrow(
       "required hook timeout control hook/ai-git-commit-quiet is missing from harness.controls.json",

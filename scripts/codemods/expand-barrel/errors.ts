@@ -1,4 +1,4 @@
-import { fail as failWithName } from "../lib/trpc-shared-schema.js";
+import { fail as failWithName } from "../lib/codemod-errors.js";
 import { CODEMOD_NAME } from "./constants.js";
 
 export function fail(message: string): never {

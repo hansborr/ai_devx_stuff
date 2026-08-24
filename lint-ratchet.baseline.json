@@ -16,7 +16,7 @@
       ],
       "ruleOptions": [],
       "configHash": "sha256:90aa3de027ee76efffe93f50c79388454f56c674001c8af357b982e553bb48d0",
-      "ruleSourceHash": "sha256:e652c5bd624f7762a5451ac8b211465f2753d663f01c200f5e7b34f1eb95791d",
+      "ruleSourceHash": "sha256:709ff6a511de3140477f9c0933ad19c4d77dbce537157d32169fa6de094bca74",
       "items": {
         "packages/client/src/components/campaign/chat/chat-panel.tsx": {
           "count": 2,
@@ -307,23 +307,6 @@
       "ruleSourceHash": "sha256:70f4678542728a4f1ddefb165379295cf0a87f07cc907e492910a6ab1ab3e895",
       "items": {}
     },
-    "ratchet/local-no-effect-misuse-client": {
-      "ruleId": "local/no-effect-misuse",
-      "mode": "no-new",
-      "metric": "message-count",
-      "files": [
-        "packages/client/src/**/*.{ts,tsx}"
-      ],
-      "ignores": [
-        "packages/client/src/**/*.{test,spec}.{ts,tsx}",
-        "packages/client/src/**/*test-helper*.{ts,tsx}",
-        "packages/client/src/test/**/*.{ts,tsx}"
-      ],
-      "ruleOptions": [],
-      "configHash": "sha256:d6ad31dd538c54cd0dfc7f35aff3dac4e54c4976ae269972441eb96da95866b1",
-      "ruleSourceHash": "sha256:cbee38d25caecbc33b5f9d26766e206fc035a3073b63f7c60a171468888756aa",
-      "items": {}
-    },
     "ratchet/local-no-swallowed-errors-broader-semantics": {
       "ruleId": "local/no-swallowed-errors",
       "mode": "no-new",
@@ -349,7 +332,7 @@
         }
       ],
       "configHash": "sha256:385dfa91172f04f2e601164834b8e4a9ac3760524e0130cf3c9e1cbea5006de7",
-      "ruleSourceHash": "sha256:d0ede184968a0b5f05cd7ea9ca44506f7f168dc611c810ac089205ccab07df57",
+      "ruleSourceHash": "sha256:4e67228be575cc658869b8de4bd0a61873312fb24b5fba5655bca43b451bb267",
       "items": {
         "packages/client/src/components/sheet/ability-scores-state.ts": {
           "count": 1,
@@ -360,10 +343,6 @@
           "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
         },
         "packages/server/scripts/pgexec.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
-        },
-        "packages/server/src/routers/rest-long.test.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:e46c89896070168ca3a8c80d9c552036d36dc80a81754af7c7f8cb9f45c6829f"
         },
@@ -628,10 +607,6 @@
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
-        "scripts/drift-ai/harness-freshness-io.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
         "scripts/drift-ai/hotspots-history.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
@@ -664,7 +639,7 @@
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
-        "scripts/lint-ratchet/output.test.ts": {
+        "scripts/lint-ratchet/output-fixture.test-helper.ts": {
           "count": 4,
           "messagesFingerprint": "sha256:429b64c9542e36695492d0b53665da4378a6b273357d0aa5bfe1dac4a1dab823"
         },

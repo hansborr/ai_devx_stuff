@@ -11,6 +11,7 @@ import {
   defaultBoundedHistoryGitRunner,
 } from "./bounded-full-history.js";
 import { collectConfiguredBoundedFullHistory } from "./bounded-history-options.js";
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import {
   type BufferGitRunner,
@@ -39,10 +40,7 @@ export type BirthSizeDeltaRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type BirthSizeDeltaRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type BirthSizeDeltaRunResult = DriftAiCommandResult;
 
 export function runBirthSizeDelta(options: BirthSizeDeltaRunOptions): BirthSizeDeltaRunResult {
   return runPrototypeCommand(options, {

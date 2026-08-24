@@ -21,6 +21,7 @@
 # exports map (one per dist subpath), not the .d.ts files the lint path uses.
 MUSI_TEST_DIST_REQUIRED_OUTPUTS=(
   "packages/shared/dist/constants.js"
+  "packages/shared/dist/logging-policy.js"
   "packages/shared/dist/dice/dice-roller.js"
   "packages/shared/dist/map/drawing.js"
   "packages/shared/dist/rules/attack-damage.js"

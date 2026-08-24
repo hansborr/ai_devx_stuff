@@ -1,6 +1,12 @@
 # 58. Character creation writes six prepared level-1 spells for a wizard whose cap is four
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-30** on branch
+`fix/cq-58-59-prepared-spell-writes`, commits `dba7a6190` and review follow-up
+`f7f50f719`. Creation now validates and builds nested spell writes in one pass,
+calls the canonical prepared-spell rule directly, keeps cantrips prepared, and
+treats submitted order as Musi policy for which level-1 choices are prepared
+first. The wizard's fifth and sixth choices remain known but unprepared;
+existing over-cap characters were not backfilled, as scoped below.
 Theme: A rules invariant enforced on one writer and not the other · Area: shared + server · Severity: medium · Size: S
 
 Source: server-cluster review round, 2026-07-27 (surfaced while narrowing

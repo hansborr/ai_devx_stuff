@@ -24,7 +24,7 @@ type PairwiseRunner = (
 ) => DriftFinding[];
 
 export type RunCurrentGhostFilesOptions = {
-  readonly inventoryByDir: ReadonlyMap<string, readonly string[]> | undefined;
+  readonly inventoryByDir: ReadonlyMap<string, readonly string[]>;
   readonly excludeGlobs: readonly string[];
   readonly sourceExtensions: ReadonlySet<string>;
   readonly tuning: GhostFileTuning;
@@ -35,9 +35,6 @@ export type RunCurrentGhostFilesOptions = {
 
 export function runCurrentGhostFilesCheck(options: RunCurrentGhostFilesOptions): DriftFinding[] {
   const { inventoryByDir, excludeGlobs, sourceExtensions, tuning } = options;
-  if (inventoryByDir === undefined) {
-    throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
-  }
   const allowedPairKeys = currentAllowedPairKeys(options.allowedPairs);
   // Capture dependentsHint and roleMarkerTokens in the pairwise runner so the bucket
   // fallback callback signature stays unchanged (it only needs to forward, not know

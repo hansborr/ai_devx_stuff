@@ -68,7 +68,7 @@ source packs.
 | lint-fix-dist-preflight-parity.md | `lint:fix` → `scripts/lint-fix.sh` sourcing `lint-dist-preflight.sh` |
 | codebase-audit #05 / #20 doc leaves | `docs/guides/per-worktree-dev.md` and `packages/client/src/pages/MODULE.md` exist |
 | harness-research PB-1 premise ("zero property tests") | `fast-check` in `packages/shared/package.json:42`; `character-rules.property.test.ts` (`3c302f89`); residue → leaf 5.1 |
-| arch-review #13 substrate ruling | signed off `b7c2ce73` 2026-07-14, `docs/ai-harness.md:170` |
+| arch-review #13 substrate ruling | signed off `b7c2ce73` 2026-07-14, `docs/ai-harness.md` **Substrate Ruling (Bash Vs TS)** |
 | dialog-reset-on-open-convention.md | keyed-remount migration landed `284d9c5a` via lint-adoption leaf 21 |
 | merge-driver-field-exercise prerequisite | agent-cli-consolidation-pass merged `b8fcdfbc`, archived `8e72996c` — exercise unblocked → leaf 2.2 |
 | harness-audit-2026-07 | fully drained and landed 2026-07-15 (prior session) |

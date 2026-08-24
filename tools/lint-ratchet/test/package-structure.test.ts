@@ -1,4 +1,6 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -32,6 +34,14 @@ function isStringRecord(value: unknown): value is Record<string, string> {
 interface PackageExports {
   readonly packageName: string;
   readonly exportsMap: Record<string, string>;
+}
+
+function readPackageManifest(): Record<string, unknown> {
+  const parsed: unknown = JSON.parse(readFileSync(join(packageDir, "package.json"), "utf8"));
+  if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+    throw new Error("package.json must contain an object");
+  }
+  return parsed as Record<string, unknown>; // type-assertion-boundary: json - guarded JSON object
 }
 
 function readPackageExports(): PackageExports {
@@ -72,7 +82,7 @@ describe("package boundary", () => {
     expect(report.violations).toEqual([]);
   });
 
-  it("keeps the engine surface (src/) free of computed dynamic imports", () => {
+  it("keeps the engine surface free of computed imports except the explicit adapter loader", () => {
     const report = checkPackageBoundary(packageDir, REPO_INTEGRATION_IGNORES);
     const inSrc = report.computedDynamic.filter((entry) => isUnderEngineOrTests(entry.file));
     // Engine + tests must be statically analyzable; test/ may carry computed
@@ -80,7 +90,32 @@ describe("package boundary", () => {
     const inEngine = inSrc.filter(
       (entry) => entry.file === "src" || entry.file.startsWith(`src${sep}`),
     );
-    expect(inEngine).toEqual([]);
+    expect(inEngine).toEqual([{ file: `src${sep}git-rail${sep}executable-cli.ts` }]);
+  });
+});
+
+describe("git-rail executable contract", () => {
+  it("publishes one explicit binary for every supported git-rail operation", () => {
+    expect(readPackageManifest().bin).toEqual({
+      "lint-ratchet-git-rail": "./bin/lint-ratchet-git-rail.ts",
+    });
+    expect(statSync(join(packageDir, "bin/lint-ratchet-git-rail.ts")).mode & 0o111).not.toBe(0);
+  });
+
+  it("executes the documented binary entrypoint", () => {
+    const repoRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-bin-"));
+    try {
+      expect(spawnSync("git", ["init", "-q"], { cwd: repoRoot }).status).toBe(0);
+      const result = spawnSync(
+        join(packageDir, "bin/lint-ratchet-git-rail.ts"),
+        ["check", "--adapter", "missing-adapter.ts"],
+        { cwd: repoRoot, encoding: "utf8" },
+      );
+      expect(result.status).toBe(0);
+      expect(result.stdout).toContain("WARN: lint-ratchet merge driver is missing or stale");
+    } finally {
+      rmSync(repoRoot, { recursive: true, force: true });
+    }
   });
 });
 

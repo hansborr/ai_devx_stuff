@@ -257,9 +257,14 @@ elapsed_seconds() {
 refresh_dead_state() {
   local file="$1" pid exit_code now
   pid=$(state_get "$file" pid || printf '')
+  pid_alive "$pid" && return 1
+  # Confirm death BEFORE reading exit_code: the controller always writes its
+  # final exit_code before exiting, so a read taken after death cannot race
+  # that write. Reading exit_code first let a status poll see it empty, lose
+  # the CPU while the controller finished (e.g. wrote 124) and exited, then
+  # clobber the recorded code with -1.
   exit_code=$(state_get "$file" exit_code || printf '')
   [ -z "$exit_code" ] || return 1
-  pid_alive "$pid" && return 1
   now=$(date +%s)
   update_finished_state "$file" -1 "$now" "$(iso_at "$now")"
 }

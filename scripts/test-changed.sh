@@ -106,6 +106,7 @@ has_client=0
 has_eslint_rules=0
 has_scripts=0
 has_tools=0
+has_harness_diagnostics=0
 has_global=0
 has_vitest_relevant=0
 # Dependency or config changes that `vitest --changed` cannot see — they alter
@@ -213,10 +214,18 @@ for file in "${CHANGED_FILES[@]}"; do
       has_vitest_relevant=1
       file_vitest_relevant=1
       ;;
+    tools/harness-diagnostics/*)
+      has_harness_diagnostics=1
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      ;;
     eslint-rules/*)
       has_eslint_rules=1
       has_vitest_relevant=1
       file_vitest_relevant=1
+      # The helper-collision and registry-completeness guards discover rule
+      # files through filesystem scans, which Vitest's import graph cannot see.
+      full_run=1
       ;;
     eslint-config/*)
       has_eslint_rules=1
@@ -225,16 +234,32 @@ for file in "${CHANGED_FILES[@]}"; do
       file_vitest_relevant=1
       full_run=1
       ;;
-    scripts/*.test.ts|scripts/lib/*.ts|scripts/client-test-isolation-*.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/harness/*|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
+    scripts/*.test.ts|scripts/lib/*.ts|scripts/client-test-isolation-*.ts|scripts/codemods/*|scripts/code-intel*.ts|scripts/drift-ai.ts|scripts/drift-ai/*|scripts/drift/*|scripts/harness/*|scripts/import-closure/*|scripts/logs-audit.sh|scripts/logs-audit.ts|scripts/logs-audit/*|scripts/sensor-blob-size.ts|scripts/lint-coverage-map-check*.ts|scripts/lint-coverage-map-gen*.ts|scripts/lint-ratchet.ts|scripts/lint-ratchet/*)
       has_scripts=1
       has_vitest_relevant=1
       file_vitest_relevant=1
       full_run=1
       ;;
+    scripts/lint-coverage-map-manifest*.ts)
+      # Pure policy data reached through the ordinary import graph
+      # (`-manifest.ts` -> checker/generator -> their tests), so Vitest's
+      # changed-file selection already picks the right suites. The whole-manifest
+      # gates (docs:lint-coverage-map:check / :generate:check) run as their own
+      # verify slots regardless.
+      has_scripts=1
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      ;;
   esac
 
   case "$file" in
     packages/*/package.json|packages/*/vitest.config.*|packages/server/vitest.unit.config.*|packages/*/tsconfig*.json|eslint-rules/vitest.config.*)
+      has_vitest_relevant=1
+      file_vitest_relevant=1
+      full_run=1
+      ;;
+    tools/harness-diagnostics/package.json|tools/harness-diagnostics/vitest.config.*|tools/harness-diagnostics/tsconfig*.json)
+      has_harness_diagnostics=1
       has_vitest_relevant=1
       file_vitest_relevant=1
       full_run=1
@@ -303,6 +328,7 @@ if client_split_supports_user_args; then
     [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
     [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")
     [ "$has_tools" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=lint-ratchet")
+    [ "$has_harness_diagnostics" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=harness-diagnostics")
   fi
 else
   if [ "$has_global" -eq 0 ] && [ "$has_shared" -eq 0 ]; then
@@ -311,6 +337,7 @@ else
     [ "$has_eslint_rules" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=eslint-rules")
     [ "$has_scripts" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=scripts")
     [ "$has_tools" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=lint-ratchet")
+    [ "$has_harness_diagnostics" -eq 1 ] && VITEST_PROJECT_ARGS+=("--project=harness-diagnostics")
   fi
 fi
 

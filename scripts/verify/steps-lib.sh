@@ -15,6 +15,10 @@
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/memory-budget.sh"
 
 MUSI_VERIFY_SLOT_SKIP_RC=100
+# Unlike SKIP_RC, this keeps the gate red. It is outside wait's 0-255 range so
+# only a pre-launch admission branch can produce it; aggregation also requires
+# the corresponding PID to be empty before reporting the slot as not run.
+MUSI_VERIFY_SLOT_NOT_RUN_EXIT=300
 MUSI_RESOLVED_SLOT_CMD=()
 
 if ! declare -p MUSI_VERIFY_CONSUMERS >/dev/null 2>&1; then
@@ -23,6 +27,16 @@ if ! declare -p MUSI_VERIFY_CONSUMERS >/dev/null 2>&1; then
 fi
 if ! declare -p MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC >/dev/null 2>&1; then
   printf 'verify steps: generated dynamic resolver map is missing; source steps.generated.sh before steps-lib.sh\n' >&2
+  return 2 2>/dev/null || exit 2
+fi
+# An *empty* artifact map is meaningful — an adopter with no artifact edges — so
+# the runner must be able to tell empty from absent. The generator emits the
+# `declare -gA` lines unconditionally, which makes declared-ness a clean
+# staleness signal: without this guard, a pre-artifact steps.generated.sh next
+# to this library would miss every lookup and silently drop the deferral branch,
+# putting the consumers back in a race with their producer.
+if ! declare -p MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT >/dev/null 2>&1; then
+  printf 'verify steps: generated artifact edge maps are missing; regenerate steps.generated.sh with `bun run verify:steps` before sourcing steps-lib.sh\n' >&2
   return 2 2>/dev/null || exit 2
 fi
 
@@ -198,20 +212,50 @@ musi_parallel_display_label() {
   fi
 }
 
-musi_defer_dist_slot() {
-  local slot="$1"
-  case "$slot" in
-    lint | ratchet) return 0 ;;
-    *) return 1 ;;
-  esac
+# Artifact-edge scheduling is declared data, generated into steps.generated.sh:
+#
+#   MUSI_VERIFY_SLOT_PRODUCES[<consumer>:<slot>]          -> artifact id
+#   MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT[<consumer>:<slot>] -> artifact id
+#   MUSI_VERIFY_ARTIFACT_PROBE_FUNC[<artifact>]           -> shell probe function
+#   MUSI_VERIFY_ARTIFACT_SUMMARY[<artifact>]              -> the artifact's log prose
+#
+# Declare the edge in harness.controls.json; never name a slot here. A manifest
+# with no artifact declarations generates all four maps empty, every lookup
+# below misses, and the deferral branch disappears entirely.
+
+# 0 when the artifact is already present, 1 when it is missing, 2 when the
+# generated binding cannot be honored (regeneration problem, not a tree state).
+musi_verify_artifact_present() {
+  local artifact="$1" repo_root="$2" probe_func
+  probe_func="${MUSI_VERIFY_ARTIFACT_PROBE_FUNC[$artifact]:-}"
+  if [ -z "$probe_func" ]; then
+    printf 'verify steps: no probe function is bound to artifact %s\n' "$artifact" >&2
+    musi_verify_steps_print_regen_guidance
+    return 2
+  fi
+  if ! declare -F "$probe_func" >/dev/null 2>&1; then
+    printf 'verify steps: generated artifact probe function is missing: %s\n' "$probe_func" >&2
+    musi_verify_steps_print_regen_guidance
+    return 2
+  fi
+  "$probe_func" "$repo_root" || return 1
 }
 
-musi_record_pending_dist_failure() {
-  local slot="$1" index="$2" message="$3" step_exits_name="$4"
-  local -n step_exits_ref="$step_exits_name"
-
-  printf '%s\n' "$message" > "$LOG_DIR/${slot}.log"
-  step_exits_ref[$index]=1
+# Diagnostic only: the declared name of the slot that builds an artifact, so a
+# deferral log can say which slot the waiting slots are waiting on. Generation
+# guarantees at most one producing slot name per artifact, so any consumer's
+# entry answers; an artifact with no producer at all falls back to its own id.
+musi_verify_artifact_producer_slot() {
+  local artifact="$1" key
+  if [ "${#MUSI_VERIFY_SLOT_PRODUCES[@]}" -gt 0 ]; then
+    for key in "${!MUSI_VERIFY_SLOT_PRODUCES[@]}"; do
+      if [ "${MUSI_VERIFY_SLOT_PRODUCES[$key]}" = "$artifact" ]; then
+        printf '%s\n' "${key#*:}"
+        return 0
+      fi
+    done
+  fi
+  printf '%s\n' "$artifact"
 }
 
 musi_wait_parallel_verify_index() {
@@ -257,14 +301,11 @@ musi_drain_memory_pending_slots() {
   local -a still_pending=()
   local -A announced=()
   local index slot reserve_rc progress start now token command_start command_length
+  local wait_timeout_rc=0
 
-  case "$wait_timeout" in
-    '' | *[!0-9]*)
-      printf '%s: invalid MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=%s; expected whole seconds\n' \
-        "$display_label" "$wait_timeout" >&2
-      return 2
-      ;;
-  esac
+  wait_timeout="$(musi_memory_wait_timeout_parse "$wait_timeout" "$display_label")" \
+    || wait_timeout_rc=$?
+  [ "$wait_timeout_rc" -eq 0 ] || return "$wait_timeout_rc"
   start="$SECONDS"
   while [ "${#pending_ref[@]}" -gt 0 ]; do
     still_pending=()
@@ -285,7 +326,7 @@ musi_drain_memory_pending_slots() {
       if [ "$reserve_rc" -ne 0 ]; then
         printf '%s: memory admission failed for %s (rc=%s)\n' \
           "$display_label" "$slot" "$reserve_rc" > "$LOG_DIR/${slot}.log"
-        drain_exits_ref[$index]="$reserve_rc"
+        drain_exits_ref[$index]="$MUSI_VERIFY_SLOT_NOT_RUN_EXIT"
         progress=1
         continue
       fi
@@ -318,9 +359,9 @@ musi_drain_memory_pending_slots() {
         printf '%s: memory wait timed out after %ss for %s (expected peak %s MB); no slot was launched\n' \
           "$display_label" "$wait_timeout" "$slot" \
           "$(musi_verify_slot_expected_peak_mb "$slot")" > "$LOG_DIR/${slot}.log"
-        drain_exits_ref[$index]=1
+        drain_exits_ref[$index]="$MUSI_VERIFY_SLOT_NOT_RUN_EXIT"
       done
-      printf '%s: memory wait timed out after %ss; failing pending slots instead of holding the gate indefinitely\n' \
+      printf '%s: memory wait timed out after %ss; marking pending slots not run instead of holding the gate indefinitely\n' \
         "$display_label" "$wait_timeout" >&2
       pending_ref=()
       break
@@ -343,16 +384,28 @@ musi_run_parallel_verify_steps() {
   # shellcheck disable=SC2178 # Nameref target is the caller's step exits array.
   local -n step_exits_ref="$step_exits_name"
   local -n parallel_pids_ref="$parallel_pids_name"
-  local -a pending_indexes=() dist_pending_indexes=() command_tokens=()
+  local -a pending_indexes=() deferred_indexes=() command_tokens=()
   local -a command_starts=() command_lengths=() memory_tokens=()
+  local -a deferred_artifact_order=() artifact_indexes=()
+  local -A artifact_state=() artifact_producer_index=() deferred_artifact=() deferred_seen=()
   local slot resolve_rc index display_label command_start wait_timeout
-  local defer_dist_slots=0 pending_lint_index=-1 pending_ratchet_index=-1 pending_dist_count=0
-  local typecheck_index=-1 dist_ready
+  local slot_key required produced probe_rc
+  local artifact producer_index producer_slot summary
+  local artifact_ready artifact_result artifact_reason
 
   display_label="$(musi_parallel_display_label "$label")"
-  if ! musi_lint_dist_outputs_present "$repo_root"; then
-    defer_dist_slots=1
-  fi
+
+  # Probe each required artifact once, before anything launches, so every
+  # deferral decision below is made against the same tree state.
+  for slot in "${steps_ref[@]}"; do
+    required="${MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT[$consumer:$slot]:-}"
+    [ -n "$required" ] || continue
+    [ -z "${artifact_state[$required]+set}" ] || continue
+    probe_rc=0
+    musi_verify_artifact_present "$required" "$repo_root" || probe_rc=$?
+    [ "$probe_rc" -ne 2 ] || return 2
+    artifact_state[$required]="$probe_rc"
+  done
 
   for slot in "${steps_ref[@]}"; do
     resolve_rc=0
@@ -382,19 +435,20 @@ musi_run_parallel_verify_steps() {
     step_pids_ref+=("")
     step_exits_ref+=("")
     memory_tokens+=("")
-    if [ "$defer_dist_slots" -eq 1 ] && musi_defer_dist_slot "$slot"; then
-      case "$slot" in
-        lint) pending_lint_index="$index" ;;
-        ratchet) pending_ratchet_index="$index" ;;
-      esac
-      pending_dist_count=$((pending_dist_count + 1))
-      dist_pending_indexes+=("$index")
+    slot_key="$consumer:$slot"
+    produced="${MUSI_VERIFY_SLOT_PRODUCES[$slot_key]:-}"
+    [ -z "$produced" ] || artifact_producer_index[$produced]="$index"
+    required="${MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT[$slot_key]:-}"
+    if [ -n "$required" ] && [ "${artifact_state[$required]:-0}" -ne 0 ]; then
+      if [ -z "${deferred_seen[$required]+set}" ]; then
+        deferred_seen[$required]=1
+        deferred_artifact_order+=("$required")
+      fi
+      deferred_artifact[$index]="$required"
+      deferred_indexes+=("$index")
       continue
     fi
     pending_indexes+=("$index")
-    if [ "$slot" = typecheck ]; then
-      typecheck_index="$index"
-    fi
   done
 
   wait_timeout="${MUSI_VERIFY_MEMORY_WAIT_TIMEOUT:-120}"
@@ -402,46 +456,69 @@ musi_run_parallel_verify_steps() {
     pending_indexes "$step_names_name" command_tokens command_starts command_lengths \
     "$step_pids_name" "$step_exits_name" memory_tokens "$parallel_pids_name" "$wait_timeout"
 
-  if [ "$pending_dist_count" -gt 0 ]; then
-    dist_ready=1
-    if [ "$typecheck_index" -lt 0 ] || [ -z "${step_pids_ref[$typecheck_index]}" ]; then
-      if [ "$pending_lint_index" -ge 0 ]; then
-        musi_record_pending_dist_failure lint "$pending_lint_index" \
-          "$display_label: cannot run lint because required dist outputs are missing and $consumer has no typecheck slot to produce them" \
-          "$step_exits_name"
+  # Release the deferred slots one artifact at a time, in the order their first
+  # requiring slot appears. Three outcomes, each with its own per-slot log and
+  # exit: the consumer's list has no producing slot at all (generation rejects
+  # that, so this is the defensive arm), the producer was admitted but never
+  # launched (its not-run sentinel passes through), or the producer ran and
+  # failed.
+  for artifact in ${deferred_artifact_order[@]+"${deferred_artifact_order[@]}"}; do
+    artifact_indexes=()
+    for index in "${deferred_indexes[@]}"; do
+      if [ "${deferred_artifact[$index]}" = "$artifact" ]; then
+        artifact_indexes+=("$index")
       fi
-      if [ "$pending_ratchet_index" -ge 0 ]; then
-        musi_record_pending_dist_failure ratchet "$pending_ratchet_index" \
-          "$display_label: cannot run ratchet because required dist outputs are missing and $consumer has no typecheck slot to produce them" \
-          "$step_exits_name"
+    done
+    [ "${#artifact_indexes[@]}" -gt 0 ] || continue
+    producer_index="${artifact_producer_index[$artifact]:--1}"
+    producer_slot="$(musi_verify_artifact_producer_slot "$artifact")"
+    summary="${MUSI_VERIFY_ARTIFACT_SUMMARY[$artifact]:-$artifact}"
+
+    artifact_ready=1
+    artifact_reason=""
+    if [ "$producer_index" -lt 0 ]; then
+      artifact_result=1
+      artifact_reason="$summary are missing and $consumer has no $producer_slot slot to produce them"
+      artifact_ready=0
+    elif [ -z "${step_pids_ref[$producer_index]}" ]; then
+      artifact_result=1
+      artifact_reason="$summary are missing and $producer_slot did not launch"
+      if [ "${step_exits_ref[$producer_index]:-}" = "$MUSI_VERIFY_SLOT_NOT_RUN_EXIT" ]; then
+        artifact_result="$MUSI_VERIFY_SLOT_NOT_RUN_EXIT"
+        artifact_reason="$producer_slot was not launched, so $summary remain unavailable"
       fi
-      dist_ready=0
-    elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
-      musi_wait_parallel_verify_index "$typecheck_index" "$step_pids_name" \
+      artifact_ready=0
+    else
+      musi_wait_parallel_verify_index "$producer_index" "$step_pids_name" \
         "$step_exits_name" memory_tokens
-      if [ "${step_exits_ref[$typecheck_index]}" -ne 0 ]; then
-        dist_ready=0
+      if [ "${step_exits_ref[$producer_index]}" -ne 0 ]; then
+        artifact_ready=0
       fi
     fi
+    if [ -n "$artifact_reason" ]; then
+      for index in "${artifact_indexes[@]}"; do
+        slot="${step_names_ref[$index]}"
+        printf '%s: cannot run %s because %s\n' \
+          "$display_label" "$slot" "$artifact_reason" > "$LOG_DIR/${slot}.log"
+        step_exits_ref[$index]="$artifact_result"
+      done
+      continue
+    fi
 
-    if [ "$dist_ready" -eq 1 ]; then
-      pending_indexes=("${dist_pending_indexes[@]}")
+    if [ "$artifact_ready" -eq 1 ]; then
+      pending_indexes=("${artifact_indexes[@]}")
       musi_drain_memory_pending_slots "$meta_mode" "$label" "$display_label" \
         pending_indexes "$step_names_name" command_tokens command_starts command_lengths \
         "$step_pids_name" "$step_exits_name" memory_tokens "$parallel_pids_name" "$wait_timeout"
-    elif [ "$typecheck_index" -ge 0 ] && [ -n "${step_pids_ref[$typecheck_index]}" ]; then
-      if [ "$pending_lint_index" -ge 0 ]; then
-        musi_record_pending_dist_failure lint "$pending_lint_index" \
-          "$display_label: skipped lint because typecheck failed before required dist outputs were available" \
-          "$step_exits_name"
-      fi
-      if [ "$pending_ratchet_index" -ge 0 ]; then
-        musi_record_pending_dist_failure ratchet "$pending_ratchet_index" \
-          "$display_label: skipped ratchet because typecheck failed before required dist outputs were available" \
-          "$step_exits_name"
-      fi
+    else
+      for index in "${artifact_indexes[@]}"; do
+        slot="${step_names_ref[$index]}"
+        printf '%s: skipped %s because %s failed before %s were available\n' \
+          "$display_label" "$slot" "$producer_slot" "$summary" > "$LOG_DIR/${slot}.log"
+        step_exits_ref[$index]=1
+      done
     fi
-  fi
+  done
 
   for index in "${!step_names_ref[@]}"; do
     [ -n "${step_exits_ref[$index]}" ] && continue

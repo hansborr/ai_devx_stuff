@@ -3,17 +3,29 @@
 # smoke-subjects: scripts/verify-history.sh
 # smoke-subjects: scripts/tests/test-verify-history.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
+# smoke-subjects: scripts/lib/verify-evidence-transaction.sh
+# smoke-subjects: scripts/lib/verify-lifecycle.sh
+# smoke-subjects: scripts/lib/verify-policy-validation.sh
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/dependency-freshness.sh
@@ -163,15 +175,25 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/../doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$target/scripts/lib/verify-metadata.sh"
+  cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$target/scripts/lib/verify-commit-queue.sh"
+  cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$target/scripts/lib/verify-fast-commit.sh"
+  cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$target/scripts/lib/verify-markers.sh"
+  cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$target/scripts/lib/verify-path-policy.sh"
+  cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$target/scripts/lib/verify-run-meta.sh"
+  cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$target/scripts/lib/verify-state-paths.sh"
   cp "$SCRIPT_DIR/../lib/gate-env.sh" "$target/scripts/lib/gate-env.sh"
   cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$target/scripts/lib/test-worker-count.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
   cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$target/scripts/lib/verify-engine.sh"
+  cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$target/scripts/lib/verify-evidence-transaction.sh"
+  cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$target/scripts/lib/verify-lifecycle.sh"
+  cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$target/scripts/lib/verify-policy-validation.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../verify/steps.generated.sh" "$SCRIPT_DIR/../verify/steps-lib.sh" \
-    "$SCRIPT_DIR/../verify/memory-budget.sh" "$SCRIPT_DIR/../verify/admitted-command.sh" \
+    "$SCRIPT_DIR/../verify/memory-budget.sh" "$SCRIPT_DIR/../verify/memory-wait-timeout.sh" \
+    "$SCRIPT_DIR/../verify/admitted-command.sh" \
     "$target/scripts/verify/"
   cp "$SCRIPT_DIR/../../.husky/pre-commit" "$target/.husky/pre-commit"
   cat > "$target/bin/bun" <<'STUB'

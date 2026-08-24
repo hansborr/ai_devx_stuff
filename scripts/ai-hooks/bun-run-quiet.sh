@@ -38,6 +38,8 @@ REPO_ROOT="${AI_BUN_REPO_ROOT:-$HOOK_REPO_ROOT}"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
 # shellcheck source=/dev/null
+. "$HOOK_LIB/claude-adapter.sh"
+# shellcheck source=/dev/null
 . "$HOOK_LIB/policy.sh"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/cache.sh"

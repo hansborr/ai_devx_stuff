@@ -8,7 +8,8 @@ import {
   type HarnessFindingRepairKind,
   type HarnessFindingSeverity,
   summarizeHarnessFindings,
-} from "../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+
 import type { ESLintFileResult, ESLintMessage } from "./lib/eslint-json.js";
 import type { RuleDocsEntry } from "./lib/lint-rule-docs.js";
 import { lintAgentHowToFixFor } from "./lint-agent-fix-text.js";

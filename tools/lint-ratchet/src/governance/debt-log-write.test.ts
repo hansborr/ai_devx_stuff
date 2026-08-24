@@ -1,5 +1,8 @@
+import { readFileSync } from "node:fs";
+
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import {
   buildLintRatchetBaseline,
   decideLintRatchetUpdate,
@@ -13,20 +16,19 @@ import { createLintRatchetEngineContext } from "../kernel/engine-context.js";
 import { ConfigError } from "../kernel/metrics-types.js";
 import { checkBaselineDebtAccounting } from "./baseline-debt-accounting.js";
 import { applyLintRatchetUpdate, type RunUpdateDeps } from "./baseline-update-apply.js";
+import { parseDebtLogJsonl } from "./debt-log-jsonl.js";
 import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
-import {
-  isAcceptedDebtLogEntry,
-  isCoverageShrinkLogEntry,
-  isMetricMigrationLogEntry,
-  parseLintRatchetDebtLogEntry,
-} from "./debt-log-schema.js";
-import { appendValidatedDebtLogEntry, buildLintRatchetDebtLogEntry } from "./debt-log-write.js";
+import { parseLintRatchetDebtLogEntry } from "./debt-log-schema.js";
+import { appendValidatedDebtLogEntries, buildLintRatchetDebtLogEntry } from "./debt-log-write.js";
 import { WorseBaselineError } from "./errors.js";
 
 // A synthetic fixture context: every filesystem access in these suites goes
 // through the injected RunUpdateDeps recorder, so the operation only ever sees
 // these paths as opaque strings.
-const fixtureContext = createLintRatchetEngineContext({ repoRoot: "/lint-ratchet-fixture" });
+const fixtureContext = createLintRatchetEngineContext({
+  workflowVocabulary: fixtureWorkflowVocabulary,
+  repoRoot: "/lint-ratchet-fixture",
+});
 const { baselinePath, debtLogPath } = fixtureContext;
 
 const PATH = "packages/server/src/legacy.ts";
@@ -39,7 +41,6 @@ const ratchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture debt-log ratchet principle.",
 };
 
@@ -59,7 +60,64 @@ function baselineWith(
 ): LintRatchetBaseline {
   const items = new Map(Object.entries(counts).map(([path, count]) => [path, { count }]));
   const currentById: LintRatchetCurrentById = new Map([[config.id, items]]);
-  return buildLintRatchetBaseline([config], currentById, ruleSourceHashes);
+  return buildLintRatchetBaseline([config], currentById, ruleSourceHashes, {
+    workflowVocabulary: fixtureWorkflowVocabulary,
+  });
+}
+
+function withRuleSourceHash(
+  baseline: LintRatchetBaseline,
+  ruleSourceHash: string,
+): LintRatchetBaseline {
+  const test = baseline.tests[ratchet.id];
+  if (test === undefined) throw new Error("fixture ratchet is missing");
+  return {
+    ...baseline,
+    tests: {
+      ...baseline.tests,
+      [ratchet.id]: { ...test, ruleSourceHash },
+    },
+  };
+}
+
+function withMessagesFingerprint(
+  baseline: LintRatchetBaseline,
+  messagesFingerprint: string,
+): LintRatchetBaseline {
+  const test = baseline.tests[ratchet.id];
+  const item = test?.items[PATH];
+  if (test === undefined || item === undefined) throw new Error("fixture baseline item is missing");
+  return {
+    ...baseline,
+    tests: {
+      ...baseline.tests,
+      [ratchet.id]: {
+        ...test,
+        items: { ...test.items, [PATH]: { ...item, messagesFingerprint } },
+      },
+    },
+  };
+}
+
+function withFutureTestField(baseline: LintRatchetBaseline): LintRatchetBaseline {
+  const test = baseline.tests[ratchet.id];
+  if (test === undefined) throw new Error("fixture ratchet is missing");
+  const futureTest = { ...test, futureClassificationField: "changed" };
+  return { ...baseline, tests: { ...baseline.tests, [ratchet.id]: futureTest } };
+}
+
+function withFutureItemField(baseline: LintRatchetBaseline): LintRatchetBaseline {
+  const test = baseline.tests[ratchet.id];
+  const item = test?.items[PATH];
+  if (test === undefined || item === undefined) throw new Error("fixture baseline item is missing");
+  const futureTest = {
+    ...test,
+    items: { ...test.items, [PATH]: { ...item, futureDebtFloorField: 1 } },
+  };
+  return {
+    ...baseline,
+    tests: { ...baseline.tests, [ratchet.id]: futureTest },
+  };
 }
 
 function lineBaselineWith(lines: Record<string, number>): LintRatchetBaseline {
@@ -67,7 +125,9 @@ function lineBaselineWith(lines: Record<string, number>): LintRatchetBaseline {
     Object.entries(lines).map(([path, lineCount]) => [path, { count: 1, lines: lineCount }]),
   );
   const currentById: LintRatchetCurrentById = new Map([[lineRatchet.id, items]]);
-  return buildLintRatchetBaseline([lineRatchet], currentById, ruleSourceHashes);
+  return buildLintRatchetBaseline([lineRatchet], currentById, ruleSourceHashes, {
+    workflowVocabulary: fixtureWorkflowVocabulary,
+  });
 }
 
 function lineBaselineWithCounts(
@@ -80,7 +140,9 @@ function lineBaselineWithCounts(
     ]),
   );
   const currentById: LintRatchetCurrentById = new Map([[lineRatchet.id, entries]]);
-  return buildLintRatchetBaseline([lineRatchet], currentById, ruleSourceHashes);
+  return buildLintRatchetBaseline([lineRatchet], currentById, ruleSourceHashes, {
+    workflowVocabulary: fixtureWorkflowVocabulary,
+  });
 }
 
 interface Recorder {
@@ -124,6 +186,22 @@ function recorder(
   return { deps, calls, appended, written };
 }
 
+function updateClassification(
+  committed: LintRatchetBaseline,
+  generated: LintRatchetBaseline,
+): string {
+  applyLintRatchetUpdate({
+    context: fixtureContext,
+    generated,
+    rendered: formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary),
+    registry: [ratchet],
+    options: { allowWorse: false },
+    currentFindingCount: 1,
+    deps: recorder(formatLintRatchetBaseline(committed, fixtureWorkflowVocabulary)).deps,
+  });
+  return errorLines.join("\n");
+}
+
 const errorLines: string[] = [];
 
 beforeEach(() => {
@@ -143,11 +221,16 @@ describe("buildLintRatchetDebtLogEntry", () => {
       baselineWith({ [PATH]: 1 }),
       baselineWith({ [PATH]: 2 }),
       [ratchet],
-      { allowWorse: true, reason: "intentional" },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: true,
+        reason: "intentional",
+      },
     );
     const entry = buildLintRatchetDebtLogEntry(decision, "intentional debt for the legacy module");
 
     expect(entry.version).toBe("1");
+    expect(entry.kind).toBe("accepted-debt");
     expect(entry.acceptanceReason).toBe("intentional debt for the legacy module");
     expect(entry.regressions).toHaveLength(1);
     expect(entry.regressions[0]).toMatchObject({
@@ -167,7 +250,11 @@ describe("buildLintRatchetDebtLogEntry", () => {
       baselineWith({ [PATH]: 1 }),
       baselineWith({ [PATH]: 2 }),
       [ratchet],
-      { allowWorse: true, reason: "intentional" },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: true,
+        reason: "intentional",
+      },
     );
     const entry = buildLintRatchetDebtLogEntry(
       {
@@ -188,15 +275,19 @@ describe("buildLintRatchetDebtLogEntry", () => {
   });
 
   it("records structured orphan removals when no registry id matches", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 })).replace(
-      ratchet.id,
-      "ratchet/old-debt-fixture",
-    );
-    const committed = parseLintRatchetBaselineStructure(committedText).baseline;
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    ).replace(ratchet.id, "ratchet/old-debt-fixture");
+    const committed = parseLintRatchetBaselineStructure(
+      committedText,
+      fixtureWorkflowVocabulary,
+    ).baseline;
     expect(committed).toBeDefined();
     const generated = baselineWith({});
 
     const decision = decideLintRatchetUpdate(committed ?? generated, generated, [ratchet], {
+      workflowVocabulary: fixtureWorkflowVocabulary,
       allowWorse: true,
       reason: "removed rule",
     });
@@ -222,7 +313,11 @@ describe("buildLintRatchetDebtLogEntry", () => {
       baselineWith({ [PATH]: 1 }),
       baselineWith({ [PATH]: 2 }),
       [ratchet],
-      { allowWorse: true, reason: "intentional" },
+      {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+        allowWorse: true,
+        reason: "intentional",
+      },
     );
     const entry = buildLintRatchetDebtLogEntry(
       decision,
@@ -231,6 +326,7 @@ describe("buildLintRatchetDebtLogEntry", () => {
 
     expect(Object.keys(entry).sort()).toEqual([
       "acceptanceReason",
+      "kind",
       "orphansRemoved",
       "regressions",
       "version",
@@ -250,18 +346,52 @@ describe("buildLintRatchetDebtLogEntry", () => {
   });
 });
 
-describe("appendValidatedDebtLogEntry", () => {
+describe("appendValidatedDebtLogEntries", () => {
+  it("rejects a raw accepted-debt entry without an authoring discriminator", () => {
+    const rec = recorder(undefined);
+    const kindlessEntry: unknown = JSON.parse(
+      JSON.stringify({
+        version: "1",
+        acceptanceReason: "historical shape must not be newly authored",
+        regressions: [
+          {
+            testId: ratchet.id,
+            ruleId: ratchet.ruleId,
+            path: PATH,
+            baselineCount: 1,
+            currentCount: 2,
+            reason: "increased-count",
+          },
+        ],
+        orphansRemoved: [],
+      }),
+    );
+
+    const appendKindlessEntry = (): void => {
+      appendValidatedDebtLogEntries(
+        [kindlessEntry as LintRatchetDebtLogEntry], // type-assertion-boundary: test - raw JSON bypasses the authoring type to exercise append validation
+        debtLogPath,
+        rec.deps,
+      );
+    };
+
+    expect(appendKindlessEntry).toThrow(ConfigError);
+    expect(appendKindlessEntry).toThrow("kind");
+    expect(rec.appended).toEqual([]);
+  });
+
   it("refuses an invalid entry and never appends", () => {
     const rec = recorder(undefined);
     const invalid: LintRatchetDebtLogEntry = {
       version: "1",
+      kind: "accepted-debt",
       acceptanceReason: "missing accepted debt",
       regressions: [],
       orphansRemoved: [],
     };
 
     expect(() => {
-      appendValidatedDebtLogEntry(invalid, debtLogPath, rec.deps);
+      appendValidatedDebtLogEntries([invalid], debtLogPath, rec.deps);
     }).toThrow(ConfigError);
     expect(rec.appended).toEqual([]);
   });
@@ -270,6 +400,7 @@ describe("appendValidatedDebtLogEntry", () => {
     const rec = recorder(undefined);
     const entry: LintRatchetDebtLogEntry = {
       version: "1",
+      kind: "accepted-debt",
       acceptanceReason: "intentional debt that is sufficiently described",
       regressions: [],
       orphansRemoved: [
@@ -282,7 +413,7 @@ describe("appendValidatedDebtLogEntry", () => {
       ],
     };
 
-    appendValidatedDebtLogEntry(entry, debtLogPath, rec.deps);
+    appendValidatedDebtLogEntries([entry], debtLogPath, rec.deps);
     expect(rec.appended).toHaveLength(1);
     expect(rec.appended[0]?.endsWith("\n")).toBe(true);
     expect(JSON.parse(rec.appended[0] ?? "")).toEqual(entry);
@@ -291,6 +422,7 @@ describe("appendValidatedDebtLogEntry", () => {
   it("skips appending when the same JSON line is already at the debt-log tail", () => {
     const entry: LintRatchetDebtLogEntry = {
       version: "1",
+      kind: "accepted-debt",
       acceptanceReason: "intentional debt that is sufficiently described",
       regressions: [
         {
@@ -306,13 +438,14 @@ describe("appendValidatedDebtLogEntry", () => {
     };
     const rec = recorder(undefined, { debtLogText: `{"version":"1"}\n${JSON.stringify(entry)}\n` });
 
-    expect(appendValidatedDebtLogEntry(entry, debtLogPath, rec.deps)).toBe(false);
+    expect(appendValidatedDebtLogEntries([entry], debtLogPath, rec.deps)).toBe(false);
     expect(rec.appended).toEqual([]);
   });
 
   it("inserts a newline before appending to a non-empty unterminated log", () => {
     const entry = buildLintRatchetDebtLogEntry(
       decideLintRatchetUpdate(baselineWith({ [PATH]: 1 }), baselineWith({ [PATH]: 2 }), [ratchet], {
+        workflowVocabulary: fixtureWorkflowVocabulary,
         allowWorse: true,
         reason: "reviewed",
       }),
@@ -320,23 +453,108 @@ describe("appendValidatedDebtLogEntry", () => {
     );
     const rec = recorder(undefined, { debtLogText: '{"version":"1"}' });
 
-    appendValidatedDebtLogEntry(entry, debtLogPath, rec.deps);
+    appendValidatedDebtLogEntries([entry], debtLogPath, rec.deps);
 
     expect(rec.appended[0]?.startsWith("\n")).toBe(true);
     expect(rec.appended[0]?.endsWith("\n")).toBe(true);
   });
+
+  it("normalizes and validates the committed mixed-vintage log before appending", () => {
+    const committedText = readFileSync(
+      new URL("../../../../lint-ratchet.debt-log.jsonl", import.meta.url),
+      "utf8",
+    );
+    const committedValues: unknown[] = committedText
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line));
+    const entries = parseDebtLogJsonl(committedText, "lint-ratchet.debt-log.jsonl");
+    const rec = recorder(undefined);
+
+    expect(
+      committedValues
+        .slice(0, 13)
+        .every((entry) => typeof entry === "object" && entry !== null && !("kind" in entry)),
+    ).toBe(true);
+    expect(entries).toHaveLength(committedValues.length);
+    expect(entries.slice(0, 13).every((entry) => entry.kind === "accepted-debt")).toBe(true);
+    expect(appendValidatedDebtLogEntries(entries, debtLogPath, rec.deps)).toBe(true);
+    expect(parseDebtLogJsonl(rec.appended.join(""), "appended debt log")).toEqual(entries);
+  });
 });
 
 describe("applyLintRatchetUpdate", () => {
+  it("classifies an update that changes only rule source identity", () => {
+    const committed = baselineWith({ [PATH]: 1 });
+    const generated = withRuleSourceHash(baselineWith({ [PATH]: 1 }), `sha256:${"b".repeat(64)}`);
+    const classification = updateClassification(committed, generated);
+
+    expect(classification).toContain("rule source identity refresh only");
+    expect(classification).toContain("refreshed 1 ruleSourceHash value");
+    expect(classification).toContain("debt floors unchanged");
+  });
+
+  it("treats a future baseline-test field as a classification change", () => {
+    const committed = baselineWith({ [PATH]: 1 });
+    const generated = withRuleSourceHash(
+      withFutureTestField(committed),
+      `sha256:${"b".repeat(64)}`,
+    );
+    const classification = updateClassification(committed, generated);
+
+    expect(classification).toContain("mixed baseline refresh");
+    expect(classification).toContain("0 debt-floor deltas");
+  });
+
+  it("counts a future metric-item field as a debt-floor delta", () => {
+    const committed = baselineWith({ [PATH]: 1 });
+    const generated = withRuleSourceHash(
+      withFutureItemField(committed),
+      `sha256:${"b".repeat(64)}`,
+    );
+    const classification = updateClassification(committed, generated);
+
+    expect(classification).toContain("mixed baseline refresh");
+    expect(classification).toContain("1 debt-floor delta");
+  });
+
+  it("reports hash refreshes separately from debt-floor deltas in a mixed update", () => {
+    const committed = baselineWith({ [PATH]: 2 });
+    const generated = withRuleSourceHash(baselineWith({ [PATH]: 1 }), `sha256:${"b".repeat(64)}`);
+    const classification = updateClassification(committed, generated);
+
+    expect(classification).toContain("mixed baseline refresh");
+    expect(classification).toContain("refreshed 1 ruleSourceHash value");
+    expect(classification).toContain("1 debt-floor delta");
+  });
+
+  it("does not count an equal-count fingerprint refresh as a debt-floor delta", () => {
+    const committed = withMessagesFingerprint(
+      baselineWith({ [PATH]: 1 }),
+      `sha256:${"a".repeat(64)}`,
+    );
+    const generated = withRuleSourceHash(
+      withMessagesFingerprint(baselineWith({ [PATH]: 1 }), `sha256:${"b".repeat(64)}`),
+      `sha256:${"b".repeat(64)}`,
+    );
+    const classification = updateClassification(committed, generated);
+
+    expect(classification).toContain("mixed baseline refresh");
+    expect(classification).toContain("0 debt-floor deltas");
+  });
+
   it("records an accepted glob-driven coverage shrink before writing the baseline", () => {
     const droppedPath = "packages/client/src/legacy.ts";
     const narrowedRatchet: LintRatchetConfig = {
       ...ratchet,
       ignores: [droppedPath],
     };
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1, [droppedPath]: 2 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1, [droppedPath]: 2 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = baselineWith({ [PATH]: 1 }, narrowedRatchet);
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -352,8 +570,8 @@ describe("applyLintRatchetUpdate", () => {
     expect(logged).toBe(true);
     expect(rec.calls).toEqual(["append:debt-log", "write:baseline"]);
     const parsed = parseLintRatchetDebtLogEntry(JSON.parse(rec.appended[0] ?? ""));
-    expect(parsed.entry !== undefined && isCoverageShrinkLogEntry(parsed.entry)).toBe(true);
-    if (parsed.entry !== undefined && isCoverageShrinkLogEntry(parsed.entry)) {
+    expect(parsed.entry?.kind).toBe("coverage-shrink");
+    if (parsed.entry?.kind === "coverage-shrink") {
       expect(parsed.entry.removedPaths).toEqual([droppedPath]);
       expect(parsed.entry.reason).toBe("move client coverage to a dedicated ratchet");
     }
@@ -361,8 +579,11 @@ describe("applyLintRatchetUpdate", () => {
 
   it("appends the debt log BEFORE writing the baseline for an accepted worse update", () => {
     const generated = baselineWith({ [PATH]: 2 });
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
-    const rendered = formatLintRatchetBaseline(generated);
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -380,8 +601,8 @@ describe("applyLintRatchetUpdate", () => {
     expect(rec.written).toEqual([rendered]);
     expect(rec.appended).toHaveLength(1);
     const parsed = parseLintRatchetDebtLogEntry(JSON.parse(rec.appended[0] ?? ""));
-    expect(parsed.entry !== undefined && isAcceptedDebtLogEntry(parsed.entry)).toBe(true);
-    if (parsed.entry !== undefined && isAcceptedDebtLogEntry(parsed.entry)) {
+    expect(parsed.entry?.kind).toBe("accepted-debt");
+    if (parsed.entry?.kind === "accepted-debt") {
       expect(parsed.entry.acceptanceReason).toBe("intentional debt: legacy module rewrite pending");
     }
     expect(errorLines.join("\n")).toContain("lint-ratchet.debt-log.jsonl");
@@ -389,7 +610,7 @@ describe("applyLintRatchetUpdate", () => {
 
   it("logs nothing on a true no-op re-run", () => {
     const generated = baselineWith({ [PATH]: 1 });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(rendered);
 
     const logged = applyLintRatchetUpdate({
@@ -410,8 +631,11 @@ describe("applyLintRatchetUpdate", () => {
 
   it("locks an improvement without recording any debt", () => {
     const generated = baselineWith({ [PATH]: 1 });
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 2 }));
-    const rendered = formatLintRatchetBaseline(generated);
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 2 }),
+      fixtureWorkflowVocabulary,
+    );
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -432,8 +656,11 @@ describe("applyLintRatchetUpdate", () => {
 
   it("aborts before the baseline write when the append fails", () => {
     const generated = baselineWith({ [PATH]: 2 });
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
-    const rendered = formatLintRatchetBaseline(generated);
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText, { throwOnAppend: true });
 
     expect(() =>
@@ -454,8 +681,11 @@ describe("applyLintRatchetUpdate", () => {
 
   it("does not duplicate the debt log when retrying after a failed baseline write", () => {
     const generated = baselineWith({ [PATH]: 2 });
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
-    const rendered = formatLintRatchetBaseline(generated);
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const firstAttempt = recorder(committedText, { throwOnWrite: true });
 
     expect(() =>
@@ -495,9 +725,12 @@ describe("applyLintRatchetUpdate", () => {
       ...ratchet,
       ignores: [droppedPath],
     };
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1, [droppedPath]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1, [droppedPath]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = baselineWith({ [PATH]: 2 }, narrowedRatchet);
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const params = {
       generated,
       rendered,
@@ -526,8 +759,11 @@ describe("applyLintRatchetUpdate", () => {
 
   it("blocks a worse update without --allow-worse and records nothing", () => {
     const generated = baselineWith({ [PATH]: 2 });
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
-    const rendered = formatLintRatchetBaseline(generated);
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     expect(() =>
@@ -548,7 +784,7 @@ describe("applyLintRatchetUpdate", () => {
 
   it("logs nothing when creating a first-ever baseline", () => {
     const generated = baselineWith({ [PATH]: 1 });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(undefined);
 
     const logged = applyLintRatchetUpdate({
@@ -570,12 +806,12 @@ describe("applyLintRatchetUpdate", () => {
     // Committed has an orphaned zero-finding id; generated (from the registry)
     // drops it, so the write removes the floor. With proven promotion, retire
     // must skip --allow-worse and accepted debt while recording the retirement.
-    const committedText = formatLintRatchetBaseline(baselineWith({})).replace(
-      ratchet.id,
-      "ratchet/old-promoted",
-    );
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({}),
+      fixtureWorkflowVocabulary,
+    ).replace(ratchet.id, "ratchet/old-promoted");
     const generated = baselineWith({});
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -606,12 +842,12 @@ describe("applyLintRatchetUpdate", () => {
   });
 
   it("refuses to retire an orphan when promotion is not proven", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({})).replace(
-      ratchet.id,
-      "ratchet/old-promoted",
-    );
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({}),
+      fixtureWorkflowVocabulary,
+    ).replace(ratchet.id, "ratchet/old-promoted");
     const generated = baselineWith({});
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     expect(() =>
@@ -638,9 +874,12 @@ describe("applyLintRatchetUpdate", () => {
     // must emit a metric-migration entry so lint:ratchet:check-debt-accounting
     // (which requires a reasoned migration record for a metric change) stays
     // green instead of failing forever.
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWith({ [PATH]: 100 });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -660,8 +899,8 @@ describe("applyLintRatchetUpdate", () => {
     expect(rec.calls).toEqual(["append:debt-log", "write:baseline"]);
     expect(rec.appended).toHaveLength(1);
     const parsed = parseLintRatchetDebtLogEntry(JSON.parse(rec.appended[0] ?? ""));
-    expect(parsed.entry !== undefined && isMetricMigrationLogEntry(parsed.entry)).toBe(true);
-    if (parsed.entry !== undefined && isMetricMigrationLogEntry(parsed.entry)) {
+    expect(parsed.entry?.kind).toBe("metric-migration");
+    if (parsed.entry?.kind === "metric-migration") {
       expect(parsed.entry).toMatchObject({
         ratchetId: lineRatchet.id,
         fromMetric: "message-count",
@@ -673,6 +912,7 @@ describe("applyLintRatchetUpdate", () => {
 
     // End-to-end: the emitted entry actually clears the debt-accounting gate.
     const accounting = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText: committedText,
       currentBaselineText: rendered,
       baseDebtLogText: "",
@@ -685,9 +925,12 @@ describe("applyLintRatchetUpdate", () => {
     // count is the ESLint finding count under every metric, so a 1 -> 2 growth
     // is real debt even while the metric changes; a plain --reason must not let
     // it through as if it were only an incomparable metric swap.
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWithCounts({ [PATH]: { count: 2, lines: 80 } });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     expect(() =>
@@ -707,9 +950,12 @@ describe("applyLintRatchetUpdate", () => {
   });
 
   it("records both accepted debt and a migration for a count increase during migration", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWithCounts({ [PATH]: { count: 2, lines: 80 } });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -731,15 +977,12 @@ describe("applyLintRatchetUpdate", () => {
       .trim()
       .split("\n")
       .map((line) => parseLintRatchetDebtLogEntry(JSON.parse(line)).entry);
-    expect(entries.some((entry) => entry !== undefined && isAcceptedDebtLogEntry(entry))).toBe(
-      true,
-    );
-    expect(entries.some((entry) => entry !== undefined && isMetricMigrationLogEntry(entry))).toBe(
-      true,
-    );
+    expect(entries.some((entry) => entry?.kind === "accepted-debt")).toBe(true);
+    expect(entries.some((entry) => entry?.kind === "metric-migration")).toBe(true);
 
     // End-to-end: both entries together clear the debt-accounting gate.
     const accounting = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText: committedText,
       currentBaselineText: rendered,
       baseDebtLogText: "",
@@ -753,9 +996,12 @@ describe("applyLintRatchetUpdate", () => {
     // migration entry answers "why is the new metric the right measure"; one
     // shared string cannot honestly answer both, so each record must carry the
     // reason given for its own question.
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWithCounts({ [PATH]: { count: 2, lines: 80 } });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     const logged = applyLintRatchetUpdate({
@@ -780,8 +1026,8 @@ describe("applyLintRatchetUpdate", () => {
         const entry = parseLintRatchetDebtLogEntry(JSON.parse(line)).entry;
         return entry === undefined ? [] : [entry];
       });
-    const accepted = entries.find(isAcceptedDebtLogEntry);
-    const migration = entries.find(isMetricMigrationLogEntry);
+    const accepted = entries.find((entry) => entry.kind === "accepted-debt");
+    const migration = entries.find((entry) => entry.kind === "metric-migration");
     expect(accepted?.acceptanceReason).toBe(
       "accept the extra finding surfaced during the migration",
     );
@@ -789,6 +1035,7 @@ describe("applyLintRatchetUpdate", () => {
 
     // End-to-end: both per-kind-reasoned entries clear the debt-accounting gate.
     const accounting = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText: committedText,
       currentBaselineText: rendered,
       baseDebtLogText: "",
@@ -798,9 +1045,12 @@ describe("applyLintRatchetUpdate", () => {
   });
 
   it("names --migration-reason when a mixed update passes an invalid migration reason", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWithCounts({ [PATH]: { count: 2, lines: 80 } });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     expect(() =>
@@ -824,9 +1074,12 @@ describe("applyLintRatchetUpdate", () => {
   });
 
   it("accepts a migration gated by --migration-reason alone", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWith({ [PATH]: 100 });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     applyLintRatchetUpdate({
@@ -844,17 +1097,18 @@ describe("applyLintRatchetUpdate", () => {
 
     expect(rec.appended).toHaveLength(1);
     const parsed = parseLintRatchetDebtLogEntry(JSON.parse(rec.appended[0] ?? ""));
-    expect(
-      parsed.entry !== undefined && isMetricMigrationLogEntry(parsed.entry)
-        ? parsed.entry.reason
-        : undefined,
-    ).toBe("effective line count is the right measure for this rule");
+    expect(parsed.entry?.kind === "metric-migration" ? parsed.entry.reason : undefined).toBe(
+      "effective line count is the right measure for this rule",
+    );
   });
 
   it("refuses a metric migration without a reason and records nothing", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({ [PATH]: 1 }));
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({ [PATH]: 1 }),
+      fixtureWorkflowVocabulary,
+    );
     const generated = lineBaselineWith({ [PATH]: 100 });
-    const rendered = formatLintRatchetBaseline(generated);
+    const rendered = formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary);
     const rec = recorder(committedText);
 
     expect(() =>
@@ -874,17 +1128,17 @@ describe("applyLintRatchetUpdate", () => {
   });
 
   it("records the attested options delta for a different-options retirement", () => {
-    const committedText = formatLintRatchetBaseline(baselineWith({})).replace(
-      ratchet.id,
-      "ratchet/old-promoted",
-    );
+    const committedText = formatLintRatchetBaseline(
+      baselineWith({}),
+      fixtureWorkflowVocabulary,
+    ).replace(ratchet.id, "ratchet/old-promoted");
     const generated = baselineWith({});
     const rec = recorder(committedText);
 
     applyLintRatchetUpdate({
       context: fixtureContext,
       generated,
-      rendered: formatLintRatchetBaseline(generated),
+      rendered: formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary),
       registry: [ratchet],
       options: {
         allowWorse: false,

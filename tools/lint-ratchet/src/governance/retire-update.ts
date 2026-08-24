@@ -25,10 +25,15 @@ function orphanScope(
   if (registry.some((ratchet) => ratchet.id === retireRatchetId)) return undefined;
   if (!existsSync(context.baselinePath)) {
     throw new ConfigError(
-      `${relativeToRepoRoot(context.repoRoot, context.baselinePath)} does not exist; run bun run lint:ratchet:update`,
+      `${relativeToRepoRoot(context.repoRoot, context.baselinePath)} does not exist; run ${context.workflowVocabulary.updateCommand}`,
     );
   }
-  const parsed = parseLintRatchetBaselineStructure(readFileSync(context.baselinePath, "utf8"));
+  const parsed = parseLintRatchetBaselineStructure(
+    readFileSync(context.baselinePath, "utf8"),
+    context.workflowVocabulary,
+    undefined,
+    relativeToRepoRoot(context.repoRoot, context.baselinePath),
+  );
   const test = parsed.baseline?.tests[retireRatchetId];
   if (test === undefined) return undefined;
   return {

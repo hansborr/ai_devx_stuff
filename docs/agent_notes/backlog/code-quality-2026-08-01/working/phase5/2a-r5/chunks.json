@@ -1,0 +1,132 @@
+{
+  "base": 267,
+  "chunks": [
+    {
+      "chunk": "au2a-01",
+      "members": [
+        {
+          "promotionId": "R5B-L01-001",
+          "file": "163-ratchet-driven-file-boundaries-strand.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L01-001.md"
+        },
+        {
+          "promotionId": "R5B-L02-001",
+          "file": "133-code-intel-daemon-guards-promise-wire-types.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L02-001.md"
+        },
+        {
+          "promotionId": "R5B-L02-002",
+          "file": "267-require-current-rationale-on-durable-harness.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L02-002.md"
+        },
+        {
+          "promotionId": "R5B-L02-003",
+          "file": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L02-003.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-02",
+      "members": [
+        {
+          "promotionId": "R5B-L02-004",
+          "file": "209-remove-the-unused-repository-root-parameter-from.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L02-004.md"
+        },
+        {
+          "promotionId": "R5B-L03-001",
+          "file": "203-add-previewapply-safety-boundary-srd.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L03-001.md"
+        },
+        {
+          "promotionId": "R5B-L03-002",
+          "file": "205-rename-auth-service-to-reflect-its.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L03-002.md"
+        },
+        {
+          "promotionId": "R5B-L03-003",
+          "file": "009-all-four-seed-generators-can-overwrite.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L03-003.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-03",
+      "members": [
+        {
+          "promotionId": "R5B-L05-001",
+          "file": "057-character-sheettesttsx-no-longer-tests.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L05-001.md"
+        },
+        {
+          "promotionId": "R5B-L05-002",
+          "file": "047-toolhandler-erases-coordinate-domains.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L05-002.md"
+        },
+        {
+          "promotionId": "R5B-L05-021",
+          "file": "268-type-dice-roll-metadata-as-rollresult-at-the.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L05-021.md"
+        },
+        {
+          "promotionId": "R5B-L05C-002",
+          "file": "269-reset-createmapdialog-state-on-every-close-path.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L05C-002.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-04",
+      "members": [
+        {
+          "promotionId": "R5B-L05D-001",
+          "file": "248-preserve-registered-route-typing-through.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5B-L05D-001.md"
+        },
+        {
+          "promotionId": "R5C-002",
+          "file": "270-add-a-local-orientation-contract-for-the-client.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5C-002.md"
+        },
+        {
+          "promotionId": "R5C-003",
+          "file": "094-two-documents-both-claim-be-authoritative.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5C-003.md"
+        },
+        {
+          "promotionId": "R5C-006",
+          "file": "152-path-policy-query-core-closed-over-musis.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5C-006.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-05",
+      "members": [
+        {
+          "promotionId": "R5C-007",
+          "file": "149-generic-codemod-infrastructure-hidden-behind.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a-r5/packets/R5C-007.md"
+        }
+      ]
+    }
+  ]
+}

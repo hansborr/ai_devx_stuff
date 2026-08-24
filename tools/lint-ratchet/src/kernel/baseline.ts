@@ -18,6 +18,7 @@ import type {
   LintRatchetMetric,
   LintRatchetMode,
 } from "./config-types.js";
+import type { LintRatchetWorkflowVocabulary } from "./engine-context.js";
 import { formatGroupedBaseline } from "./group-baseline.js";
 import { metricItemForFormat } from "./metric-strategies.js";
 import type { LintRatchetMetricItem } from "./metrics-types.js";
@@ -153,6 +154,7 @@ export interface LintRatchetRetirementOptionsAttestation {
 // accept a worse baseline (with reason) or retire a proven zero-finding ratchet.
 export interface LintRatchetUpdateOptions {
   readonly allowWorse: boolean;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
   readonly reason?: string;
   // Answers "why is the new metric the right measure" on metric-migration
   // records; falls back to `reason` so a migration-only update needs one flag.
@@ -231,8 +233,9 @@ export function compareCurrentToBaseline(
   baseline: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
   currentById: LintRatchetCurrentById,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
 ): LintRatchetComparison {
-  return compareCurrentToBaselineImpl(baseline, ratchets, currentById);
+  return compareCurrentToBaselineImpl(baseline, ratchets, currentById, workflowVocabulary);
 }
 
 function positiveMetricItems(
@@ -282,8 +285,12 @@ export function buildLintRatchetBaseline(
   ratchets: readonly LintRatchetConfig[],
   currentById: LintRatchetCurrentById,
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
-  versionPolicy: LintRatchetBaselineVersionPolicy = LINT_RATCHET_BASELINE_VERSION_POLICY,
+  options: {
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+    readonly versionPolicy?: LintRatchetBaselineVersionPolicy;
+  },
 ): LintRatchetBaseline {
+  const versionPolicy = options.versionPolicy ?? LINT_RATCHET_BASELINE_VERSION_POLICY;
   const tests: Record<string, LintRatchetBaselineTest> = {};
   for (const ratchet of ratchets) {
     tests[ratchet.id] = baselineTestFromConfig(
@@ -292,7 +299,10 @@ export function buildLintRatchetBaseline(
       requireRuleSourceHash(ruleSourceHashesById, ratchet.id),
     );
   }
-  const regenerate = lintRatchetBaselineRegenerateForVersion(versionPolicy.writeVersion);
+  const regenerate = lintRatchetBaselineRegenerateForVersion(
+    versionPolicy.writeVersion,
+    options.workflowVocabulary.updateCommand,
+  );
   return {
     version: versionPolicy.writeVersion,
     ...(regenerate === undefined ? {} : { regenerate }),
@@ -310,6 +320,12 @@ export function currentByIdFromBaseline(baseline: LintRatchetBaseline): LintRatc
   return currentById;
 }
 
-export function formatLintRatchetBaseline(baseline: LintRatchetBaseline): string {
-  return formatGroupedBaseline(lintRatchetBaselineSpec(), lintRatchetBaselineToGrouped(baseline));
+export function formatLintRatchetBaseline(
+  baseline: LintRatchetBaseline,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
+): string {
+  return formatGroupedBaseline(
+    lintRatchetBaselineSpec(undefined, workflowVocabulary),
+    lintRatchetBaselineToGrouped(baseline),
+  );
 }

@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { DriftLeaf } from "./backlog-lint-drift.js";
 import { collectDriftFindings } from "./backlog-lint-drift.js";
-import { indexLinkedBases, parseIndexTaskTable } from "./backlog-lint-index-table.js";
+import {
+  declaredIndexCatalogBases,
+  indexLinkedBases,
+  parseIndexTaskTable,
+} from "./backlog-lint-index-table.js";
 import { collectPackFindings } from "./backlog-lint-packs.js";
 import { terminalStatus } from "./backlog-lint-status.js";
 import type { BacklogLintFile, BacklogLintFindingKind } from "./backlog-lint-types.js";
@@ -25,18 +29,48 @@ function indexText(...rows: string[]): string {
 function driftInput(
   text: string,
   leaves: readonly DriftLeaf[],
+  catalogs: readonly { readonly base: string; readonly path: string; readonly text: string }[] = [],
 ): Parameters<typeof collectDriftFindings>[0] {
   return {
     indexPath: `${DIR}/00-index.md`,
     indexBase: "00-index.md",
     indexText: text,
-    memberBases: new Set(["00-index.md", ...leaves.map((leaf) => leaf.base)]),
+    catalogs,
+    memberBases: new Set([
+      "00-index.md",
+      ...leaves.map((leaf) => leaf.base),
+      ...catalogs.map((catalog) => catalog.base),
+    ]),
     leaves,
   };
 }
 
 function leaf(base: string, statusValue: string): DriftLeaf {
   return { base, path: `${DIR}/${base}`, statusValue };
+}
+
+function catalog(
+  base: string,
+  text: string,
+): { readonly base: string; readonly path: string; readonly text: string } {
+  return { base, path: `${DIR}/${base}`, text };
+}
+
+function catalogIndexText(...bases: string[]): string {
+  return [
+    "# Pack",
+    "",
+    "Status: Parked task index",
+    "",
+    "<!-- BEGIN GENERATED LEAF CATALOG ROUTING -->",
+    ...bases.map((base) => `<!-- backlog-lint-catalog: ${base} -->`),
+    "",
+    "|Catalog|Area|Leaf count|Number range(s)|",
+    "|---|---|---:|---|",
+    ...bases.map((base) => `|[${base}](./${base})|Test|1|010|`),
+    "<!-- END GENERATED LEAF CATALOG ROUTING -->",
+    "",
+  ].join("\n");
 }
 
 function kinds(
@@ -62,6 +96,17 @@ describe("index-table parsing", () => {
       "[a](./10-a.md) [b](11-b.md) [up](../other/20-c.md) [deep](sub/30-d.md) [anchor](./12-e.md#x)",
     );
     expect([...bases].sort()).toEqual(["10-a.md", "11-b.md", "12-e.md"]);
+  });
+
+  it("collects only explicit sibling catalog declarations inside the generated region", () => {
+    const text = [
+      "<!-- backlog-lint-catalog: OUTSIDE.md -->",
+      "[companion](./AUDIT-SUMMARY.md)",
+      catalogIndexText("LEAVES-A.md", "LEAVES-B.md"),
+      "<!-- backlog-lint-catalog: ../DEEP.md -->",
+    ].join("\n");
+
+    expect([...declaredIndexCatalogBases(text)]).toEqual(["LEAVES-A.md", "LEAVES-B.md"]);
   });
 });
 
@@ -109,6 +154,50 @@ describe("collectDriftFindings", () => {
     );
     const unlisted = found.filter((entry) => entry.finding.kind === "unlisted-leaf");
     expect(unlisted.map((entry) => entry.finding.path)).toEqual([`${DIR}/11-y.md`]);
+  });
+
+  it("accepts a leaf linked only from a declared catalog", () => {
+    const text = catalogIndexText("LEAVES-A.md");
+    const source = catalog("LEAVES-A.md", "|010|[x](./10-x.md)|medium|S|—|");
+
+    expect(collectDriftFindings(driftInput(text, [leaf("10-x.md", "Ready")], [source]))).toEqual(
+      [],
+    );
+  });
+
+  it("does not follow an undeclared companion that links a leaf", () => {
+    const text = indexText();
+    const found = collectDriftFindings(driftInput(text, [leaf("10-x.md", "Ready")]));
+
+    expect(kinds(found)).toEqual(["unlisted-leaf"]);
+  });
+
+  it("reports the catalog that contains a dangling link", () => {
+    const text = catalogIndexText("LEAVES-A.md");
+    const source = catalog("LEAVES-A.md", "|099|[gone](./99-gone.md)|medium|S|—|");
+    const found = collectDriftFindings(driftInput(text, [], [source]));
+
+    expect(found).toHaveLength(1);
+    expect(found[0]?.finding.kind).toBe("dangling-index-link");
+    expect(found[0]?.finding.path).toBe(`${DIR}/LEAVES-A.md`);
+  });
+
+  it("reports a declared catalog that is absent from the pack", () => {
+    const found = collectDriftFindings(driftInput(catalogIndexText("LEAVES-MISSING.md"), []));
+
+    expect(found).toHaveLength(1);
+    expect(found[0]?.finding.kind).toBe("dangling-index-link");
+    expect(found[0]?.finding.path).toBe(`${DIR}/00-index.md`);
+  });
+
+  it("does not infer index-leaf drift from catalog tables without a Status column", () => {
+    const text = catalogIndexText("LEAVES-A.md");
+    const source = catalog(
+      "LEAVES-A.md",
+      ["|#|Leaf|Sev|Size|", "|---|---|---|---|", "|010|[x](./10-x.md)|medium|S|"].join("\n"),
+    );
+
+    expect(collectDriftFindings(driftInput(text, [leaf("10-x.md", "Done")], [source]))).toEqual([]);
   });
 });
 
@@ -196,6 +285,41 @@ describe("drift scoping through collectPackFindings", () => {
       "dangling-index-link",
       "index-leaf-drift",
       "index-leaf-drift",
+      "unlisted-leaf",
+    ]);
+  });
+
+  it("follows only root-declared catalogs and does not recurse", () => {
+    const root = catalogIndexText("LEAVES-A.md");
+    const nested = catalogIndexText("LEAVES-B.md").replace("# Pack", "# Catalog A");
+    const corpus: BacklogLintFile[] = [
+      { path: `${backlogDir}/pack/00-index.md`, text: root },
+      { path: `${backlogDir}/pack/LEAVES-A.md`, text: nested },
+      { path: `${backlogDir}/pack/LEAVES-B.md`, text: "[x](./10-x.md)" },
+      { path: `${backlogDir}/pack/10-x.md`, text: "# 10\n\nStatus: Ready" },
+    ];
+
+    const found = collectPackFindings({ corpus, backlogDir });
+    expect(
+      found.filter((finding) => finding.kind === "unlisted-leaf").map((finding) => finding.path),
+    ).toEqual([`${backlogDir}/pack/10-x.md`]);
+  });
+
+  it("reveals catalog closure findings when that catalog is the focused file", () => {
+    const root = catalogIndexText("LEAVES-A.md");
+    const corpus: BacklogLintFile[] = [
+      { path: `${backlogDir}/pack/00-index.md`, text: root },
+      { path: `${backlogDir}/pack/LEAVES-A.md`, text: "[gone](./99-gone.md)" },
+      { path: `${backlogDir}/pack/10-x.md`, text: "# 10\n\nStatus: Ready" },
+    ];
+
+    const found = collectPackFindings({
+      corpus,
+      backlogDir,
+      focusPaths: [`${backlogDir}/pack/LEAVES-A.md`],
+    });
+    expect(found.map((finding) => finding.kind).sort()).toEqual([
+      "dangling-index-link",
       "unlisted-leaf",
     ]);
   });

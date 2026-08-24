@@ -151,7 +151,6 @@ function probeRatchetFor(ruleId: string): LintRatchetConfig {
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Probe a single local ESLint rule without the rest of the repo flat config.",
   } satisfies LintRatchetConfig;
 }

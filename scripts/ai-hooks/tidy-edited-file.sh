@@ -18,6 +18,8 @@ esac
 REPO_COMMON=$(realpath -m "$REPO_COMMON")
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/common.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/edited-paths.sh"
 
 # Base directory relative edited paths resolve against. Defaults to the hook's
 # own checkout; ai_tidy_hook_main upgrades it to the payload's shell cwd when
@@ -26,44 +28,7 @@ AI_TIDY_BASE_DIR="$REPO_ROOT"
 
 AI_TIDY_MAX_OUTPUT_LINES="${AI_TIDY_MAX_OUTPUT_LINES:-30}"
 AI_TIDY_SKIP_MISSING_DELETED="missing/deleted file"
-
-ai_tidy_payload_tool_name() {
-  local payload="$1"
-  printf '%s' "$payload" | jq -r '.tool_name // empty' 2>/dev/null || true
-}
-
-ai_tidy_patch_paths() {
-  local patch="$1"
-
-  printf '%s\n' "$patch" | awk '
-    /^\*\*\* (Add|Update|Delete) File: / {
-      sub(/^\*\*\* (Add|Update|Delete) File: /, "")
-      sub(/\r$/, "")
-      print
-      next
-    }
-    /^\*\*\* Move to: / {
-      sub(/^\*\*\* Move to: /, "")
-      sub(/\r$/, "")
-      print
-    }
-  '
-}
-
-ai_tidy_payload_paths() {
-  local payload="$1"
-  local tool_name file command
-
-  tool_name=$(ai_tidy_payload_tool_name "$payload")
-  if [ "$tool_name" = "apply_patch" ]; then
-    command=$(ai_payload_command "$payload")
-    ai_tidy_patch_paths "$command"
-    return 0
-  fi
-
-  file=$(ai_payload_file_path "$payload")
-  [ -n "$file" ] && printf '%s\n' "$file"
-}
+AI_TIDY_SKIP_BINARY_FILE="binary file"
 
 ai_tidy_absolute_path() {
   local path="$1"
@@ -139,19 +104,6 @@ ai_tidy_binary_file() {
   return 0
 }
 
-ai_tidy_eslint_supported() {
-  local file="$1"
-
-  case "${file,,}" in
-    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts|*.json|*.jsonc|*.json5)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 ai_tidy_bounded_tail() {
   local text="$1"
   local max_lines="${2:-$AI_TIDY_MAX_OUTPUT_LINES}"
@@ -209,7 +161,7 @@ ai_tidy_skip_reason() {
   fi
 
   if ai_tidy_binary_file "$absolute_path"; then
-    printf 'binary file'
+    printf '%s' "$AI_TIDY_SKIP_BINARY_FILE"
     return 0
   fi
 
@@ -239,7 +191,7 @@ ai_tidy_run_file() {
 
   eslint_output=""
   eslint_status=0
-  if ai_tidy_eslint_supported "$absolute_path"; then
+  if ai_edited_path_eslint_supported "$absolute_path"; then
     eslint_output=$(cd "$file_root" && "$eslint_bin" --fix --no-warn-ignored "$absolute_path" 2>&1)
     eslint_status=$?
   fi
@@ -291,7 +243,7 @@ ai_tidy_hook_main() {
       paths+=("$path")
       seen[$path]=1
     fi
-  done < <(ai_tidy_payload_paths "$payload")
+  done < <(ai_edited_payload_paths "$payload")
 
   [ "${#paths[@]}" -gt 0 ] || ai_emit_continue
 
@@ -302,6 +254,10 @@ ai_tidy_hook_main() {
     if skip_reason=$(ai_tidy_skip_reason "$absolute_path" "$file_root"); then
       if [ "$skip_reason" = "$AI_TIDY_SKIP_MISSING_DELETED" ]; then
         result=""
+      elif [ "$skip_reason" = "$AI_TIDY_SKIP_BINARY_FILE" ]; then
+        result=$(printf \
+          'tidy-edited-file: WARNING: %s skipped (%s); a literal NUL may be hiding source text.\n' \
+          "$path" "$AI_TIDY_SKIP_BINARY_FILE")
       else
         result=$(printf 'tidy-edited-file: %s skipped (%s)\n' "$path" "$skip_reason")
       fi

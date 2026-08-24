@@ -1,0 +1,48 @@
+{
+  "contractVersion": 1,
+  "step": "s3-round-6",
+  "pair": ["271", "141"],
+  "ruling": "no-edge",
+  "kind": null,
+  "direction": null,
+  "warrant": null,
+  "decidingEvidence": [
+    {
+      "path": "docs/agent_notes/backlog/code-quality-2026-08-01/working/phase5/s1-records.json",
+      "line": 10330,
+      "note": "Leaf 141 classifies scripts/tests/test-verify-metadata.sh as a write target."
+    },
+    {
+      "path": "docs/agent_notes/backlog/code-quality-2026-08-01/working/phase5/s1-records.json",
+      "line": 18579,
+      "note": "Leaf 271 classifies the same file only as a consumed truth source; its actual test write is scripts/tests/test-verify-logs.sh at line 18585."
+    },
+    {
+      "path": "docs/agent_notes/backlog/code-quality-2026-08-01/141-latest-log-discovery-mirrors-verify-state.md",
+      "line": 115,
+      "note": "Leaf 141 requests a new parity smoke for the shim-exported state-path values, with this existing smoke file preferred at lines 117–119."
+    },
+    {
+      "path": "scripts/tests/test-verify-metadata.sh",
+      "line": 593,
+      "note": "The state-path coverage that leaf 141 would extend occupies the worktree-scoping section at lines 593–615."
+    },
+    {
+      "path": "scripts/tests/test-verify-metadata.sh",
+      "line": 68,
+      "note": "The marker-shape contract consumed by leaf 271 is a separate block at lines 68–124, including duplicate-field rejection at lines 114–124."
+    },
+    {
+      "path": "docs/agent_notes/backlog/code-quality-2026-08-01/271-route-verifylogs-wrapper-marker-reads-through-canonical-codec.md",
+      "line": 63,
+      "note": "Leaf 271 explicitly keeps marker-shape cases in the metadata suite and assigns observable integration coverage to the viewer suite at lines 63–68."
+    }
+  ],
+  "whatEachLeafWrites": {
+    "271": "Nothing in scripts/tests/test-verify-metadata.sh: it consumes the existing three-field acceptance and duplicate-rejection contract at scripts/tests/test-verify-metadata.sh:68 and scripts/tests/test-verify-metadata.sh:114. Its new assertion belongs in scripts/tests/test-verify-logs.sh beside the corrupt-marker presentation cases currently beginning at scripts/tests/test-verify-logs.sh:194, as directed by docs/agent_notes/backlog/code-quality-2026-08-01/271-route-verifylogs-wrapper-marker-reads-through-canonical-codec.md:63.",
+    "141": "It adds the new shim path to the smoke-subject header currently at scripts/tests/test-verify-metadata.sh:3 and adds parity assertions comparing the shim's exported verify/bun log directories with the Bash accessor outputs, naturally extending the state-path section at scripts/tests/test-verify-metadata.sh:593; those writes are required by docs/agent_notes/backlog/code-quality-2026-08-01/141-latest-log-discovery-mirrors-verify-state.md:115 and docs/agent_notes/backlog/code-quality-2026-08-01/141-latest-log-discovery-mirrors-verify-state.md:176."
+  },
+  "silentDisturbance": "None. Leaf 141 adds a smoke-subject registration and a state-path-value parity contract, while leaf 271 leaves this file unchanged and relies on the separate marker-codec assertions. The underlying seams are also distinct: state-path derivation is scripts/lib/verify-metadata.sh:189, whereas marker decoding is scripts/lib/verify-metadata.sh:783. Neither implementation can silently erase or invalidate the other's work without exceeding its stated scope.",
+  "residualRisk": null,
+  "s1SeatAssessment": "agree — independent inspection confirms the factual seam distinction: leaf 141's write is new state-path parity coverage, while leaf 271 consumes the existing marker contract and writes its regression in the viewer suite (docs/agent_notes/backlog/code-quality-2026-08-01/working/phase5/s1-records.json:10292; docs/agent_notes/backlog/code-quality-2026-08-01/working/phase5/s1-records.json:18579)."
+}

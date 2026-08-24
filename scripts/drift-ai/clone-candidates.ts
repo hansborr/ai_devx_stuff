@@ -4,10 +4,10 @@
 //
 // This is prototype-lane tooling (task 41a). The generator is high-recall by
 // design: its job is to produce a short list of likely clone pairs for a later,
-// more precise verifier — not to be a finished clone check. It is library/test-only
-// here: no check id, CLI flag, or advisory output is registered, and the live
-// near-duplicates check is untouched. A later task wires this behind task 39's
-// advisory contract.
+// more precise verifier — not to be a finished clone check. It is the candidate
+// generator beneath the registered `clone-candidates` command and its advisory
+// layer; the live near-duplicates check remains distinct and untouched. The
+// corpus benchmark is exercised only by tests and is not part of that command.
 //
 // Caps for function count (here), per-function shingle count, and candidate-pair
 // count (both in minhash-lsh) are surfaced in the result's truncation block so a

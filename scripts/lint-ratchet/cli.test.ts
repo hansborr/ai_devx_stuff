@@ -1,6 +1,85 @@
 import { describe, expect, it } from "vitest";
 
-import { parseArgs, UsageError } from "./cli.js";
+import { parseArgs, usage, UsageError } from "./cli.js";
+import { ownedOptions } from "./cli-catalog.js";
+
+const OPTION_CASES = new Map<
+  string,
+  {
+    readonly optionArgs: readonly string[];
+    readonly validExtras?: readonly string[];
+    readonly expected: boolean | number | string;
+  }
+>([
+  [
+    "allow-worse",
+    {
+      optionArgs: ["--allow-worse"],
+      validExtras: ["--reason", "accept this known baseline increase for the reviewed migration"],
+      expected: true,
+    },
+  ],
+  ["reason", { optionArgs: ["--reason", "because"], expected: "because" }],
+  [
+    "migration-reason",
+    { optionArgs: ["--migration-reason", "better metric"], expected: "better metric" },
+  ],
+  ["retire-ratchet", { optionArgs: ["--retire-ratchet", "ratchet/old"], expected: "ratchet/old" }],
+  [
+    "accept-different-options",
+    {
+      optionArgs: ["--accept-different-options"],
+      validExtras: ["--retire-ratchet", "ratchet/old", "--reason", "replacement reviewed"],
+      expected: true,
+    },
+  ],
+  ["staged", { optionArgs: ["--staged"], expected: true }],
+  ["base-ref", { optionArgs: ["--base-ref", "upstream/main"], expected: "upstream/main" }],
+  ["by-directory", { optionArgs: ["--by-directory", "2"], expected: 2 }],
+  ["since", { optionArgs: ["--since", "2026-01-01"], expected: "2026-01-01" }],
+  ["max", { optionArgs: ["--max", "25"], expected: 25 }],
+  ["all", { optionArgs: ["--all"], expected: true }],
+  ["targets-file", { optionArgs: ["--targets-file", "/tmp/targets"], expected: "/tmp/targets" }],
+]);
+
+describe("usage", () => {
+  it("preserves the complete command grammar and help text byte-for-byte", () => {
+    expect(usage()).toBe(
+      [
+        "usage: bun scripts/lint-ratchet.ts [--update [--allow-worse --reason <why>] [--migration-reason <why>] [--retire-ratchet <id> [--accept-different-options --reason <why>]] | --check-baseline | --check-debt-accounting | --check-registry | --summary [--by-directory [depth]] | --trend [--since <date>] [--max <n>] [--all] | --zero-baseline | --report | --debt-log | --propose <ruleId> <glob...> | --edit-check-targets <relpath>... | --edit-check --targets-file <file> | --edit-ratchet-coverage <relpath>...]",
+        "",
+        "Default mode emits a harness-diagnostics envelope and fails on ratchet regressions or uncommitted improvements.",
+        "Exit codes: 0 clean; 1 generic default-mode gate or unclassified runtime failure; 2 usage or configuration failure; 3 any WorseBaselineError verdict, including a --check-baseline mismatch, a refused worse --update, or a --check-debt-accounting mismatch. Truth-up consumers classify by exit code, never diagnostic text.",
+        "--migration-reason <why> records why a changed ratchet metric is the right measure on the metric-migration debt-log entry; without it a lone --reason answers both the migration and any --allow-worse acceptance in the same update.",
+        "--retire-ratchet <id> drops a zero-finding orphan baseline floor without --allow-worse and appends a non-debt retirement record, but only when normal lint now errors on the retired scope (proven promotion).",
+        "--accept-different-options requires --retire-ratchet and --reason; it human-attests an all-error normal-lint replacement whose options differ, prints the option delta, and records the attestation.",
+        "--summary prints committed baseline totals without running ESLint; add --by-directory [depth] to group remaining findings by directory. --trend reads committed baseline history and defaults to active ratchets; add --all for retired series too. It prints active/retired status plus first/last/min/max totals. --zero-baseline audits drained ratchets against normal ESLint; --check-debt-accounting compares baseline increases to same-range debt-log entries, with --staged for index blobs and --base-ref <ref> for a custom comparison branch; --report formats a diagnostics envelope from stdin; --debt-log renders accepted debt, retirements/removals, migrations, and coverage changes from committed history.",
+        "--propose <ruleId> <glob...> runs one core, local, or third-party rule as a dry run and prints the would-be ratchet baseline without touching the registry or committed baseline. For third-party rules, use --plugin <package> when the namespace is not already allowlisted, optional --plugin-export <default|plugin>, and optional --parser-profile <minimal-ts|type-aware-ts>.",
+        "--edit-check-targets lists matching minimal-TS ratchets for edited paths (no ESLint); --edit-check lints the targets in <file> and prints only fresh ratchet regressions, for the edit-time advisory hook.",
+        "--edit-ratchet-coverage prints, per edited path, the committed-baseline ratchet rule ids tracking it (no ESLint), for the lint-coverage advisory hook.",
+      ].join("\n"),
+    );
+  });
+});
+
+describe("catalog-owned options", () => {
+  it("assigns every option through its stateKey and enforces its owner", () => {
+    expect([...OPTION_CASES.keys()]).toEqual(ownedOptions().map(({ option }) => option.name));
+
+    for (const { mode, option } of ownedOptions()) {
+      const optionCase = OPTION_CASES.get(option.name);
+      expect(optionCase).toBeDefined();
+      if (optionCase === undefined) continue;
+      const parsed = parseArgs([
+        `--${mode}`,
+        ...optionCase.optionArgs,
+        ...(optionCase.validExtras ?? []),
+      ]);
+      expect(Reflect.get(parsed, option.stateKey)).toEqual(optionCase.expected);
+      expect(() => parseArgs(["--report", ...optionCase.optionArgs])).toThrow(option.scopeMessage);
+    }
+  });
+});
 
 describe("parseArgs --check-debt-accounting", () => {
   it("parses the baseline debt-accounting mode", () => {
@@ -119,7 +198,7 @@ describe("parseArgs --propose", () => {
     expect(parsed.proposeFiles).toEqual(["packages/app/src/**/*.ts"]);
   });
 
-  it("parses propose ignore, metric, and rule option flags", () => {
+  it("parses propose rule and third-party plugin flags in both value styles", () => {
     const parsed = parseArgs([
       "--propose",
       "no-restricted-syntax",
@@ -129,6 +208,10 @@ describe("parseArgs --propose", () => {
       "--metric=message-count",
       "--rule-options",
       '[{"selector":"DebuggerStatement","message":"no debugger"}]',
+      "--plugin=typescript-eslint",
+      "--plugin-export",
+      "plugin",
+      "--parser-profile=type-aware-ts",
     ]);
 
     expect(parsed.proposeIgnores).toEqual(["packages/app/src/**/*.test.ts"]);
@@ -136,6 +219,9 @@ describe("parseArgs --propose", () => {
     expect(parsed.proposeRuleOptionsJson).toBe(
       '[{"selector":"DebuggerStatement","message":"no debugger"}]',
     );
+    expect(parsed.proposePluginModule).toBe("typescript-eslint");
+    expect(parsed.proposePluginExport).toBe("plugin");
+    expect(parsed.proposeParserProfile).toBe("type-aware-ts");
   });
 
   it("requires a rule id and at least one file glob", () => {
@@ -146,8 +232,8 @@ describe("parseArgs --propose", () => {
     expect(() => parseArgs(["--propose", "--summary", "packages/**/*.ts"])).toThrow(
       "--propose requires <ruleId> <glob...>",
     );
-    expect(() => parseArgs(["--propose", "no-debugger", "--plugin", "eslint-plugin-x"])).toThrow(
-      "Unknown --propose option: --plugin",
+    expect(() => parseArgs(["--propose", "x/rule", "packages/**/*.ts", "--plugin-export"])).toThrow(
+      "--plugin-export requires default or plugin",
     );
   });
 
@@ -156,6 +242,13 @@ describe("parseArgs --propose", () => {
       "choose only one mode",
     );
   });
+
+  it.each(["--edit-check-targets", "--edit-ratchet-coverage"])(
+    "rejects mixing --summary with %s",
+    (terminalFlag) => {
+      expect(() => parseArgs(["--summary", terminalFlag, "value"])).toThrow("choose only one mode");
+    },
+  );
 });
 
 describe("parseArgs --summary --by-directory", () => {

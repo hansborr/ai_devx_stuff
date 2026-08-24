@@ -22,6 +22,8 @@ import {
 import { buildRuleSourceHashesById } from "@musi/lint-ratchet/kernel/rule-source.js";
 import { afterEach, describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "./fixture-workflow-vocabulary.js";
+
 // The plan's §2.3 fixture-context acceptance test (inherited from leaf 71): prove
 // the package runs the full collect→compare→update pipeline over a throwaway repo
 // with a NON-Musi registry, driven only by the injected engine context/binding
@@ -43,8 +45,10 @@ function makeFixtureRepo(): string {
   });
   // Borrow the installed store so the generated ESLint config (which references
   // typescript-eslint) and ESLint's bin resolve; the workspace .bun metadata is
-  // irrelevant here — nothing imports @musi from the fixture.
-  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "dir");
+  // irrelevant here — nothing imports @musi from the fixture. "junction" is
+  // ignored on POSIX and avoids the Windows Developer-Mode privilege a "dir"
+  // symlink needs; junction targets must be absolute, and realRepoRoot is.
+  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "junction");
   mkdirSync(join(repoRoot, "src"), { recursive: true });
   writeFileSync(
     join(repoRoot, "package.json"),
@@ -74,7 +78,6 @@ const acceptanceRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Acceptance fixture: keep debugger statements out of the fixture source.",
 } satisfies LintRatchetConfig;
 const registry: readonly LintRatchetConfig[] = [acceptanceRatchet];
@@ -83,7 +86,10 @@ describe("non-Musi fixture-context acceptance", () => {
   it("runs collect→compare→update through the injected binding and context", async () => {
     const repoRoot = makeFixtureRepo();
     const binding: LintRatchetEngineBinding = { repoRoot, thirdPartyPluginAllowlist: [] };
-    const context = createLintRatchetEngineContext({ repoRoot });
+    const context = createLintRatchetEngineContext({
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      repoRoot,
+    });
     expect(context.baselinePath).toBe(join(repoRoot, "lint-ratchet.baseline.json"));
 
     stageSource(repoRoot, "a.ts", "export function a(): number {\n  debugger;\n  return 1;\n}\n");
@@ -98,12 +104,18 @@ describe("non-Musi fixture-context acceptance", () => {
     expect(totalCurrentCount(currentById)).toBe(1);
 
     // UPDATE — regenerate and persist through the context's derived baseline path.
-    const generated = buildLintRatchetBaseline(registry, currentById, ruleSourceHashesById);
-    writeFileSync(context.baselinePath, formatLintRatchetBaseline(generated));
+    const generated = buildLintRatchetBaseline(registry, currentById, ruleSourceHashesById, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+    });
+    writeFileSync(
+      context.baselinePath,
+      formatLintRatchetBaseline(generated, fixtureWorkflowVocabulary),
+    );
     const parsed = parseLintRatchetBaseline(
       readFileSync(context.baselinePath, "utf8"),
       registry,
       ruleSourceHashesById,
+      { workflowVocabulary: fixtureWorkflowVocabulary },
     );
     const baseline = parsed.baseline;
     if (baseline === undefined) {
@@ -111,7 +123,10 @@ describe("non-Musi fixture-context acceptance", () => {
     }
 
     // COMPARE clean — the current findings match the just-written baseline.
-    expect(compareCurrentToBaseline(baseline, registry, currentById).regressions).toHaveLength(0);
+    expect(
+      compareCurrentToBaseline(baseline, registry, currentById, fixtureWorkflowVocabulary)
+        .regressions,
+    ).toHaveLength(0);
 
     // COMPARE regression — a new finding on a new path is caught by the no-new gate.
     stageSource(repoRoot, "b.ts", "export function b(): number {\n  debugger;\n  return 2;\n}\n");
@@ -122,7 +137,8 @@ describe("non-Musi fixture-context acceptance", () => {
     });
     expect(totalCurrentCount(regressed)).toBe(2);
     expect(
-      compareCurrentToBaseline(baseline, registry, regressed).regressions.length,
+      compareCurrentToBaseline(baseline, registry, regressed, fixtureWorkflowVocabulary).regressions
+        .length,
     ).toBeGreaterThan(0);
   });
 });

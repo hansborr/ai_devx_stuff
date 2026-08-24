@@ -1,6 +1,6 @@
 import path from "node:path";
 
-import type { ImportSpecifierInfo } from "../lib/trpc-shared-schema.js";
+import type { ImportSpecifierInfo } from "../lib/codemod-imports.js";
 import { fail } from "./errors.js";
 import type { ImportGroup } from "./types.js";
 

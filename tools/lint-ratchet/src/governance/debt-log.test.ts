@@ -25,6 +25,7 @@ function tempDebtLog(contents: string): string {
 function entryWithReason(acceptanceReason: string): LintRatchetDebtLogEntry {
   return {
     version: "1",
+    kind: "accepted-debt",
     acceptanceReason,
     regressions: [
       {
@@ -43,6 +44,7 @@ function entryWithReason(acceptanceReason: string): LintRatchetDebtLogEntry {
 function legacyRemoval(acceptanceReason: string): LintRatchetDebtLogEntry {
   return {
     version: "1",
+    kind: "accepted-debt",
     acceptanceReason,
     regressions: [],
     orphansRemoved: [
@@ -100,6 +102,7 @@ describe("formatLintRatchetDebtLogReport", () => {
     const report = formatLintRatchetDebtLogReport([
       {
         version: "1",
+        kind: "accepted-debt",
         acceptanceReason: "reason with | pipe and <tag> and `tick`",
         regressions: [
           {
@@ -145,6 +148,7 @@ describe("formatLintRatchetDebtLogReport", () => {
     const report = formatLintRatchetDebtLogReport([
       {
         version: "1",
+        kind: "accepted-debt",
         acceptanceReason: "complexity debt accepted intentionally for now",
         regressions: [
           {

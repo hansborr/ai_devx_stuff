@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
+import type { ParsedCli } from "../lib/cli.js";
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { DriftAiHelp } from "./cli-args.js";
 import { DriftAiError } from "./errors.js";
-import { parseSubcommandArgs, writeSubcommandOutput } from "./subcommand-args.js";
-
-const SPEC = { usage: "USAGE-TEXT" } as const;
-const CONFIG_SPEC = { usage: "USAGE-TEXT", acceptsConfig: true } as const;
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  prepareSubcommandInputs,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  subcommandBaseSchemaShape,
+  subcommandBooleanFlag,
+  writeSubcommandOutput,
+} from "./subcommand-args.js";
 
 function thrownMessage(run: () => unknown): string {
   try {
@@ -16,9 +26,21 @@ function thrownMessage(run: () => unknown): string {
   throw new Error("expected function to throw");
 }
 
-describe("parseSubcommandArgs", () => {
-  it("defaults to text format with no output or config path", () => {
-    expect(parseSubcommandArgs([], SPEC)).toEqual({
+describe("parseSubcommandCli", () => {
+  const baseSchema = z.object({ ...subcommandBaseSchemaShape });
+  const configSchema = z.object({ ...subcommandBaseSchemaShape, ...configSchemaShape });
+
+  function parseBase(argv: readonly string[]): ParsedCli<z.output<typeof baseSchema>> {
+    return parseSubcommandCli({
+      argv,
+      usage: "USAGE-TEXT",
+      options: SUBCOMMAND_BASE_CLI_OPTIONS,
+      schema: baseSchema,
+    });
+  }
+
+  it("assembles the text-format default base with no output or config path", () => {
+    expect(subcommandBaseFromOptions(parseBase([]).options)).toEqual({
       format: "text",
       outputPath: null,
       configPath: null,
@@ -26,120 +48,74 @@ describe("parseSubcommandArgs", () => {
   });
 
   it("parses --format and --output (space- and equals-separated)", () => {
-    expect(parseSubcommandArgs(["--format", "json", "--output", "out.json"], SPEC)).toEqual({
+    const { options } = parseBase(["--format", "json", "--output=out.json"]);
+    expect(subcommandBaseFromOptions(options)).toEqual({
       format: "json",
       outputPath: "out.json",
       configPath: null,
     });
   });
 
-  it("accepts --config only when the spec opts in", () => {
-    expect(parseSubcommandArgs(["--format=json", "--config=cfg.json"], CONFIG_SPEC)).toEqual({
+  it("accepts --config only when the spec composes the config fragment", () => {
+    const { options } = parseSubcommandCli({
+      argv: ["--format=json", "--config=cfg.json"],
+      usage: "USAGE-TEXT",
+      options: [...SUBCOMMAND_BASE_CLI_OPTIONS, CONFIG_CLI_OPTION],
+      schema: configSchema,
+    });
+    expect(subcommandBaseFromOptions(options)).toEqual({
       format: "json",
       outputPath: null,
       configPath: "cfg.json",
     });
+    expect(() => parseBase(["--config", "cfg.json"])).toThrow(/Unknown argument: --config/u);
   });
 
-  it("rejects --config as unknown when the spec does not opt in", () => {
-    expect(() => parseSubcommandArgs(["--config", "cfg.json"], SPEC)).toThrow(
-      /Unknown argument: --config/u,
-    );
-  });
-
-  it("dispatches subcommand-specific value options", () => {
-    const seen: string[] = [];
-    const base = parseSubcommandArgs(["--lens", "churn", "--format", "json"], {
-      usage: "USAGE-TEXT",
-      valueOptions: { "--lens": (value) => seen.push(value) },
-    });
-    expect(seen).toEqual(["churn"]);
-    expect(base.format).toBe("json");
-  });
-
-  it("dispatches subcommand-specific path options through non-empty path validation", () => {
-    const roots: string[] = [];
+  it("rejects a value attached to a subcommandBooleanFlag option", () => {
     const spec = {
       usage: "USAGE-TEXT",
-      pathValueOptions: { "--root": (value: string) => roots.push(value) },
+      options: [...SUBCOMMAND_BASE_CLI_OPTIONS, subcommandBooleanFlag("--allow-live-registry")],
+      schema: z.object({
+        ...subcommandBaseSchemaShape,
+        "--allow-live-registry": z.boolean().default(false),
+      }),
     } as const;
-
-    parseSubcommandArgs(["--root", "src"], spec);
-
-    expect(roots).toEqual(["src"]);
-    expect(() => parseSubcommandArgs(["--root="], spec)).toThrow(/--root requires a value/u);
-  });
-
-  it("dispatches subcommand-specific valueless flag options without consuming a value", () => {
-    const hits: string[] = [];
-    const spec = {
-      usage: "USAGE-TEXT",
-      flagOptions: { "--allow-live-registry": () => hits.push("registry") },
-      valueOptions: { "--lens": (value: string) => hits.push(value) },
-    } as const;
-
-    const base = parseSubcommandArgs(["--allow-live-registry", "--lens", "churn"], spec);
-
-    expect(hits).toEqual(["registry", "churn"]);
-    expect(base.format).toBe("text");
-  });
-
-  it("rejects a value attached to a valueless flag option", () => {
-    const spec = {
-      usage: "USAGE-TEXT",
-      flagOptions: { "--allow-live-registry": () => undefined },
-    } as const;
-    expect(() => parseSubcommandArgs(["--allow-live-registry=yes"], spec)).toThrow(
+    const { options } = parseSubcommandCli({ ...spec, argv: ["--allow-live-registry"] });
+    expect(options["--allow-live-registry"]).toBe(true);
+    expect(() => parseSubcommandCli({ ...spec, argv: ["--allow-live-registry=yes"] })).toThrow(
       "--allow-live-registry does not accept a value.",
     );
   });
 
-  it("rejects an invalid --format value", () => {
-    expect(() => parseSubcommandArgs(["--format", "xml"], SPEC)).toThrow(DriftAiError);
+  it("rejects an invalid --format value with a DriftAiError", () => {
+    expect(() => parseBase(["--format", "xml"])).toThrow(DriftAiError);
+    expect(() => parseBase(["--format", "xml"])).toThrow("--format requires text or json.");
   });
 
   it("rejects option-looking values for value options", () => {
-    expect(() => parseSubcommandArgs(["--format", "--output", "out.json"], SPEC)).toThrow(
+    expect(() => parseBase(["--format", "--output", "out.json"])).toThrow(
       /--format requires a value/u,
     );
-    expect(() => parseSubcommandArgs(["--output", "--format", "json"], SPEC)).toThrow(
-      /--output requires a value/u,
-    );
-    expect(() => parseSubcommandArgs(["--config", "--format", "json"], CONFIG_SPEC)).toThrow(
-      /--config requires a value/u,
-    );
-
-    const spec = {
-      usage: "USAGE-TEXT",
-      pathValueOptions: { "--root": () => undefined },
-      valueOptions: { "--lens": () => undefined },
-    } as const;
-    expect(() => parseSubcommandArgs(["--root", "--format"], spec)).toThrow(
-      /--root requires a value/u,
-    );
-    expect(() => parseSubcommandArgs(["--lens", "--output"], spec)).toThrow(
-      /--lens requires a value/u,
-    );
+    expect(() => parseBase(["--output", "--format", "json"])).toThrow(/--output requires a value/u);
   });
 
   it("errors on a missing value, appending the usage text", () => {
-    expect(() => parseSubcommandArgs(["--output"], SPEC)).toThrow(/USAGE-TEXT/u);
+    expect(() => parseBase(["--output"])).toThrow(/USAGE-TEXT/u);
   });
 
-  it("errors on an unknown argument", () => {
-    expect(() => parseSubcommandArgs(["--nope"], SPEC)).toThrow(/Unknown argument: --nope/u);
+  it("errors on unknown arguments and rejects positionals at their token", () => {
+    expect(() => parseBase(["--nope"])).toThrow(/Unknown argument: --nope/u);
+    expect(thrownMessage(() => parseBase(["stray"]))).toBe("Unknown argument: stray\nUSAGE-TEXT");
   });
 
   it("preserves empty string argv entries as unknown arguments", () => {
-    expect(thrownMessage(() => parseSubcommandArgs([""], SPEC))).toBe(
-      "Unknown argument: \nUSAGE-TEXT",
-    );
+    expect(thrownMessage(() => parseBase([""]))).toBe("Unknown argument: \nUSAGE-TEXT");
   });
 
   it("throws DriftAiHelp carrying the subcommand usage on --help", () => {
-    expect(() => parseSubcommandArgs(["--help"], SPEC)).toThrow(DriftAiHelp);
+    expect(() => parseBase(["--help"])).toThrow(DriftAiHelp);
     try {
-      parseSubcommandArgs(["-h"], SPEC);
+      parseBase(["-h"]);
       throw new Error("expected DriftAiHelp");
     } catch (err) {
       expect(err).toBeInstanceOf(DriftAiHelp);
@@ -163,5 +139,60 @@ describe("writeSubcommandOutput", () => {
     );
     expect(stdout).toBe("drift:ai: wrote json report to report.json");
     expect(written).toEqual([{ path: "report.json", contents: "RENDERED\n" }]);
+  });
+});
+
+describe("prepareSubcommandInputs", () => {
+  const tmp = registerTempRootCleanup();
+  const base = { format: "text", outputPath: null, configPath: null } as const;
+  const failingRead = (path: string): string => {
+    throw new Error(`unexpected read of ${path}`);
+  };
+
+  it("loads the default config and a null baseline when neither flag is given", () => {
+    const repoRoot = tmp.makeTempRepo();
+    const prepared = prepareSubcommandInputs({ base, baselinePath: null }, repoRoot, failingRead);
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) throw new Error("expected ok inputs");
+    expect(prepared.config.configPath).toBeNull();
+    expect(prepared.baseline).toBeNull();
+  });
+
+  it("loads and JSON-parses the baseline through the injected reader", () => {
+    const repoRoot = tmp.makeTempRepo();
+    const prepared = prepareSubcommandInputs(
+      { base, baselinePath: "prev.json" },
+      repoRoot,
+      () => '{"rows":[]}',
+    );
+    expect(prepared.ok).toBe(true);
+    if (!prepared.ok) throw new Error("expected ok inputs");
+    expect(prepared.baseline).toEqual({ rows: [] });
+  });
+
+  it("maps a missing --config file to the standard exit-2 result", () => {
+    const repoRoot = tmp.makeTempRepo();
+    const prepared = prepareSubcommandInputs(
+      { base: { ...base, configPath: "no-such-config.json" }, baselinePath: null },
+      repoRoot,
+      failingRead,
+    );
+    expect(prepared.ok).toBe(false);
+    if (prepared.ok) throw new Error("expected a failure result");
+    expect(prepared.result.exitCode).toBe(2);
+    expect(prepared.result.stdout).toContain("does not exist");
+  });
+
+  it("maps an invalid --baseline file to the standard exit-2 result", () => {
+    const repoRoot = tmp.makeTempRepo();
+    const prepared = prepareSubcommandInputs(
+      { base, baselinePath: "prev.json" },
+      repoRoot,
+      () => "not json",
+    );
+    expect(prepared.ok).toBe(false);
+    if (prepared.ok) throw new Error("expected a failure result");
+    expect(prepared.result.exitCode).toBe(2);
+    expect(prepared.result.stdout).toContain("not valid JSON");
   });
 });

@@ -1,0 +1,975 @@
+{
+ "batch": "wave1-lanes-01-03",
+ "pin": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "clusterNotes": "Normalized all 60 findings from wave-1 lanes 01-03 (20 each). Zero merges: lane scopes are disjoint (lane-01 harness core shell/manifest, lane-02 analyzer TypeScript families, lane-03 server package) and each lane had already consolidated same-file duplicates internally, so no cross- or intra-lane pair shares the same file(s) AND substantially the same problem. Candidate order follows lane order (C-001..C-020 = L01, C-021..C-040 = L02, C-041..C-060 = L03); severity/size/leafability carried directly from the single member. Near-miss pairs deliberately kept separate: (1) L01-004 vs L01-009 — both concern harness.controls.json's contract, but L01-004 is internal competing TS models while L01-009 is external versioned-schema publication; complementary, could sequence together. (2) L01-006 vs L01-007 vs L01-008 — three distinct duplication problems inside harness.controls.json (gate slot programs vs generated-surface dependency facets vs hook adapter bindings); same file, different problems per contract. (3) L01-006 vs L01-010 — manifest-level gate-profile duplication vs generated-slot-graph dependency semantics in the Bash runners; a shared 'canonical slot graph' direction could unify them at planning time but they edit different surfaces. (4) L01-014 vs L02-017 — L02-017 (logs-audit mirrors the state-path protocol) would be trivially resolved by L01-014's proposed repository-identity typed module; kept separate because L02-017 is a small consumer-side dedup while L01-014 is a decomposition; orchestrator may want a dependency edge L02-017 -> L01-014. (5) L02-002 / L02-004 / L02-008 — all 'parallel manually synchronized registries' in drift-ai but over different subsystems (check registration, CLI options, hotspot lenses) with different fix shapes. (6) L03-008 vs L03-009 — both handwritten Prisma payload mirrors; L03-008 is spell-casting-specific with an unknown-cast and manufactured optionals, L03-009 is a utils-wide sweep; the lane kept them separate and the fix mechanics differ. (7) L03-001/L03-003/L03-004/L03-005 — common 'router owns domain logic' theme across auth/homebrew/invite/note+NPC; kept per-router since each is a coherent independently landable piece. Also note L01-001 vs L01-014 are sibling verify-shell decompositions (verify-engine.sh vs verify-metadata.sh) under the same CQ25-124 facade precedent and could share a program-level plan. priorPackRefs collected verbatim from members' priorPackOverlap.ref; refs of all kinds (landed/constraint/plan-slice/open-leaf) were carried so the orchestrator can re-check novelty claims against the corpus.",
+ "candidates": [
+  {
+   "id": "C-001",
+   "title": "Verification lifecycle implemented as an untyped Bash framework",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "XL",
+   "leafability": "needs-split",
+   "problemSummary": "The 991-line scripts/verify/lib/verify-engine.sh carries the main quality gate through mutable shell globals, associative-array record conventions, traps, evidence persistence, scheduling, and reporting in one framework-sized script. Contributors cannot follow a slot from declaration through execution and evidence publication without reconstructing undocumented shell invariants.",
+   "directionSummary": "Move the lifecycle, typed evidence model, scheduling, and reporting into a TypeScript core, retaining a small Bash facade only for process-group and signal behavior that genuinely needs shell semantics.",
+   "priorPackRefs": [
+    "CQ25-124"
+   ]
+  },
+  {
+   "id": "C-002",
+   "title": "AI hook policy is a 2,121-line shell parsing subsystem",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L01-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "XL",
+   "leafability": "needs-split",
+   "problemSummary": "scripts/ai-hooks/common.sh and policy.sh fuse safety policy, command tokenization, Git semantics, diagnostics, and adapter behavior into a bespoke shell-language analyzer with multiple tokenizers and an embedded awk parser. Changing one command rule requires understanding several parsers, making the public harness hard to copy or extend safely.",
+   "directionSummary": "Define a typed command-analysis core with explicit normalized-command and policy-decision records; keep hook entrypoints as thin adapters sourcing deny/allow policy from declarative data.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-003",
+   "title": "agent-run.sh is a 3,503-line monolithic multi-provider adapter",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-003"
+   ],
+   "severityHint": "high",
+   "sizeHint": "XL",
+   "leafability": "needs-split",
+   "problemSummary": "Provider command construction, retry policy, process supervision, serialization, output shaping, and embedded-Python helpers share globals in one 3,503-line, 143-function script. Provider changes are high-context and outsiders have no reusable seams for adopting part of the adapter.",
+   "directionSummary": "Separate a provider-neutral attempt state machine, provider command builders, process supervision, and codecs into independently reviewable modules behind one small executable facade.",
+   "priorPackRefs": [
+    "CQ25-127"
+   ]
+  },
+  {
+   "id": "C-004",
+   "title": "Harness controls represented by competing manifest models",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L01-004"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The declared harness-manifest schema is not the model actually consumed by generation and checking; raw interfaces and validators in generate-harness-controls, its validation module, and harness-check-validation can evolve independently. Contributors cannot determine which layer defines an accepted control or where a new field must be wired.",
+   "directionSummary": "Parse once through one strict schema into a canonical typed model, then run generation and semantic checks over that model while adapting structured issues per caller.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-005",
+   "title": "Gate parity checks fingerprint source text instead of sharing executable contracts",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L01-005"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Registration preflight, workflow parity, and pre-push scope checks infer correct wiring from formatting-sensitive strings, regexes, source-order positions, and a line-oriented YAML reading rather than from the data that creates the wiring. Harmless refactors can break the checks while semantically different text requires extending private parsers.",
+   "directionSummary": "Generate gate and workflow fragments from structured control data, or expose machine-readable executable contracts parity checks can compare without parsing source formatting.",
+   "priorPackRefs": [
+    "CQ25-130"
+   ]
+  },
+  {
+   "id": "C-006",
+   "title": "Manifest copies verify slot programs across four gate controls",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L01-006"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "harness.controls.json encodes nearly identical ordered slot programs independently for the full, parallel, changed, and pre-commit verification gates (identical 16-slot arrays; 13 of 15 pairs byte-identical). Adding or retargeting a slot requires synchronized edits, and intentional differences are indistinguishable from drift.",
+   "directionSummary": "Define one canonical slot catalog and compose named gate profiles via explicit include, exclude, dependency, and override fields.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-007",
+   "title": "Generated-surface dependencies manually redeclared across manifest facets",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L01-007"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Across 12 generated-surface controls, source dependencies, freshness triggers, and fixtures are copied into several manifest facets (158 trigger and 123 fixture references with 85 overlapping) rather than derived from one graph. The repetition makes generated-boundary changes tedious and obscures which differences carry distinct semantics.",
+   "directionSummary": "Model producer, source, output, fixture, and freshness edges once, deriving validation triggers and generated-surface projections from that graph.",
+   "priorPackRefs": [
+    "CQ25-67"
+   ]
+  },
+  {
+   "id": "C-008",
+   "title": "Hook wiring repeats adapter templates and leaves control provenance ambiguous",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-008"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "18 hook controls in harness.controls.json expand into 32 adapter bindings that mix logical policy, adapter event names, generated shims, and command templates in repeated records. Contributors cannot tell whether the manifest control, a template, or an adapter file is authoritative for a binding.",
+   "directionSummary": "Give each logical hook one provider-neutral identity and policy definition, generating adapter event mappings and shims from small provider projection tables.",
+   "priorPackRefs": [
+    "CQ25-122"
+   ]
+  },
+  {
+   "id": "C-009",
+   "title": "Public harness manifest has no versioned externally consumable schema",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L01-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The 2,859-line harness.controls.json (179 controls, 12 kinds) carries no schema URI or format version, so external users cannot validate, migrate, or generate tooling for it without reading internal TypeScript validators. Its heterogeneous records can change without any compatibility signal.",
+   "directionSummary": "Publish a strict generated JSON Schema with a format version and migration policy, and make the in-repo parser consume the same schema-derived model.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-010",
+   "title": "Parallel verify dependencies hidden in positional Bash arrays",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-010"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Generated slot declarations in steps.generated.sh omit dependency and producer semantics, which live in hand-coded Bash including a 13-positional-parameter helper and hard-coded lint-ratchet rules. A new slot can look registered while still requiring undocumented scheduler edits.",
+   "directionSummary": "Generate a typed slot graph containing command, dependencies, resources, outputs, and mode eligibility, consumed by both sequential and parallel runners.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-011",
+   "title": "Suppression policy crosses a Bash/TypeScript wire boundary with duplicated directive parsing",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L01-011"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Suppression handling spans Bash scanners, a custom four-column TSV protocol, and a second TypeScript interpretation of directive identity that explicitly checks for divergence between independently maintained vocabularies. Changing a suppression spelling or scope requires coordinated lexer, encoding, parsing, and ledger changes.",
+   "directionSummary": "Move scanning and normalized identity production into one typed analytical core consumed by both registration and ledger checks.",
+   "priorPackRefs": [
+    "CQ25-40"
+   ]
+  },
+  {
+   "id": "C-012",
+   "title": "Worktree seed validation implements a private TypeScript module resolver",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L01-012"
+   ],
+   "severityHint": "high",
+   "sizeHint": "XL",
+   "leafability": "needs-split",
+   "problemSummary": "The 893-line worktree-seed-*.ts family maintains its own approximation of TypeScript/Bun/Node resolution plus runtime-loader data flow, hand-coding extension probing, aliases, and AST walks. Every new alias or syntax form expands a private compiler layer contributors must distinguish from the repo's other code-intelligence tools.",
+   "directionSummary": "Reduce the check to an explicit seed runtime manifest or build it on one repository-wide resolver service, keeping seed-specific allow/terminal policy separate.",
+   "priorPackRefs": [
+    "CQ25-63"
+   ]
+  },
+  {
+   "id": "C-013",
+   "title": "Lint coverage map reverse-parses generated Markdown as policy input",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-013"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The lint coverage map document is simultaneously presentation, hand-maintained policy source, and partial generator output; its meaning depends on Markdown cell order, code-span ordering, and a private glob-to-regex dialect. Ordinary documentation edits require knowledge of parser internals.",
+   "directionSummary": "Make a typed manifest the sole coverage-map source, reuse the canonical glob matcher, and generate the complete Markdown document from structured data.",
+   "priorPackRefs": [
+    "CQ25-44"
+   ]
+  },
+  {
+   "id": "C-014",
+   "title": "verify-metadata.sh is a second kitchen-sink shell framework",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The 1,406-line, 74-function verify-metadata.sh conflates repository identity, queue state, fast-commit behavior, path policy, marker validation, and reporting behind one ambient shell API. Its name understates its responsibilities, so any gate-metadata change requires broad regression reasoning.",
+   "directionSummary": "Define separate typed modules for repository identity, gate state, path policy, and marker codecs, with a narrow compatibility facade for the current shell engine.",
+   "priorPackRefs": [
+    "CQ25-124"
+   ]
+  },
+  {
+   "id": "C-015",
+   "title": "doctor.sh organized around ambient mutable state and a manual check registry",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L01-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "doctor.sh holds diagnostic state in globals, offers several runner variants with different implicit check protocols plus special-case bypasses, and assembles its check sequence imperatively. Adding a diagnostic means choosing among conventions and manually placing the check with no common record shape for definition, execution, aggregation, and rendering.",
+   "directionSummary": "Represent checks as typed descriptors with explicit inputs, severity, remediation, and result records; keep the shell entrypoint limited to environment setup and rendering.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-016",
+   "title": "Migration safety validation embeds multiple parsers in a 653-line Bash script",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L01-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "scripts/migration-safety.sh inseparably combines an awk SQL-like lexer, policy evaluation, hand-built JSON serialization, and human reporting in Bash. Extending one migration rule requires editing an embedded lexer and two output paths without typed intermediate results.",
+   "directionSummary": "Move analysis into a typed core emitting structured findings, retaining a thin command facade with independent JSON and human renderers.",
+   "priorPackRefs": [
+    "CQ25-124"
+   ]
+  },
+  {
+   "id": "C-017",
+   "title": "Baseline merge metadata distributed across five registries",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L01-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Adding or renaming a baseline family requires synchronized edits across driver dispatch, CLI display tables, conflict recipes, merge implementation, and post-merge truth-up in scripts/git/. The duplication makes completeness review dependent on repository folklore.",
+   "directionSummary": "Define one declarative baseline-family registry and generate or query the driver, CLI, recipe, and truth-up projections from it.",
+   "priorPackRefs": [
+    "CQ25-83"
+   ]
+  },
+  {
+   "id": "C-018",
+   "title": "Post-merge truth-up parses human diagnostics as control data",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L01-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "post-merge-truth-up.sh derives merge-automation decisions by scraping presentation strings from three independent tools (lint, knip, near-duplicates). Diagnostic wording changes become hidden API changes, and each new baseline family invites another capture-grep-decide copy.",
+   "directionSummary": "Give baseline-producing checks a shared machine-readable status envelope and make truth-up consume status and artifact fields instead of human output.",
+   "priorPackRefs": [
+    "CQ25-124"
+   ]
+  },
+  {
+   "id": "C-019",
+   "title": "Workflows embed substantial reporting and API programs as inline shell",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L01-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "ci.yml and slow-drift.yml embed 113 lines of inline shell implementing verification reporting, GitHub API interaction, and error handling directly in YAML. This behavior cannot be run locally, reviewed, reused, or covered independently, splitting CI behavior between registered commands and opaque inline programs.",
+   "directionSummary": "Move each coherent reporting/API operation into a versioned repository command with structured inputs and outputs, leaving workflows to declare orchestration.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-020",
+   "title": "Codex agent skill depends on a Claude-owned executable tree",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L01-020"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The .codex/skills/agent-cli skill contains 12 references to scripts under .claude and owns no executables of its own, so a provider-neutral adapter is physically owned by one provider's configuration tree. Copying the Codex skill alone produces a broken unit and .claude placement can be mistaken for provider-specific behavior.",
+   "directionSummary": "Move the executable adapter to a neutral repository-owned location and generate or link each provider skill's thin documentation and entrypoint projection.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-021",
+   "title": "Musi repository policy embedded throughout ostensibly reusable analyzer cores",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L02-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "XL",
+   "leafability": "needs-split",
+   "problemSummary": "All three analyzer families (drift-ai, code-intel, drift-triage) interleave portable traversal/analysis machinery with hard-coded Musi layer rules, package topology, path fragments, and helper-name heuristics. Outside adopters must rewrite internals, Musi renames require finding multiple private switchboards, and silent heuristic misses can look like authoritative empty results.",
+   "directionSummary": "Define explicit repository-policy adapters or typed configuration for layer rules, package topology, overview heuristics, evidence families, and grouping, keeping generic kernels independent of Musi defaults.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-022",
+   "title": "Drift check registration has three manually synchronized authorities",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Adding or renaming a drift-ai check requires coordinated edits to the 16-entry metadata registry, a second 16-entry runtime registry that must mirror its order, and a third hand-maintained configuration map, with correlation restored only by a runtime assertion. The compiler cannot verify the claimed authority relationship.",
+   "directionSummary": "Keep the lightweight-import boundary but make one typed check-id/config declaration authoritative, building runtime order from an exhaustive plugin-by-id record keyed by it.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-023",
+   "title": "Code-intel daemon guards promise wire types they do not validate",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L02-003"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The daemon IPC boundary checks only envelope fields and discriminators before casting to full command/response unions, so type safety depends on client/server lockstep with deep downstream failures after shallow checks. Ping/pong lifecycle traffic is outside the declared protocol entirely, represented as a fabricated ordinary response.",
+   "directionSummary": "Define one runtime discriminated codec for query and lifecycle request/response arms, derive wire types from it, and represent ping/pong explicitly.",
+   "priorPackRefs": [
+    "CQ25-11"
+   ]
+  },
+  {
+   "id": "C-024",
+   "title": "CLI option models remain parallel registries despite shared parser layers",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-004"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Across drift-ai and drift-triage, option spellings, defaults, validation, presence, dependencies, and result fields have no single typed owner — they are repeated across callback records, mutable accumulators, help text, Zod schemas, parseCli specs, and raw argv rescans. Both CLI stacks require synchronized edits across parallel representations and omissions are invisible to their shared parsers.",
+   "directionSummary": "Introduce typed declarative option descriptors carrying parse kind, default, validation, help metadata, presence, and group dependencies, incrementally deriving parser specs and parsed-result assembly.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-025",
+   "title": "CliOptions is an accreted cross-layer dependency bag",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L02-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "drift-ai's CliOptions combines scope, output, chunking, adapter overrides, gates, and formatting into one growth-prone contract passed whole to every plugin service resolver. Plugin dependencies hide inside arbitrary bag reads while non-report prototype commands fabricate irrelevant defaults to reuse preparation code.",
+   "directionSummary": "Split parsed CLI state into narrow scope, report/gate, and adapter-override contracts; make plugins declare or receive only their service-resolution inputs.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-026",
+   "title": "Drift-ai and code-intel independently encode TypeScript import-edge semantics",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Both analyzer stacks separately implement traversal of import/export/dynamic-import syntax, type-only versus runtime edge classification, and their own resolution policies. TypeScript syntax fixes must be made twice and graph consumers can disagree about the same source file.",
+   "directionSummary": "Extract a repository-agnostic syntax-edge kernel with shared types and injected resolution/filter policy, preserving each stack's resolver as an adapter.",
+   "priorPackRefs": [
+    "CQ25-11"
+   ]
+  },
+  {
+   "id": "C-027",
+   "title": "Analyzer families maintain divergent source and test path taxonomies",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Five separate classifiers across drift-ai, drift-triage, and code-intel disagree about whether the same path is source or test code, from a broad triage regex down to code-intel recognizing only .test.ts/.test.tsx. Extensions and naming conventions require unrelated edits and analyzer results are hard to compare.",
+   "directionSummary": "Create one configurable source/test classification service with explicit policies for declaration files, helpers, directories, and strict versus broad matching.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ]
+  },
+  {
+   "id": "C-028",
+   "title": "Hotspot lenses registered through parallel multi-file switchboards",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Adding or renaming a hotspot lens requires edits across argument parsing, type unions, reduction dispatch, rendering, row identity, and baseline tagging in five drift-ai modules. Some omissions still compile because the relationships are not one exhaustive contract.",
+   "directionSummary": "Introduce a typed concrete-lens registry or visitor owning identity, reduction, row-key/baseline policy, and renderer dispatch; derive accepted values and all-selection from it.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-029",
+   "title": "Environment-provider metadata has four independent sources of truth",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Supported env providers are enumerated independently in the matrix type/read-kind union, the parser's key table and hand-written assignments, advisory property repetition, and read-resolution fallback mapping. Adding or renaming a provider requires four synchronized edits with nothing enforcing exhaustiveness.",
+   "directionSummary": "Define one typed provider descriptor table containing config key, read kind, and fallback policy; derive parsing, enumeration, and lookup from it.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-030",
+   "title": "Every Knip check reparses the same cached report independently",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The duplicates, orphan-files, and unused-exports adapters each perform complete JSON and issues-envelope parsing of the same shared Knip report, so schema handling and malformed-report policy can drift by category. A check-all run parses the same potentially large report three times.",
+   "directionSummary": "Parse once into a typed generic Knip issue-row and location model cached in report scope; let category adapters project the normalized report.",
+   "priorPackRefs": [
+    "CQ25-46"
+   ]
+  },
+  {
+   "id": "C-031",
+   "title": "Semgrep rule-source types and runtime schema evolve independently",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Semgrep rule-source fields are maintained in TypeScript union types, strict allowed-key arrays, manual arm builders, and a bespoke strict-object validation layer. A field change must stay synchronized across all four, and TypeScript cannot prove the runtime parser accepts exactly the declared union.",
+   "directionSummary": "Make a strict runtime schema authoritative and derive the source type, or at minimum type key lists against keyof and centralize arm builders.",
+   "priorPackRefs": [
+    "CQ25-47"
+   ]
+  },
+  {
+   "id": "C-032",
+   "title": "Semgrep command wiring embeds a second recursive repository walker",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "semgrep-candidates-command.ts owns 111 lines of repository traversal (root expansion, recursion, cycle tracking, exclusion pruning, safe reads) beside the subsystem's existing source-walk abstraction. The two walkers can drift on normalization, skipped directories, cycle behavior, and failure handling.",
+   "directionSummary": "Move Semgrep scope probing into a focused scanner built on a reusable repository-walk primitive, retaining Semgrep-specific ancestor semantics as scanner policy.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-033",
+   "title": "Triage merge keys leak directly into the public verdict protocol",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L02-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Drift-triage item keys embed input path, check, index, and JSON-serialized ranges in undocumented delimiter grammars, are used as mutable merge-state identity, and are published as packet and verdict IDs. Refactoring ordering, provenance paths, or merging therefore changes a user-facing protocol without an explicit identity decision.",
+   "directionSummary": "Separate internal typed merge keys from serialized IDs; generate public IDs centrally and version their codec or brand their type.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-034",
+   "title": "Triage locations have two independently maintained representations",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Every triage item stores both display-string locations and structured locationDetails, with producers and merge paths keeping two arrays synchronized while parsing, formatting, and deduplication rules are scattered. One formatter already demonstrates that the structured form can be authoritative.",
+   "directionSummary": "Make structured locations authoritative behind one parse/format/dedup module and derive display strings at serialization or text-output boundaries.",
+   "priorPackRefs": [
+    "CQ25-10"
+   ]
+  },
+  {
+   "id": "C-035",
+   "title": "Logs-audit business-event taxonomy is duplicated and implicit",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Event-field and request-id auditing define business events through separate string tests and repeated script exclusions, with unrecognized families silently inheriting mutation outcome and actor rules. Adding an event family requires discovering multiple scattered classifiers.",
+   "directionSummary": "Introduce one typed event classifier or policy table owning exclusion, family, allowed outcomes, actor requirements, and reason requirements.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ]
+  },
+  {
+   "id": "C-036",
+   "title": "Analyzer presentation logic uses English prose as machine discriminants",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L02-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Logs-audit selects redaction remediation by matching an English message prefix, and drift-ai's formatter dispatches on the exact prose reason 'only available in changed scope'. Copy edits can silently change remediation or report formatting while TypeScript accepts both modules.",
+   "directionSummary": "Add bounded reason/subtype discriminants for redaction and skip outcomes; keep human messages presentation-only.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ]
+  },
+  {
+   "id": "C-037",
+   "title": "Latest-log discovery mirrors the verify state-path protocol",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L02-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "logs-audit-latest.ts reconstructs verify-metadata.sh's repository-identity hashing, state-root normalization, and standard state paths, with an explicit comment requiring manual synchronization. State-layout changes require coordinated edits across language and module boundaries.",
+   "directionSummary": "Give state-path derivation one machine-readable or TypeScript owner consumed by both the shell facade and logs-audit, retaining direct-CLI fallback behavior.",
+   "priorPackRefs": [
+    "CQ25-124"
+   ]
+  },
+  {
+   "id": "C-038",
+   "title": "code-intel.ts maintains an unused pseudo-library facade",
+   "area": "harness",
+   "category": "dead-code",
+   "members": [
+    "L02-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "About one hundred lines of the code-intel entrypoint maintain nine namespace type imports, eleven forwarding functions, a conditionally assigned exported class, and a nine-module Promise.all loader — with zero tracked TypeScript import sites. The facade obscures the real CLI lifecycle and makes simple command changes involve top-level await and conditional exports.",
+   "directionSummary": "Make the root file a tiny executable; if a supported API is intentional, provide direct side-effect-free exports from a separate api.ts module, otherwise delete the forwarding surface.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-039",
+   "title": "Test-orphaning indexes history, then rescans it once per source",
+   "area": "harness",
+   "category": "idiom",
+   "members": [
+    "L02-019"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Test-orphaning analysis builds a per-path touch index but then passes the full commit-records array to recentSubjects for every row, re-searching record.files each time. Near the advertised caps (5,000 commits, 20,000 files) this admits roughly 100 million per-source iterations despite the needed indexes already existing.",
+   "directionSummary": "Derive recent subjects directly from sourceTouches indexes or enrich the per-path index with the small actionability payload the rows need.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-040",
+   "title": "Ratchet-driven file boundaries strand generic I/O behind sensor-specific modules",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L02-020"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "harness-freshness-io.ts exists explicitly to keep another module under a line ratchet, yet module-doc analysis reaches through it for generic git-ignore behavior while it hard-codes harness-freshness failure vocabulary. Metric appeasement rather than cohesion decides the module boundary, producing a misleading owner and duplicated contracts.",
+   "directionSummary": "Move generic git-ignore and I/O behavior to a neutral repository adapter with caller-supplied diagnostic context, keeping sensor modules domain-focused.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-041",
+   "title": "The auth router is the request-facing auth service in everything but name",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-001"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The 342-line auth router owns the actual account and session lifecycle (registration, login, refresh rotation, password change, deletion) while the file named auth-service contains only cryptographic and token primitives. Auth changes require understanding tRPC, Fastify cookies, Prisma sessions, credential policy, and logging in one transport file.",
+   "directionSummary": "Keep cookie access in a narrow transport adapter and move the account/session workflow orchestration into request-facing auth services, staged by workflow.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-042",
+   "title": "Chat persistence and delivery policy reimplemented across routers and services",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L03-002"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Six production chatMessage.create writers (chat, dice, cast-spell, character-live-state/feature, rest-service, combat-chat) each separately decide how to construct, persist, map, broadcast, and recover from delivery, and the chat router additionally reaches into presence and notification domains. There is no coherent chat-message application boundary.",
+   "directionSummary": "Introduce a typed chat-message coordination surface for ordinary chat, whispers, rolls, combat, and best-effort post-commit messages, centralizing persistence, mapping, recipient resolution, broadcast, and failure policy while callers keep content construction.",
+   "priorPackRefs": [
+    "CQ25-75"
+   ]
+  },
+  {
+   "id": "C-043",
+   "title": "Homebrew import split at an awkward validation-versus-persistence seam",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-003"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Roughly 78 lines of import-specific behavior — byte accounting, Zod issue rendering, per-entry parsing, failure aggregation, message budgeting — remain in the homebrew router despite a dedicated import service that assumes pre-validated rows. Understanding one import request requires following an arbitrary split across both modules.",
+   "directionSummary": "Have the import service own the untrusted-envelope workflow end to end (size checks, parsing, bounded failure construction, atomic persistence), leaving the router as input/output wiring.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-044",
+   "title": "Invite lifecycle ownership split between router and invite service",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-004"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Capacity-sensitive invitee operations (preview, join) live in invite-service while administrative lifecycle — code generation, expiry, collision retries, revoke, mapping — is implemented inline in the router. The service name suggests broader ownership than it provides.",
+   "directionSummary": "Move administrative invite operations into invite-service.ts or a clearly named invite-admin service, including a total code-generation and retry helper.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-045",
+   "title": "Note and NPC routers contain their domain services",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The note and NPC routers implement domain visibility, redaction, filtering, compound cursors, mutation policy, persistence, and mapping directly in transport modules. Contributors must discover policy split between routers and auth utilities, and transport changes risk modifying domain rules.",
+   "directionSummary": "Introduce focused flat note and NPC services with request-facing operations, leaving schemas and procedure selection in the routers.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-046",
+   "title": "Character creation is a large pseudo-module loose in the services root",
+   "area": "server",
+   "category": "organization",
+   "members": [
+    "L03-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Character creation spans 640 lines across four flat service files with the entry file simultaneously facade and dependency of its helper (a type-only cycle), and no module boundary, shared types file, or local ownership doc. Contributors must reconstruct the four-file unit through imports.",
+   "directionSummary": "Group character creation under services/character-create/ with one logic-bearing facade, focused internals, a shared types file, and a short MODULE.md — intentionally flagging a conflict with the one-mutation flat-service rubric.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-047",
+   "title": "Spell eligibility bypasses the module facade contradicting the documented boundary",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The character-spell router imports resolveCombatEligibility directly from a spell-casting internal file at two production call sites, while the module's MODULE.md instructs external callers to use the facade's three entry points. Internal spell-casting code cannot be reorganized without discovering this unrelated router dependency.",
+   "directionSummary": "Either make eligibility an explicit facade entry point or move the reusable pure projection to a named utility used by both the router and the spell module.",
+   "priorPackRefs": [
+    "CQ25-118"
+   ]
+  },
+  {
+   "id": "C-048",
+   "title": "Spell participant loading discards Prisma inference behind an unchecked mirror",
+   "area": "server",
+   "category": "hack",
+   "members": [
+    "L03-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "load-participants routes the inferred Prisma query result through unknown and asserts it as a hand-maintained CasterRaw type that weakens always-selected fields to optional. The query and consumer contract can drift while compiling, and the manufactured optional states force fallback handling for conditions the fixed include never produces.",
+   "directionSummary": "Derive the caster payload from a Prisma include/select type, or use a narrow select whose inferred result the resolver accepts directly.",
+   "priorPackRefs": [
+    "CQ25-22"
+   ]
+  },
+  {
+   "id": "C-049",
+   "title": "Server mappers maintain parallel handwritten shadows of Prisma payloads",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L03-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "14 handwritten row/selection shapes across encounter-query.ts, homebrew-helpers.ts, and map-types.ts manually transcribe Prisma fields instead of deriving them, while character-mapping.ts demonstrates the lower-drift Prisma.CharacterGetPayload convention. Query changes require synchronized edits to structural shadows whose permissive compatibility can hide relation-shape differences.",
+   "directionSummary": "Derive exact payloads with Prisma.*GetPayload and named satisfies-constrained include/select constants, keeping structural inputs only where a mapper intentionally accepts multiple projections.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-050",
+   "title": "Map-layer responses mapped twice with divergent JSON and date contracts",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L03-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "map-helpers' detail mapper and map-layer's CRUD path independently map the same fields and already disagree on malformed-JSON handling (unchecked fromJson versus local schema validation) and timestamp representation (Date versus ISO string). Contract changes must be repeated in both places.",
+   "directionSummary": "Export one MapLayer mapper from a focused mapping module that validates data and normalizes timestamps, used by both the map-detail and layer CRUD paths.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-051",
+   "title": "Participant create-data helpers erase their discriminated type and force downstream casts",
+   "area": "server",
+   "category": "hack",
+   "members": [
+    "L03-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A builder over discriminated AddParticipantInput branches returns Record<string, unknown>, so the calling service mutates the opaque record through an unknown[] assertion and re-stamps the whole value as Prisma create data. Assertions replace compiler checks for future required fields.",
+   "directionSummary": "Return a Prisma-compatible discriminated create type, either assembling persistent conditions behind the same typed boundary or exposing a payload the service can extend without whole-object assertions.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-052",
+   "title": "Opposite spell-slot operations duplicate the entire Pattern B protocol",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L03-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "consumeSpellSlot and recoverSpellSlot each hand-maintain the same 29-line load/bound-check/counter-CAS/zero-row-conflict/refetch protocol with only direction, bounds, and messages reversed. Changes to affected-row handling, return shape, or locking can update one direction and miss the other; the utility name also collides with a service export, forcing an InTx alias.",
+   "directionSummary": "Extract a private table-local used-counter CAS primitive parameterized by direction and bounds, retaining small consume/recover wrappers with depth-signalling names.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-053",
+   "title": "Two narrow operations receive the unrestricted generated Prisma client type",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "presence-service and session-cleanup accept the raw generated PrismaClient although each needs only one delegate method, statically granting every raw delegate plus $extends despite DbClient being the declared business boundary. The runtime guard remains, but the compile-time boundary is absent and the exceptions are easy to copy.",
+   "directionSummary": "Accept DbClient or minimal structural ports such as Pick<DbClient, \"campaignMember\"> and Pick<DbClient, \"session\">.",
+   "priorPackRefs": [
+    "CQ25-102"
+   ]
+  },
+  {
+   "id": "C-054",
+   "title": "Cascade deleters duplicate a load-bearing turn-origin cleanup protocol",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L03-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Map deletion and character deletion independently implement the same concurrency-sensitive snapshot-participants, cascade-delete, then batch-clear-surviving-turn-origins sequence inside a transaction. Comments act as the synchronization mechanism for executable behavior across two distant twins.",
+   "directionSummary": "Introduce one transaction-local cascade-origin cleanup coordinator used by both deleters while keeping each selector and delete operation explicit.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-055",
+   "title": "Chat broadcast facade bypasses registry-owned room and socket-optional policies",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Unlike the other broadcast facades, broadcastChatMessage requires a concrete socket server and caller-resolved room, so all 7 production call sites repeat room resolution and null-socket screening the registry already owns, and skipped-outcome logging is bypassed when sockets are disabled.",
+   "directionSummary": "Accept AppSocketServer | null, remove the room parameter, derive the room from the payload, and remove caller-side socket guards.",
+   "priorPackRefs": [
+    "CQ25-118"
+   ]
+  },
+  {
+   "id": "C-056",
+   "title": "Request and socket boundaries capture production globals outside composition roots",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L03-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Upload routes, the tRPC context module, and the campaign-room handler each capture the Prisma singleton (and auth service) at module load, so BuildServerOptions cannot provide the dependencies these boundaries actually use. Function signatures do not describe real dependencies and alternate construction requires module replacement.",
+   "directionSummary": "Give buildServer and setupSocketIO explicit dependency bundles with production defaults, constructing route registration, tRPC context, and room membership ports at their composition roots.",
+   "priorPackRefs": [
+    "CQ25-118"
+   ]
+  },
+  {
+   "id": "C-057",
+   "title": "All four seed generators can overwrite committed artifacts after incomplete parsing",
+   "area": "server",
+   "category": "dx",
+   "members": [
+    "L03-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "All 4 of 4 seed generator entry points downgrade parse failures, missing records, or missing descriptions to warnings and still write output, so a normal regeneration can exit successfully after dropping records or blanking descriptions and overwrite attested files. Reviewers must detect completeness loss in large generated diffs.",
+   "directionSummary": "Parse and validate the complete corpus before writing, failing by default on rejected or missing records with output staged in memory or temp files; reserve partial generation for an explicit diagnostic mode.",
+   "priorPackRefs": [
+    "CQ25-172"
+   ]
+  },
+  {
+   "id": "C-058",
+   "title": "Seed JSON boundaries alternate between schemas and unchecked assertion chains",
+   "area": "server",
+   "category": "idiom",
+   "members": [
+    "L03-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The shared seed-data loader returns unknown and delegates narrowing to every caller: of 9 consuming modules, 3 schema-parse the corpus while 6 rely on type assertions, including double-asserted nested records. There is no directory-level rule for what a seed-data boundary guarantees or where malformed input fails.",
+   "directionSummary": "Add a schema-aware loader form and define an explicit validation level per corpus with types derived from schemas; large corpora may validate only consumed fields, but narrowing should occur at one named boundary.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-059",
+   "title": "tRPC error sanitization depends on unstable internals and assertion-heavy recursive surgery",
+   "area": "server",
+   "category": "hack",
+   "members": [
+    "L03-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The tRPC error formatter imports from unstable-core-do-not-import and Zod core internals, and its 16-line variant-rewrite block carries 5 type-assertion-boundary markers while recursively casting sanitized children back to framework issue types. Framework or Zod upgrades can change private shapes while the important sanitization policy rides on unsafe types.",
+   "directionSummary": "Isolate sanitization behind a transport-owned recursive issue type and a narrow compatibility seam, keeping sanitized children in the safe type instead of casting back to framework internals.",
+   "priorPackRefs": []
+  },
+  {
+   "id": "C-060",
+   "title": "Participant mutation comments misstate expected-version helper usage",
+   "area": "server",
+   "category": "comment",
+   "members": [
+    "L03-020"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The participant-stats mutation header claims the expected-version helper closes visibility edits and that conditions writes go through updateParticipantStatsLocked, but the implementation blind-writes visibility and routes versioned writes through the WithExpectedVersion variant. A maintainer following the header can choose or describe the wrong helper at a sanctioned concurrency boundary.",
+   "directionSummary": "Correct the two false field/helper statements while preserving the load-bearing concurrency header and its rationale.",
+   "priorPackRefs": [
+    "CQ25-103"
+   ]
+  }
+ ]
+}

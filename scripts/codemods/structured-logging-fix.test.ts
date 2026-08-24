@@ -4,10 +4,12 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { CodemodError } from "./lib/codemod-errors.js";
 import {
   copyDirectoryContents,
   enumerateFixtures,
   expectDirectoriesToMatch,
+  expectedRoot,
   expectRunTwiceStdout,
   expectStdout,
   optionalBoolean,
@@ -19,7 +21,6 @@ import {
   throwCapturedError,
   withCapturedStdout,
 } from "./lib/fixture-runner.test-helper.js";
-import { CodemodError } from "./lib/trpc-shared-schema.js";
 import { runStructuredLoggingFixCodemod } from "./structured-logging-fix.js";
 
 type FixtureMetadataBase = {
@@ -85,7 +86,7 @@ function runFixture(name: string): void {
     expect(firstRun.error).toBeInstanceOf(CodemodError);
     if (!(firstRun.error instanceof Error)) throw new Error("Expected codemod error.");
     expect(firstRun.error.message).toContain(metadata.expectedError);
-    expectDirectoriesToMatch(workRoot, path.join(caseRoot, "after"));
+    expectDirectoriesToMatch(workRoot, expectedRoot(caseRoot));
     return;
   }
   if (firstRun.error) throwCapturedError(firstRun.error);
@@ -108,7 +109,7 @@ function runFixture(name: string): void {
   } else {
     expectStdout(firstRun.output, metadata.expectedStdout);
   }
-  expectDirectoriesToMatch(workRoot, path.join(caseRoot, "after"));
+  expectDirectoriesToMatch(workRoot, expectedRoot(caseRoot));
 }
 
 describe("structured logging fix codemod fixtures", () => {

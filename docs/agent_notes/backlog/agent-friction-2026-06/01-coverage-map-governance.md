@@ -1,5 +1,14 @@
 # 01 — Lint coverage-map governance (A1–A6 + architectural)
 
+> **Historical as of code-quality-2026-08-01 leaf 111.** That leaf made a typed
+> TS manifest (`scripts/lint-coverage-map-manifest*.ts`) the sole coverage
+> policy source and renders `docs/generated/lint-coverage-map.md` end to end
+> from it. Everything below that reads the Markdown back — `parseRows`,
+> `extractPathPatterns`, `loadMapText`, the private glob dialect in
+> `-patterns.ts` (now `-check-scope.ts`, scope policy only), and the `--staged`
+> flag and its index read — no longer exists. The findings and decisions stay
+> on record; the code citations and line numbers are pinned to the pre-111 tree.
+>
 > Proposals only — not implemented. Verified against current HEAD.
 > Canonical doc today: `docs/generated/lint-coverage-map.md` (~419 rows). The
 > logs' `docs/agent_notes/backlog/lint-followups/lint-coverage-map.md` path is

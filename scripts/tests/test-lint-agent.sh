@@ -7,10 +7,11 @@
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/lib/eslint-json.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
-# smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/eslint-main-cache.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/tests/test-lint-agent.sh
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: tools/harness-diagnostics/
 # smoke-subjects: eslint.config.js
 # smoke-subjects: eslint-config/
 # smoke-subjects: eslint-rules/
@@ -44,7 +45,6 @@ build_fixture() {
   mkdir -p "$fixture_dir/scripts/lib"
   mkdir -p "$fixture_dir/scripts/harness"
   mkdir -p "$fixture_dir/scripts/lint-ratchet"
-  mkdir -p "$fixture_dir/packages/shared/src/schemas"
   cp scripts/lint-agent.ts "$fixture_dir/scripts/lint-agent.ts"
   cp scripts/lint-agent-envelope.ts "$fixture_dir/scripts/lint-agent-envelope.ts"
   cp scripts/lint-agent-fix-text.ts "$fixture_dir/scripts/lint-agent-fix-text.ts"
@@ -63,13 +63,11 @@ build_fixture() {
   # the shared record guards in scripts/lib/records.ts, so the sandbox closure
   # needs that leaf too.
   cp scripts/lib/records.ts "$fixture_dir/scripts/lib/records.ts"
-  cp scripts/lib/eslint-main-cache.sh "$fixture_dir/scripts/lib/eslint-main-cache.sh"
+  cp scripts/lib/eslint-main-cache.ts "$fixture_dir/scripts/lib/eslint-main-cache.ts"
+  cp scripts/lib/process-argv.ts "$fixture_dir/scripts/lib/process-argv.ts"
   cp scripts/lint-ratchet/local-rule-fix-text.ts \
     "$fixture_dir/scripts/lint-ratchet/local-rule-fix-text.ts"
-  cp packages/shared/src/schemas/harness-diagnostics.ts \
-    "$fixture_dir/packages/shared/src/schemas/harness-diagnostics.ts"
   ln -s "$REPO_ROOT/node_modules" "$fixture_dir/node_modules"
-  ln -s "$REPO_ROOT/packages/shared/node_modules" "$fixture_dir/packages/shared/node_modules"
 
   cat >"$fixture_dir/local-plugin.js" <<'JS'
 const violatingRule = ({ docs, message = "fixture diagnostic", suggest }) => ({
@@ -527,7 +525,7 @@ echo "$PARSER_JSON" | bun -e '
 '
 
 # --- Run 5: the agent envelope uses the salted, self-invalidating main cache --
-# lint-agent must derive its cache args from scripts/lib/eslint-main-cache.sh
+# lint-agent must derive its cache args from scripts/lib/eslint-main-cache.ts
 # so a change to any salt input (here: a new TS source that is a type-graph
 # input but not itself linted) moves the cache identity, exactly as it does for
 # the main lint lane. The old unsalted node_modules/.cache/eslint/ location
@@ -592,5 +590,25 @@ if [ "$(count_identity_dirs)" -ne 1 ]; then
   find "$SALT_CACHE_ROOT" 2>/dev/null || true
   exit 1
 fi
+
+# --- Run 6: cache preparation failure preserves the uncached lint run --------
+PREP_FAIL_DIR="$TMP_ROOT/cache-preparation-failure"
+build_fixture "$PREP_FAIL_DIR"
+mkdir -p "$PREP_FAIL_DIR/empty-src"
+printf '// placeholder, no lint targets\n' >"$PREP_FAIL_DIR/empty-src/README.md"
+printf 'blocks mkdir beneath this path\n' >"$PREP_FAIL_DIR/cache-root-file"
+
+if ! (cd "$PREP_FAIL_DIR" && MUSI_ESLINT_MAIN_CACHE_ROOT="$PREP_FAIL_DIR/cache-root-file" \
+      bun run scripts/lint-agent.ts --output ./envelope.json empty-src/ \
+      >"$TMP_ROOT/prep-fail.out" 2>"$TMP_ROOT/prep-fail.err"); then
+  echo "FAIL: cache preparation failure should preserve the uncached lint run"
+  cat "$TMP_ROOT/prep-fail.err"
+  exit 1
+fi
+grep -q "could not derive the salted ESLint cache args" "$TMP_ROOT/prep-fail.err" || {
+  echo "FAIL: cache preparation failure did not report the uncached fallback"
+  cat "$TMP_ROOT/prep-fail.err"
+  exit 1
+}
 
 echo "PASS: lint-agent smoke"

@@ -7,7 +7,7 @@ import type {
   HarnessDiagnostics,
   HarnessDiagnosticTool,
   HarnessFindingSeverity,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
 
 const JSON_INDENT_SPACES = 2;
 

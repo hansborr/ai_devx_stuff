@@ -1,0 +1,133 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-02-analyzers",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L02-101",
+      "title": "The drift-ai executable exposes an incoherent 23-module pseudo-API",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai.ts",
+          "line": 2,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The header calls this the executable surface, but the file immediately begins selectively re-exporting analyzer internals."
+        },
+        {
+          "path": "scripts/drift-ai.ts",
+          "line": 16,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The facade exports coldspot argument parsing alongside low-level reducers, blame helpers, Git utilities, formatters, and hotspot internals, yet omits the sibling hotspot argument parser."
+        },
+        {
+          "path": "scripts/drift-ai.ts",
+          "line": 95,
+          "endLine": 142,
+          "measurement": null,
+          "note": "Report construction, scope conversion, generic subcommand helpers, contracts, and defaults further expand the executable into a manually curated library boundary."
+        },
+        {
+          "path": "scripts/drift-ai.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "23 internal module paths re-exported; 0 tracked production TypeScript importers and 6 test-only TypeScript importers at the audit pin",
+          "note": "Repository usage does not establish a production consumer or explain which internals constitute a supported API."
+        }
+      ],
+      "problem": "The root path simultaneously presents itself as the executable and as a broad but selective programmatic API. There is no coherent inclusion rule, so new analyzer capabilities can appear in the CLI without an API decision while low-level implementation helpers look publicly supported. Maintainers must preserve a second manual boundary that currently serves only tests inside the repository.",
+      "proposedDirection": "Keep the executable as a narrow delegation shell and, if a supported programmatic surface is required, define it explicitly in a side-effect-free drift-ai API module with intentional exports and compatibility guarantees.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-155",
+        "novelty": "The prior ruling permanently dropped splitting the root barrel test; it did not adjudicate the executable's selective 23-module API surface."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-102",
+      "title": "Logs-audit leaves its ingestion core in the flat executable",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/logs-audit.ts",
+          "line": 75,
+          "endLine": 105,
+          "measurement": null,
+          "note": "The flat entry owns the complete option parser and its validation policy."
+        },
+        {
+          "path": "scripts/logs-audit.ts",
+          "line": 107,
+          "endLine": 167,
+          "measurement": null,
+          "note": "JSONL normalization, parsing, rejection accounting, record collection, and check dispatch—the analyzer's ingestion kernel—remain in the executable."
+        },
+        {
+          "path": "scripts/logs-audit.ts",
+          "line": 169,
+          "endLine": 198,
+          "measurement": null,
+          "note": "Report merging and per-file read/error handling add another domain layer to the entry."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-checks.ts",
+          "line": 1,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The analyzer directory's nominal checks module is only a three-export barrel while the coordinating audit algorithm lives outside the directory."
+        }
+      ],
+      "problem": "The analyzer is split at an arbitrary boundary: individual checks, formatting, discovery, diagnostics, and types live under logs-audit, but the input pipeline and public runner remain embedded in the executable. Contributors must cross the flat-file/directory boundary to understand or extend one audit pass, and programmatic users must import the side-effect-bearing entry path.",
+      "proposedDirection": "Move argument handling, JSONL ingestion, report merging, and run orchestration into focused logs-audit modules, leaving the flat file as a small executable delegate with compatibility re-exports only where they are genuinely consumed.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "H19 moved logs-audit's core types out of the executable and established the checks barrel, but left the runtime ingestion and orchestration boundary described here."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Logs-audit converts analyzer exceptions into input-read findings",
+      "paths": [
+        "scripts/logs-audit.ts:182"
+      ],
+      "whySuspectedBug": "The catch covers both readFile and auditJsonlText, so an unexpected exception in redaction, request-id, or event-field analysis is reported as \"could not read log file\" and treated as an ordinary finding rather than a tool failure.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Drift-triage mislabels packet-preparation failures as report-write failures",
+      "paths": [
+        "scripts/drift-triage.ts:116",
+        "scripts/drift-triage.ts:136"
+      ],
+      "whySuspectedBug": "One catch wraps primary output, provenance collection, source reads, packet construction, and bundle writes, but every exception is returned as \"could not write report,\" obscuring failures that occurred before any packet write.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "scripts/drift-ai.ts — 149 lines at the audit pin",
+      "scripts/drift-triage.ts — 183 lines at the audit pin",
+      "scripts/logs-audit.ts — 279 lines at the audit pin"
+    ],
+    "sampled": [],
+    "skipped": [],
+    "pointers": [],
+    "cut": []
+  }
+}

@@ -1,0 +1,214 @@
+{
+  "contractVersion": 1,
+  "step": "1c-round-6",
+  "decisions": [
+    {
+      "promotionId": "B6-01",
+      "ruling": "augment-existing-leaf",
+      "targetLeaf": "115 — Gate parity checks pin wiring by fingerprinting source text",
+      "mergeWith": null,
+      "severity": "low",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The existing leaf already removes the four-output hard list, and a shared typed path-to-renderer descriptor closes its remaining producer/checker parity gap without creating another scheduling unit.",
+      "evidenceVerified": true,
+      "settledDirection": "Extend leaf 115's registration-preflight slice with one generator-owned typed descriptor for the four verify-step projections. Generation and in-process freshness checking must consume it, its paths must agree exactly with the manifest record's outputPaths, and manifest models should be loaded once per operation.",
+      "constraints": [
+        "Preserve leaf 115's ruling that behavioral hook-order fingerprints remain deliberate, labeled tamper tripwires.",
+        "Preserve granular malformed-manifest diagnostics and the standalone verify:steps:check command.",
+        "Do not replace manifest outputPaths as the registration authority; assert descriptor-to-manifest parity."
+      ],
+      "rationale": "The four renderer mappings and the preflight list are genuinely duplicated, and the current preflight can validate declared coverage without proving the refresh path writes every output. This is residual scope inside leaf 115, not a new leaf."
+    },
+    {
+      "promotionId": "B6-02",
+      "ruling": "augment-existing-leaf",
+      "targetLeaf": "126 — All 32 hook bindings hand-author derived command strings and matcher syntax",
+      "mergeWith": null,
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Exact-key rejection is a small addition to the hook-wiring validator and its focused tests, and folding it into leaf 126 avoids a colliding new leaf over the same parser.",
+      "evidenceVerified": true,
+      "settledDirection": "While implementing leaf 126's hookWiring validation changes, add allowed-key inventories for the top-level hookWiring object and each harness command object, rejecting unknown fields with focused diagnostics and tests.",
+      "constraints": [
+        "Keep deep facet validation consumer-owned; do not move hookWiring into the whole-manifest schema or unify the facet validators.",
+        "Honor leaf 126's validate-mode-only ruling: do not change the wiring generator, shims, generated files, or generatedSurface registrations.",
+        "Include leaf 126's new optional surface field in the exact top-level inventory."
+      ],
+      "rationale": "The evidence confirms that hookWiring alone silently discards unknown top-level and command fields across 18 live controls. It directly collides with leaf 126's changes to the same validator and belongs there."
+    },
+    {
+      "promotionId": "B6-03",
+      "ruling": "reject",
+      "targetLeaf": null,
+      "mergeWith": null,
+      "severity": "low",
+      "size": "M",
+      "worthIt": false,
+      "worthItReason": "The evidence proves twelve serial launches and two repeated projections, but supplies no timing showing material contributor friction; bounded parallel process management and stable aggregate diagnostics would add meaningful complexity for an unmeasured local optimization.",
+      "evidenceVerified": true,
+      "settledDirection": "Do not schedule subprocess parallelization or duplicate-check suppression from this audit. Reconsider only with end-to-end harness:check timing that isolates child-startup cost and a design preserving deterministic diagnostics and complete child cleanup.",
+      "constraints": [
+        "Do not conflate this TypeScript subprocess collector with leaf 253's Bash parallel-runner convergence.",
+        "Any future suppression of verify-step or skill checks must be explicitly tied to the successful in-process check, not inferred merely from record identity."
+      ],
+      "rationale": "The structural count is correct, including the two repeated projections, but the claimed DX impact is not measured. At the enlarged late-round churn cost, this remains local optimization rather than a pack-worthy finding."
+    },
+    {
+      "promotionId": "B6-04",
+      "ruling": "new-leaf",
+      "targetLeaf": null,
+      "mergeWith": null,
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Despite the cost of reopening the pack, this is a very small deletion-and-adapter change with demonstrated protocol drift: verify:logs accepts duplicate marker fields that the canonical gate codec rejects.",
+      "evidenceVerified": true,
+      "settledDirection": "Delete read_wrapper_marker_ts and route wrapper-marker reads through a thin verify:logs adapter over musi_read_success_marker, deriving age from the exported canonical timestamp. Keep viewer behavior tests while leaving marker-shape cases with the canonical codec suite.",
+      "constraints": [
+        "Honor CQ25-124: keep success-marker and TTL handling in Bash and do not reopen the TypeScript-port decision.",
+        "Preserve verify:logs integration behavior and its corrupt-marker presentation.",
+        "Coordinate with leaf 117's move-only decomposition; verify-metadata.sh remains the public aggregator even if the canonical function moves internally."
+      ],
+      "rationale": "Both parsers implement the same three-field protocol, the viewer already sources the canonical library, and their duplicate-field behavior has already diverged. That demonstrated maintenance failure clears the late-round bar."
+    },
+    {
+      "promotionId": "B6-05",
+      "ruling": "augment-existing-leaf",
+      "targetLeaf": "084 — The backlog directory is simultaneously an action queue, evidence archive, and completed-work store",
+      "mergeWith": null,
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Leaf 084 already extends this parser with another status-dependent classifier; documenting and fencing the existing grammar before that extension prevents the planned catalog from deepening an opaque compatibility contract.",
+      "evidenceVerified": true,
+      "settledDirection": "Augment leaf 084's classifier slice to name and document the accepted backlog-note and pack grammar, expose a coherent parsed model to the new classifier, and isolate pathname, status-prose, index-name, and Markdown-table fallbacks from the canonical header contract while preserving existing notes.",
+      "constraints": [
+        "Honor CQ25-39: the prior pack may relocate backlog-lint internals, but scripts/backlog-lint.ts remains the facade.",
+        "Preserve compatibility; do not bulk-rewrite Status headers or introduce an incompatible mandatory format.",
+        "Keep leaf 084's catalog and checks advisory-tier and do not move or rename backlog records.",
+        "Do not create a second status vocabulary; retain the existing shared token owner."
+      ],
+      "rationale": "The 1,393-line count and the undocumented header, prose, pathname, index, and table heuristics all verify. Because leaf 084 already owns the same parser and proposes extending those heuristics, separate authoring would create the exact collision this adjudication must prevent."
+    },
+    {
+      "promotionId": "C6-01",
+      "ruling": "reject",
+      "targetLeaf": null,
+      "mergeWith": null,
+      "severity": "medium",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "Leaf 099 already names the facade misdirection, the transaction-owning service, the field-map location, and the exact one-document correction; another edit adds no material scope.",
+      "evidenceVerified": true,
+      "settledDirection": "Make no promotion-authored change. Implement the service-owner correction only through leaf 099.",
+      "constraints": [
+        "Leaf 099 also owns the stale PARTICIPANT_FIELD_KIND location in the same guide.",
+        "Keep the public router procedure name only as routing context; the service file is the transaction authority."
+      ],
+      "rationale": "The cited service transaction and thin router are real, but this candidate is already fully owned by leaf 099's title, problem, evidence, and direction. Adding one more transaction-line citation does not justify reopening the accepted leaf."
+    },
+    {
+      "promotionId": "C6-02",
+      "ruling": "reject",
+      "targetLeaf": null,
+      "mergeWith": null,
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "Leaf 099 already cites all three false code-point claims, compareCodeUnits, the relevant sort sites, and the required UTF-16 code-unit correction.",
+      "evidenceVerified": true,
+      "settledDirection": "Make no promotion-authored change. Apply the terminology correction in docs/CONCURRENCY.md only through leaf 099.",
+      "constraints": [
+        "CQ25-21 separately owns the same terminology correction in the spell-casting MODULE and its facade coverage.",
+        "Retain the clarification that current identifiers are ASCII, where code-unit and code-point ordering agree."
+      ],
+      "rationale": "The terminology mismatch is genuine but is the second explicit half of existing leaf 099. It supplies no residual beyond that leaf."
+    },
+    {
+      "promotionId": "C6-03",
+      "ruling": "augment-existing-leaf",
+      "targetLeaf": "094 — Two documents both claim to be the authoritative harness inventory",
+      "mergeWith": null,
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Leaf 094 already owns the advertised complete Guides table and table-specific freshness check; correcting its incomplete count and acceptance scope materially strengthens an existing leaf without adding a new index or number.",
+      "evidenceVerified": true,
+      "settledDirection": "Correct leaf 094 to record 24 direct guide files, 20 represented in 19 Guides-table rows, 22 referenced anywhere in ai-harness.md, and 2 absent entirely. Keep ai-harness.md as the selected guide index, add all four table omissions, and make harness-freshness validate table membership rather than incidental full-file references.",
+      "constraints": [
+        "Honor leaf 094's settled authority split: ai-harness.md owns the complete guide map; do not add a competing docs/guides landing index.",
+        "Honor CQ25-78: keep the four lint-ratchet guides separate rather than folding them together.",
+        "The four table omissions are code-intel.md, lint-message-evals.md, lint-ratchet-merges.md, and lint-ratchet-reference.md; only the latter two are absent from the whole document.",
+        "Preserve stale backtick-path checking as a separate sensor concern."
+      ],
+      "rationale": "The seat's corrected measurement is exact and exposes an incompleteness in leaf 094's current two-guide account. The proposed local landing page is rejected because leaf 094 has already settled ai-harness.md as the single guide-table owner."
+    },
+    {
+      "promotionId": "C6-04",
+      "ruling": "reject",
+      "targetLeaf": null,
+      "mergeWith": null,
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "Leaf 266 already contains the same absence measurement, README and AGENTS evidence, concise CONTRIBUTING.md direction, and human-versus-agent scope boundary.",
+      "evidenceVerified": true,
+      "settledDirection": "Make no promotion-authored change. Add the human contribution entrypoint only through leaf 266.",
+      "constraints": [
+        "Keep CONTRIBUTING.md concise and link it from README.",
+        "Do not copy AGENTS.md wholesale or change hooks, branch protection, package scripts, or review policy in that leaf."
+      ],
+      "rationale": "The evidence is accurate, but the candidate is an exact duplicate of leaf 266 rather than a residual suitable for augmentation."
+    }
+  ],
+  "dismissalsReviewed": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[9]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "The portability map explicitly separates selected generator/copy machinery from repo-local Bash gate orchestration, and the porting guide names the Bash, jq, Bun, path, and layout assumptions."
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[29]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "Both sensors use the same import-safe CLI envelope; their differing exports and doctor treatment follow distinct test seams and blocking-versus-report-only contracts, not facade drift."
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[0]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "The live one-caller, 24-prop shape is unchanged, and CQ25-191's explicit refusal of prop grouping still applies without a new caller or clean partition."
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[47]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "The repeated headings are short presentation with distinct content, while the review queries use normal independently cacheable query contracts and preserve intentional ID fallbacks."
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[48]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "The header repetition is local to one state renderer, EncounterMapLink is a focused one-consumer boundary, and CombatLogPanel's 303 lines are already divided among cohesive helpers."
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[49]",
+      "seatDisposition": "dismiss",
+      "agree": true,
+      "note": "No route-loading policy or measured bundle impact makes the eager/lazy mix a defect, and the page-owned empty states differ in semantics, actions, iconography, and dialog wiring."
+    }
+  ],
+  "poolNotes": [
+    "B6-01 and B6-03 overlap on repeated verify-step freshness work. Only B6-01's producer/checker descriptor residual is admitted, as an augmentation to leaf 115; B6-03 is not merged because its performance case lacks timing evidence.",
+    "B6-02 collides directly with leaf 126 in hook-wiring-schema.ts, so exact-key enforcement is folded into that leaf under its validate-mode constraints.",
+    "B6-05 collides with leaf 084's planned backlog classifier and is folded into its first slice rather than becoming a second parser-model proposal.",
+    "C6-01 and C6-02 are the two explicit halves of leaf 099 and are rejected as fully covered duplicates.",
+    "C6-03 corrects leaf 094's inventory measurement: 24 guide files, 20 in the Guides table, 22 referenced anywhere, and 2 absent entirely. The existing leaf's single-index ruling defeats the proposed additional local landing page.",
+    "C6-04 is fully covered by leaf 266.",
+    "B6-04 is the pool's only new leaf. If authored, it takes the next monotonic number, 271; permanent holes 096 and 161 remain untouched.",
+    "No dismissal was overturned."
+  ]
+}

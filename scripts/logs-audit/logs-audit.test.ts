@@ -2,22 +2,13 @@ import { existsSync, mkdirSync, readFileSync, utimesSync, writeFileSync } from "
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   harnessDiagnosticsSchema,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "../harness/harness-diagnostics-output.js";
-import {
-  auditJsonlText,
-  findLatestCompatibleLogFiles,
-  formatJson,
-  formatText,
-  type LogsAuditReport,
-  parseArgs,
-  runLogsAudit,
-} from "../logs-audit.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   controlForCheck,
@@ -25,13 +16,55 @@ import {
   projectLogsAuditDiagnostics,
   writeLogsAuditDiagnosticsSidecar,
 } from "./logs-audit-diagnostics.js";
-import { isJsonObject } from "./logs-audit-redaction.js";
+import { formatJson, formatText } from "./logs-audit-format.js";
+import { auditJsonlText } from "./logs-audit-ingestion.js";
+import { defaultLatestLogRoots, findLatestCompatibleLogFiles } from "./logs-audit-latest.js";
+import { parseArgs, runLogsAudit } from "./logs-audit-runner.js";
+import type { JsonObject, LogsAuditFinding, LogsAuditReport } from "./logs-audit-types.js";
 
 const fixtureDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "fixtures");
 
 function fixture(name: string): string {
   return readFileSync(path.join(fixtureDir, name), "utf8");
 }
+
+type ExpectedAuditScenarioFinding = Omit<LogsAuditFinding, "file" | "line"> & {
+  readonly record: number;
+};
+
+interface AuditScenario {
+  readonly name: string;
+  readonly records: JsonObject[];
+  readonly expected: ExpectedAuditScenarioFinding[];
+}
+
+interface AuditScenarioGroup {
+  readonly name: string;
+  readonly scenarios: AuditScenario[];
+}
+
+function expectAuditScenario(check: LogsAuditFinding["check"], scenario: AuditScenario): void {
+  const file = `${check}-${scenario.name.replaceAll(" ", "-")}.jsonl`;
+  const report = auditJsonlText(
+    file,
+    scenario.records.map((record) => JSON.stringify(record)).join("\n"),
+  );
+  const expected = scenario.expected.map(({ record, ...finding }) => ({
+    ...finding,
+    file,
+    line: record + 1,
+  }));
+
+  expect(report.findings.filter((finding) => finding.check === check)).toEqual(expected);
+}
+
+describe("logs:audit CLI front door", () => {
+  it("stays an export-free executable delegate", () => {
+    const entrypoint = readFileSync(path.join(process.cwd(), "scripts/logs-audit.ts"), "utf8");
+
+    expect(entrypoint).not.toMatch(/^export /mu);
+  });
+});
 
 describe("parseArgs", () => {
   it("accepts --file flags, positional files, and format", () => {
@@ -171,6 +204,15 @@ describe("auditJsonlText", () => {
       "req.url?token",
       "req.url?password",
     ]);
+    expect(report.findings.map((finding) => finding.redactionKind)).toEqual([
+      "sensitive-field",
+      "sensitive-field",
+      "sensitive-field",
+      "sensitive-field",
+      "url-param",
+      "url-param",
+      "url-param",
+    ]);
     expect(JSON.stringify(report)).not.toContain("secret");
     const text = formatText(report);
     expect(text).not.toContain("secret");
@@ -191,13 +233,14 @@ describe("auditJsonlText", () => {
   it("routes the redaction remedy by finding type, not the field string", () => {
     // An object key containing '?' must still get the LOGGER_REDACT_PATHS
     // remedy. The earlier field.includes("?") discriminator would misroute this
-    // to the URL remedy, so this fixture guards the message-shape routing.
+    // to the URL remedy, so this fixture guards the typed redactionKind routing.
     const report = auditJsonlText(
       "weird-key.jsonl",
       JSON.stringify({ "a?b": { token: "object-secret" } }),
     );
 
     expect(report.findings.map((finding) => finding.field)).toEqual(["a?b.token"]);
+    expect(report.findings.map((finding) => finding.redactionKind)).toEqual(["sensitive-field"]);
     const text = formatText(report);
     const line = text.split("\n").find((entry) => entry.includes(" a?b.token ")) ?? "";
     expect(line).toContain("LOGGER_REDACT_PATHS");
@@ -220,6 +263,7 @@ describe("auditJsonlText", () => {
     expect(report.findings).toEqual([
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "body",
@@ -227,6 +271,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "cookies",
@@ -234,6 +279,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "input",
@@ -241,6 +287,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "password",
@@ -248,6 +295,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "raw_body",
@@ -255,6 +303,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "sensitive-keys.jsonl",
         line: 1,
         field: "refresh_token",
@@ -340,6 +389,7 @@ describe("auditJsonlText", () => {
     expect(report.findings).toEqual([
       {
         check: "redaction",
+        redactionKind: "url-param",
         file: "url-query.jsonl",
         line: 1,
         field: "req.request_url?accessToken",
@@ -347,6 +397,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "url-param",
         file: "url-query.jsonl",
         line: 1,
         field: "req.request_url?authorization",
@@ -354,6 +405,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "url-param",
         file: "url-query.jsonl",
         line: 1,
         field: "req.request_url?cookie",
@@ -361,6 +413,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "url-param",
         file: "url-query.jsonl",
         line: 1,
         field: "req.request_url?refresh_token",
@@ -384,6 +437,7 @@ describe("auditJsonlText", () => {
     expect(report.findings).toEqual([
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "array-redaction.jsonl",
         line: 1,
         field: "events[0].token",
@@ -391,6 +445,7 @@ describe("auditJsonlText", () => {
       },
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "array-redaction.jsonl",
         line: 1,
         field: "events[1].nested.authorization",
@@ -417,17 +472,12 @@ describe("auditJsonlText", () => {
     expect(report.findings).toEqual([]);
   });
 
-  it("distinguishes JSON objects from arrays, null, and primitives", () => {
-    expect(isJsonObject({ ok: true })).toBe(true);
-    expect(isJsonObject([])).toBe(false);
-    expect(isJsonObject(null)).toBe(false);
-    expect(isJsonObject("plain")).toBe(false);
-  });
-
   it("reports missing request ids and unstable business event fields", () => {
     const report = auditJsonlText(
       "drift.jsonl",
       [
+        JSON.stringify({ level: 30, event: "script.logs-audit", outcome: "whatever" }),
+        JSON.stringify({ level: 30, event: "logs-audit.script.", outcome: "whatever" }),
         JSON.stringify({
           level: 30,
           reqId: "req-known-1",
@@ -455,6 +505,7 @@ describe("auditJsonlText", () => {
           outcome: "success",
           campaignId: "campaign-1",
         }),
+        JSON.stringify({ level: 30, reqId: 42 }),
       ].join("\n"),
     );
 
@@ -462,548 +513,850 @@ describe("auditJsonlText", () => {
       {
         check: "request-id",
         file: "drift.jsonl",
-        line: 2,
-        field: "requestId",
-        message: "business event log is missing a request id",
-      },
-      {
-        check: "request-id",
-        file: "drift.jsonl",
-        line: 4,
-        field: "requestId",
-        message: "business event request id has no matching request log",
-      },
-      {
-        check: "event-fields",
-        file: "drift.jsonl",
-        line: 2,
-        field: "reason",
-        message: "reason is required for deny outcomes",
-      },
-      {
-        check: "event-fields",
-        file: "drift.jsonl",
-        line: 3,
-        field: "outcome",
-        message: "mutation outcome must be success or failure",
-      },
-      {
-        check: "event-fields",
-        file: "drift.jsonl",
-        line: 4,
-        field: "socketEvent",
-        message: "socketEvent is required for socket.broadcast",
-      },
-    ]);
-  });
-
-  it("reports request-id diagnostics with exact fields and matching semantics", () => {
-    const report = auditJsonlText(
-      "request-ids.jsonl",
-      [
-        JSON.stringify({ level: 30, requestId: "request-match", request: { method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "request-match",
-        }),
-        JSON.stringify({ level: 30, req: { id: "nested-req", method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "nested-req",
-        }),
-        JSON.stringify({ level: 30, request: { id: "nested-request", method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          requestId: "nested-request",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          requestId: 42,
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          req: { id: 42 },
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          request: { id: 42 },
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "request-match",
-          requestId: "other-request",
-        }),
-        JSON.stringify({ level: 30, event: "script.logs-audit", outcome: "success" }),
-        JSON.stringify({ level: 30, event: "logs-audit.script.", outcome: "success" }),
-        JSON.stringify({ level: 30, reqId: "ordinary-only" }),
-        JSON.stringify({ level: 30, reqId: "real-request", req: { method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "ordinary-only",
-        }),
-        JSON.stringify({ level: 30, req: { method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "unmatched-but-no-request-log",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "self-only-business-id",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "business-envelope-id",
-          req: { method: "POST" },
-        }),
-      ].join("\n"),
-    );
-
-    const reportWithUnidentifiedRequestLog = auditJsonlText(
-      "unidentified-request-log.jsonl",
-      [
-        JSON.stringify({ level: 30, req: { method: "GET" } }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "user-1" },
-          reqId: "business-without-identifiable-request-log",
-        }),
-      ].join("\n"),
-    );
-
-    expect(report.findings.filter((finding) => finding.check === "request-id")).toEqual([
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
         line: 7,
         field: "reqId",
         message: "request id must be a string",
       },
       {
         check: "request-id",
-        file: "request-ids.jsonl",
-        line: 8,
-        field: "requestId",
-        message: "request id must be a string",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 9,
-        field: "req.id",
-        message: "request id must be a string",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 10,
-        field: "request.id",
-        message: "request id must be a string",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 11,
-        field: "requestId",
-        message: "request id fields disagree",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 7,
+        file: "drift.jsonl",
+        line: 2,
         field: "requestId",
         message: "business event log is missing a request id",
       },
       {
         check: "request-id",
-        file: "request-ids.jsonl",
-        line: 8,
+        file: "drift.jsonl",
+        line: 4,
         field: "requestId",
         message: "business event log is missing a request id",
       },
       {
         check: "request-id",
-        file: "request-ids.jsonl",
-        line: 9,
-        field: "requestId",
-        message: "business event log is missing a request id",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 10,
-        field: "requestId",
-        message: "business event log is missing a request id",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 11,
-        field: "requestId",
-        message: "business event log is missing a request id",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 13,
-        field: "requestId",
-        message: "business event log is missing a request id",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 16,
+        file: "drift.jsonl",
+        line: 6,
         field: "requestId",
         message: "business event request id has no matching request log",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 18,
-        field: "requestId",
-        message: "business event request id has no matching request log",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 19,
-        field: "requestId",
-        message: "business event request id has no matching request log",
-      },
-      {
-        check: "request-id",
-        file: "request-ids.jsonl",
-        line: 20,
-        field: "requestId",
-        message: "business event request id has no matching request log",
-      },
-    ]);
-    expect(
-      reportWithUnidentifiedRequestLog.findings.filter((finding) => finding.check === "request-id"),
-    ).toEqual([]);
-  });
-
-  it("reports each business event field convention with exact diagnostics", () => {
-    const stableEightyCharacterEvent = `character.${"a".repeat(70)}`;
-    const report = auditJsonlText(
-      "event-fields.jsonl",
-      [
-        JSON.stringify({ level: 30, event: 7 }),
-        JSON.stringify({ level: 30, event: "" }),
-        JSON.stringify({ level: 30, event: "1character.update", outcome: "success" }),
-        JSON.stringify({ level: 30, event: "character.update!", outcome: "success" }),
-        JSON.stringify({ level: 30, event: `character.${"a".repeat(71)}`, outcome: "success" }),
-        JSON.stringify({ level: 30, event: stableEightyCharacterEvent, outcome: "success" }),
-        JSON.stringify({ level: 30, event: "character.update", outcome: "" }),
-        JSON.stringify({ level: 30, event: "character.update" }),
-        JSON.stringify({ level: 30, event: "character.update", outcome: "failure" }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "failure",
-          reason: "",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "failure",
-          reason: "validation failed",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "failure",
-          reason: "validation.failed",
-        }),
-        JSON.stringify({ level: 30, event: "character.update", outcome: "maybe" }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: "user-1",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: {},
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "character.update",
-          outcome: "success",
-          actor: { userId: "" },
-        }),
-        JSON.stringify({ level: 30, event: "authz.campaign.member", outcome: "allow" }),
-        JSON.stringify({
-          level: 30,
-          event: "authz.campaign.member",
-          outcome: "blocked",
-          actor: { userId: "user-1" },
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "authz.campaign.member",
-          outcome: "deny",
-          actor: { userId: "user-1" },
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "authz.campaign.member",
-          outcome: "deny",
-          actor: { userId: "user-1" },
-          reason: "not.owner",
-        }),
-        JSON.stringify({ level: 30, event: "socket.broadcast", outcome: "queued" }),
-        JSON.stringify({ level: 30, event: "socket.broadcast", outcome: "success" }),
-        JSON.stringify({
-          level: 30,
-          event: "socket.broadcast",
-          outcome: "success",
-          socketEvent: "",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "socket.broadcast",
-          outcome: "success",
-          socketEvent: "Campaign Updated",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "socket.broadcast",
-          outcome: "skipped",
-          socketEvent: "campaign.updated",
-        }),
-        JSON.stringify({
-          level: 30,
-          event: "socket.broadcast",
-          outcome: "skipped",
-          socketEvent: "campaign.updated",
-          reason: "no.listeners",
-        }),
-        JSON.stringify({ level: 30, event: "script.logs-audit", outcome: "whatever" }),
-        JSON.stringify({ level: 30, event: "logs-audit.script.", outcome: "whatever" }),
-      ].join("\n"),
-    );
-
-    expect(report.findings.filter((finding) => finding.check === "event-fields")).toEqual([
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 1,
-        field: "event",
-        message: "event must be a string",
       },
       {
         check: "event-fields",
-        file: "event-fields.jsonl",
+        file: "drift.jsonl",
         line: 2,
         field: "event",
-        message: "event must be a string",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 3,
-        field: "event",
         message: "event must be a stable low-cardinality code",
       },
       {
         check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 4,
-        field: "event",
-        message: "event must be a stable low-cardinality code",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 5,
-        field: "event",
-        message: "event must be a stable low-cardinality code",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 7,
-        field: "outcome",
-        message: "outcome is required for business events",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 8,
-        field: "outcome",
-        message: "outcome is required for business events",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 9,
-        field: "reason",
-        message: "reason is required for failure outcomes",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 10,
-        field: "reason",
-        message: "reason must be a string",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 11,
-        field: "reason",
-        message: "reason must be a stable low-cardinality code",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 13,
+        file: "drift.jsonl",
+        line: 2,
         field: "outcome",
         message: "mutation outcome must be success or failure",
       },
       {
         check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 14,
-        field: "actor",
-        message: "actor is required with userId",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 15,
-        field: "actor.userId",
-        message: "actor.userId must be a string",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 16,
-        field: "actor.userId",
-        message: "actor.userId must be a string",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 17,
-        field: "actor",
-        message: "actor is required with userId",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 18,
-        field: "outcome",
-        message: "authz outcome must be allow or deny",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 19,
+        file: "drift.jsonl",
+        line: 4,
         field: "reason",
         message: "reason is required for deny outcomes",
       },
       {
         check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 21,
-        field: "outcome",
-        message: "socket.broadcast outcome must be success or skipped",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 21,
-        field: "socketEvent",
-        message: "socketEvent is required for socket.broadcast",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 22,
-        field: "socketEvent",
-        message: "socketEvent is required for socket.broadcast",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 23,
-        field: "socketEvent",
-        message: "socketEvent is required for socket.broadcast",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 24,
-        field: "socketEvent",
-        message: "socketEvent must be a stable low-cardinality code",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 25,
-        field: "reason",
-        message: "reason is required for skipped outcomes",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 28,
-        field: "event",
-        message: "event must be a stable low-cardinality code",
-      },
-      {
-        check: "event-fields",
-        file: "event-fields.jsonl",
-        line: 28,
+        file: "drift.jsonl",
+        line: 5,
         field: "outcome",
         message: "mutation outcome must be success or failure",
       },
+      {
+        check: "event-fields",
+        file: "drift.jsonl",
+        line: 6,
+        field: "socketEvent",
+        message: "socketEvent is required for socket.broadcast",
+      },
     ]);
+  });
+
+  describe("request-id policy", () => {
+    const groups = [
+      {
+        name: "extraction-field variants",
+        scenarios: [
+          {
+            name: "matches a top-level requestId request log to a reqId business event",
+            records: [
+              { level: 30, requestId: "request-match", request: { method: "GET" } },
+              { level: 30, reqId: "independent-request-log", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "request-match",
+              },
+            ],
+            expected: [],
+          },
+          {
+            name: "matches a nested req id request log",
+            records: [
+              { level: 30, req: { id: "nested-req", method: "GET" } },
+              {
+                level: 30,
+                requestId: "independent-request-log",
+                request: { method: "GET" },
+              },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "nested-req",
+              },
+            ],
+            expected: [],
+          },
+          {
+            name: "matches a nested request id request log",
+            records: [
+              { level: 30, request: { id: "nested-request", method: "GET" } },
+              { level: 30, reqId: "independent-request-log", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                requestId: "nested-request",
+              },
+            ],
+            expected: [],
+          },
+        ],
+      },
+      {
+        name: "malformed ids",
+        scenarios: [
+          {
+            name: "rejects an empty reqId",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "",
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "request-id",
+                field: "reqId",
+                message: "request id must be a string",
+              },
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+          {
+            name: "rejects a non-string requestId",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                requestId: 42,
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "request id must be a string",
+              },
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+          {
+            name: "rejects a non-string nested req id",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                req: { id: 42 },
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "request-id",
+                field: "req.id",
+                message: "request id must be a string",
+              },
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+          {
+            name: "rejects a non-string nested request id",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                request: { id: 42 },
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "request-id",
+                field: "request.id",
+                message: "request id must be a string",
+              },
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "field disagreement",
+        scenarios: [
+          {
+            name: "rejects disagreeing request id fields",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "request-match",
+                requestId: "other-request",
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "request id fields disagree",
+              },
+              {
+                record: 0,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "missing id and script exemption",
+        scenarios: [
+          {
+            name: "exempts script-prefixed events but not a reversed prefix",
+            records: [
+              { level: 30, event: "script.logs-audit", outcome: "success" },
+              { level: 30, event: "logs-audit.script.", outcome: "success" },
+            ],
+            expected: [
+              {
+                record: 1,
+                check: "request-id",
+                field: "requestId",
+                message: "business event log is missing a request id",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "request-log recognition",
+        scenarios: [
+          {
+            name: "does not treat an ordinary log id as a request-log id",
+            records: [
+              { level: 30, reqId: "ordinary-only" },
+              { level: 30, reqId: "real-request", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "ordinary-only",
+              },
+            ],
+            expected: [
+              {
+                record: 2,
+                check: "request-id",
+                field: "requestId",
+                message: "business event request id has no matching request log",
+              },
+            ],
+          },
+          {
+            name: "does not arm matching when a request envelope has no id",
+            records: [
+              { level: 30, req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "business-without-identifiable-request-log",
+              },
+            ],
+            expected: [],
+          },
+          {
+            name: "does not treat a business event id as its own request-log id",
+            records: [
+              { level: 30, reqId: "real-request", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "self-only-business-id",
+              },
+            ],
+            expected: [
+              {
+                record: 1,
+                check: "request-id",
+                field: "requestId",
+                message: "business event request id has no matching request log",
+              },
+            ],
+          },
+          {
+            name: "does not treat a business event request envelope as a request log",
+            records: [
+              { level: 30, reqId: "real-request", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "business-envelope-id",
+                req: { method: "POST" },
+              },
+            ],
+            expected: [
+              {
+                record: 1,
+                check: "request-id",
+                field: "requestId",
+                message: "business event request id has no matching request log",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "unmatched ids",
+        scenarios: [
+          {
+            name: "reports an unmatched id when an identifiable request log arms matching",
+            records: [
+              { level: 30, reqId: "real-request", req: { method: "GET" } },
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "user-1" },
+                reqId: "unmatched-but-no-request-log",
+              },
+            ],
+            expected: [
+              {
+                record: 1,
+                check: "request-id",
+                field: "requestId",
+                message: "business event request id has no matching request log",
+              },
+            ],
+          },
+        ],
+      },
+    ] satisfies readonly AuditScenarioGroup[];
+
+    describe.each<AuditScenarioGroup>(groups)("$name", ({ scenarios }) => {
+      it.each<AuditScenario>(scenarios)("$name", (scenario) => {
+        expect.hasAssertions();
+        expectAuditScenario("request-id", scenario);
+      });
+    });
+  });
+
+  describe("event-fields policy", () => {
+    const groups = [
+      {
+        name: "event syntax and cardinality",
+        scenarios: [
+          {
+            name: "rejects a non-string event",
+            records: [{ level: 30, event: 7 }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a string",
+              },
+            ],
+          },
+          {
+            name: "rejects an empty event",
+            records: [{ level: 30, event: "" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a string",
+              },
+            ],
+          },
+          {
+            name: "rejects an event that starts with a number",
+            records: [{ level: 30, event: "1character.update", outcome: "success" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a stable low-cardinality code",
+              },
+            ],
+          },
+          {
+            name: "rejects an event with unstable punctuation",
+            records: [{ level: 30, event: "character.update!", outcome: "success" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a stable low-cardinality code",
+              },
+            ],
+          },
+          {
+            name: "rejects an event longer than eighty characters",
+            records: [{ level: 30, event: `character.${"a".repeat(71)}`, outcome: "success" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a stable low-cardinality code",
+              },
+            ],
+          },
+          {
+            name: "accepts an eighty-character event",
+            records: [{ level: 30, event: `character.${"a".repeat(70)}`, outcome: "success" }],
+            expected: [],
+          },
+        ],
+      },
+      {
+        name: "outcome",
+        scenarios: [
+          {
+            name: "rejects an empty outcome",
+            records: [{ level: 30, event: "character.update", outcome: "" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "outcome is required for business events",
+              },
+            ],
+          },
+          {
+            name: "rejects a missing outcome",
+            records: [{ level: 30, event: "character.update" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "outcome is required for business events",
+              },
+            ],
+          },
+          {
+            name: "rejects an unsupported mutation outcome",
+            records: [{ level: 30, event: "character.update", outcome: "maybe" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "mutation outcome must be success or failure",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "mutation/default family",
+        scenarios: [
+          {
+            name: "applies mutation/default policy to an unknown event family",
+            records: [{ level: 30, event: "workflow.transition", outcome: "failure" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason is required for failure outcomes",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "reason",
+        scenarios: [
+          {
+            name: "requires a reason for failure outcomes",
+            records: [{ level: 30, event: "character.update", outcome: "failure" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason is required for failure outcomes",
+              },
+            ],
+          },
+          {
+            name: "rejects an empty reason",
+            records: [{ level: 30, event: "character.update", outcome: "failure", reason: "" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason must be a string",
+              },
+            ],
+          },
+          {
+            name: "rejects an unstable reason",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "failure",
+                reason: "validation failed",
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason must be a stable low-cardinality code",
+              },
+            ],
+          },
+          {
+            name: "accepts a stable failure reason",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "failure",
+                reason: "validation.failed",
+              },
+            ],
+            expected: [],
+          },
+        ],
+      },
+      {
+        name: "actor",
+        scenarios: [
+          {
+            name: "rejects a non-object actor",
+            records: [
+              { level: 30, event: "character.update", outcome: "success", actor: "user-1" },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "actor",
+                message: "actor is required with userId",
+              },
+            ],
+          },
+          {
+            name: "rejects an actor without a userId",
+            records: [{ level: 30, event: "character.update", outcome: "success", actor: {} }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "actor.userId",
+                message: "actor.userId must be a string",
+              },
+            ],
+          },
+          {
+            name: "rejects an actor with an empty userId",
+            records: [
+              {
+                level: 30,
+                event: "character.update",
+                outcome: "success",
+                actor: { userId: "" },
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "actor.userId",
+                message: "actor.userId must be a string",
+              },
+            ],
+          },
+        ],
+      },
+      {
+        name: "authz",
+        scenarios: [
+          {
+            name: "requires an actor for authz events",
+            records: [{ level: 30, event: "authz.campaign.member", outcome: "allow" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "actor",
+                message: "actor is required with userId",
+              },
+            ],
+          },
+          {
+            name: "rejects an unsupported authz outcome",
+            records: [
+              {
+                level: 30,
+                event: "authz.campaign.member",
+                outcome: "blocked",
+                actor: { userId: "user-1" },
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "authz outcome must be allow or deny",
+              },
+            ],
+          },
+          {
+            name: "requires a reason for denied authz events",
+            records: [
+              {
+                level: 30,
+                event: "authz.campaign.member",
+                outcome: "deny",
+                actor: { userId: "user-1" },
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason is required for deny outcomes",
+              },
+            ],
+          },
+          {
+            name: "accepts a stable denied authz reason",
+            records: [
+              {
+                level: 30,
+                event: "authz.campaign.member",
+                outcome: "deny",
+                actor: { userId: "user-1" },
+                reason: "not.owner",
+              },
+            ],
+            expected: [],
+          },
+        ],
+      },
+      {
+        name: "socket event",
+        scenarios: [
+          {
+            name: "rejects an unsupported broadcast outcome and missing socketEvent",
+            records: [{ level: 30, event: "socket.broadcast", outcome: "queued" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "socket.broadcast outcome must be success or skipped",
+              },
+              {
+                record: 0,
+                check: "event-fields",
+                field: "socketEvent",
+                message: "socketEvent is required for socket.broadcast",
+              },
+            ],
+          },
+          {
+            name: "requires socketEvent for successful broadcasts",
+            records: [{ level: 30, event: "socket.broadcast", outcome: "success" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "socketEvent",
+                message: "socketEvent is required for socket.broadcast",
+              },
+            ],
+          },
+          {
+            name: "rejects an empty socketEvent",
+            records: [
+              { level: 30, event: "socket.broadcast", outcome: "success", socketEvent: "" },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "socketEvent",
+                message: "socketEvent is required for socket.broadcast",
+              },
+            ],
+          },
+          {
+            name: "rejects an unstable socketEvent",
+            records: [
+              {
+                level: 30,
+                event: "socket.broadcast",
+                outcome: "success",
+                socketEvent: "Campaign Updated",
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "socketEvent",
+                message: "socketEvent must be a stable low-cardinality code",
+              },
+            ],
+          },
+          {
+            name: "requires a reason for skipped broadcasts",
+            records: [
+              {
+                level: 30,
+                event: "socket.broadcast",
+                outcome: "skipped",
+                socketEvent: "campaign.updated",
+              },
+            ],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "reason",
+                message: "reason is required for skipped outcomes",
+              },
+            ],
+          },
+          {
+            name: "accepts a stable skipped broadcast reason",
+            records: [
+              {
+                level: 30,
+                event: "socket.broadcast",
+                outcome: "skipped",
+                socketEvent: "campaign.updated",
+                reason: "no.listeners",
+              },
+            ],
+            expected: [],
+          },
+        ],
+      },
+      {
+        name: "script exemption",
+        scenarios: [
+          {
+            name: "exempts script-prefixed events",
+            records: [{ level: 30, event: "script.logs-audit", outcome: "whatever" }],
+            expected: [],
+          },
+          {
+            name: "does not exempt a reversed script prefix",
+            records: [{ level: 30, event: "logs-audit.script.", outcome: "whatever" }],
+            expected: [
+              {
+                record: 0,
+                check: "event-fields",
+                field: "event",
+                message: "event must be a stable low-cardinality code",
+              },
+              {
+                record: 0,
+                check: "event-fields",
+                field: "outcome",
+                message: "mutation outcome must be success or failure",
+              },
+            ],
+          },
+        ],
+      },
+    ] satisfies readonly AuditScenarioGroup[];
+
+    describe.each<AuditScenarioGroup>(groups)("$name", ({ scenarios }) => {
+      it.each<AuditScenario>(scenarios)("$name", (scenario) => {
+        expect.hasAssertions();
+        expectAuditScenario("event-fields", scenario);
+      });
+    });
   });
 });
 
@@ -1030,6 +1383,7 @@ describe("runLogsAudit", () => {
     expect(parsed.findings).toEqual([
       {
         check: "redaction",
+        redactionKind: "sensitive-field",
         file: "server.jsonl",
         line: 1,
         field: "token",
@@ -1049,6 +1403,10 @@ describe("runLogsAudit", () => {
 
 describe("runLogsAudit --latest", () => {
   const tmpRepo = registerTempRootCleanup();
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
+  });
 
   function makeTempRoot(): string {
     return tmpRepo.makeTempRepo("logs-audit-latest-");
@@ -1162,6 +1520,129 @@ describe("runLogsAudit --latest", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.stdout).toContain(`ERROR jsonl: ${latest}:1 - line is not valid JSON`);
+  });
+
+  // A missing env contract and an empty log directory are different conditions
+  // and must never share an exit code: `--latest` with no logs stays the
+  // landed graceful-degradation zero (docs/ai-harness.md), while an unrouted
+  // `--latest` is a CLI misuse and joins the file's other exit-2 cases.
+  it("fails closed with exit 2 when no log directories were configured", () => {
+    const result = runLogsAudit({ argv: ["--latest"], latestLogRoots: [] });
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stdout).toMatchInlineSnapshot(
+      `"logs:audit --latest: no verify/hook log directories configured. Run \`bun run logs:audit --latest\`: the package script's shell shim exports MUSI_STANDARD_VERIFY_LOG_DIR and MUSI_STANDARD_BUN_LOG_DIR from scripts/lib/verify-metadata.sh, and a direct \`bun scripts/logs-audit.ts --latest\` no longer derives them."`,
+    );
+    expect(result.report).toBeUndefined();
+  });
+
+  it("reads the process env when no roots are injected", () => {
+    vi.stubEnv("MUSI_VERIFY_LOG_DIR", undefined);
+    vi.stubEnv("MUSI_STANDARD_VERIFY_LOG_DIR", undefined);
+    vi.stubEnv("AI_BUN_LOG_DIR", undefined);
+    vi.stubEnv("MUSI_STANDARD_BUN_LOG_DIR", undefined);
+    // Present but irrelevant: these are the inputs the deleted TypeScript
+    // derivation used to consume, so leaving them set proves nothing
+    // reconstructs a path from them.
+    vi.stubEnv("REPO_ROOT", "/nonexistent/repo");
+    vi.stubEnv("MUSI_VERIFY_STATE_ROOT", "/nonexistent/state");
+
+    const missing = runLogsAudit({ argv: ["--latest"] });
+    expect(missing.exitCode).toBe(2);
+    expect(missing.stdout).toContain("no verify/hook log directories configured");
+
+    const root = makeTempRoot();
+    const latest = writeLog(
+      root,
+      "server.jsonl",
+      '{"message":"latest"}\n',
+      new Date("2026-01-01T00:00:00.000Z"),
+    );
+    vi.stubEnv("MUSI_STANDARD_VERIFY_LOG_DIR", root);
+
+    const found = runLogsAudit({ argv: ["--latest"] });
+    expect(found.exitCode).toBe(0);
+    expect(found.stdout).toContain(latest);
+  });
+});
+
+describe("defaultLatestLogRoots", () => {
+  it("resolves the override env var ahead of the standard one", () => {
+    expect(
+      defaultLatestLogRoots({
+        AI_BUN_LOG_DIR: "/hook/override",
+        MUSI_STANDARD_BUN_LOG_DIR: "/hook/standard",
+        MUSI_STANDARD_VERIFY_LOG_DIR: "/verify/standard",
+        MUSI_VERIFY_LOG_DIR: "/verify/override",
+      }),
+    ).toEqual(["/verify/override", "/hook/override"]);
+  });
+
+  it("keeps whichever directory the env supplies and drops duplicates", () => {
+    expect(defaultLatestLogRoots({ MUSI_STANDARD_VERIFY_LOG_DIR: "/only/verify" })).toEqual([
+      "/only/verify",
+    ]);
+    expect(defaultLatestLogRoots({ AI_BUN_LOG_DIR: "/only/hook" })).toEqual(["/only/hook"]);
+    expect(
+      defaultLatestLogRoots({
+        MUSI_STANDARD_BUN_LOG_DIR: "/same/dir",
+        MUSI_STANDARD_VERIFY_LOG_DIR: "/same/dir",
+      }),
+    ).toEqual(["/same/dir"]);
+  });
+
+  // Bash's `${MUSI_VERIFY_LOG_DIR:-…}` — the form every shell reader of these
+  // names uses (scripts/verify.sh, scripts/land.sh, scripts/verify-logs.sh,
+  // scripts/ai-hooks/stop-policy.sh, scripts/ai-hooks/session-state.sh) —
+  // treats a set-but-empty override as unset and falls back to the standard
+  // directory. A wrapper that exports MUSI_VERIFY_LOG_DIR="" (unset
+  // interpolation, an empty CI input) therefore has verify.sh writing to the
+  // standard dir; reading `??` here instead would drop that whole log family
+  // and audit only the hook log, with no error and exit 0 — the same silent
+  // divergence this module exists to remove.
+  it("treats a set-but-empty override as unset, like every shell reader", () => {
+    expect(
+      defaultLatestLogRoots({
+        AI_BUN_LOG_DIR: "",
+        MUSI_STANDARD_BUN_LOG_DIR: "/hook/standard",
+        MUSI_STANDARD_VERIFY_LOG_DIR: "/verify/standard",
+        MUSI_VERIFY_LOG_DIR: "",
+      }),
+    ).toEqual(["/verify/standard", "/hook/standard"]);
+    expect(
+      defaultLatestLogRoots({
+        MUSI_STANDARD_VERIFY_LOG_DIR: "/verify/standard",
+        MUSI_VERIFY_LOG_DIR: "",
+      }),
+    ).toEqual(["/verify/standard"]);
+  });
+
+  it("reports nothing configured only when neither name carries a value", () => {
+    expect(
+      defaultLatestLogRoots({
+        AI_BUN_LOG_DIR: "",
+        MUSI_STANDARD_BUN_LOG_DIR: "",
+        MUSI_STANDARD_VERIFY_LOG_DIR: "",
+        MUSI_VERIFY_LOG_DIR: "",
+      }),
+    ).toEqual([]);
+  });
+
+  // Regression pin for the defect this module was built around: it used to
+  // rebuild scripts/lib/verify-metadata.sh's state-path protocol from
+  // REPO_ROOT and MUSI_VERIFY_STATE_ROOT whenever no log dir was exported, so
+  // a bash-side layout change left `--latest` reading a directory nobody
+  // writes to and reporting "no compatible logs". These are declared outside
+  // the literal so the excess-property check does not hide the point: they are
+  // no longer inputs at all.
+  it("never reconstructs a state path from the old derivation inputs", () => {
+    const retiredDerivationInputs: Record<string, string> = {
+      MUSI_VERIFY_STATE_ROOT: "/state-root",
+      REPO_ROOT: "/repo-root",
+    };
+
+    expect(defaultLatestLogRoots(retiredDerivationInputs)).toEqual([]);
+    expect(defaultLatestLogRoots({})).toEqual([]);
   });
 });
 

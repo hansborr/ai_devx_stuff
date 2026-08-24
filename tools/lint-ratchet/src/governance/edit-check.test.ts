@@ -14,6 +14,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
@@ -52,7 +53,6 @@ const minimalRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture edit-check minimal-TS ratchet principle.",
 };
 
@@ -66,7 +66,6 @@ const typeAwareRatchet: LintRatchetConfig = {
   parserProfile: "type-aware-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture edit-check type-aware ratchet principle.",
 };
 
@@ -80,7 +79,9 @@ const registry: readonly LintRatchetConfig[] = [minimalRatchet, typeAwareRatchet
 // no-drift control) without any Musi baseline.
 const realRepoRoot = fileURLToPath(new URL("../../../../", import.meta.url));
 const fixtureRepoRoot = mkdtempSync(join(tmpdir(), "lint-ratchet-edit-check-"));
-symlinkSync(join(realRepoRoot, "node_modules"), join(fixtureRepoRoot, "node_modules"), "dir");
+// "junction" is ignored on POSIX and avoids the Windows Developer-Mode privilege
+// a "dir" symlink needs; junction targets must be absolute, and realRepoRoot is.
+symlinkSync(join(realRepoRoot, "node_modules"), join(fixtureRepoRoot, "node_modules"), "junction");
 mkdirSync(join(fixtureRepoRoot, "src"), { recursive: true });
 afterAll(() => {
   rmSync(fixtureRepoRoot, { recursive: true, force: true });
@@ -97,7 +98,12 @@ const emptyCurrent: LintRatchetCurrentById = new Map(
 const baselinePath = join(fixtureRepoRoot, DEFAULT_BASELINE_FILENAME);
 writeFileSync(
   baselinePath,
-  formatLintRatchetBaseline(buildLintRatchetBaseline(registry, emptyCurrent, ruleSourceHashesById)),
+  formatLintRatchetBaseline(
+    buildLintRatchetBaseline(registry, emptyCurrent, ruleSourceHashesById, {
+      workflowVocabulary: fixtureWorkflowVocabulary,
+    }),
+    fixtureWorkflowVocabulary,
+  ),
 );
 
 const editCheckEngine: LintRatchetEditCheckEngine = {
@@ -105,6 +111,7 @@ const editCheckEngine: LintRatchetEditCheckEngine = {
   baselinePath,
   registry,
   binding,
+  workflowVocabulary: fixtureWorkflowVocabulary,
 };
 
 describe("runEditCheckRegressions soft-skip guards", () => {

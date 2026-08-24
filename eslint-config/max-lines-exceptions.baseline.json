@@ -4,7 +4,7 @@
   "metric": "file-line-cap-exceptions",
   "regenerate": "bun run lint:max-lines-exceptions:update",
   "summary": {
-    "count": 28
+    "count": 27
   },
   "entries": [
     {
@@ -147,7 +147,7 @@
       "path": "packages/server/src/routers/srd.ts",
       "cap": 495,
       "severity": "warn",
-      "reason": "SRD routing is mostly read-side mapping and import/export glue, capped so routine endpoint edits stay bounded; +1 for the narrowDamageTypeName import wiring the tightened subspecies damageType enum at the Prisma read seam, +4 for the normalizeWeaponDataDamageType import and equipment weaponData read-seam canonicalization (legacy title-case damageType).",
+      "reason": "SRD routing is one cohesive read-only boundary for canonical reference queries and their Prisma-to-schema mapping; keeping those closely related list/get seams together preserves a discoverable reference-query surface while the cap bounds routine endpoint edits.",
       "lifecycle": "permanent",
       "ratchetExcluded": true
     },
@@ -155,7 +155,7 @@
       "path": "packages/server/src/services/rest-service.ts",
       "cap": 365,
       "severity": "warn",
-      "reason": "Rest behavior has tightly related state transitions and persistence checks pending a future service split; the ux-audit P0-3 encounter HP-attribution wiring (short + long rest) adds the in-tx capture and post-commit broadcast inline until that split lands.",
+      "reason": "Rest behavior remains a tightly related transaction boundary for short- and long-rest state transitions, persistence checks, and post-commit broadcasts pending a service split; the exception can be lowered or removed when those flows move into focused services.",
       "lifecycle": "candidate-for-split",
       "ratchetExcluded": true
     },
@@ -173,14 +173,6 @@
       "severity": "error",
       "reason": "The SRD weapon catalog remains a reviewable transcribed rules table beside its closed property and value types.",
       "lifecycle": "permanent",
-      "ratchetExcluded": true
-    },
-    {
-      "path": "scripts/audit-dependency-licenses.ts",
-      "cap": 310,
-      "severity": "error",
-      "reason": "Dependency license audit remains one CLI while the pointer-only review remedy is added; split collection and reporting once more license policy behavior lands.",
-      "lifecycle": "candidate-for-split",
       "ratchetExcluded": true
     },
     {
@@ -209,18 +201,18 @@
     },
     {
       "path": "scripts/harness/generate-verify-steps.ts",
-      "cap": 400,
+      "cap": 461,
       "severity": "warn",
-      "reason": "Verify-step generator plus the marker-bridge superset guard (per-slot command-token comparison and its annotated intentional-divergence allowlist) that keeps pre-commit's slots in lockstep with the verify/verify:changed markers.",
+      "reason": "Verify-step generator, the marker-bridge superset guard that keeps pre-commit's slots in lockstep with the verify/verify:changed markers, and the VERIFY_STEP_PROJECTIONS descriptor naming every output this generator writes and which harness:check surface re-renders it. Do not split the descriptor into a sibling module: it must import renderVerifyStepsShellFromManifest, which needs this file's private consumer/slot helpers, so the sibling re-imports its parent and `lint:import-cycles --fail-on-runtime-cycles` fails the gate (measured 2026-08-16: the split is otherwise green, 385 effective lines). Splitting the renderer cluster out instead is the open option.",
       "lifecycle": "candidate-for-split",
       "ratchetExcluded": true
     },
     {
       "path": "scripts/harness/hook-wiring-schema.ts",
-      "cap": 370,
+      "cap": 482,
       "severity": "error",
-      "reason": "Hook wiring schema centralizes platform event, matcher, and output-capability contracts while the generator still consumes one schema module.",
-      "lifecycle": "candidate-for-split",
+      "reason": "Hook wiring schema is the cohesive owner of platform event, matcher, output-capability, canonical adapter-surface projection, and manifest parsing/validation contracts; Markdown projection lives in hook-wiring-doc.ts. The projection tables cannot move to a sibling module without widening the harness-check fixture copy closure this file already sits in.",
+      "lifecycle": "permanent",
       "ratchetExcluded": true
     },
     {

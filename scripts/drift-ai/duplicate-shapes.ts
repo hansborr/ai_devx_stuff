@@ -30,8 +30,8 @@ import {
   type ParsedSourceFileCache,
   parsedSourceFileCacheForReport,
 } from "./parsed-source-cache.js";
-import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type { DriftCheckId, DriftFinding, FindingProvenance } from "./types.js";
 
 // The provenance every duplicate-shape finding carries: this is drift:ai's OWN

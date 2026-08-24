@@ -4,11 +4,9 @@ import path from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { requireArg } from "../cli-option-values.js";
-import {
-  createProject,
-  fail as failWithName,
-  writeOrPreviewFiles,
-} from "./lib/trpc-shared-schema.js";
+import { fail as failWithName } from "./lib/codemod-errors.js";
+import { createProject } from "./lib/codemod-project.js";
+import { writeOrPreviewFiles } from "./lib/codemod-writes.js";
 import { walkTsFiles } from "./lib/walk-ts-files.js";
 import { transformFile, type UnsupportedConsole } from "./structured-logging-fix-transforms.js";
 

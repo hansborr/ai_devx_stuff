@@ -19,17 +19,19 @@ SQL under `packages/server/prisma/migrations/`.
    `bun run --filter @musi/server db:migrate`.
 6. Regenerate the Prisma client even if `migrate dev` already ran generators:
    `bun run --filter @musi/server prisma:generate`.
-7. Run the safety scanner and read the output:
+7. Regenerate the checked-in concurrency relation graph from the updated
+   schema: `bun run concurrency:relation-graph`.
+8. Run the safety scanner and read the output:
    `bun run db:migration-safety`.
-8. If the scanner reports `WARN:`, decide explicitly:
+9. If the scanner reports `WARN:`, decide explicitly:
    rewrite the SQL as a safer multi-step migration, or acknowledge the
    intentional destructive operation in
    `packages/server/prisma/migrations/.safety-acknowledged` with the migration
    directory name and a short reviewed reason.
-9. Update code, seeds, tests, and shared schemas that depend on the model
+10. Update code, seeds, tests, and shared schemas that depend on the model
    shape. Keep business behavior in server services and router contracts in
    shared Zod schemas.
-10. Run `bun run verify:changed` before calling the change done.
+11. Run full foreground `bun run verify` before calling the change done.
 
 The migration safety scanner is warn-only. A zero exit code does not mean every
 migration is safe; it means the scanner finished and printed its findings.

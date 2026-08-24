@@ -38,6 +38,7 @@ const demoSpec: GroupedBaselineSpec<DemoMeta, DemoItem> = {
   conflictMarkerRemediation: {
     baselineFile: "demo.baseline.json",
     installerCommand: "bun run demo:install-driver",
+    restoreOursCommand: "bun run demo:restore-ours fixture.baseline.json",
     updateCommand: "bun run demo:update",
   },
   compareGroupKeys: compareKeys,

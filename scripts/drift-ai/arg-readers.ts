@@ -1,46 +1,17 @@
-import { readRequiredOptionValue } from "../cli-option-values.js";
+// Shared value readers for the drift:ai option surfaces, plus the Zod value
+// fragments the parseCli+Zod subcommand schemas compose (see below). The
+// callback-era walk helpers (optionName/readValue/readFormat/readUntrimmedPath)
+// retired with subcommand-args' SubcommandSpec layer in backlog unit 120: the
+// lib/cli walk owns token reading and the shared "--format requires text or
+// json." text now lives in subcommandBaseSchemaShape's enum error.
+
+import { z } from "zod";
+
 import { DriftAiError } from "./errors.js";
 
-export type ArgValue = {
-  readonly value: string;
-  readonly nextIndex: number;
-};
-
-export type OutputFormat = "text" | "json";
-
-export function optionName(arg: string): string {
-  const equalsIndex = arg.indexOf("=");
-  return equalsIndex < 0 ? arg : arg.slice(0, equalsIndex);
-}
-
-export function readValue(
-  arg: string,
-  argv: readonly string[],
-  index: number,
-  usage: string,
-): ArgValue {
-  return readRequiredOptionValue({
-    arg,
-    argv,
-    index,
-    usage,
-    createError: (message) => new DriftAiError(message),
-  });
-}
-
-export function readFormat(value: string): OutputFormat {
-  if (value !== "text" && value !== "json") {
-    throw new DriftAiError("--format requires text or json.");
-  }
-  return value;
-}
-
-export function readPath(option: string, value: string): string {
-  if (!value) throw new DriftAiError(`${option} requires a path.`);
-  return value;
-}
-
-export function readNonEmptyPath(value: string, flag: string): string {
+// Internal to this module since unit 120: external callers consume the Zod
+// fragment `nonEmptyPathValue` below instead of the raw reader.
+function readNonEmptyPath(value: string, flag: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) throw new DriftAiError(`${flag} requires a path.`);
   return trimmed;
@@ -66,4 +37,33 @@ export function readNonEmpty(value: string, flag: string): string {
   const trimmed = value.trim();
   if (trimmed.length === 0) throw new DriftAiError(`${flag} requires a non-empty value.`);
   return trimmed;
+}
+
+// Zod value fragments wrapping the readers above for the parseCli+Zod
+// subcommand schemas: each transform calls the corresponding reader, so the
+// reader stays the single owner of the diagnostic and the CLI error text is
+// byte-identical to the callback-era parsers by construction. A throwing
+// transform escapes `safeParse`, carrying the DriftAiError straight to the
+// subcommand's existing catch sites.
+
+export function positiveIntValue(
+  flag: string,
+): z.ZodPipe<z.ZodString, z.ZodTransform<number, string>> {
+  return z.string().transform((value) => readPositiveInt(value, flag));
+}
+
+export function nonEmptyValue(
+  flag: string,
+): z.ZodPipe<z.ZodString, z.ZodTransform<string, string>> {
+  return z.string().transform((value) => readNonEmpty(value, flag));
+}
+
+export function ratioValue(flag: string): z.ZodPipe<z.ZodString, z.ZodTransform<number, string>> {
+  return z.string().transform((value) => readRatio(value, flag));
+}
+
+export function nonEmptyPathValue(
+  flag: string,
+): z.ZodPipe<z.ZodString, z.ZodTransform<string, string>> {
+  return z.string().transform((value) => readNonEmptyPath(value, flag));
 }

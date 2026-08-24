@@ -3,8 +3,10 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   defaultGitRunner,
+  gitCheckIgnore,
   type GitRunner,
   gitStatusPorcelainArgs,
   listStagedPaths,
@@ -22,6 +24,7 @@ import {
 } from "./git.js";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
+const tmpRepo = registerTempRootCleanup();
 
 function stubGit(responses: Record<string, string>): GitRunner {
   return (args) => {
@@ -34,6 +37,47 @@ function stubGit(responses: Record<string, string>): GitRunner {
 const throwingGit: GitRunner = () => {
   throw new Error("git unavailable");
 };
+
+describe("gitCheckIgnore", () => {
+  it("distinguishes ignored output from a successful not-ignored probe", () => {
+    const repoRoot = tmpRepo.makeTmpGitRepo("git-check-ignore-");
+    tmpRepo.writeRepoFile(repoRoot, ".gitignore", "ignored/\n");
+
+    const ignored = gitCheckIgnore(["ignored/file.txt"], { cwd: repoRoot });
+    expect(ignored.kind).toBe("ignored-paths-output");
+    if (ignored.kind !== "ignored-paths-output") throw new Error("expected ignored output");
+    expect(ignored.stdout).toContain("\tignored/file.txt\n");
+
+    const notIgnored = gitCheckIgnore(["tracked/file.txt"], { cwd: repoRoot });
+    expect(notIgnored).toEqual({
+      kind: "not-ignored",
+      stdout: "",
+    });
+  });
+
+  it("classifies an unexpected Git status with its diagnostics", () => {
+    const notARepo = tmpRepo.makeTempRepo("git-check-ignore-not-repo-");
+
+    const result = gitCheckIgnore(["candidate.txt"], { cwd: notARepo });
+    expect(result.kind).toBe("unexpected-status");
+    if (result.kind !== "unexpected-status") throw new Error("expected unexpected status");
+    expect(result.status).toBe(128);
+    expect(result.stderr).toContain("not a git repository");
+  });
+
+  it("classifies a failure to spawn Git", () => {
+    const originalPath = process.env.PATH;
+    process.env.PATH = tmpRepo.makeTempRepo("git-check-ignore-empty-path-");
+    try {
+      const result = gitCheckIgnore(["candidate.txt"], { cwd: HERE });
+      expect(result.kind).toBe("spawn-failed");
+      if (result.kind !== "spawn-failed") throw new Error("expected spawn failure");
+      expect(result.error).toHaveProperty("code", "ENOENT");
+    } finally {
+      process.env.PATH = originalPath;
+    }
+  });
+});
 
 describe("defaultGitRunner", () => {
   it("shells out to the system git and returns its stdout", () => {

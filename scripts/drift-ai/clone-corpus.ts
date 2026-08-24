@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { errorMessage } from "../lib/error-message.js";
-import { isRecord } from "./config-readers.js";
+import { isRecord } from "../lib/records.js";
 import { DriftAiError } from "./errors.js";
 import {
   extractNearDuplicateFunctions,

@@ -1,3 +1,9 @@
+import {
+  buildHarnessDiagnostics,
+  type HarnessDiagnosticNote,
+  type HarnessDiagnostics,
+  type HarnessFinding,
+} from "@musi/harness-diagnostics/schema.js";
 import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
 import type {
   LintRatchetComparison,
@@ -7,7 +13,6 @@ import type {
 } from "@musi/lint-ratchet/kernel/baseline.js";
 import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import { RATCHET_REGRESSION_UPDATE_COMMAND } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { assertNever, ratchetSource } from "@musi/lint-ratchet/kernel/runtime-config.js";
 
 import {
@@ -15,16 +20,11 @@ import {
   MAX_LINES_SPLIT_GUIDANCE,
 } from "../../eslint-rules/max-lines.js";
 import {
-  buildHarnessDiagnostics,
-  type HarnessDiagnosticNote,
-  type HarnessDiagnostics,
-  type HarnessFinding,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
-import {
   formatRuleDocsFailures,
   loadLintRuleDocs,
   type RuleDocsEntry,
 } from "../lib/lint-rule-docs.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { buildInfoFinding } from "./info-diagnostics.js";
 import { localRuleMessageHowToFixFor } from "./local-rule-fix-text.js";
 import { BASELINE_FILENAME, repoRoot } from "./paths.js";
@@ -33,7 +33,7 @@ const REGRESSION_RECOVERY_NOTE: HarnessDiagnosticNote = {
   kind: "recovery-command",
   message:
     "If a ratchet regression is intentional, accept it with this full update command before committing.",
-  command: RATCHET_REGRESSION_UPDATE_COMMAND,
+  command: musiLintRatchetWorkflowVocabulary.regressionUpdateCommand,
 };
 const STRUCTURAL_FUNCTION_RULE_IDS = new Set(["max-depth", "max-lines-per-function"]);
 const STRUCTURAL_FUNCTION_GUIDANCE =
@@ -107,8 +107,10 @@ function improvementDetail(improvement: LintRatchetImprovement): string {
 
 function baselineComparisonRecoverySuffix(comparison: LintRatchetComparison): string {
   if (comparison.improvements.length === 0) return "run bun run lint:ratchet for details";
-  if (comparison.regressions.length === 0) return "run bun run lint:ratchet:update";
-  return "fix regressions, then run bun run lint:ratchet:update";
+  if (comparison.regressions.length === 0) {
+    return `run ${musiLintRatchetWorkflowVocabulary.updateCommand}`;
+  }
+  return `fix regressions, then run ${musiLintRatchetWorkflowVocabulary.updateCommand}`;
 }
 
 export function assertCheckBaselineComparisonClean(comparison: LintRatchetComparison): void {
@@ -259,8 +261,7 @@ function buildImprovementFinding(improvement: LintRatchetImprovement): HarnessFi
     kind: "improvement",
     ...structuredRatchetFields(improvement),
     why: `Current tree is better than the committed baseline for ${improvement.ruleId}; lock it in.`,
-    howToFix:
-      "Run `bun run lint:ratchet:update` to lower the committed baseline and lock in this improvement.",
+    howToFix: `Run \`${musiLintRatchetWorkflowVocabulary.updateCommand}\` to lower the committed baseline and lock in this improvement.`,
     repairKind: "manual",
   };
 }
@@ -279,7 +280,7 @@ export function buildEnvelopeFromComparison(options: BuildEnvelopeOptions): Harn
   const findings = [
     ...regressions.map((regression) => buildFinding(regression, ruleDocsById, ratchetsById)),
     ...improvements.map(buildImprovementFinding),
-    ...infos.map(buildInfoFinding),
+    ...infos.map((info) => buildInfoFinding(info, musiLintRatchetWorkflowVocabulary)),
   ];
   const notes = regressions.length === 0 ? undefined : [REGRESSION_RECOVERY_NOTE];
   return buildHarnessDiagnostics("lint:ratchet", findings, { notes });

@@ -10,10 +10,12 @@
 # smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-lint-agent-changed.sh
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: tools/harness-diagnostics/
 # smoke-subjects: package.json
 # smoke-subjects: eslint-config/
 # Smoke test for scripts/lint-agent-changed.sh.

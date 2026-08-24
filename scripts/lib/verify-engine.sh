@@ -9,59 +9,31 @@
 # once now, parameterized by consumer so behavior stays byte-for-byte identical:
 # same markers, same signals, same summaries.
 #
-# These functions define behavior only; they resolve the metadata/marker/excerpt
-# helpers (musi_write_wrapper_meta, musi_combine_run_meta,
+# The facade sources its internal engine libraries beside this file, resolving
+# them from BASH_SOURCE rather than caller state or the working directory. The
+# combined API still resolves consumer-supplied metadata/marker/excerpt helpers
+# (musi_write_wrapper_meta, musi_combine_run_meta,
 # musi_persist_run_meta_history, musi_write_success_marker,
 # ai_ratchet_failure_excerpt, ai_filtered_task_log_excerpt) at call time, so a
 # consumer must source scripts/lib/verify-metadata.sh and the output-filter
 # helpers before invoking them.
-
-# --- Watchdog --------------------------------------------------------------
-# Start a background budget watchdog that TERMs the given hook PID after
-# `timeout` seconds and prints a labeled banner to stderr. Sets
-# MUSI_VERIFY_WATCHDOG_PID to the watchdog job PID so the caller can kill it on
-# cleanup/exit. Closes FDs 8 and 9 in the watchdog subshell so its `sleep` child
-# never inherits either flock: a killed watchdog must not orphan a lock holder.
-# FD 8 is the pre-commit commit-queue lock; verify.sh never opens it, so closing
-# it there is a harmless no-op.
 #
-# Optional 4th arg `on_timeout`: the name of a shell function/command run when
-# the budget expires. When given it fully owns the on-timeout tail (its own
-# banner plus whatever termination it needs) and the default banner + `kill
-# -TERM "$hook_pid"` are skipped; verify:async uses it to keep its distinct
-# banner and inject the timeout-marker touch and mode-aware process-group signal.
-# The watchdog subshell is a fork of the caller, so the callback sees the
-# caller's functions and locals (bash dynamic scope) — no arguments are passed.
-musi_verify_start_watchdog() {
-  local banner_label="$1" timeout="$2" hook_pid="$3" on_timeout="${4:-}"
-  (
-    exec 9<&-
-    exec 8<&-
-    local sleep_pid=""
-    trap '[ -n "$sleep_pid" ] && kill "$sleep_pid" 2>/dev/null; exit 0' TERM INT
-    sleep "$timeout" &
-    sleep_pid=$!
-    wait "$sleep_pid"
-    if [ -n "$on_timeout" ]; then
-      "$on_timeout"
-    else
-      printf '\n=== %s TIMED OUT (%ds) ===\n' "$banner_label" "$timeout" >&2
-      kill -TERM "$hook_pid" 2>/dev/null
-    fi
-  ) &
-  # shellcheck disable=SC2034 # Read by the caller (verify.sh / pre-commit) to kill the watchdog.
-  MUSI_VERIFY_WATCHDOG_PID=$!
-}
+# Internal concern map (source order):
+#   verify-policy-validation.sh    Named policy schema and callback validation.
+#   verify-evidence-transaction.sh Live-evidence backup, swap, and restoration.
+#   verify-lifecycle.sh            Watchdog, signals, exit dispatch, and cleanup.
+# No consumer outside scripts/lib should source these implementation leaves.
 
-# --- Timeout-budget report -------------------------------------------------
-# Printed to stderr on the TERM path (watchdog fired or external kill).
-musi_verify_report_timeout_budget() {
-  local log_dir="$1"
-  printf 'Timed out and stopped the verification process tree.\n' >&2
-  printf 'For deliberate long verification, use bun run verify:async[:changed] and check bun run verify:async:status.\n' >&2
-  printf 'logs: %s\n' "$log_dir" >&2
-  printf 'inspect: bun run verify:logs budget\n' >&2
-}
+__musi_verify_engine_lib_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=scripts/lib/verify-policy-validation.sh
+. "$__musi_verify_engine_lib_dir/verify-policy-validation.sh"
+# shellcheck source=scripts/lib/verify-evidence-transaction.sh
+. "$__musi_verify_engine_lib_dir/verify-evidence-transaction.sh"
+# shellcheck source=scripts/lib/verify-lifecycle.sh
+. "$__musi_verify_engine_lib_dir/verify-lifecycle.sh"
+unset __musi_verify_engine_lib_dir
+
+MUSI_VERIFY_SLOT_NOT_RUN_EXIT=300
 
 # --- Run-metadata persistence ----------------------------------------------
 # Write the wrapper fragment, combine the run-meta.json, and persist history.
@@ -93,19 +65,24 @@ musi_verify_write_signal_meta() {
 
 # --- Failure summary -------------------------------------------------------
 # Print the FAILED banner, Passed/Failed lines, per-task log excerpts (ratchet
-# gets its diagnostics excerpt), the lint/format repair hints, and a one-line
-# failure-logs footer. The footer is deliberately the summary's LAST line: the
-# per-slot log pointers above are section HEADERS, so a truncated capture
-# (`... 2>&1 | tail -N`) would otherwise keep only boilerplate and lose the
-# breadcrumb. Its wipe warning is folded in so `tail -1` still carries the
-# path; test-timings.json is named only when it exists (early failures may not
-# write it). The caller still owns the failure run-metadata write and the exit.
+# gets its diagnostics excerpt), the lint/format repair hints, failure-only
+# starting-load evidence, and a one-line failure-logs footer. The footer is
+# deliberately the summary's LAST line: the per-slot log pointers above are
+# section HEADERS, so a truncated capture (`... 2>&1 | tail -N`) would otherwise
+# keep only boilerplate and lose the breadcrumb. Its wipe warning is folded in
+# so `tail -1` still carries the path; test-timings.json is named only when it
+# exists (early failures may not write it). The caller still owns the failure
+# run-metadata write and the exit.
 musi_verify_print_failure_summary() {
   local banner_label="$1" elapsed="$2" log_dir="$3" passed="$4" failed="$5"
-  local task timings_note=""
+  local not_run="${6:-}"
+  local task timings_note="" footer_prefix=$'\n\n'
   printf '\n=== %s FAILED (%ds) ===\n' "$banner_label" "$elapsed"
   printf 'Passed:%s\n' "$passed"
   printf 'Failed:%s\n' "$failed"
+  if [ -n "$not_run" ]; then
+    printf 'Not run:%s\n' "$not_run"
+  fi
   for task in $failed; do
     printf '\n--- %s (full log: %s/%s.log) ---\n' "$task" "$log_dir" "$task"
     if [ "$task" = ratchet ]; then
@@ -123,8 +100,10 @@ musi_verify_print_failure_summary() {
   if [ -e "$log_dir/test-timings.json" ]; then
     timings_note=", test-timings.json"
   fi
-  printf '\nverify: failure logs: %s (per-slot <slot>.log%s; wiped by the next verify/pre-commit run — read or copy first)\n' \
-    "$log_dir" "$timings_note"
+  musi_verify_print_starting_load
+  [ "$MUSI_VERIFY_GATE_STARTING_LOAD_PRINTED" -eq 0 ] || footer_prefix=""
+  printf '%sverify: failure logs: %s (per-slot <slot>.log%s; wiped by the next verify/pre-commit run — read or copy first)\n' \
+    "$footer_prefix" "$log_dir" "$timings_note"
 }
 
 # --- Success finalization --------------------------------------------------
@@ -147,227 +126,10 @@ musi_verify_finalize_success() {
 # Policy adapters pass an associative array by name. The engine owns mechanics;
 # callers retain preflight policy, identity providers, and small callbacks.
 
-MUSI_VERIFY_EXIT_DISPATCHER_INSTALLED=0
-MUSI_VERIFY_EXIT_DISPATCHED=0
-MUSI_VERIFY_EXIT_HOOK=""
-MUSI_VERIFY_GATE_ACTIVE=0
-MUSI_VERIFY_GATE_CLEANED=0
-MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS=0
-MUSI_VERIFY_GATE_WATCHDOG_PID=""
-MUSI_VERIFY_GATE_CURRENT_PID=""
-MUSI_VERIFY_GATE_PARALLEL_PIDS=()
-MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP=""
-MUSI_VERIFY_GATE_LIVE_EVIDENCE_LOG_DIR=""
-MUSI_VERIFY_GATE_PRIOR_EVIDENCE_RESTORED=0
-MUSI_VERIFY_GATE_REGISTRATION_CAPTURED=0
-MUSI_VERIFY_GATE_EVIDENCE_SWAP_COMPLETE=0
-MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR=""
-
 musi_verify_gate_trace_event() {
   if declare -F musi_verify_gate_trace >/dev/null 2>&1; then
     musi_verify_gate_trace "$1"
   fi
-}
-
-musi_verify_cleanup_gate() {
-  [ "$MUSI_VERIFY_GATE_CLEANED" -eq 0 ] || return 0
-  [ "$MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS" -eq 0 ] || return 0
-  MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS=1
-
-  if [ -n "$MUSI_VERIFY_GATE_CURRENT_PID" ]; then
-    musi_terminate_process_tree "$MUSI_VERIFY_GATE_CURRENT_PID"
-    musi_wait_for_pid_exit_bounded "$MUSI_VERIFY_GATE_CURRENT_PID" || true
-    MUSI_VERIFY_GATE_CURRENT_PID=""
-  fi
-  local pid
-  for pid in ${MUSI_VERIFY_GATE_PARALLEL_PIDS[@]+"${MUSI_VERIFY_GATE_PARALLEL_PIDS[@]}"}; do
-    [ -n "$pid" ] && musi_terminate_process_tree "$pid"
-  done
-  for pid in ${MUSI_VERIFY_GATE_PARALLEL_PIDS[@]+"${MUSI_VERIFY_GATE_PARALLEL_PIDS[@]}"}; do
-    [ -n "$pid" ] && musi_wait_for_pid_exit_bounded "$pid" || true
-  done
-  MUSI_VERIFY_GATE_PARALLEL_PIDS=()
-  [ -z "$MUSI_VERIFY_GATE_WATCHDOG_PID" ] \
-    || kill "$MUSI_VERIFY_GATE_WATCHDOG_PID" 2>/dev/null \
-    || true
-  MUSI_VERIFY_GATE_WATCHDOG_PID=""
-  if [ -n "$MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP" ]; then
-    if ! musi_verify_gate_restore_live_evidence_dir "$MUSI_VERIFY_GATE_LIVE_EVIDENCE_LOG_DIR"; then
-      printf 'verify engine: failed to restore prior verification evidence in %s\n' \
-        "$MUSI_VERIFY_GATE_LIVE_EVIDENCE_LOG_DIR" >&2
-      MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS=0
-      return 2
-    fi
-  fi
-  MUSI_VERIFY_GATE_CLEANED=1
-  MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS=0
-  musi_verify_gate_trace_event cleanup
-}
-
-musi_verify_dispatch_exit() {
-  local exit_code="$1"
-  trap - EXIT
-  if [ "$MUSI_VERIFY_GATE_ACTIVE" -eq 1 ]; then
-    if ! musi_verify_cleanup_gate; then
-      # Keep restoration retryable and give transient filesystem failures one
-      # bounded second attempt on every process-exit path.
-      musi_verify_cleanup_gate || true
-    fi
-  fi
-  if [ "$MUSI_VERIFY_EXIT_DISPATCHED" -eq 0 ]; then
-    MUSI_VERIFY_EXIT_DISPATCHED=1
-    if [ -n "$MUSI_VERIFY_EXIT_HOOK" ]; then
-      "$MUSI_VERIFY_EXIT_HOOK" "$exit_code" || true
-    fi
-    musi_verify_gate_trace_event exit
-  fi
-  return "$exit_code"
-}
-
-# Pre-commit installs this before advisories and source preflight so its
-# provenance callback also covers exits that happen before musi_verify_run_gate.
-# Reinstalling with the same callback is idempotent; changing ownership fails.
-musi_verify_install_exit_dispatcher() {
-  local exit_hook="${1:-}"
-  if [ -n "$exit_hook" ] && ! declare -F "$exit_hook" >/dev/null 2>&1; then
-    printf 'verify engine: exit hook is not defined: %s\n' "$exit_hook" >&2
-    return 2
-  fi
-  if [ "$MUSI_VERIFY_EXIT_DISPATCHER_INSTALLED" -eq 1 ]; then
-    if [ "$MUSI_VERIFY_EXIT_HOOK" != "$exit_hook" ]; then
-      printf 'verify engine: EXIT dispatcher already has a different owner\n' >&2
-      return 2
-    fi
-    return 0
-  fi
-  MUSI_VERIFY_EXIT_HOOK="$exit_hook"
-  MUSI_VERIFY_EXIT_DISPATCHER_INSTALLED=1
-  MUSI_VERIFY_EXIT_DISPATCHED=0
-  trap 'musi_verify_dispatch_exit "$?"' EXIT
-}
-
-musi_verify_gate_policy_error() {
-  printf 'verify engine: invalid gate policy: %s\n' "$1" >&2
-  return 2
-}
-
-musi_verify_gate_path_absolute() {
-  local repo_root="$1" path="$2"
-  if command -v realpath >/dev/null 2>&1; then
-    if [[ "$path" = /* ]]; then
-      realpath -m -- "$path"
-    else
-      realpath -m -- "${repo_root%/}/$path"
-    fi
-  elif [[ "$path" = /* ]]; then
-    printf '%s\n' "${path%/}"
-  else
-    printf '%s/%s\n' "${repo_root%/}" "${path%/}"
-  fi
-}
-
-musi_verify_gate_path_is_at_or_beneath() {
-  local path="$1" protected_root="$2"
-  [ -n "$protected_root" ] || return 1
-  [ "$path" = "$protected_root" ] || [[ "$path" = "$protected_root/"* ]]
-}
-
-musi_verify_validate_log_target() {
-  local repo_root="$1" log_dir="$2" repo_abs log_abs git_dir common_dir
-  [ -n "$log_dir" ] || {
-    musi_verify_gate_policy_error 'log_dir must not be empty'
-    return 2
-  }
-  [ "$log_dir" != / ] || {
-    musi_verify_gate_policy_error 'log_dir must not be /'
-    return 2
-  }
-  repo_abs=$(musi_verify_gate_path_absolute "$repo_root" .) || return 2
-  log_abs=$(musi_verify_gate_path_absolute "$repo_root" "$log_dir") || return 2
-  [ "$log_abs" != / ] && [ "$log_abs" != "$repo_abs" ] || {
-    musi_verify_gate_policy_error "unsafe log_dir target: $log_dir"
-    return 2
-  }
-  git_dir=$(git -C "$repo_root" rev-parse --absolute-git-dir 2>/dev/null || true)
-  common_dir=$(git -C "$repo_root" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
-  if [ -n "$git_dir" ]; then
-    git_dir=$(musi_verify_gate_path_absolute "$repo_root" "$git_dir") || return 2
-  fi
-  if [ -n "$common_dir" ]; then
-    common_dir=$(musi_verify_gate_path_absolute "$repo_root" "$common_dir") || return 2
-  fi
-  if [ "$log_abs" = "$repo_abs/.git" ] \
-     || musi_verify_gate_path_is_at_or_beneath "$log_abs" "$git_dir" \
-     || musi_verify_gate_path_is_at_or_beneath "$log_abs" "$common_dir"; then
-    musi_verify_gate_policy_error "log_dir must not target a Git directory: $log_dir"
-    return 2
-  fi
-}
-
-musi_verify_validate_gate_policy() {
-  local policy_name="$1" key value
-  if ! declare -p "$policy_name" 2>/dev/null | grep -q '^declare -A'; then
-    musi_verify_gate_policy_error 'argument must name an associative array'
-    return 2
-  fi
-  local -n policy_ref="$policy_name"
-  local allowed=' label banner_label step_label wrapper_command repo_root lock_mode lock_path lock_already_held commit_queue_mode commit_queue_lock commit_queue_already_held commit_queue_timeout total_timeout warn_after marker_path marker_freshness cache_head_provider cache_fingerprint_provider run_head_provider run_fingerprint_provider final_fingerprint_provider marker_head_provider execution_mode consumer steps_array signal_mode failure_mode success_mode_provider log_dir history_dir marker_hit_hook marker_miss_hook pre_cache_admission_condition pre_cache_admission_hook bridge_predicate prepare_slots_hook after_slots_hook exit_hook '
-  for key in "${!policy_ref[@]}"; do
-    case "$allowed" in
-      *" $key "*) ;;
-      *) musi_verify_gate_policy_error "unknown field $key"; return 2 ;;
-    esac
-  done
-  local required='label banner_label wrapper_command repo_root lock_mode lock_path lock_already_held commit_queue_mode commit_queue_already_held commit_queue_timeout total_timeout warn_after marker_path marker_freshness cache_head_provider cache_fingerprint_provider run_head_provider run_fingerprint_provider final_fingerprint_provider marker_head_provider execution_mode consumer steps_array signal_mode failure_mode success_mode_provider log_dir history_dir prepare_slots_hook'
-  for key in $required; do
-    value="${policy_ref[$key]:-}"
-    [ -n "$value" ] || {
-      musi_verify_gate_policy_error "missing field $key"
-      return 2
-    }
-  done
-  case "${policy_ref[lock_mode]}" in blocking|nonblocking) ;; *)
-    musi_verify_gate_policy_error "unknown lock_mode ${policy_ref[lock_mode]}"; return 2 ;;
-  esac
-  case "${policy_ref[commit_queue_mode]}" in none|blocking) ;; *)
-    musi_verify_gate_policy_error "unknown commit_queue_mode ${policy_ref[commit_queue_mode]}"; return 2 ;;
-  esac
-  case "${policy_ref[execution_mode]}" in serial|parallel) ;; *)
-    musi_verify_gate_policy_error "unknown execution_mode ${policy_ref[execution_mode]}"; return 2 ;;
-  esac
-  for key in lock_already_held commit_queue_already_held; do
-    case "${policy_ref[$key]}" in 0|1) ;; *)
-      musi_verify_gate_policy_error "$key must be 0 or 1"; return 2 ;;
-    esac
-  done
-  for key in commit_queue_timeout total_timeout warn_after marker_freshness; do
-    case "${policy_ref[$key]}" in ''|*[!0-9]*)
-      musi_verify_gate_policy_error "$key must be a whole number"; return 2 ;;
-    esac
-  done
-  if [ "${policy_ref[commit_queue_mode]}" = blocking ] \
-     && [ -z "${policy_ref[commit_queue_lock]:-}" ]; then
-    musi_verify_gate_policy_error 'commit_queue_lock is required for blocking queue mode'
-    return 2
-  fi
-  for key in cache_head_provider cache_fingerprint_provider run_head_provider \
-    run_fingerprint_provider final_fingerprint_provider marker_head_provider \
-    success_mode_provider prepare_slots_hook; do
-    value="${policy_ref[$key]}"
-    declare -F "$value" >/dev/null 2>&1 || {
-      musi_verify_gate_policy_error "$key function is not defined: $value"
-      return 2
-    }
-  done
-  for key in marker_hit_hook marker_miss_hook pre_cache_admission_condition pre_cache_admission_hook bridge_predicate after_slots_hook exit_hook; do
-    value="${policy_ref[$key]:-}"
-    [ -z "$value" ] || declare -F "$value" >/dev/null 2>&1 || {
-      musi_verify_gate_policy_error "$key function is not defined: $value"
-      return 2
-    }
-  done
-  musi_verify_validate_log_target "${policy_ref[repo_root]}" "${policy_ref[log_dir]}"
 }
 
 musi_verify_gate_capture_provider() {
@@ -478,191 +240,6 @@ EOF
   fi
 }
 
-musi_verify_gate_handle_signal() {
-  local exit_code="$1"
-  # A different signal may interrupt the active handler while its evidence
-  # swap is between the live-tree move and state commit. The outer handler
-  # owns cleanup and the eventual exit status; nested handlers resume it.
-  [ "$MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS" -eq 0 ] || return 0
-  if ! musi_verify_cleanup_gate; then
-    # EXIT dispatch owns the bounded retry. Never write signal metadata onto
-    # a tree whose prior evidence has not been restored successfully.
-    exit "$exit_code"
-  fi
-  if [ "$MUSI_VERIFY_GATE_PRIOR_EVIDENCE_RESTORED" -ne 1 ]; then
-    musi_verify_write_signal_meta "$exit_code" "$MUSI_VERIFY_GATE_META_DIR" \
-      "$MUSI_VERIFY_GATE_SIGNAL_MODE" "${MUSI_VERIFY_GATE_START_TS:-}" \
-      "${MUSI_VERIFY_GATE_START_TIME:-}" "$MUSI_VERIFY_GATE_WRAPPER_COMMAND" \
-      "$MUSI_VERIFY_GATE_RUN_HEAD" "$MUSI_VERIFY_GATE_RUN_FINGERPRINT" \
-      "$MUSI_VERIFY_GATE_LOG_DIR" "$MUSI_VERIFY_GATE_HISTORY_DIR"
-  fi
-  if [ "$exit_code" -eq 124 ]; then
-    musi_verify_report_timeout_budget "$MUSI_VERIFY_GATE_LOG_DIR"
-  fi
-  exit "$exit_code"
-}
-
-musi_verify_gate_setup_logs() {
-  local policy_name="$1"
-  local -n policy_ref="$policy_name"
-  musi_verify_gate_remove_tree "${policy_ref[log_dir]}" || return 2
-  mkdir -p "${policy_ref[log_dir]}/meta" || return 2
-  musi_verify_gate_trace_event log-setup
-}
-
-musi_verify_gate_remove_tree() {
-  rm -rf -- "$1"
-}
-
-musi_verify_gate_move_tree() {
-  mv -- "$1" "$2"
-}
-
-musi_verify_gate_discard_live_evidence_backup() {
-  [ -n "$MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP" ] || return 0
-  musi_verify_gate_remove_tree "$MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP" || return 2
-  MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP=""
-  MUSI_VERIFY_GATE_LIVE_EVIDENCE_LOG_DIR=""
-  MUSI_VERIFY_GATE_REGISTRATION_CAPTURED=0
-  MUSI_VERIFY_GATE_EVIDENCE_SWAP_COMPLETE=0
-  MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-  MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR=""
-}
-
-musi_verify_gate_backup_live_evidence() {
-  local policy_name="$1"
-  local -n policy_ref="$policy_name"
-  local backup
-
-  musi_verify_gate_discard_live_evidence_backup || return 2
-  backup=$(mktemp -d "${TMPDIR:-/tmp}/musi-verify-live-evidence.XXXXXX") || return 2
-  mkdir -p "$backup/evidence" || {
-    musi_verify_gate_remove_tree "$backup" || true
-    return 2
-  }
-  if [ -d "${policy_ref[log_dir]}" ]; then
-    cp -a -- "${policy_ref[log_dir]}/." "$backup/evidence/" || {
-      musi_verify_gate_remove_tree "$backup" || true
-      return 2
-    }
-  fi
-  MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP="$backup"
-  MUSI_VERIFY_GATE_LIVE_EVIDENCE_LOG_DIR="${policy_ref[log_dir]}"
-  MUSI_VERIFY_GATE_PRIOR_EVIDENCE_RESTORED=0
-  MUSI_VERIFY_GATE_REGISTRATION_CAPTURED=0
-  MUSI_VERIFY_GATE_EVIDENCE_SWAP_COMPLETE=0
-  MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-  MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR=""
-  musi_verify_gate_trace_event evidence-backup
-}
-
-musi_verify_gate_restore_live_evidence_dir() {
-  local log_dir="$1"
-  local backup="$MUSI_VERIFY_GATE_LIVE_EVIDENCE_BACKUP"
-  local registration_backup="$backup/admission-registration.log"
-  local staging displaced rollback_rc=0
-
-  [ -n "$backup" ] || return 0
-  [ -n "$log_dir" ] || return 2
-
-  if [ "$MUSI_VERIFY_GATE_REGISTRATION_CAPTURED" -eq 0 ]; then
-    if [ -f "$log_dir/registration.log" ]; then
-      cp -p -- "$log_dir/registration.log" "$registration_backup" || return 2
-    fi
-    MUSI_VERIFY_GATE_REGISTRATION_CAPTURED=1
-  fi
-
-  if [ "$MUSI_VERIFY_GATE_EVIDENCE_SWAP_COMPLETE" -eq 0 ]; then
-    if [ -n "$MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR" ]; then
-      musi_verify_gate_remove_tree "$MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR" || return 2
-      MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-    fi
-    staging=$(mktemp -d "${log_dir}.restore.XXXXXX") || return 2
-    MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR="$staging"
-    if [ -d "$backup/evidence" ]; then
-      cp -a -- "$backup/evidence/." "$staging/" || {
-        if musi_verify_gate_remove_tree "$staging"; then
-          MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-        fi
-        return 2
-      }
-    fi
-    if [ -f "$registration_backup" ]; then
-      cp -p -- "$registration_backup" "$staging/registration.log" || {
-        if musi_verify_gate_remove_tree "$staging"; then
-          MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-        fi
-        return 2
-      }
-    fi
-
-    displaced="$staging.displaced"
-    if [ -e "$log_dir" ] || [ -L "$log_dir" ]; then
-      musi_verify_gate_move_tree "$log_dir" "$displaced" || {
-        if musi_verify_gate_remove_tree "$staging"; then
-          MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-        fi
-        return 2
-      }
-      MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR="$displaced"
-    fi
-    if ! musi_verify_gate_move_tree "$staging" "$log_dir"; then
-      if [ -n "$MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR" ]; then
-        musi_verify_gate_move_tree "$displaced" "$log_dir" || rollback_rc=$?
-        [ "$rollback_rc" -ne 0 ] || MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR=""
-      fi
-      if musi_verify_gate_remove_tree "$staging"; then
-        MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-      fi
-      return 2
-    fi
-    MUSI_VERIFY_GATE_EVIDENCE_STAGING_DIR=""
-    MUSI_VERIFY_GATE_EVIDENCE_SWAP_COMPLETE=1
-  fi
-
-  if [ -n "$MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR" ]; then
-    musi_verify_gate_remove_tree "$MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR" || return 2
-    MUSI_VERIFY_GATE_EVIDENCE_DISPLACED_DIR=""
-  fi
-  musi_verify_gate_discard_live_evidence_backup || return 2
-  MUSI_VERIFY_GATE_PRIOR_EVIDENCE_RESTORED=1
-  musi_verify_gate_trace_event evidence-restore
-}
-
-musi_verify_gate_restore_live_evidence() {
-  local policy_name="$1"
-  local -n policy_ref="$policy_name"
-  musi_verify_gate_restore_live_evidence_dir "${policy_ref[log_dir]}"
-}
-
-musi_verify_gate_activate_runtime() {
-  local policy_name="$1"
-  local -n policy_ref="$policy_name"
-  MUSI_VERIFY_GATE_RUN_HEAD=$(musi_verify_gate_capture_provider run-head "${policy_ref[run_head_provider]}") || return 2
-  MUSI_VERIFY_GATE_RUN_FINGERPRINT=$(musi_verify_gate_capture_provider run-fingerprint "${policy_ref[run_fingerprint_provider]}") || return 2
-  MUSI_VERIFY_GATE_START_TS=$(date +%s)
-  MUSI_VERIFY_GATE_START_TIME=$(date -Iseconds)
-  MUSI_VERIFY_GATE_LOG_DIR="${policy_ref[log_dir]}"
-  MUSI_VERIFY_GATE_META_DIR="${policy_ref[log_dir]}/meta"
-  MUSI_VERIFY_GATE_HISTORY_DIR="${policy_ref[history_dir]}"
-  MUSI_VERIFY_GATE_SIGNAL_MODE="${policy_ref[signal_mode]}"
-  MUSI_VERIFY_GATE_WRAPPER_COMMAND="${policy_ref[wrapper_command]}"
-  MUSI_VERIFY_GATE_CURRENT_PID=""
-  MUSI_VERIFY_GATE_PARALLEL_PIDS=()
-  MUSI_VERIFY_GATE_CLEANED=0
-  MUSI_VERIFY_GATE_CLEANUP_IN_PROGRESS=0
-  MUSI_VERIFY_GATE_ACTIVE=1
-  musi_verify_gate_trace_event timestamp
-
-  trap 'musi_verify_gate_handle_signal 130' INT
-  trap 'musi_verify_gate_handle_signal 124' TERM
-  musi_verify_gate_trace_event traps
-  musi_verify_start_watchdog "${policy_ref[banner_label]}" \
-    "$MUSI_VERIFY_GATE_EXEC_TIMEOUT" "$$"
-  MUSI_VERIFY_GATE_WATCHDOG_PID="$MUSI_VERIFY_WATCHDOG_PID"
-  musi_verify_gate_trace_event watchdog
-}
-
 musi_verify_gate_run_pre_cache_admission() {
   local policy_name="$1"
   local -n policy_ref="$policy_name"
@@ -722,7 +299,7 @@ musi_verify_gate_run_serial_step() {
   if [ "$reserve_rc" -ne 0 ]; then
     printf '%s: memory admission failed for %s (rc=%s)\n' \
       "$label" "$name" "$reserve_rc" > "$log"
-    MUSI_VERIFY_GATE_FAILED="$MUSI_VERIFY_GATE_FAILED $name"
+    MUSI_VERIFY_GATE_NOT_RUN="$MUSI_VERIFY_GATE_NOT_RUN $name"
     return 1
   fi
   reservation_token="$MUSI_VERIFY_MEMORY_RESERVATION_TOKEN"
@@ -857,33 +434,71 @@ musi_verify_run_gate() {
 
   MUSI_VERIFY_GATE_PASSED=""
   MUSI_VERIFY_GATE_FAILED=""
+  MUSI_VERIFY_GATE_NOT_RUN=""
   if [ "${policy_ref[execution_mode]}" = parallel ]; then
     local -a step_names=()
     # shellcheck disable=SC2034 # Filled by name by the parallel runner.
     local -a step_pids=()
     local -a step_exits=()
-    local index slot exit_code
+    local index slot exit_code pid scheduler_rc=0
+    # The scheduler can abort before admitting a single slot — generated data it
+    # cannot honor, e.g. an artifact edge with no usable probe. That leaves the
+    # outcome arrays empty, so aggregation below would find nothing failed and
+    # the gate would write a success marker having run nothing. Fail closed on
+    # the status instead: this is a regeneration problem, not a slot result.
     musi_run_parallel_verify_steps "${policy_ref[consumer]}" "${policy_ref[steps_array]}" \
       "${policy_ref[failure_mode]}" "${policy_ref[step_label]:-}" \
       "${policy_ref[repo_root]}" step_names step_pids step_exits \
-      MUSI_VERIFY_GATE_PARALLEL_PIDS
+      MUSI_VERIFY_GATE_PARALLEL_PIDS || scheduler_rc=$?
+    if [ "$scheduler_rc" -ne 0 ]; then
+      printf 'verify engine: parallel slot scheduler aborted before running any slot (rc=%s)\n' \
+        "$scheduler_rc" >&2
+      return 2
+    fi
     for index in "${!step_names[@]}"; do
       slot="${step_names[$index]}"
       exit_code="${step_exits[$index]}"
+      pid="${step_pids[$index]:-}"
       [ -n "$exit_code" ] || exit_code=1
       if [ "$exit_code" -eq 0 ]; then
         MUSI_VERIFY_GATE_PASSED="$MUSI_VERIFY_GATE_PASSED $slot"
+      elif [ "$exit_code" -eq "$MUSI_VERIFY_SLOT_NOT_RUN_EXIT" ] \
+        && [ -z "$pid" ]; then
+        MUSI_VERIFY_GATE_NOT_RUN="$MUSI_VERIFY_GATE_NOT_RUN $slot"
       else
+        if [ "$exit_code" -eq "$MUSI_VERIFY_SLOT_NOT_RUN_EXIT" ]; then
+          printf 'verify engine: not-run sentinel recorded for launched slot %s (pid=%s); classifying as failed\n' \
+            "$slot" "$pid" >&2
+        fi
         MUSI_VERIFY_GATE_FAILED="$MUSI_VERIFY_GATE_FAILED $slot"
       fi
     done
     MUSI_VERIFY_GATE_PARALLEL_PIDS=()
   else
     local -n steps_ref="${policy_ref[steps_array]}"
-    for slot in "${steps_ref[@]}"; do
-      musi_verify_gate_run_serial_step "$slot" "${policy_ref[consumer]}" \
+    local serial_index remaining_index remaining_slot remainder_resolve_rc
+    for serial_index in "${!steps_ref[@]}"; do
+      slot="${steps_ref[$serial_index]}"
+      if ! musi_verify_gate_run_serial_step "$slot" "${policy_ref[consumer]}" \
         "${policy_ref[step_label]:-}" "${policy_ref[failure_mode]}" \
-        "${policy_ref[log_dir]}" "$MUSI_VERIFY_GATE_META_DIR" || break
+        "${policy_ref[log_dir]}" "$MUSI_VERIFY_GATE_META_DIR"; then
+        if [ -n "$MUSI_VERIFY_GATE_NOT_RUN" ]; then
+          for ((remaining_index = serial_index + 1; remaining_index < ${#steps_ref[@]}; remaining_index++)); do
+            remaining_slot="${steps_ref[$remaining_index]}"
+            remainder_resolve_rc=0
+            musi_resolve_slot_cmd "${policy_ref[consumer]}" "$remaining_slot" \
+              || remainder_resolve_rc=$?
+            if [ "$remainder_resolve_rc" -eq "$MUSI_VERIFY_SLOT_SKIP_RC" ]; then
+              continue
+            fi
+            printf '%s: %s was not run because serial verification stopped after %s was not admitted\n' \
+              "${policy_ref[label]}" "$remaining_slot" "$slot" \
+              > "${policy_ref[log_dir]}/${remaining_slot}.log"
+            MUSI_VERIFY_GATE_NOT_RUN="$MUSI_VERIFY_GATE_NOT_RUN $remaining_slot"
+          done
+        fi
+        break
+      fi
     done
   fi
   musi_verify_gate_trace_event slots
@@ -897,7 +512,7 @@ musi_verify_run_gate() {
   end_ts=$(date +%s)
   end_time=$(date -Iseconds)
   musi_verify_gate_trace_event aggregation
-  if [ -n "$MUSI_VERIFY_GATE_FAILED" ]; then
+  if [ -n "$MUSI_VERIFY_GATE_FAILED" ] || [ -n "$MUSI_VERIFY_GATE_NOT_RUN" ]; then
     musi_verify_persist_run_meta "$MUSI_VERIFY_GATE_META_DIR" \
       "${policy_ref[failure_mode]}" "$MUSI_VERIFY_GATE_START_TS" \
       "$MUSI_VERIFY_GATE_START_TIME" "$end_ts" "$end_time" 1 \
@@ -906,7 +521,8 @@ musi_verify_run_gate() {
       "${policy_ref[history_dir]}"
     musi_verify_gate_trace_event metadata
     musi_verify_print_failure_summary "${policy_ref[banner_label]}" "$elapsed" \
-      "${policy_ref[log_dir]}" "$MUSI_VERIFY_GATE_PASSED" "$MUSI_VERIFY_GATE_FAILED"
+      "${policy_ref[log_dir]}" "$MUSI_VERIFY_GATE_PASSED" \
+      "$MUSI_VERIFY_GATE_FAILED" "$MUSI_VERIFY_GATE_NOT_RUN"
     return 1
   fi
 

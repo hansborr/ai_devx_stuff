@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
 const FIXTURE_REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,7 @@ describe("coverage-evidence subcommand", () => {
 
     const result = runDriftAi({
       argv: ["coverage-evidence", "--config", configPath, "--format", "json", "--top", "3"],
-      git: gitRoot(FIXTURE_REPO),
+      git: currentRepoGit(FIXTURE_REPO),
     });
     const advisory = JSON.parse(result.stdout) as Record<string, unknown>;
 
@@ -38,7 +39,7 @@ describe("coverage-evidence subcommand", () => {
   it("prints subcommand usage on help", () => {
     const result = runDriftAi({
       argv: ["coverage-evidence", "--help"],
-      git: gitRoot(FIXTURE_REPO),
+      git: currentRepoGit(FIXTURE_REPO),
     });
 
     expect(result.exitCode).toBe(0);
@@ -52,8 +53,4 @@ function writeConfig(value: unknown): string {
   const configPath = path.join(dir, "drift-ai.config.json");
   writeFileSync(configPath, JSON.stringify(value), "utf8");
   return configPath;
-}
-
-function gitRoot(repoRoot: string): (args: readonly string[]) => string {
-  return (args) => (args[0] === "rev-parse" ? `${repoRoot}\n` : "");
 }

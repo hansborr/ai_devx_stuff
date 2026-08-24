@@ -1,7 +1,7 @@
 ---
 id: ADR-0001
 date: 2026-07-20
-status: Accepted
+status: Superseded by ADR-0007
 enforced_by:
   - eslint-rule:local/concurrency-guard
   - restricted-import:RawTxClient

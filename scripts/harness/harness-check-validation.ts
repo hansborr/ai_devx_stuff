@@ -1,37 +1,21 @@
 import { formatMissingRatchetManifestMessage } from "../lint-ratchet/ratchet-manifest-message.js";
 import {
-  CONTROL_CATEGORIES,
+  collectNonLintFieldIssues,
+  type ControlFieldIssue,
+  type ControlFieldName,
   type ControlKind,
-  isControlCategory,
   isControlKind,
   isNonEmptyString,
   isRepairKind,
   KINDS,
   lintRuleRestatementFailures,
-  ratchetPrincipleRestatementFailures,
-  REPAIR_KINDS,
+  type RawControlRecord,
   type RepairKind,
   validatePairedGuidePath,
-  validateRepairCommandPresence,
   validateSourcePath,
 } from "./control-field-validation.js";
 
-export { isNonEmptyString };
-
-export interface RawControl {
-  readonly id?: unknown;
-  readonly kind?: unknown;
-  readonly ruleName?: unknown;
-  readonly category?: unknown;
-  readonly principle?: unknown;
-  readonly pairedGuide?: unknown;
-  readonly repairKind?: unknown;
-  readonly repairCommand?: unknown;
-  readonly source?: unknown;
-  readonly invocation?: unknown;
-  readonly slots?: unknown;
-  readonly hookWiring?: unknown;
-}
+export type RawControl = RawControlRecord;
 
 export interface ControlFailures {
   readonly id: string;
@@ -107,13 +91,7 @@ function validateRepairCommandField(
   repairCommand: unknown,
   context: ManifestCheckContext,
 ): void {
-  const presenceFailures = validateRepairCommandPresence(repairKind, repairCommand);
-  for (const message of presenceFailures) {
-    pushFailure(context.failures, id, message);
-  }
-  if (presenceFailures.length > 0 || repairKind !== "codemod") {
-    return;
-  }
+  if (repairKind !== "codemod") return;
   if (!isNonEmptyString(repairCommand)) return;
   const scriptName = extractRepairCommandScript(repairCommand);
   if (scriptName === undefined) {
@@ -157,6 +135,17 @@ export function validateLintRuleEntry(
   return { ruleName: raw.ruleName };
 }
 
+function pushFieldIssues(
+  issues: readonly ControlFieldIssue[],
+  field: ControlFieldName,
+  id: string,
+  failures: Map<string, ControlFailures>,
+): void {
+  for (const issue of issues) {
+    if (issue.field === field) pushFailure(failures, id, issue.message);
+  }
+}
+
 export function validateNonLintEntry(
   raw: RawControl,
   id: string,
@@ -164,30 +153,29 @@ export function validateNonLintEntry(
   options: { readonly principleFromRegistry?: boolean } = {},
 ): void {
   const { repoRoot, failures } = context;
-  if (raw.ruleName !== undefined) {
-    pushFailure(failures, id, "ruleName is only allowed on lint-rule entries");
-  }
-  if (!isControlCategory(raw.category)) {
-    pushFailure(failures, id, `category must be one of: ${CONTROL_CATEGORIES.join(", ")}`);
-  }
-  if (options.principleFromRegistry === true) {
-    for (const message of ratchetPrincipleRestatementFailures(raw)) {
+  const issues = collectNonLintFieldIssues(raw, {
+    principleFromRegistry: options.principleFromRegistry === true,
+    // registration-manifest-checks validates source before branching by kind.
+    includeSource: false,
+    // Bare backlog coordinates are a checker-only policy.
+    bareCoordinateCheck: true,
+  });
+
+  pushFieldIssues(issues, "ruleName", id, failures);
+  pushFieldIssues(issues, "category", id, failures);
+  pushFieldIssues(issues, "principle", id, failures);
+  pushFieldIssues(issues, "pairedGuide", id, failures);
+  if (isNonEmptyString(raw.pairedGuide)) {
+    for (const message of validatePairedGuidePath(repoRoot, raw.pairedGuide)) {
       pushFailure(failures, id, message);
     }
-  } else if (!isNonEmptyString(raw.principle)) {
-    pushFailure(failures, id, "principle must be a non-empty string");
   }
-  for (const message of validatePairedGuidePath(repoRoot, raw.pairedGuide)) {
-    pushFailure(failures, id, message);
-  }
-  if (!isRepairKind(raw.repairKind)) {
-    pushFailure(failures, id, `repairKind must be one of: ${REPAIR_KINDS.join(", ")}`);
-  } else {
+  pushFieldIssues(issues, "repairKind", id, failures);
+  pushFieldIssues(issues, "repairCommand", id, failures);
+  if (isRepairKind(raw.repairKind)) {
     validateRepairCommandField(id, raw.repairKind, raw.repairCommand, context);
   }
-  if (!isNonEmptyString(raw.invocation)) {
-    pushFailure(failures, id, "invocation must be a non-empty string");
-  }
+  pushFieldIssues(issues, "invocation", id, failures);
 }
 
 export function validateRatchetEntry(
@@ -215,7 +203,13 @@ export function checkRuleParity(
 ): void {
   for (const ruleName of ruleNames) {
     if (!declaredRules.has(ruleName)) {
-      pushFailure(failures, "(parity)", `local rule ${ruleName} is not declared in the manifest`);
+      pushFailure(
+        failures,
+        "(parity)",
+        `local rule ${ruleName} is not declared in the manifest. Lint-rule controls are ` +
+          "generated from the rule files and their activation surfaces, so do not add one by " +
+          "hand: run bun run harness:lint-rule-controls to regenerate the include.",
+      );
     }
   }
 }

@@ -3,8 +3,8 @@ import path from "node:path";
 import type { Project } from "ts-morph";
 import { type SourceFile } from "ts-morph";
 
+import { fail } from "./codemod-errors.js";
 import {
-  fail,
   ROUTER_ROOT,
   SHARED_SCHEMA_PREFIX,
   SHARED_SCHEMA_ROOT,

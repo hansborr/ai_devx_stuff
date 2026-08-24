@@ -2,6 +2,7 @@
 // section with overlay columns (young-in-window, fix/revert tie-breaker, and
 // test-vs-source churn ratio), not separate verdicts.
 
+import { isBroadHistoryTestPath } from "../lib/path-taxonomy.js";
 import { buildPathRowActionability } from "./hotspots-actionability.js";
 import type { ThrashHotspot, ThrashSection } from "./hotspots-format.js";
 import {
@@ -163,14 +164,12 @@ function testChurnRatio(records: readonly CommitRecord[], path: string): number 
     for (const file of record.files) {
       const changed = file.added + file.deleted;
       totalLines += changed;
-      if (isTestPath(file.path)) testLines += changed;
+      // Broad history-heuristic policy on purpose: this lens scores git
+      // history, so it must tolerate deleted paths and stale conventions.
+      if (isBroadHistoryTestPath(file.path)) testLines += changed;
     }
   }
   return totalLines === 0 ? 0 : testLines / totalLines;
-}
-
-function isTestPath(path: string): boolean {
-  return /(?:^|[./_-])(?:test|spec)(?:[./_-]|$)/iu.test(path);
 }
 
 function compareCandidates(left: ThrashCandidate, right: ThrashCandidate): number {

@@ -11,25 +11,13 @@
 // real config enables `projectService`, which rejects paths not in any
 // tsconfig.
 
-import { ESLint } from "eslint";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
+import config from "../eslint.config.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
-
-/** @returns {Promise<unknown>} */
-async function configFor(/** @type {string} */ filePath) {
-  return eslint.calculateConfigForFile(filePath);
-}
+import { repoRoot, resolvedConfigFor } from "./repo-config-harness.js";
 
 /** @param {unknown} entry */
 function patternsOf(entry) {
@@ -73,14 +61,26 @@ function patternsWithGroup(patterns, name) {
 }
 
 describe("schemas-barrel restriction", () => {
+  it("keeps the bare-barrel fence in every restricted-import rule site", () => {
+    const ruleSites = config.flatMap((entry) => {
+      const rule = entry.rules?.["@typescript-eslint/no-restricted-imports"];
+      return rule === undefined ? [] : [rule];
+    });
+
+    expect(ruleSites.length, "at least one restricted-import rule site must exist").toBeGreaterThan(
+      0,
+    );
+    for (const rule of ruleSites) {
+      expect(patternsMatchingBareBarrel(patternsOf(rule))).not.toHaveLength(0);
+    }
+  });
+
   it(
     "client files block the bare barrel alongside socket-client construction",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-        await configFor(
-          resolve(repoRoot, "packages/client/src/components/campaign/chat/chat-message.tsx"),
-        )
+      const cfg = await resolvedConfigFor(
+        "packages/client/src/components/campaign/chat/chat-message.tsx",
       );
       const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
       expect(entry, "rule must be configured").toBeDefined();
@@ -94,9 +94,7 @@ describe("schemas-barrel restriction", () => {
     "server files block the bare barrel alongside the RawTxClient restriction",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-        await configFor(resolve(repoRoot, "packages/server/src/index.ts"))
-      );
+      const cfg = await resolvedConfigFor("packages/server/src/index.ts");
       const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
       expect(entry, "rule must be configured").toBeDefined();
       const patterns = patternsOf(entry);
@@ -115,7 +113,7 @@ describe("schemas-barrel restriction", () => {
       });
       expect(rawTxPattern).toBeDefined();
       const message = /** @type {{ message?: unknown }} */ (rawTxPattern).message;
-      expect(message).toContain("ADR-0001");
+      expect(message).toContain("ADR-0007");
     },
   );
 
@@ -123,9 +121,7 @@ describe("schemas-barrel restriction", () => {
     "shared files block client/server and runtime-specific imports",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const cfg = /** @type {{ rules?: Record<string, unknown> }} */ (
-        await configFor(resolve(repoRoot, "packages/shared/src/rules/combat.ts"))
-      );
+      const cfg = await resolvedConfigFor("packages/shared/src/rules/combat.ts");
       const entry = cfg.rules?.["@typescript-eslint/no-restricted-imports"];
       expect(entry, "rule must be configured").toBeDefined();
       const patterns = patternsOf(entry);

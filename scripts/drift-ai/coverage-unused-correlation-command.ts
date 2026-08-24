@@ -1,3 +1,4 @@
+import type { DriftAiCommandResult } from "./command-result.js";
 import { readCoverageArtifacts } from "./coverage-artifacts.js";
 import type { CoverageArtifactEvidence } from "./coverage-types.js";
 import {
@@ -29,10 +30,7 @@ export type CoverageUnusedCorrelationRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type CoverageUnusedCorrelationRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type CoverageUnusedCorrelationRunResult = DriftAiCommandResult;
 
 export function runCoverageUnusedCorrelation(
   options: CoverageUnusedCorrelationRunOptions,

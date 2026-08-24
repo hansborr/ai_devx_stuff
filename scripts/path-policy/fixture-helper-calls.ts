@@ -8,6 +8,7 @@
 // Same-named root variables in unrelated functions still stay separate — only
 // an explicit call site merges scopes.
 
+import { capture, stripQuotes } from "./fixture-copy-expressions.js";
 import type { ScopedShellLine } from "./fixture-shell-scope.js";
 
 /** The scope/provenance key every fixture grouping is built on. */
@@ -16,8 +17,8 @@ export interface FixtureScopedGroup {
   readonly fixtureRoot: string;
 }
 
-export interface MutableFixtureCopyGroup extends FixtureScopedGroup {
-  readonly sources: Set<string>;
+export interface FixtureCopyGroup extends FixtureScopedGroup {
+  readonly sources: ReadonlySet<string>;
 }
 
 /** A call site that hands a fixture root to a copy-helper function. */
@@ -42,22 +43,6 @@ const constructorCallPattern =
   /^(?:(?:local|declare|readonly)(?:\s+-\w+)*\s+)?([a-z_][a-z0-9_]*)=("?)\$\(([a-z_][a-z0-9_]*)(?:\s[^)]*)?\)\2$/u;
 const helperRootArgCaptureIndex = 2;
 const constructorCalleeCaptureIndex = 3;
-
-function stripQuotes(value: string): string {
-  if (
-    (value.startsWith('"') && value.endsWith('"')) ||
-    (value.startsWith("'") && value.endsWith("'"))
-  ) {
-    return value.slice(1, -1);
-  }
-  return value;
-}
-
-function capture(match: RegExpMatchArray, index: number): string {
-  const value = match[index];
-  if (value === undefined) throw new Error(`expected regex capture ${String(index)}`);
-  return value;
-}
 
 export function fixtureGroupKey(functionScope: readonly string[], fixtureRoot: string): string {
   return `${functionScope.join("\u0000")}\u0001${fixtureRoot}`;
@@ -164,27 +149,4 @@ export function mergeHelperCallGroups<TGroup extends FixtureScopedGroup>(
     "fixture helper-call merge exhausted its pass bound without reaching a fixpoint; " +
       "mergeHelperCallGroups has a termination bug for this helper graph",
   );
-}
-
-export function mergeHelperCallSources(
-  copiedByFixture: Map<string, MutableFixtureCopyGroup>,
-  calls: readonly FixtureHelperCall[],
-): void {
-  mergeHelperCallGroups(copiedByFixture, calls, {
-    create: (functionScope, fixtureRoot) => ({
-      functionScope,
-      fixtureRoot,
-      sources: new Set<string>(),
-    }),
-    absorb: (target, source) => {
-      let changed = false;
-      for (const path of source.sources) {
-        if (target.sources.has(path)) continue;
-        target.sources.add(path);
-        changed = true;
-      }
-      return changed;
-    },
-    isEmpty: (group) => group.sources.size === 0,
-  });
 }

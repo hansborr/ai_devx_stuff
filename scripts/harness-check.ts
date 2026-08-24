@@ -14,10 +14,7 @@
 //    in the manifest and every manifest doctor check is still emitted;
 //  - parity (porting): every Porting This checklist id has a greppable source
 //    marker and every source marker remains documented;
-//  - freshness: generated verify step data, AI hook wiring, local lint
-//    guidance, the harness-controls doc, the restricted-disable rule list,
-//    the config-surface tsconfig (tsconfig.configs.json), generated hook
-//    timeout constants, skill mirrors, and smoke-subject metadata are up to date.
+//  - freshness: every generatedSurface entry in harness.controls.json is current.
 //
 // Run via `bun run harness:check`. Exits non-zero on any failure with a
 // per-control diagnostic list so the harness gates surface drift loudly.
@@ -28,6 +25,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { checkFixtureCopyClosure } from "./harness/fixture-closure-check.js";
+import { VERIFY_STEP_PROJECTIONS } from "./harness/generate-verify-steps.js";
 import { type ControlFailures, pushFailure } from "./harness/harness-check-validation.js";
 import { checkCiGateParity } from "./harness/harness-gate-parity.js";
 import {
@@ -37,7 +35,6 @@ import {
 } from "./harness/harness-paths.js";
 import { checkManifestReadTripwire } from "./harness/manifest-contract-check.js";
 import { checkPortingKnobParity } from "./harness/porting-knob-parity.js";
-import { checkPrePushScopePin } from "./harness/pre-push-scope-pin.js";
 import {
   formatRegistrationFailures,
   loadRegistrationCheckInputs,
@@ -131,9 +128,14 @@ async function main(): Promise<void> {
       join(repoRoot, "scripts/harness/registration-generated-checks.ts"),
       "utf8",
     ),
+    fixtureClosureSource: readFileSync(
+      join(repoRoot, "scripts/harness/fixture-closure-check.ts"),
+      "utf8",
+    ),
     packageScripts: inputs.scripts,
     manifest: inputs.rawManifest,
     generatedSurfaces,
+    verifyStepProjections: VERIFY_STEP_PROJECTIONS,
   })) {
     pushFailure(failures, "registration preflight wiring", failure);
   }
@@ -142,9 +144,6 @@ async function main(): Promise<void> {
   checkGeneratedHookWiringStructure(failures);
   for (const failure of checkPortingKnobParity(repoRoot)) {
     pushFailure(failures, "porting-knob checklist", failure);
-  }
-  for (const failure of checkPrePushScopePin(repoRoot)) {
-    pushFailure(failures, "pre-push source-extension pin", failure);
   }
   const expectedCiGates = new Map<string, string>();
   for (const controlId of state.parityConfig.ciGateControlIds) {

@@ -7,7 +7,6 @@ import { summarizeLintRatchetBaseline } from "./summary.js";
 const SHORT_SHA_LENGTH = 12;
 const DATE_ONLY_LENGTH = 10;
 const TREND_CAPTION = "per-commit totals from committed baselines (working tree not included)";
-const ALL_HISTORY_COMMAND = "bun run lint:ratchet:trend -- --all";
 
 interface GitExecOptions {
   readonly cwd: string;
@@ -184,6 +183,7 @@ function collectSeries(
   repoRoot: string,
   commits: readonly BaselineCommit[],
   deps: LintRatchetTrendDeps,
+  context: LintRatchetEngineContext,
 ): { readonly series: readonly TrendSeries[]; readonly warnings: readonly string[] } {
   const seriesById = new Map<string, TrendSeries>();
   const warnings: string[] = [];
@@ -193,7 +193,12 @@ function collectSeries(
       warnings.push(`${commit.sha}: ${commit.path} could not be read`);
       continue;
     }
-    const parsed = parseLintRatchetBaselineStructure(text);
+    const parsed = parseLintRatchetBaselineStructure(
+      text,
+      context.workflowVocabulary,
+      undefined,
+      relativeToRepoRoot(context.repoRoot, context.baselinePath),
+    );
     if (parsed.baseline === undefined) {
       warnings.push(`${commit.sha}: ${parsed.failures.join("; ")}`);
       continue;
@@ -319,6 +324,7 @@ export function runLintRatchetTrend(options: RunLintRatchetTrendOptions): LintRa
     repoRoot,
     baselineHistory({ ...options, deps }, baselineRelPath),
     deps,
+    options.context,
   );
   const activeRatchetIds = new Set(options.ratchets.map((ratchet) => ratchet.id));
   const retiredSeries = collected.series.filter((series) => !activeRatchetIds.has(series.id));
@@ -328,7 +334,7 @@ export function runLintRatchetTrend(options: RunLintRatchetTrendOptions): LintRa
   const omissionNote =
     options.includeRetired === true || retiredSeries.length === 0
       ? ""
-      : `Omitted ${String(retiredSeries.length)} retired series; run \`${ALL_HISTORY_COMMAND}\` for complete history.\n`;
+      : `Omitted ${String(retiredSeries.length)} retired series; run \`${options.context.workflowVocabulary.trendAllCommand}\` for complete history.\n`;
   return {
     report: `${formatLintRatchetTrend(visibleSeries, activeRatchetIds)}${omissionNote}`,
     warnings: collected.warnings,

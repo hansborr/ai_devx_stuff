@@ -1,4 +1,4 @@
-import { duplicateScopeKey, isJsonValue, isRecord, ruleNamespace } from "./baseline-hash.js";
+import { duplicateScopeKey, isJsonValue, ruleNamespace } from "./baseline-hash.js";
 import type {
   LintRatchetConfig,
   LintRatchetMetric,
@@ -24,6 +24,7 @@ const CORE_RULE_ID_PATTERN = /^[a-z][a-z0-9-]*$/u;
 const PACKAGE_SPECIFIER_PATTERN = /^(?:@[a-z0-9][a-z0-9._-]*\/)?[a-z0-9][a-z0-9._-]*$/u;
 
 interface ValidateLintRatchetRegistryOptions {
+  readonly exitPathExists?: (exitPath: string) => boolean;
   readonly localRuleIds?: ReadonlySet<string>;
   readonly thirdPartyPlugins?: readonly LintRatchetThirdPartyPluginAllowlistEntry[];
 }
@@ -33,6 +34,7 @@ type ThirdPartyRatchetSource = Extract<LintRatchetRuleSource, { readonly kind: "
 interface ValidateRatchetEntryContext {
   readonly localRuleIds: ReadonlySet<string> | undefined;
   readonly allowedThirdPartyPlugins: ReadonlySet<string>;
+  readonly exitPathExists: ((exitPath: string) => boolean) | undefined;
   readonly seenScopes: Map<string, string>;
 }
 
@@ -63,23 +65,6 @@ export function hasNormalizedPath(value: string): boolean {
 
 function thirdPartyAllowlistKey(pluginModule: string, ruleNamespace: string): string {
   return `${pluginModule}\u0000${ruleNamespace}`;
-}
-
-function isReadonlyStringSet(
-  value: ReadonlySet<string> | ValidateLintRatchetRegistryOptions,
-): value is ReadonlySet<string> {
-  if (!isRecord(value)) return false;
-  return typeof value.has === "function" && typeof value.forEach === "function";
-}
-
-function normalizeRegistryOptions(
-  optionsOrLocalRuleIds?: ReadonlySet<string> | ValidateLintRatchetRegistryOptions,
-): ValidateLintRatchetRegistryOptions {
-  if (optionsOrLocalRuleIds === undefined) return {};
-  if (isReadonlyStringSet(optionsOrLocalRuleIds)) {
-    return { localRuleIds: optionsOrLocalRuleIds };
-  }
-  return optionsOrLocalRuleIds;
 }
 
 function validateThirdPartyPluginAllowlistEntry(
@@ -250,7 +235,7 @@ function validateRatchetEntry(
   if (ratchet.principle.trim().length === 0) {
     failures.push(`${ratchet.id}: principle must be a non-empty string`);
   }
-  validateZeroBaselineDisposition(ratchet, failures);
+  validateZeroBaselineDisposition(ratchet, failures, ctx.exitPathExists);
   validateRatchetScope(ratchet, ctx, failures);
 }
 
@@ -308,9 +293,9 @@ function validateRatchetScope(
 
 export function validateLintRatchetRegistry(
   ratchets: readonly LintRatchetConfig[],
-  optionsOrLocalRuleIds?: ReadonlySet<string> | ValidateLintRatchetRegistryOptions,
+  options: ValidateLintRatchetRegistryOptions = {},
 ): readonly string[] {
-  const { localRuleIds, thirdPartyPlugins = [] } = normalizeRegistryOptions(optionsOrLocalRuleIds);
+  const { exitPathExists, localRuleIds, thirdPartyPlugins = [] } = options;
   const failures: string[] = [];
   const ids = ratchets.map((ratchet) => ratchet.id);
   if (!isSortedUnique(ids)) failures.push("ratchet ids must be sorted (by codepoint) and unique");
@@ -318,6 +303,7 @@ export function validateLintRatchetRegistry(
   const ctx: ValidateRatchetEntryContext = {
     localRuleIds,
     allowedThirdPartyPlugins: validateThirdPartyPluginAllowlist(thirdPartyPlugins, failures),
+    exitPathExists,
     seenScopes: new Map<string, string>(),
   };
   for (const ratchet of ratchets) validateRatchetEntry(ratchet, ctx, failures);

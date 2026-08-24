@@ -5,7 +5,7 @@
 // deterministic format apply directly. The reason/lifecycle prose and the
 // severity/ratchetExcluded flags ride along as entry metadata.
 //
-// `eslint-config/shared-policy.js` reads the committed JSON directly (plain JS,
+// `eslint-config/max-lines-policy.js` reads the committed JSON directly (plain JS,
 // fail-loud) at eslint-config-load time; this module owns the framework spec,
 // the deterministic formatter, and the --check/--update CLI.
 
@@ -62,6 +62,8 @@ export const maxLinesExceptionsSpec: BaselineMetricSpec<MaxLinesExceptionEntry> 
   conflictMarkerRemediation: {
     baselineFile: "eslint-config/max-lines-exceptions.baseline.json",
     installerCommand: "bun run lint:max-lines-exceptions:install-merge-driver",
+    restoreOursCommand:
+      "bun run baseline:restore-stage -- --ours eslint-config/max-lines-exceptions.baseline.json",
     updateCommand: "bun run lint:max-lines-exceptions:update",
     reconcileEntries: true,
   },

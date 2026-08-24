@@ -17,12 +17,7 @@ import {
   existingRelativeFile,
   sourceFilesForGraph,
 } from "./source-project.js";
-import type {
-  CodeIntelQueryResult,
-  DefinitionNearMatchHint,
-  ExecutableCliCommand,
-  ImportGraph,
-} from "./types.js";
+import type { CodeIntelQueryResult, ExecutableCliCommand, ImportGraph } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
 import { createWorkspaceResolver } from "./workspace-resolver.js";
 
@@ -78,7 +73,7 @@ function executeDefinition(
   const project =
     runner.context.project ?? createProjectForFile(runner.repoRoot, command.location.file);
   const results = queryDefinition(project, runner.resolver, command.location);
-  const headerName = results[0]?.kind === "definition" ? results[0].name : "unknown";
+  const headerName = results[0]?.name ?? "unknown";
   return { kind: "results", header: `definition ${headerName}`, results };
 }
 
@@ -89,20 +84,15 @@ function executeDefinitionName(
   const sourceFiles = sourceFilesForGraph(runner.repoRoot, runner.context);
   const results = queryDefinitionsByName(runner.resolver, sourceFiles, command.name);
   const header = `definition ${command.name}`;
+  // The formatter derives the searched-scope statement for every defName
+  // execution from commandKind (docs/guides/code-intel.md#supported-scope),
+  // so hits need no scope plumbing here.
   if (results.length > 0) return { kind: "results", header, results };
   return {
     kind: "definitionNameMiss",
     header,
-    hint: definitionNameMissHint(runner, sourceFiles, command.name),
+    hint: queryDefinitionNearMatches(runner.resolver, sourceFiles, command.name),
   };
-}
-
-function definitionNameMissHint(
-  runner: QueryExecutorContext,
-  sourceFiles: ReturnType<typeof sourceFilesForGraph>,
-  name: string,
-): DefinitionNearMatchHint {
-  return queryDefinitionNearMatches(runner.resolver, sourceFiles, name);
 }
 
 function executeExports(
@@ -134,7 +124,7 @@ function overviewCandidateTests(file: string, runner: QueryExecutorContext): str
   try {
     const graph = runner.context.graph ?? buildGraphFromContext(runner);
     return queryTests(runner.resolver, graph, file, { depth: 1 })
-      .flatMap((result) => (result.kind === "test" ? [result.file] : []))
+      .map((result) => result.file)
       .slice(0, OVERVIEW_CANDIDATE_TEST_LIMIT);
   } catch {
     return [];
@@ -142,6 +132,7 @@ function overviewCandidateTests(file: string, runner: QueryExecutorContext): str
 }
 
 function executeRefs(command: RefsCommand, runner: QueryExecutorContext): CodeIntelQueryResult {
+  existingRelativeFile(runner.resolver, command.location.file);
   const project =
     runner.context.referenceProject ??
     runner.context.graphProject ??

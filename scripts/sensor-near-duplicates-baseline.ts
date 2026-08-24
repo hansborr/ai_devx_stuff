@@ -12,6 +12,7 @@ import {
   type NearDuplicatePair,
 } from "./drift-ai/near-duplicates.js";
 import { parseBaselineEntries } from "./lib/baseline/read-entries.js";
+import { isRecord } from "./lib/records.js";
 
 export type NearDuplicateBaselineEntry = {
   readonly key: string;
@@ -22,10 +23,6 @@ export type NearDuplicateBaselineEntry = {
   readonly count: number;
   readonly admissionReason?: string;
 };
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function areNonEmptyIdentityFields(
   values: readonly [unknown, unknown, unknown, unknown],
@@ -94,6 +91,8 @@ export const nearDuplicatesSpec: BaselineMetricSpec<NearDuplicateBaselineEntry> 
   conflictMarkerRemediation: {
     baselineFile: "sensor-near-duplicates.baseline.json",
     installerCommand: "bun run sensor:near-duplicates:install-merge-driver",
+    restoreOursCommand:
+      "bun run baseline:restore-stage -- --ours sensor-near-duplicates.baseline.json",
     updateCommand: "bun scripts/sensor-near-duplicates.ts --update",
   },
   parseEntry(raw): ParseResult<NearDuplicateBaselineEntry> {

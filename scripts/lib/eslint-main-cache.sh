@@ -1,188 +1,117 @@
 # shellcheck shell=bash
 # shellcheck disable=SC2034
-# Cache arguments for the main ESLint lane. The normal flat config is broadly
-# type-aware and locally extended, so the cache location is salted by inputs
-# that can change diagnostics for otherwise unchanged linted files.
+# Thin argv adapter for eslint-main-cache.ts. The TypeScript module owns cache
+# identity, pruning, partition validation, locations, and exact ESLint args;
+# this file only transports and validates its versioned NUL-delimited records.
 
 MUSI_ESLINT_MAIN_CACHE_ARGS=()
-MUSI_ESLINT_MAIN_CACHE_DIR=""
+declare -A MUSI_ESLINT_MAIN_CACHE_PLAN_ARGS=()
+declare -A MUSI_ESLINT_MAIN_CACHE_PLAN_ARG_COUNT=()
 
-musi_eslint_main_repo_root() {
+readonly MUSI_ESLINT_MAIN_CACHE_RECORD_MAGIC="musi-eslint-cache-plan-v1"
+MUSI_ESLINT_MAIN_CACHE_LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+readonly MUSI_ESLINT_MAIN_CACHE_LIB_DIR
+readonly MUSI_ESLINT_MAIN_CACHE_CORE_DEFAULT="$MUSI_ESLINT_MAIN_CACHE_LIB_DIR/eslint-main-cache.ts"
+
+musi_eslint_main_cache_reset_plans() {
+  MUSI_ESLINT_MAIN_CACHE_ARGS=()
+  MUSI_ESLINT_MAIN_CACHE_PLAN_ARGS=()
+  MUSI_ESLINT_MAIN_CACHE_PLAN_ARG_COUNT=()
+}
+
+musi_eslint_main_cache_invalid_record() {
+  printf 'eslint-main-cache: invalid cache-plan record: %s\n' "$1" >&2
+  musi_eslint_main_cache_reset_plans
+  return 2
+}
+
+musi_eslint_main_cache_load_plans() {
   local repo_root="${1:-}"
-  if [ -z "$repo_root" ]; then
-    repo_root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
-  fi
-  printf '%s\n' "$repo_root"
-}
+  [ -n "$repo_root" ] || {
+    printf 'eslint-main-cache: repository root is required\n' >&2
+    return 2
+  }
+  shift
+  [ "$#" -gt 0 ] || {
+    printf 'eslint-main-cache: at least one partition key is required\n' >&2
+    return 2
+  }
 
-musi_eslint_main_cache_identity_paths0() {
-  local repo_root
-  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
-  (
-    cd "$repo_root" || exit 1
-    find . \
-      \( \
-        -path './.git' \
-        -o -name 'node_modules' \
-        -o -path './.auth' \
-        -o -path './.playwright-mcp' \
-        -o -path './.stryker-tmp' \
-        -o -path './.tools' \
-        -o -path './coverage' \
-        -o -path './e2e-ux-screenshots' \
-        -o -path './playwright-report' \
-        -o -path './reports' \
-        -o -path './test-results' \
-        -o -path './tmp' \
-        -o -path './worktrees' \
-      \) -prune -o \
-      -type f \( \
-        -name '*.ts' \
-        -o -name '*.tsx' \
-        -o -name '*.mts' \
-        -o -name '*.cts' \
-        -o -name 'tsconfig*.json' \
-        -o -name 'tsconfig*.jsonc' \
-        -o -name 'tsconfig.tsbuildinfo' \
-        -o -path './eslint.config.*' \
-        -o -path './eslint-config/*' \
-        -o \( -path './eslint-rules/*' -a -name '*.js' \) \
-        -o -name 'package.json' \
-        -o -name 'bun.lock' \
-      \) -print0
-  ) | LC_ALL=C sort -z
-}
-
-musi_eslint_main_cache_identity_paths() {
-  musi_eslint_main_cache_identity_paths0 "$@" | tr '\0' '\n'
-}
-
-musi_eslint_main_cache_identity_fingerprint_from_paths() {
-  local repo_root paths_file rc
-  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
-  paths_file="$(mktemp "${TMPDIR:-/tmp}/musi-eslint-main-cache-paths.XXXXXX")" || return 1
-  cat > "$paths_file"
-
-  if ! command -v node >/dev/null 2>&1; then
-    rm -f "$paths_file"
-    printf 'eslint-main-cache: node is required for cache salting\n' >&2
+  local core="${MUSI_ESLINT_MAIN_CACHE_CORE:-$MUSI_ESLINT_MAIN_CACHE_CORE_DEFAULT}"
+  local record_file
+  record_file="$(mktemp "${TMPDIR:-/tmp}/musi-eslint-main-cache-records.XXXXXX")" || return 1
+  if ! bun "$core" --shell-records "$repo_root" "$@" > "$record_file"; then
+    rm -f "$record_file"
+    musi_eslint_main_cache_reset_plans
     return 1
   fi
 
-  node - "$repo_root" "$paths_file" <<'NODE'
-const { createHash } = require("node:crypto");
-const { readFileSync } = require("node:fs");
-const { join } = require("node:path");
+  local -a expected_keys=("$@") records=()
+  mapfile -d '' -t records < "$record_file"
+  rm -f "$record_file"
 
-const [, , repoRoot, pathsFile] = process.argv;
-const paths = readFileSync(pathsFile);
-const fingerprint = createHash("sha256");
+  [ "${records[0]:-}" = "$MUSI_ESLINT_MAIN_CACHE_RECORD_MAGIC" ] \
+    || musi_eslint_main_cache_invalid_record "wrong or missing version" \
+    || return $?
+  local plan_count="${records[1]:-}"
+  [[ "$plan_count" =~ ^[0-9]+$ ]] \
+    || musi_eslint_main_cache_invalid_record "non-numeric plan count" \
+    || return $?
+  [ "$plan_count" -eq "${#expected_keys[@]}" ] \
+    || musi_eslint_main_cache_invalid_record "plan count does not match request" \
+    || return $?
 
-function updatePath(path) {
-  if (!path) return;
+  musi_eslint_main_cache_reset_plans
+  # Each plan declares its own argument count, so the vector stays opaque here:
+  # the adapter checks framing (key, absolute identity directory, a cache
+  # location under it) and leaves the ESLint flags to the TypeScript tuple type.
+  local plan_index record_index=2 key identity_directory argument_count argument_index
+  local cache_location_seen
+  for ((plan_index = 0; plan_index < plan_count; plan_index += 1)); do
+    key="${records[record_index]:-}"
+    identity_directory="${records[record_index + 1]:-}"
+    argument_count="${records[record_index + 2]:-}"
+    record_index=$((record_index + 3))
+    [ "$key" = "${expected_keys[plan_index]}" ] \
+      || musi_eslint_main_cache_invalid_record "partition key mismatch" \
+      || return $?
+    case "$identity_directory" in
+      /*) ;;
+      *) musi_eslint_main_cache_invalid_record "identity directory is not absolute" || return $? ;;
+    esac
+    [[ "$argument_count" =~ ^[1-9][0-9]*$ ]] \
+      && [ $((record_index + argument_count)) -le "${#records[@]}" ] \
+      || musi_eslint_main_cache_invalid_record "invalid or truncated argument count" \
+      || return $?
 
-  fingerprint.update("path\0");
-  fingerprint.update(path);
-  fingerprint.update("\0");
-  try {
-    const content = readFileSync(join(repoRoot, path));
-    fingerprint.update("sha256\0");
-    fingerprint.update(createHash("sha256").update(content).digest("hex"));
-    fingerprint.update("\0");
-  } catch (error) {
-    if (error && error.code === "ENOENT") {
-      fingerprint.update("missing\0");
-      fingerprint.update(path);
-      fingerprint.update("\0");
-      return;
-    }
-    throw error;
-  }
-}
-
-let start = 0;
-for (let index = 0; index < paths.length; index += 1) {
-  if (paths[index] !== 0) continue;
-  updatePath(paths.subarray(start, index).toString("utf8"));
-  start = index + 1;
-}
-if (start < paths.length) {
-  updatePath(paths.subarray(start).toString("utf8"));
-}
-
-process.stdout.write(`${fingerprint.digest("hex")}\n`);
-NODE
-  rc=$?
-  rm -f "$paths_file"
-  return "$rc"
-}
-
-musi_eslint_main_cache_identity_fingerprint() {
-  local repo_root
-  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
-  musi_eslint_main_cache_identity_paths0 "$repo_root" \
-    | musi_eslint_main_cache_identity_fingerprint_from_paths "$repo_root"
-}
-
-musi_eslint_main_absolute_cache_root() {
-  local repo_root="$1" cache_root="$2"
-  # A trailing slash would derive "<root>//identity-<fp>" while find(1) prints
-  # single-slash children, so the prune self-exclusion would never match and
-  # the just-created cache dir would be deleted every run.
-  while [ "${cache_root%/}" != "$cache_root" ] && [ -n "${cache_root%/}" ]; do
-    cache_root="${cache_root%/}"
+    cache_location_seen=0
+    for ((argument_index = 0; argument_index < argument_count; argument_index += 1)); do
+      MUSI_ESLINT_MAIN_CACHE_PLAN_ARGS["$key:$argument_index"]="${records[record_index + argument_index]}"
+      case "${records[record_index + argument_index]}" in
+        "$identity_directory"/*) cache_location_seen=1 ;;
+      esac
+    done
+    [ "$cache_location_seen" -eq 1 ] \
+      || musi_eslint_main_cache_invalid_record "no cache location under the identity directory" \
+      || return $?
+    MUSI_ESLINT_MAIN_CACHE_PLAN_ARG_COUNT["$key"]="$argument_count"
+    record_index=$((record_index + argument_count))
   done
-  case "$cache_root" in
-    /*) printf '%s\n' "$cache_root" ;;
-    *) printf '%s/%s\n' "$repo_root" "$cache_root" ;;
-  esac
-}
-
-musi_eslint_main_prune_cache_dirs() {
-  local cache_root="$1" current_dir="$2"
-  [ -d "$cache_root" ] || return 0
-  find "$cache_root" -mindepth 1 -maxdepth 1 -type d -name 'identity-*' \
-    ! -path "$current_dir" -exec rm -rf {} +
-}
-
-musi_eslint_main_cache_prepare() {
-  local repo_root fingerprint cache_root cache_root_abs cache_dir
-  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
-  fingerprint="$(musi_eslint_main_cache_identity_fingerprint "$repo_root")" || return 1
-  cache_root="${MUSI_ESLINT_MAIN_CACHE_ROOT:-node_modules/.cache/eslint-main}"
-  cache_root_abs="$(musi_eslint_main_absolute_cache_root "$repo_root" "$cache_root")"
-  cache_dir="$cache_root_abs/identity-$fingerprint"
-  mkdir -p "$cache_dir"
-  musi_eslint_main_prune_cache_dirs "$cache_root_abs" "$cache_dir"
-  MUSI_ESLINT_MAIN_CACHE_DIR="$cache_dir"
+  [ "$record_index" -eq "${#records[@]}" ] \
+    || musi_eslint_main_cache_invalid_record "trailing fields" \
+    || return $?
 }
 
 musi_eslint_main_cache_args_for_key() {
-  local cache_key="${1:-}" cache_location
-  [ -n "$MUSI_ESLINT_MAIN_CACHE_DIR" ] || {
-    printf 'eslint-main-cache: prepare the cache before selecting an entry\n' >&2
+  local key="${1:-}"
+  local argument_count="${MUSI_ESLINT_MAIN_CACHE_PLAN_ARG_COUNT[$key]:-}"
+  [ -n "$argument_count" ] || {
+    printf 'eslint-main-cache: no validated cache plan for key %s\n' "$key" >&2
     return 2
   }
-  case "$cache_key" in
-    '') cache_location="$MUSI_ESLINT_MAIN_CACHE_DIR/.eslintcache" ;;
-    *[!a-z0-9-]* | -*)
-      printf 'eslint-main-cache: invalid cache key %s\n' "$cache_key" >&2
-      return 2
-      ;;
-    *) cache_location="$MUSI_ESLINT_MAIN_CACHE_DIR/$cache_key.eslintcache" ;;
-  esac
-  MUSI_ESLINT_MAIN_CACHE_ARGS=(
-    --cache
-    --cache-location
-    "$cache_location"
-    --cache-strategy
-    content
-  )
-}
-
-musi_eslint_main_cache_args() {
-  local repo_root cache_key="${2:-}"
-  repo_root="$(musi_eslint_main_repo_root "${1:-}")"
-  musi_eslint_main_cache_prepare "$repo_root" || return $?
-  musi_eslint_main_cache_args_for_key "$cache_key"
+  MUSI_ESLINT_MAIN_CACHE_ARGS=()
+  local argument_index
+  for ((argument_index = 0; argument_index < argument_count; argument_index += 1)); do
+    MUSI_ESLINT_MAIN_CACHE_ARGS+=("${MUSI_ESLINT_MAIN_CACHE_PLAN_ARGS[$key:$argument_index]}")
+  done
 }

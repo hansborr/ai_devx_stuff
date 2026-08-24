@@ -1,6 +1,21 @@
 # 02. The Socket.IO decorator is untyped, so a rename would silently disable every broadcast
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-28** in
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md) slices **S1 and S2**, on
+branch `feat/cq-server-socket-types`, merge `672cef373`; see
+[Landed](./00-index.md#landed). All six steps landed — the augmentation, the
+pinned `IO_DECORATOR_KEY`, the two `app.test.ts` branch assertions, the
+`BroadcastHost` port, and the deletion of the runtime probe plus the three
+hand-rolled log shapes. **Four divergences are recorded decisions, not
+oversights, and must not be re-scheduled from this leaf**: `socket/index.ts`
+does *not* re-export `AppSocketServer` (ADR-0005 / `local/no-barrel` forbid the
+sibling re-export, so the alias lives in `socket/socket-types.ts` and its
+importers were repointed); `InviteServiceContext` migrated to the port too,
+though no step listed it; the port is documented as a **structural Fastify
+view**, not a "framework-free port"; and the type test's
+`FastifyInstance extends BroadcastHost` assertion is vacuous — see
+[First landing outcome](./SERVER-COMMENTS-PLAN.md#first-landing-outcome) and the
+durable ruling in [CONSTRAINTS.md](./CONSTRAINTS.md).
 Theme: Framework typing seams · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

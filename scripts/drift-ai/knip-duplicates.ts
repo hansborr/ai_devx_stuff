@@ -3,10 +3,16 @@
 // pass-through over the target's own knip verdict; source clone detection remains
 // the separate jscpd-backed `duplicates` check.
 
-import { errorMessage } from "../lib/error-message.js";
 import { isRecord } from "../lib/records.js";
-import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import {
+  fullKnipLocation,
+  type KnipReportIssueRows,
+  type KnipReportParseFailure,
+  knipSymbolFromItem,
+  parseKnipReportEnvelope,
+} from "./knip-report-envelope.js";
+import { sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type { DriftFinding, FindingProvenance } from "./types.js";
 
 type KnipDuplicateExportSymbol = {
@@ -22,23 +28,21 @@ export type KnipDuplicateExportGroup = {
 
 export type ParseKnipDuplicatesResult =
   | { readonly ok: true; readonly groups: readonly KnipDuplicateExportGroup[] }
-  | { readonly ok: false; readonly error: string };
+  | KnipReportParseFailure;
 
-// Parse the `duplicates` category from `knip --reporter json` (knip 6.14.1
+// Parse the `duplicates` category from `knip --reporter json` (knip 6.26.0
 // shape): `{ "issues": [{ "file": "src/a.ts", "duplicates": [[{ "name",
 // "line", "col", "pos" }, ...]] }] }`. A missing/non-array category is "no
 // duplicate export rows" for this adapter, not a parser failure.
 export function parseKnipDuplicates(jsonText: string): ParseKnipDuplicatesResult {
-  if (jsonText.trim().length === 0) return { ok: false, error: "knip produced no JSON output" };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(jsonText);
-  } catch (err) {
-    return { ok: false, error: errorMessage(err) };
-  }
-  if (!isRecord(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
-  const issues = raw["issues"];
-  if (!Array.isArray(issues)) return { ok: true, groups: [] };
+  const envelope = parseKnipReportEnvelope(jsonText);
+  if (!envelope.ok) return envelope;
+  return projectKnipDuplicates(envelope.issues);
+}
+
+export function projectKnipDuplicates(
+  issues: KnipReportIssueRows,
+): Extract<ParseKnipDuplicatesResult, { readonly ok: true }> {
   const groups: KnipDuplicateExportGroup[] = [];
   for (const row of issues) groups.push(...groupsFromRow(row));
   return { ok: true, groups };
@@ -65,10 +69,8 @@ function groupFromItems(file: string, group: unknown): KnipDuplicateExportGroup 
 }
 
 function symbolFromItem(item: unknown): readonly KnipDuplicateExportSymbol[] {
-  if (!isRecord(item)) return [];
-  const name = item["name"];
-  if (typeof name !== "string" || name.length === 0) return [];
-  return [{ name, ...locationFromItem(item) }];
+  const symbol = knipSymbolFromItem(item);
+  return symbol === undefined ? [] : [symbol];
 }
 
 // --- findings ---------------------------------------------------------------
@@ -103,7 +105,7 @@ function messageFor(group: KnipDuplicateExportGroup): string {
 }
 
 function symbolLabel(file: string, symbol: KnipDuplicateExportSymbol): string {
-  const location = fullLocation(symbol);
+  const location = fullKnipLocation(symbol);
   return location === undefined
     ? `${symbol.name} (${file})`
     : `${symbol.name} (${file}:${String(location.line)}:${String(location.col)})`;
@@ -122,24 +124,4 @@ function scopeFileSet(detectorScope: DetectorScope): ReadonlySet<string> {
     return new Set(detectorScope.files.map((file) => toPosix(file.path)));
   }
   return new Set(changedFilesFromScope(detectorScope).map((file) => toPosix(file.path)));
-}
-
-function locationFromItem(
-  item: Record<string, unknown>,
-): { readonly line: number; readonly col: number } | undefined {
-  const line = positiveIntegerOrUndefined(item["line"]);
-  const col = positiveIntegerOrUndefined(item["col"]);
-  return line === undefined || col === undefined ? undefined : { line, col };
-}
-
-function fullLocation(
-  symbol: KnipDuplicateExportSymbol,
-): { readonly line: number; readonly col: number } | undefined {
-  const line = positiveIntegerOrUndefined(symbol.line);
-  const col = positiveIntegerOrUndefined(symbol.col);
-  return line === undefined || col === undefined ? undefined : { line, col };
-}
-
-function positiveIntegerOrUndefined(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isInteger(value) && value > 0 ? value : undefined;
 }

@@ -61,6 +61,7 @@ type CliWalkSpec<Option extends CliWalkOption> = {
   readonly onPositional: (value: string) => void;
   readonly onHelp?: () => never;
   readonly allowEmptyArgs?: boolean;
+  readonly rejectPositionals?: boolean;
 };
 
 /**
@@ -116,7 +117,8 @@ function walkCliArgs<Option extends CliWalkOption>(spec: CliWalkSpec<Option>): v
     if (option === undefined) {
       // An empty usage opts out of the suffix for tools (code:intel) whose
       // smoke-locked unknown-argument diagnostics carry no usage text.
-      if (arg.startsWith("--")) {
+      // Keep this array form: plain `||` raises this function's complexity to 11 (max 10).
+      if ([arg.startsWith("--"), spec.rejectPositionals].includes(true)) {
         fail(`Unknown argument: ${arg}${usage.length === 0 ? "" : `\n${usage}`}`);
       }
       onPositional(arg);
@@ -187,11 +189,31 @@ export type ParseCliSpec<Options> = {
   readonly schema: CliOptionsSchema<Options>;
   readonly onHelp?: () => never;
   readonly allowEmptyArgs?: boolean;
+  readonly rejectPositionals?: boolean;
+};
+
+/** One option occurrence the walk saw: the raw value for a value option, `true` for a flag. */
+export type CliOptionEvent = {
+  readonly name: string;
+  readonly value: string | true;
 };
 
 export type ParsedCli<Options> = {
   readonly options: Options;
   readonly positionals: readonly string[];
+  // Option names the walk actually saw, in first-occurrence argv order — the
+  // presence information the raw-record accumulator already collects, exposed
+  // so option-dependency diagnostics (e.g. "<flag> requires --packet-dir.")
+  // can name the first offending flag without re-walking raw argv. Omitted
+  // entirely (never `[]`) when the walk saw no options, keeping the result
+  // shape of presence-free parses byte-stable.
+  readonly seenOptions?: readonly string[];
+  // Every option occurrence in argv order (repeats included), for consumers
+  // whose semantics pair values across DIFFERENT options by position (e.g.
+  // semgrep-candidates' --rule-license licensing the --semgrep-config it
+  // follows) — ordering the flattened options record cannot carry. Omitted
+  // when the walk saw no options, like seenOptions.
+  readonly optionEvents?: readonly CliOptionEvent[];
 };
 
 /**
@@ -200,18 +222,21 @@ export type ParsedCli<Options> = {
  * raw record keyed by option name (`--format`), then validate it through the
  * tool's schema. Flags land as `true`, repeatable value options as ordered
  * string arrays, other value options as the last string seen. Positionals are
- * returned raw; positional-count rules, cross-flag validation, and exit-code
- * mapping stay with the caller.
+ * returned raw unless `rejectPositionals` is declared, in which case the walk
+ * rejects the first positional at its token. Positional-count rules,
+ * cross-flag validation, and exit-code mapping stay with the caller.
  */
 export function parseCli<Options>(spec: ParseCliSpec<Options>): ParsedCli<Options> {
   const positionals: string[] = [];
   const seen = new Map<string, string | true | string[]>();
+  const optionEvents: CliOptionEvent[] = [];
   walkCliArgs<CliSpecOption>({
     argv: spec.argv,
     usage: spec.usage,
     createError: spec.createError,
     options: spec.options,
     onValue: (option, value) => {
+      optionEvents.push({ name: option.name, value });
       if (option.kind === "value" && option.repeatable === true) {
         const values = seen.get(option.name);
         if (Array.isArray(values)) values.push(value);
@@ -221,11 +246,13 @@ export function parseCli<Options>(spec: ParseCliSpec<Options>): ParsedCli<Option
       seen.set(option.name, value);
     },
     onFlag: (option) => {
+      optionEvents.push({ name: option.name, value: true });
       seen.set(option.name, true);
     },
     onPositional: (value) => positionals.push(value),
     onHelp: spec.onHelp,
     allowEmptyArgs: spec.allowEmptyArgs,
+    rejectPositionals: spec.rejectPositionals,
   });
   const raw: RawCliOptionValues = Object.fromEntries(seen);
   const parsed = spec.schema.safeParse(raw);
@@ -233,5 +260,10 @@ export function parseCli<Options>(spec: ParseCliSpec<Options>): ParsedCli<Option
     const message = parsed.error.issues[0]?.message ?? "Invalid command-line options.";
     throw spec.createError(message);
   }
-  return { options: parsed.data, positionals };
+  return {
+    options: parsed.data,
+    positionals,
+    ...(seen.size === 0 ? {} : { seenOptions: [...seen.keys()] }),
+    ...(optionEvents.length === 0 ? {} : { optionEvents }),
+  };
 }

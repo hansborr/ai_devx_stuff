@@ -3,6 +3,7 @@ import {
   defaultBoundedHistoryGitRunner,
 } from "./bounded-full-history.js";
 import { collectConfiguredBoundedFullHistory } from "./bounded-history-options.js";
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { DriftAiIgnoreConfig } from "./config.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import {
@@ -30,10 +31,7 @@ export type OwnershipRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type OwnershipRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type OwnershipRunResult = DriftAiCommandResult;
 
 export function runOwnership(options: OwnershipRunOptions): OwnershipRunResult {
   return runPrototypeCommand(options, {

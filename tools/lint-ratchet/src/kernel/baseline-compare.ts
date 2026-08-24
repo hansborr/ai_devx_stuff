@@ -12,6 +12,7 @@ import {
   lintRatchetBaselineToGrouped,
 } from "./baseline-spec.js";
 import type { LintRatchetConfig } from "./config-types.js";
+import type { LintRatchetWorkflowVocabulary } from "./engine-context.js";
 import {
   compareGroupedBaseline,
   type GroupedBaseline,
@@ -102,9 +103,14 @@ export function compareCurrentToBaseline(
   baseline: LintRatchetBaseline,
   ratchets: readonly LintRatchetConfig[],
   currentById: LintRatchetCurrentById,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
 ): LintRatchetComparison {
   const input = comparisonInput(baseline, ratchets, currentById);
-  const grouped = compareGroupedBaseline(lintRatchetBaselineSpec(), input.baseline, input.current);
+  const grouped = compareGroupedBaseline(
+    lintRatchetBaselineSpec(undefined, workflowVocabulary),
+    input.baseline,
+    input.current,
+  );
   const deltas: ComparisonDeltas = { regressions: [], improvements: [], infos: [] };
   for (const compared of grouped.comparedItems) {
     const ratchet = input.ratchetsById.get(compared.groupId);

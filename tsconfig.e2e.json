@@ -24,6 +24,7 @@
     "paths": {
       "@musi/server/router-type": ["./packages/server/src/routers/app-router.ts"],
       "@musi/shared/constants": ["./packages/shared/src/constants.ts"],
+      "@musi/shared/logging-policy": ["./packages/shared/src/logging-policy.ts"],
       "@musi/shared/schemas/*.js": ["./packages/shared/src/schemas/*.ts"],
       "@musi/shared/rules/*.js": ["./packages/shared/src/rules/*.ts"],
       "@musi/shared/dice/*.js": ["./packages/shared/src/dice/*.ts"],

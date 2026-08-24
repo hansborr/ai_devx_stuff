@@ -1,5 +1,25 @@
 # Observed Flaky Tests
 
+## 8. Pre-commit memory admission — coarse whole-process timing
+
+Closed 2026-07-29 by removing the fixture's one-second-resolution `<5s`
+whole-process assertion.
+
+### Problem
+The memory-admission timeout fixture failed after taking six seconds under
+parallel gate load even though its configured one-second admission deadline
+fired and the commit queue was released.
+
+### Files
+- `scripts/tests/test-dependency-freshness.sh`
+
+### Resolution
+The fixture no longer treats shell startup, scheduling, and teardown time as
+product behavior. It still requires a nonzero hook exit, the exact
+`memory wait timed out after 1s` diagnostic, every pending slot in the terminal
+summary specifically under `Not run:`, and an immediate
+nonblocking commit-queue acquisition.
+
 ## 7. Server SRD getAll — subclass count drift in broad changed-test run
 
 Closed 2026-07-03 by `packages/server/src/services/level-up/level-up-subclass.test.ts`,
@@ -80,6 +100,9 @@ shared no-isolate batch state.
 
 ## 5. Server high-iteration concurrency suites — 5s test timeout under parallel load
 
+The actionlint subcase is closed 2026-07-29 by raising its default bounded
+invocation from 10s to 60s. The server and max-lines cases remain open.
+
 ### Problem
 `bun run test:changed` (verify:changed and pre-commit) failed twice on
 2026-06-13 while landing ux-audit P0-3, with the same four tests each
@@ -119,8 +142,7 @@ during the parallel pre-commit run, not a product or test-logic regression.
 ### Priority
 Low unless it repeats. If seen again, raise the per-test timeout on the
 high-iteration race cases (they sequentially issue N HTTP+DB round trips),
-or lower their iteration counts; consider bumping the actionlint
-config-sensor timeout above 10s.
+or lower their iteration counts.
 
 ## 4. Client monster tab — `waitFor` search-results timeout under load
 

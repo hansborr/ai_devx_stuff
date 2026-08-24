@@ -1,7 +1,8 @@
 # 15. Two client state shapes are wider than their legal values, so invariants are enforced by hand instead of by the type
 
-Status: Open under [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
-**N1**; the plan supersedes and shrinks this leaf (L→S). Steps 1-4 remain.
+Status: **Landed 2026-07-27 on branch `feat/cq-slice-h` (merge
+`d539cfdbd`)** through [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
+**N1**; the plan supersedes and shrinks this leaf (L→S). Steps 1-4 landed.
 **Steps 5-9, the drawer half, are dropped permanently**; revisit the nested
 union only if a new drawer mode or cast variant is added, and do it first then.
 Theme: Discriminated client state · Area: client · Severity: medium · Size: L

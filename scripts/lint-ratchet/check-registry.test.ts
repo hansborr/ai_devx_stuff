@@ -21,6 +21,7 @@ import {
   type RegistryCheckFailure,
   type RegistryCheckFailureKind,
 } from "./check-registry.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { FIXTURE_HASH } from "./lint-ratchet.test-helper.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 
@@ -37,7 +38,6 @@ const matchingRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture ratchet principle.",
 };
 
@@ -81,7 +81,10 @@ function currentById(): LintRatchetCurrentById {
 
 function orphanBaselineText(): string {
   return formatLintRatchetBaseline(
-    buildLintRatchetBaseline([orphanRatchet], currentById(), ruleSourceHashes),
+    buildLintRatchetBaseline([orphanRatchet], currentById(), ruleSourceHashes, {
+      workflowVocabulary: musiLintRatchetWorkflowVocabulary,
+    }),
+    musiLintRatchetWorkflowVocabulary,
   );
 }
 
@@ -293,6 +296,81 @@ describe("lint ratchet check-registry", () => {
     expect(failureMessages.some((message) => message.includes("exitPath is required"))).toBe(true);
   });
 
+  it("uses the injected probe to reject a zero-baseline exit path", () => {
+    const exitPath = "docs/agent_notes/backlog/harness-review-2026-07/00-index.md";
+    const result = checkLintRatchetRegistry({
+      exitPathExists: (candidate: string) => candidate !== exitPath,
+      ratchets: [
+        {
+          ...matchingRatchet,
+          zeroBaselineDisposition: {
+            kind: "promote-to-normal-lint",
+            reason: "Promote this fixture after its baseline drains.",
+            exitPath,
+          },
+        },
+      ],
+      trackedFiles: ["packages/app/src/index.ts"],
+    });
+
+    const failure = failureOfKind(result.failures, "registry-shape");
+    expect(failure.message).toContain(matchingRatchet.id);
+    expect(failure.message).toContain(exitPath);
+  });
+
+  it("rejects a suffixed leaf coordinate after a bare date in a ratchet principle", () => {
+    const coordinate = "leaf 03d2";
+    const result = checkLintRatchetRegistry({
+      ratchets: [
+        {
+          ...matchingRatchet,
+          principle: `Keep debt from growing beyond 2026-07-25 ${coordinate}.`,
+        },
+      ],
+      trackedFiles: ["packages/app/src/index.ts"],
+    });
+
+    const failure = failureOfKind(result.failures, "registry-shape");
+    expect(failure.message).toContain(`bare backlog coordinate: ${coordinate}`);
+  });
+
+  it("rejects a bare backlog coordinate in a zero-baseline reason", () => {
+    const result = checkLintRatchetRegistry({
+      ratchets: [
+        {
+          ...matchingRatchet,
+          zeroBaselineDisposition: {
+            kind: "narrow-floor",
+            reason: "Floor recorded by P0-3.",
+          },
+        },
+      ],
+      trackedFiles: ["packages/app/src/index.ts"],
+    });
+
+    const failure = failureOfKind(result.failures, "registry-shape");
+    expect(failure.message).toContain("zeroBaselineDisposition.reason");
+    expect(failure.message).toContain("P0-3");
+  });
+
+  it("accepts a pack-qualified backlog coordinate in ratchet metadata", () => {
+    const result = checkLintRatchetRegistry({
+      ratchets: [
+        {
+          ...matchingRatchet,
+          principle: "Keep the floor from lint-review-2026-06 leaf 03e.",
+          zeroBaselineDisposition: {
+            kind: "narrow-floor",
+            reason: "Recorded by lint-review-2026-06 leaf 03e.",
+          },
+        },
+      ],
+      trackedFiles: ["packages/app/src/index.ts"],
+    });
+
+    expect(result).toEqual({ ok: true, failures: [] });
+  });
+
   it("returns byte-identical failure ordering for identical input", () => {
     const baselineText = orphanBaselineText();
     const options = {
@@ -438,6 +516,7 @@ describe("local lint rule docs loading", () => {
       blankPrinciple: docsExpression({ principle: "" }),
       invalidCategory: docsExpression({ category: "security" }),
       invalidRepairKind: docsExpression({ repairKind: "script" }),
+      bareCoordinate: docsExpression({ principle: "Keep the floor from leaf 12." }),
     });
 
     await expect(failureMessagesById(fixtureRoot)).resolves.toEqual(
@@ -485,6 +564,7 @@ describe("local lint rule docs loading", () => {
           "local/invalidRepairKind",
           ["repairKind must be one of: autofix, suggestion, codemod, manual"],
         ],
+        ["local/bareCoordinate", ["principle contains a bare backlog coordinate: leaf 12"]],
       ]),
     );
   });

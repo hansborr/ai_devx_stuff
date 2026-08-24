@@ -4,7 +4,9 @@ Status: Implemented — 2026-07-22
 Date: 2026-07-21
 Priority: P2
 Size: S
-Source: `pain_points.log` — stale failed-provisioning cleanup instructions
+Source:
+`/home/node/persist/musi/pain_points/worktree-provisioning-and-isolation.md` —
+stale failed-provisioning cleanup instructions
 
 ## Problem
 

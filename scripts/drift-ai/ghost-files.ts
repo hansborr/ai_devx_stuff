@@ -7,9 +7,14 @@ import { runCurrentGhostFilesCheck } from "./ghost-files-current.js";
 import { DEFAULT_DEPENDENTS_HINT } from "./ghost-files-findings.js";
 import { DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS, type GhostFileTuning } from "./ghost-files-match.js";
 import { DEFAULT_GHOST_FILE_ROLE_MARKER_TOKENS } from "./ghost-files-role-family.js";
-import { DEFAULT_GHOST_FILE_WEAK_TOKENS, SOURCE_LIKE_EXTS } from "./ghost-files-tokens.js";
+import { DEFAULT_GHOST_FILE_WEAK_TOKENS } from "./ghost-files-tokens.js";
 import type { DirectoryListing as RepoDirectoryListing } from "./repo-io.js";
-import type { DetectorScope } from "./scope.js";
+import {
+  BUILT_IN_SOURCE_EXTENSIONS,
+  type ChangedDetectorScope,
+  type CurrentDetectorScope,
+  type DetectorScope,
+} from "./scope.js";
 import type { DriftFinding } from "./types.js";
 
 export {
@@ -32,28 +37,52 @@ export { defaultDirectoryListing } from "./repo-io.js";
 
 export type DirectoryListing = RepoDirectoryListing;
 
-export type RunGhostFilesCheckOptions = {
-  readonly detectorScope: DetectorScope;
+type SharedGhostFilesCheckOptions = {
   readonly sourceExtensions?: ReadonlySet<string>;
   readonly excludeGlobs?: readonly string[];
-  readonly currentAllowedPairs?: readonly GhostFileAllowedPair[];
   readonly dependentsHint?: string;
   readonly weakTokens?: ReadonlySet<string>;
   readonly entryPointStems?: ReadonlySet<string>;
-  // Current-scope only: weak tokens whose difference marks an intentional role
-  // split (a `foo-types.ts` companion, parallel `duplicate-*` detectors) rather
-  // than a ghost. Ignored in changed scope.
+};
+
+type RunChangedGhostFilesCheckOptions = SharedGhostFilesCheckOptions & {
+  readonly detectorScope: ChangedDetectorScope;
+  readonly listDirectory: DirectoryListing;
+  readonly currentAllowedPairs?: never;
+  readonly roleMarkerTokens?: never;
+  readonly inventoryByDir?: never;
+};
+
+type RunCurrentGhostFilesCheckOptions = SharedGhostFilesCheckOptions & {
+  readonly detectorScope: CurrentDetectorScope;
+  readonly inventoryByDir: ReadonlyMap<string, readonly string[]>;
+  readonly currentAllowedPairs?: readonly GhostFileAllowedPair[];
+  readonly roleMarkerTokens?: ReadonlySet<string>;
+  readonly listDirectory?: never;
+};
+
+export type RunGhostFilesCheckOptions =
+  | RunChangedGhostFilesCheckOptions
+  | RunCurrentGhostFilesCheckOptions;
+
+type GhostFilesExecutionOptions = SharedGhostFilesCheckOptions & {
+  readonly detectorScope: DetectorScope;
+  readonly currentAllowedPairs?: readonly GhostFileAllowedPair[];
   readonly roleMarkerTokens?: ReadonlySet<string>;
   readonly listDirectory?: DirectoryListing;
   readonly inventoryByDir?: ReadonlyMap<string, readonly string[]>;
 };
 
-export function runGhostFilesCheck(options: RunGhostFilesCheckOptions): DriftFinding[] {
+export function runGhostFilesCheck(options: RunGhostFilesCheckOptions): DriftFinding[];
+export function runGhostFilesCheck(options: GhostFilesExecutionOptions): DriftFinding[] {
   const excludeGlobs = options.excludeGlobs ?? [];
-  const sourceExtensions = options.sourceExtensions ?? SOURCE_LIKE_EXTS;
+  const sourceExtensions = options.sourceExtensions ?? BUILT_IN_SOURCE_EXTENSIONS;
   const dependentsHint = options.dependentsHint ?? DEFAULT_DEPENDENTS_HINT;
   const tuning = ghostFileTuning(options);
   if (options.detectorScope.scopeMode === "current") {
+    if (options.inventoryByDir === undefined) {
+      throw new Error("runGhostFilesCheck requires inventoryByDir for current scope.");
+    }
     return runCurrentGhostFilesCheck({
       inventoryByDir: options.inventoryByDir,
       excludeGlobs,
@@ -67,10 +96,19 @@ export function runGhostFilesCheck(options: RunGhostFilesCheckOptions): DriftFin
   if (options.listDirectory === undefined) {
     throw new Error("runGhostFilesCheck requires listDirectory for changed scope.");
   }
-  return runChangedGhostFilesCheck(options, excludeGlobs, sourceExtensions, tuning, dependentsHint);
+  return runChangedGhostFilesCheck(
+    {
+      detectorScope: options.detectorScope,
+      listDirectory: options.listDirectory,
+    },
+    excludeGlobs,
+    sourceExtensions,
+    tuning,
+    dependentsHint,
+  );
 }
 
-function ghostFileTuning(options: RunGhostFilesCheckOptions): GhostFileTuning {
+function ghostFileTuning(options: SharedGhostFilesCheckOptions): GhostFileTuning {
   return {
     weakTokens: options.weakTokens ?? new Set(DEFAULT_GHOST_FILE_WEAK_TOKENS),
     entryPointStems: options.entryPointStems ?? new Set(DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS),

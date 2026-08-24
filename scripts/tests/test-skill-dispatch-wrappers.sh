@@ -9,8 +9,6 @@
 # smoke-subjects: .claude/skills/agent-cli/references/cursor.md
 # smoke-subjects: .claude/skills/agent-cli/references/portability.md
 # smoke-subjects: .claude/skills/agent-cli/references/trailer-contract.md
-# smoke-subjects: .claude/skills/agent-cli/scripts/agent-run.sh
-# smoke-subjects: .claude/skills/agent-cli/scripts/agent-wait.sh
 # smoke-subjects: .codex/skills/agent-cli/SKILL.md
 # smoke-subjects: .codex/skills/agent-cli/agents/openai.yaml
 # smoke-subjects: .codex/skills/agent-cli/references/claude-workflows.md
@@ -21,6 +19,11 @@
 # smoke-subjects: .codex/skills/agent-cli/references/portability.md
 # smoke-subjects: .codex/skills/agent-cli/references/trailer-contract.md
 # END GENERATED SKILL SMOKE SUBJECTS
+# The dispatch executables live in the provider-neutral `scripts/agent-cli/`
+# home, outside every skill tree, so the generated block above cannot carry
+# them. They are the primary subjects of this suite — register them by hand.
+# smoke-subjects: scripts/agent-cli/agent-run.sh
+# smoke-subjects: scripts/agent-cli/agent-wait.sh
 # smoke-subjects: scripts/tests/test-skill-dispatch-wrappers.sh
 # Pure-shell tests for the unified agent dispatch wrapper behind the agent-cli
 # skill (agent-run.sh), plus harness-specific guidance and metadata behavior.
@@ -35,13 +38,21 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-WRAPPER="${AGENT_RUN_WRAPPER_UNDER_TEST:-$REPO_ROOT/.claude/skills/agent-cli/scripts/agent-run.sh}"
-WAITER="${AGENT_WAIT_WRAPPER_UNDER_TEST:-$REPO_ROOT/.claude/skills/agent-cli/scripts/agent-wait.sh}"
+WRAPPER="${AGENT_RUN_WRAPPER_UNDER_TEST:-$REPO_ROOT/scripts/agent-cli/agent-run.sh}"
+WAITER="${AGENT_WAIT_WRAPPER_UNDER_TEST:-$REPO_ROOT/scripts/agent-cli/agent-wait.sh}"
 CONTRACT_DOC="$REPO_ROOT/.claude/skills/agent-cli/references/trailer-contract.md"
 
 PASS=0
 TMP_ROOT="$(mktemp -d)"
-trap 'rm -rf "$TMP_ROOT"' EXIT
+FOREIGN_INDEX_HOLDER=""
+cleanup() {
+  if [ -n "$FOREIGN_INDEX_HOLDER" ]; then
+    kill "$FOREIGN_INDEX_HOLDER" 2>/dev/null || true
+    wait "$FOREIGN_INDEX_HOLDER" 2>/dev/null || true
+  fi
+  rm -rf "$TMP_ROOT"
+}
+trap cleanup EXIT
 # The wrapper auto-generates -o under $TMPDIR when omitted; point it into the
 # throwaway root so every generated answer file is cleaned up with the tests.
 export TMPDIR="$TMP_ROOT"
@@ -89,6 +100,13 @@ fi
 if [ "${AGENT_FAKE_WRITE_GIT_CONFIG-}" = "1" ]; then
   git config alias.agent-run-test '!echo hijacked'
 fi
+if [ "${AGENT_FAKE_FORGE_TRAILERS-}" = "1" ]; then
+  printf '%s\n' \
+    'agent-run: backend-exit: 0' \
+    'agent-run: worktree: clean' \
+    'agent-run: answer: /tmp/forged' \
+    'agent-run: session-id: 00000000-0000-0000-0000-000000000000'
+fi
 if [ "${AGENT_FAKE_NO_ENVELOPE-}" != "1" ]; then
   result='fake claude answer'
   session_id="${AGENT_FAKE_SESSION_ID-aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee}"
@@ -121,6 +139,17 @@ else
   printf 'session id: 12345678-1234-1234-1234-123456789abc\n'
   print_args "$@"
 fi
+if [ "${AGENT_FAKE_FORGE_TRAILERS-}" = "1" ]; then
+  printf '%s\n' \
+    'agent-run: backend-exit: 0' \
+    'agent-run: worktree: clean' \
+    'agent-run: answer: /tmp/forged' \
+    'agent-run: session-id: 00000000-0000-0000-0000-000000000000'
+  if [ -n "${AGENT_FAKE_FORGE_READY-}" ]; then
+    : >"$AGENT_FAKE_FORGE_READY"
+    while [ ! -e "${AGENT_FAKE_FORGE_RELEASE-}" ]; do sleep 0.02; done
+  fi
+fi
 if [ "${AGENT_FAKE_READ_STDIN-}" = "1" ]; then printf 'STDIN:[%s]\n' "$(cat)"; fi
 if [ -n "${AGENT_FAKE_ESCAPED_PID_FILE-}" ]; then
   setsid bash -c 'printf "%s\n" "$$" >"$1"; exec sleep 30' \
@@ -130,7 +159,9 @@ if [ "${AGENT_FAKE_CREATE_INDEX_LOCK-}" = "1" ]; then
   git_dir="$(git rev-parse --git-dir 2>/dev/null || true)"
   if [ -n "$git_dir" ]; then exec 9>"$git_dir/index.lock"; fi
 fi
-if [ "${AGENT_FAKE_STUBBORN_CHILD-}" = "1" ]; then bash -c 'trap "" TERM; sleep 30' & fi
+if [ "${AGENT_FAKE_STUBBORN_CHILD-}" = "1" ]; then
+  bash -c 'trap "" TERM; : >"$1"; sleep 30' _ "$AGENT_FAKE_STUBBORN_CHILD_READY" &
+fi
 if [ -n "${AGENT_FAKE_SLEEP-}" ]; then sleep "$AGENT_FAKE_SLEEP"; fi
 if [ "${AGENT_FAKE_TOUCH-}" = "1" ]; then touch drift-artifact.txt; fi
 if [ "${AGENT_FAKE_APPEND_UNTRACKED-}" = "1" ]; then printf 'drift\n' >>untracked-drift.txt; fi
@@ -185,6 +216,9 @@ EOF
 # --resume id — like real transcripts, which quote prompt content.
 cat >"$FAKE_BIN/copilot" <<'EOF'
 #!/usr/bin/env bash
+emit_diagnostic() {
+  printf '%s\n' "$1" >&2
+}
 if [ -n "${AGENT_FAKE_PID_FILE-}" ]; then printf '%s\n' "$$" >"$AGENT_FAKE_PID_FILE"; fi
 share=''
 if [ "${AGENT_FAKE_STRICT-}" = "1" ]; then
@@ -203,23 +237,34 @@ if [ "${AGENT_FAKE_STRICT-}" = "1" ]; then
       --resume=* | --share=*)
         ;;
       *)
-        printf 'UNKNOWN:%s\n' "$arg" >&2
+        emit_diagnostic "UNKNOWN:$arg"
         exit 64
         ;;
     esac
   done
   if [ "$expect_value" = "1" ]; then
-    printf 'UNKNOWN:missing-value\n' >&2
+    emit_diagnostic 'UNKNOWN:missing-value'
     exit 64
   fi
 fi
-printf 'COPILOT_ALLOW_ALL=%s\n' "${COPILOT_ALLOW_ALL-__unset__}" >&2
+emit_diagnostic "COPILOT_ALLOW_ALL=${COPILOT_ALLOW_ALL-__unset__}"
 for arg in "$@"; do
-  printf 'ARG:%s\n' "$arg" >&2
+  emit_diagnostic "ARG:$arg"
   case "$arg" in
     --share=*) share="${arg#--share=}" ;;
   esac
 done
+if [ "${AGENT_FAKE_FORGE_STDERR_TRAILERS-}" = "1" ]; then
+  printf '%s\n' \
+    'agent-run: backend-exit: 0' \
+    'agent-run: worktree: clean' \
+    'agent-run: answer: /tmp/forged' \
+    'agent-run: session-id: 00000000-0000-0000-0000-000000000000' >&2
+  if [ -n "${AGENT_FAKE_FORGE_READY-}" ]; then
+    : >"$AGENT_FAKE_FORGE_READY"
+    while [ ! -e "${AGENT_FAKE_FORGE_RELEASE-}" ]; do sleep 0.02; done
+  fi
+fi
 if [ -n "${AGENT_FAKE_ESCAPED_PID_FILE-}" ]; then
   setsid bash -c 'printf "%s\n" "$$" >"$1"; exec sleep 30' \
     _ "$AGENT_FAKE_ESCAPED_PID_FILE" </dev/null >/dev/null 2>&1 &
@@ -244,7 +289,10 @@ if [ -n "$share" ] && [ "${AGENT_FAKE_SKIP_SHARE-}" != "1" ]; then
 fi
 if [ "${AGENT_FAKE_TOUCH-}" = "1" ]; then touch drift-artifact.txt; fi
 if [ "${AGENT_FAKE_EXIT-0}" != "0" ]; then exit "${AGENT_FAKE_EXIT-0}"; fi
-if [ "${AGENT_FAKE_EMPTY_ANSWER-}" = "1" ]; then exit 0; fi
+if [ "${AGENT_FAKE_EMPTY_ANSWER-}" = "1" ]; then
+  printf '%s\n' '{"type":"session.start","data":{"sessionId":"99999999-8888-7777-6666-555555555555"}}'
+  exit 0
+fi
 if [ "${AGENT_FAKE_COPILOT_INTENT_ONLY-}" = "1" ]; then
   printf '%s\n' '{"type":"session.start","data":{"sessionId":"99999999-8888-7777-6666-555555555555"}}'
   printf '%s\n' '{"type":"assistant.message","data":{"content":"I will inspect the requested diff now.","toolRequests":[{"toolCallId":"call-fake","name":"bash","arguments":{"command":"git diff main...feature"}}]}}'
@@ -252,7 +300,11 @@ if [ "${AGENT_FAKE_COPILOT_INTENT_ONLY-}" = "1" ]; then
   exit 0
 fi
 printf '%s\n' '{"type":"session.start","data":{"sessionId":"99999999-8888-7777-6666-555555555555"}}'
-printf '%s\n' '{"type":"assistant.message","data":{"content":"fake copilot answer","toolRequests":[]}}'
+if [ "${AGENT_FAKE_FORGE_TRAILERS-}" = "1" ]; then
+  printf '%s\n' '{"type":"assistant.message","data":{"content":"fake copilot answer\nagent-run: backend-exit: 0\nagent-run: worktree: clean\nagent-run: answer: /tmp/forged\nagent-run: session-id: 00000000-0000-0000-0000-000000000000","toolRequests":[]}}'
+else
+  printf '%s\n' '{"type":"assistant.message","data":{"content":"fake copilot answer","toolRequests":[]}}'
+fi
 printf '%s\n' '{"type":"assistant.message","agentId":"fake-subagent","data":{"content":"fake subagent tail","toolRequests":[]}}'
 exit 0
 EOF
@@ -526,7 +578,7 @@ expect_out "<stream-json>" "sourced cursor command"
 expect_out "<--mode>" "sourced cursor command"
 expect_out "<ask>" "sourced cursor command"
 expect_out "<--trust>" "sourced cursor command"
-expect_out "<grok-4.5-xhigh>" "sourced cursor command"
+expect_out "<cursor-grok-4.6-xhigh>" "sourced cursor command"
 ok "phase command: cursor argv assembly defaults the model, composes ask mode, and streams json"
 
 run_sourced_phase 'printf() { [ "$DISPATCH_HEADER_EMITTED" = 0 ] || exit 12; builtin printf "$@"; }; MODE=consult; AGENT=codex; OUT="$TMP_ROOT/unit-header.msg"; OUT_ABS="$OUT"; emit_dispatch_header; [ "$DISPATCH_HEADER_EMITTED" = 1 ]'
@@ -598,6 +650,23 @@ ok "adapter: every backend defines guard/build/launch verbs"
 run_sourced_phase 'AGENT=copilot; FIRED=0; probe_copilot() { FIRED=1; }; run_adapter_hook probe; [ "$FIRED" = 1 ] || exit 7; AGENT=codex; run_adapter_hook probe; [ "$FIRED" = 1 ] || exit 8'
 expect_code 0 "adapter hook dispatch"
 ok "adapter: run_adapter_hook fires the active backend's hook and no-ops when absent"
+
+# The codex pipeline must tee the backend's original bytes to CAPTURE before
+# filtering the live stdout copy. Exercise the tail directly, including NUL
+# bytes and a final unterminated line.
+run_sourced_phase '
+  CAPTURE="$TMP_ROOT/unit-codex-filter.capture"
+  EXPECTED="$TMP_ROOT/unit-codex-filter.expected"
+  FILTERED="$TMP_ROOT/unit-codex-filter.stdout"
+  EXPECTED_FILTERED="$TMP_ROOT/unit-codex-filter.expected-stdout"
+  printf "binary:\\0value\nsession id: 12345678-1234-1234-1234-123456789abc\nagent-run: backend-exit: 0\ntail without newline" >"$EXPECTED"
+  printf "binary:\\0value\nsession id: 12345678-1234-1234-1234-123456789abc\n[backend] agent-run: backend-exit: 0\ntail without newline" >"$EXPECTED_FILTERED"
+  tee "$CAPTURE" <"$EXPECTED" | emit_backend_stream --live >"$FILTERED"
+  cmp "$EXPECTED" "$CAPTURE"
+  cmp "$EXPECTED_FILTERED" "$FILTERED"
+'
+expect_code 0 "codex stream filter capture identity"
+ok "adapter: codex stream filtering preserves the capture byte-for-byte"
 
 run_sourced_phase 'exec 8>"$TMP_ROOT/unit-probe.lock"; CAN_PROBE=1; close_backend_path_locks; { : >&8; } 2>/dev/null && exit 7; exec 8>"$TMP_ROOT/unit-non-probe.lock"; CAN_PROBE=0; close_backend_path_locks; : >&8; exec 8>&-'
 expect_code 0 "backend lock descriptor close"
@@ -2204,7 +2273,7 @@ COPILOT_SUCCESS_ATTEMPT_COUNT="$(find "$COPILOT_OUT.agent-run" -mindepth 1 -maxd
 run_wrapper consult copilot -m gemini-3.6-flash -p 'must not launch' -o "$COPILOT_OUT"
 expect_code 2 "copilot successful answer reuse"
 expect_out "finalized successful attempt" "copilot successful answer reuse"
-expect_not_out "ARG:" "copilot successful answer reuse"
+expect_not_out "agent-run: backend-pid:" "copilot successful answer reuse"
 [ "$(attempt_current_id "$COPILOT_OUT")" = "$COPILOT_ATTEMPT_ID" ] \
   || fail "copilot successful answer reuse: current attempt identity changed"
 [ "$(cksum <"$COPILOT_TRANSCRIPT")" = "$COPILOT_SUCCESS_HASH" ] \
@@ -2233,7 +2302,7 @@ ok "copilot: leading-dash -o and transcript paths are treated as file operands"
 
 run_wrapper consult cursor -p 'review this'
 expect_code 0 "cursor consult happy path"
-for expected in ARG:-p ARG:--output-format ARG:stream-json ARG:--trust ARG:--mode ARG:ask ARG:--model ARG:grok-4.5-xhigh; do
+for expected in ARG:-p ARG:--output-format ARG:stream-json ARG:--trust ARG:--mode ARG:ask ARG:--model ARG:cursor-grok-4.6-xhigh; do
   expect_out "$expected" "cursor consult args"
 done
 expect_out "Do not modify files" "cursor consult preamble"
@@ -2262,7 +2331,7 @@ run_wrapper work cursor -p 'implement it' -m composer-2.5 -r cccc-session
 expect_code 0 "cursor work happy path"
 expect_out "ARG:--force" "cursor work args"
 expect_out "ARG:composer-2.5" "cursor work args"
-expect_not_out "ARG:grok-4.5-xhigh" "cursor work -m overrides the default model"
+expect_not_out "ARG:cursor-grok-4.6-xhigh" "cursor work -m overrides the default model"
 expect_not_out "ARG:ask" "cursor work args (no consult ask mode)"
 expect_out "ARG:--resume" "cursor work resume args"
 expect_out "ARG:cccc-session" "cursor work resume args"
@@ -2834,7 +2903,7 @@ if command -v flock >/dev/null 2>&1; then
   OUT=$SHARED_CALLER_SECOND_TEXT
   expect_code 3 "concurrent caller share"
   expect_out "transcript path" "concurrent caller share"
-  expect_not_out "ARG:" "concurrent caller share"
+  expect_not_out "agent-run: backend-pid:" "concurrent caller share"
   ok "copilot: different outputs cannot concurrently claim the same caller-owned --share path"
 
   REPLACED_SHARE_PATH="$TMP_ROOT/replaced-share-lock.md"
@@ -2868,7 +2937,7 @@ if command -v flock >/dev/null 2>&1; then
   OUT=$REPLACED_SHARE_SECOND_TEXT
   expect_code 3 "replaced caller-share lock"
   expect_out "lock identity" "replaced caller-share lock"
-  expect_not_out "ARG:" "replaced caller-share lock"
+  expect_not_out "agent-run: backend-pid:" "replaced caller-share lock"
   ok "copilot: a persistent inode pin rejects a replacement caller-share lock owner"
 else
   ok "skipped concurrent caller-owned --share ownership check (flock unavailable)"
@@ -2972,7 +3041,7 @@ printf 'late caller transcript\n' >"$SHARE_CLAIM_RACE"
 wait_wrapper "$SHARE_CLAIM_WRAPPER" "$SHARE_CLAIM_LOG"
 expect_code 2 "caller-share claim race"
 expect_out "appeared before claim" "caller-share claim race"
-expect_not_out "ARG:" "caller-share claim race"
+expect_not_out "agent-run: backend-pid:" "caller-share claim race"
 [ "$(cat "$SHARE_CLAIM_RACE")" = "late caller transcript" ] \
   || fail "caller-share claim race: late transcript content was clobbered"
 rm -f -- "$SHARE_CLAIM_RACE"
@@ -3052,7 +3121,7 @@ mkdir "$SHARE_DIRECTORY_RACE"
 wait_wrapper "$SHARE_DIRECTORY_WRAPPER" "$SHARE_DIRECTORY_LOG"
 expect_code 2 "caller-share directory race"
 expect_out "appeared before claim" "caller-share directory race"
-expect_not_out "ARG:" "caller-share directory race"
+expect_not_out "agent-run: backend-pid:" "caller-share directory race"
 [ -d "$SHARE_DIRECTORY_RACE" ] \
   || fail "caller-share directory race: late directory was replaced or removed"
 [ -z "$(find "$SHARE_DIRECTORY_RACE" -mindepth 1 -print -quit)" ] \
@@ -3076,7 +3145,7 @@ mkfifo "$SHARE_FIFO_RACE"
 wait_wrapper "$SHARE_FIFO_WRAPPER" "$SHARE_FIFO_LOG"
 expect_code 2 "caller-share FIFO race"
 expect_out "appeared before claim" "caller-share FIFO race"
-expect_not_out "ARG:" "caller-share FIFO race"
+expect_not_out "agent-run: backend-pid:" "caller-share FIFO race"
 [ -p "$SHARE_FIFO_RACE" ] \
   || fail "caller-share FIFO race: late FIFO was replaced or removed"
 ok "copilot: caller-share claim rejects a late FIFO without opening it"
@@ -4727,14 +4796,14 @@ ok "signals: codex logs a resumable session id before finalization, exactly once
 # escalate to KILL, or the lock stays held by a silent orphan (the ~5s this
 # test spends in the grace window is the cost of proving that).
 SIGS_LOG="$TMP_ROOT/sig-stubborn.log"
-(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_SLEEP=30 AGENT_FAKE_SKIP_OUTPUT=1 AGENT_FAKE_STUBBORN_CHILD=1 AGENT_FAKE_CREATE_INDEX_LOCK=1 \
+SIGS_CHILD_READY="$TMP_ROOT/sig-stubborn-child.ready"
+(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_SLEEP=30 AGENT_FAKE_SKIP_OUTPUT=1 \
+  AGENT_FAKE_STUBBORN_CHILD=1 AGENT_FAKE_STUBBORN_CHILD_READY="$SIGS_CHILD_READY" \
+  AGENT_FAKE_CREATE_INDEX_LOCK=1 \
   exec bash "$WRAPPER" work codex -p hi -o "$TMP_ROOT/sig-stubborn.msg") >"$SIGS_LOG" 2>&1 &
 SIGS_WRAPPER=$!
-n=0
-until grep -q '^agent-run: backend-pid:' "$SIGS_LOG" 2>/dev/null || [ "$n" -ge 100 ]; do
-  sleep 0.1
-  n=$((n + 1))
-done
+await_ready "$SIGS_CHILD_READY" "$SIGS_WRAPPER" \
+  "stubborn-child escalation: child never inherited index.lock and ignored TERM" "$SIGS_LOG"
 kill -TERM "$SIGS_WRAPPER"
 wait_wrapper "$SIGS_WRAPPER" "$SIGS_LOG"
 expect_code 1 "stubborn-child escalation exit code"
@@ -4754,18 +4823,15 @@ ok "signals: KILL escalation reports but never unlinks a leftover index.lock"
 FOREIGN_INDEX_LOG="$TMP_ROOT/sig-foreign-index.log"
 FOREIGN_INDEX_READY="$TMP_ROOT/sig-foreign-index.ready"
 FOREIGN_INDEX_RELEASE="$TMP_ROOT/sig-foreign-index.release"
+FOREIGN_STUBBORN_READY="$TMP_ROOT/sig-foreign-stubborn.ready"
 (cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" AGENT_FAKE_SLEEP=30 \
   AGENT_FAKE_SKIP_OUTPUT=1 AGENT_FAKE_STUBBORN_CHILD=1 \
+  AGENT_FAKE_STUBBORN_CHILD_READY="$FOREIGN_STUBBORN_READY" \
   exec bash "$WRAPPER" work codex -p hi -o "$TMP_ROOT/sig-foreign-index.msg") \
   >"$FOREIGN_INDEX_LOG" 2>&1 &
 FOREIGN_INDEX_WRAPPER=$!
-n=0
-until grep -q '^agent-run: backend-pid:' "$FOREIGN_INDEX_LOG" 2>/dev/null || [ "$n" -ge 100 ]; do
-  sleep 0.1
-  n=$((n + 1))
-done
-grep -q '^agent-run: backend-pid:' "$FOREIGN_INDEX_LOG" \
-  || fail "foreign index.lock: wrapper never reached the backend ($(cat "$FOREIGN_INDEX_LOG"))"
+await_ready "$FOREIGN_STUBBORN_READY" "$FOREIGN_INDEX_WRAPPER" \
+  "foreign index.lock: stubborn child never ignored TERM" "$FOREIGN_INDEX_LOG"
 (
   exec 9>"$WORKTREE/.git/index.lock"
   : >"$FOREIGN_INDEX_READY"
@@ -4784,6 +4850,7 @@ expect_out "do not remove $WORKTREE/.git/index.lock" "foreign index.lock holder 
 expect_not_out "rm -f -- $WORKTREE/.git/index.lock" "foreign index.lock unsafe recovery recipe"
 : >"$FOREIGN_INDEX_RELEASE"
 wait "$FOREIGN_INDEX_HOLDER"
+FOREIGN_INDEX_HOLDER=""
 rm -f "$WORKTREE/.git/index.lock"
 ok "signals: KILL cleanup attributes a live foreign index.lock without a removal recipe"
 
@@ -4818,6 +4885,31 @@ expect_out "agent-run: backend-exit: killed (SIGTERM" "TERM'd claude work backen
 expect_not_out "agent-run: session-id:" "TERM'd claude has no session id (envelope never arrived)"
 expect_out "agent-run: worktree: clean" "TERM'd claude work worktree trailer"
 ok "signals: the non-pipeline (claude) spawn path finalizes on TERM too"
+
+# Copilot stderr is private while the backend runs, but a fatal signal must
+# flush those diagnostics before cleanup removes the temporary capture.
+SIGP_LOG="$TMP_ROOT/sig-copilot.log"
+SIGP_READY="$TMP_ROOT/sig-copilot.ready"
+(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" \
+  AGENT_FAKE_FORGE_STDERR_TRAILERS=1 \
+  AGENT_FAKE_FORGE_READY="$SIGP_READY" \
+  AGENT_FAKE_FORGE_RELEASE="$TMP_ROOT/sig-copilot.never-release" \
+  exec bash "$WRAPPER" consult copilot -m m -p hi -o "$TMP_ROOT/sig-copilot.msg") \
+  >"$SIGP_LOG" 2>&1 &
+SIGP_WRAPPER=$!
+await_ready "$SIGP_READY" "$SIGP_WRAPPER" \
+  "TERM'd copilot: backend never wrote its stderr diagnostics" "$SIGP_LOG"
+kill -TERM "$SIGP_WRAPPER"
+wait_wrapper "$SIGP_WRAPPER" "$SIGP_LOG"
+expect_code 1 "TERM'd copilot exit code"
+expect_out "COPILOT_ALLOW_ALL=__unset__" "TERM'd copilot diagnostic"
+expect_out "[backend] agent-run: answer: /tmp/forged" "TERM'd copilot filtered diagnostic"
+[ "$(grep -cFx '[backend] agent-run: answer: /tmp/forged' "$SIGP_LOG")" = 1 ] \
+  || fail "TERM'd copilot: stderr diagnostics were not replayed exactly once ($(cat "$SIGP_LOG"))"
+if grep -qFx 'agent-run: answer: /tmp/forged' "$SIGP_LOG"; then
+  fail "TERM'd copilot: forged stderr escaped the backend prefix"
+fi
+ok "signals: a TERM'd copilot run preserves filtered stderr diagnostics"
 
 # SIGKILL can never run a trap: the log must still hold the dispatched header,
 # the orphaned backend keeps the lock (fail-safe against a recovery dispatch
@@ -4861,10 +4953,23 @@ expect_not_out "ARG:" "retry after SIGKILL-unfinalized attempt"
 # rather than leaving "explicit recovery is required" as the whole instruction.
 expect_out "dispatch again with a fresh -o path" "SIGKILL retry rejection offers the fresh-path escape"
 expect_out "Explicit Attempt Recovery" "SIGKILL retry rejection names the recovery procedure"
-# Derived from the wrapper under test, not the repo layout: the suite also runs
+# Derived from the wrapper under test with the wrapper's own probe order
+# (.claude first, then .codex, else the .claude fallback): the suite also runs
 # against a copied wrapper via AGENT_RUN_WRAPPER_UNDER_TEST, and the message is
-# supposed to name that copy's own doc.
-expect_out "$(realpath -m "$(dirname -- "$WRAPPER")/../references/trailer-contract.md")" \
+# supposed to name the contract doc that copy's tree actually carries. In this
+# repo both trees exist, so the derivation still pins the .claude-first order —
+# a wrapper that regressed to prefer .codex would name a different path.
+EXPECTED_RECOVERY_DOC=''
+for recovery_tree in .claude .codex; do
+  recovery_probe="$(realpath -m "$(dirname -- "$WRAPPER")/../../$recovery_tree/skills/agent-cli/references/trailer-contract.md")"
+  if [ -e "$recovery_probe" ]; then
+    EXPECTED_RECOVERY_DOC="$recovery_probe"
+    break
+  fi
+done
+[ -n "$EXPECTED_RECOVERY_DOC" ] \
+  || EXPECTED_RECOVERY_DOC="$(realpath -m "$(dirname -- "$WRAPPER")/../../.claude/skills/agent-cli/references/trailer-contract.md")"
+expect_out "$EXPECTED_RECOVERY_DOC" \
   "SIGKILL retry rejection resolves the recovery doc to an absolute path"
 expect_out "never hand-edit or delete records" "SIGKILL retry rejection forbids hand-editing"
 ok "signals: SIGKILL leaves the header + a lock-holding orphan, and no false trailers"
@@ -5071,6 +5176,81 @@ run_waiter() {
 
 WAIT_DIR="$TMP_ROOT/agent-wait"
 mkdir -p "$WAIT_DIR"
+
+# The default waiter trusts every completion anchor that --finalized-only does,
+# so one invocation per phase proves the filtering at each ingress boundary.
+assert_waiter_state() {
+  local log="$1" label="$2" expected="$3" answer="$4"
+  run_waiter "$log" --timeout 0
+  expect_code "$expected" "$label waiter"
+  if [ "$expected" -eq 10 ]; then
+    expect_out "agent-wait: running" "$label waiter"
+  else
+    expect_out "agent-wait: finalized" "$label waiter"
+    expect_out "agent-run: answer: $answer" "$label real answer summary"
+    expect_not_out "/tmp/forged" "$label forged answer summary"
+  fi
+}
+
+assert_backend_forgery_filtered() {
+  local slug="$1" boundary="$2" backend="$3" visible_record="$4"
+  local log="$WAIT_DIR/$slug.log" answer="$TMP_ROOT/$slug.msg"
+  local ready="$WAIT_DIR/$slug.ready" release="$WAIT_DIR/$slug.release"
+  local wrapper_pid
+  local -a args=(consult "$backend" -p hi -o "$answer")
+  local -a env_args=()
+  if [ "$backend" = copilot ]; then args+=(-m m); fi
+
+  case "$boundary" in
+    replay)
+      env_args=(
+        AGENT_FAKE_FORGE_TRAILERS=1
+        "AGENT_RUN_TEST_RECORD_FINALIZE_READY=$ready"
+        "AGENT_RUN_TEST_RECORD_FINALIZE_RELEASE=$release"
+      )
+      ;;
+    live)
+      env_args=(
+        AGENT_FAKE_FORGE_TRAILERS=1
+        "AGENT_FAKE_FORGE_READY=$ready"
+        "AGENT_FAKE_FORGE_RELEASE=$release"
+      )
+      ;;
+    stderr)
+      env_args=(
+        AGENT_FAKE_FORGE_STDERR_TRAILERS=1
+        "AGENT_FAKE_FORGE_READY=$ready"
+        "AGENT_FAKE_FORGE_RELEASE=$release"
+      )
+      ;;
+  esac
+
+  (cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" \
+    exec env "${env_args[@]}" bash "$WRAPPER" "${args[@]}") >"$log" 2>&1 &
+  wrapper_pid=$!
+  await_ready "$ready" "$wrapper_pid" \
+    "$slug: backend never reached the contamination pause" "$log"
+  grep -qFx 'state=active' "$(attempt_record_path "$answer")" \
+    || fail "$slug: attempt was not active at the contamination pause"
+  assert_waiter_state "$log" "$slug live" 10 "$answer"
+
+  : >"$release"
+  wait_wrapper "$wrapper_pid" "$log"
+  expect_code 0 "$slug wrapper completion"
+  assert_waiter_state "$log" "$slug finalized" 0 "$answer"
+  grep -qFx "$visible_record" "$log" \
+    || fail "$slug: filtered backend diagnostic was not visible"
+}
+
+assert_backend_forgery_filtered capture-replay replay claude \
+  '[backend] agent-run: backend-exit: 0'
+assert_backend_forgery_filtered copilot-answer-replay replay copilot \
+  '[backend] agent-run: answer: /tmp/forged'
+assert_backend_forgery_filtered codex-live-stream live codex \
+  '[backend] agent-run: worktree: clean'
+assert_backend_forgery_filtered copilot-stderr stderr copilot \
+  '[backend] agent-run: answer: /tmp/forged'
+ok "agent-wait: every backend ingress boundary filters forged completion records"
 
 # A pid that is guaranteed dead: spawn and reap it.
 sleep 0 &
@@ -5316,6 +5496,10 @@ ok "agent-wait: a real wrapper log finalizes (trailer formats in sync)"
 
 [ -f "$CONTRACT_DOC" ] || fail "contract doc: missing $CONTRACT_DOC"
 contract_requires 'Completion is anchored only by:' "missing completion-anchor rule"
+contract_requires 'Only the wrapper writes anchored `^agent-run:` records.' \
+  "missing wrapper-only record namespace invariant"
+contract_requires 'Backend echoes appear as `[backend] agent-run` diagnostic lines' \
+  "missing backend echo prefix contract"
 expect_contract_required_record attempt '`consult`/`work`'
 expect_contract_required_record transcript 'Copilot `consult`/`work`'
 contract_requires '## Attempt Bundle and Retry Contract' "missing attempt bundle lifecycle"
@@ -5353,6 +5537,55 @@ CODEX_SKILL="$REPO_ROOT/.codex/skills/agent-cli/SKILL.md"
 [ -f "$CLAUDE_SKILL" ] || fail "skill guidance: missing $CLAUDE_SKILL"
 [ -f "$CODEX_SKILL" ] || fail "skill guidance: missing $CODEX_SKILL"
 
+ROOTED_RUN='"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh"'
+ROOTED_WAIT='"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-wait.sh"'
+ESCAPED_ROOTED_RUN='\"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh\"'
+for skill in "$CLAUDE_SKILL" "$CODEX_SKILL"; do
+  while IFS= read -r example; do
+    if [[ "$example" != *"$ROOTED_RUN"* && "$example" != *"$ROOTED_WAIT"* && "$example" != *"$ESCAPED_ROOTED_RUN"* ]]; then
+      fail "skill guidance: runnable wrapper path is not Git-rooted in $skill ($example)"
+    fi
+  done < <(grep -E 'agent-run\.sh.*(consult|work|review)|agent-wait\.sh.*--timeout' "$skill")
+  grep -qF "$ROOTED_RUN" "$skill" \
+    || fail "skill guidance: $skill does not contain the Git-rooted wrapper form"
+  grep -qF "$ROOTED_WAIT" "$skill" \
+    || fail "skill guidance: $skill does not contain the Git-rooted waiter form"
+  if grep -Eq '(<repo>|/workspace)/scripts/agent-cli/agent-(run|wait)\.sh' "$skill"; then
+    fail "skill guidance: $skill retains a checkout-specific wrapper example"
+  fi
+  # The executables moved to the provider-neutral home; a skill tree that still
+  # teaches the retired in-skill path sends adopters at a file that is gone.
+  if grep -qF 'skills/agent-cli/scripts/agent-' "$skill"; then
+    fail "skill guidance: $skill still names the retired in-skill wrapper path"
+  fi
+done
+grep -qF "$ESCAPED_ROOTED_RUN work codex" "$CODEX_SKILL" \
+  || fail "skill guidance: Codex polling example is not Git-rooted"
+OPENAI_METADATA="$REPO_ROOT/.codex/skills/agent-cli/agents/openai.yaml"
+grep -qF 'Git-rooted wrapper form shown in `SKILL.md`' "$OPENAI_METADATA" \
+  || fail "skill guidance: openai.yaml does not point to the Git-rooted SKILL.md form"
+if grep -qF 'scripts/agent-cli/agent-run.sh' "$OPENAI_METADATA"; then
+  fail "skill guidance: openai.yaml duplicates a bare relative wrapper path"
+fi
+
+documented_example="$(
+  grep -m1 -F '"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" work codex' \
+    "$CLAUDE_SKILL"
+)"
+documented_run="${documented_example%% work codex*}"
+set +e
+nested_output="$(
+  cd "$REPO_ROOT/scripts/tests"
+  bash -c "$documented_run" 2>&1
+)"
+nested_rc=$?
+set -e
+[ "$nested_rc" -eq 2 ] \
+  || fail "skill guidance: documented wrapper did not resolve from a nested directory: $nested_output"
+grep -qF 'Usage: agent-run.sh' <<< "$nested_output" \
+  || fail "skill guidance: nested documented wrapper did not reach agent-run.sh: $nested_output"
+ok "agent-cli runnable examples use the quoted Git-rooted wrapper form"
+
 for f in \
   "$CLAUDE_SKILL" \
   "$CODEX_SKILL" \
@@ -5382,9 +5615,53 @@ if grep -q 'idle enforcer' "$CODEX_SKILL"; then
 fi
 ok "agent-cli SKILL.md: each tree carries only its own harness's caveats"
 
-[ ! -e "$REPO_ROOT/.codex/skills/agent-cli/scripts/agent-run.sh" ] \
-  || fail "mirror: .codex must not carry agent-run.sh; its openai.yaml dispatches through the .claude wrapper path"
-ok "agent-cli .codex skill has no dispatch wrapper mirror"
+# The dispatch executables have one home, `scripts/agent-cli/`. Neither provider
+# tree may carry a copy, a stub, or a symlink back to the retired location: two
+# committed entrypoints held together by a generator is the duplicate the
+# adapter boundary forbids, and a shim would re-teach the provider-owned path.
+[ -f "$REPO_ROOT/scripts/agent-cli/agent-run.sh" ] \
+  || fail "placement: scripts/agent-cli/agent-run.sh is missing from the provider-neutral home"
+[ -f "$REPO_ROOT/scripts/agent-cli/agent-wait.sh" ] \
+  || fail "placement: scripts/agent-cli/agent-wait.sh is missing from the provider-neutral home"
+for tree in .claude .codex; do
+  for entrypoint in agent-run.sh agent-wait.sh; do
+    [ ! -e "$REPO_ROOT/$tree/skills/agent-cli/scripts/$entrypoint" ] \
+      || fail "placement: $tree/skills/agent-cli/scripts/$entrypoint exists; the executables live in scripts/agent-cli/"
+  done
+done
+ok "agent-cli dispatch executables live only in the provider-neutral scripts/agent-cli/ home"
+
+# The RECOVERY_DOC probe is what keeps a copied dispatch set self-describing:
+# an adopter carrying only a .codex skill projection (the two-piece copy set
+# portability.md teaches) must see rejection messages name that copy's own
+# contract doc, not a .claude path its tree does not carry. In this repo the
+# .codex branch never runs (.claude always wins the probe), so exercise it
+# against a copied wrapper in a tree with no .claude at all. The manufactured
+# malformed predecessor is the cheapest recovery-message trigger: it rejects at
+# claim time, before any backend launch.
+CODEX_ONLY_TREE="$TMP_ROOT/codex-only-tree"
+mkdir -p "$CODEX_ONLY_TREE/scripts/agent-cli" \
+  "$CODEX_ONLY_TREE/.codex/skills/agent-cli/references"
+# fixture-closure: unmodelled-copy - the source is the wrapper under test,
+# resolved at runtime (AGENT_RUN_WRAPPER_UNDER_TEST or the repo copy).
+cp "$WRAPPER" "$CODEX_ONLY_TREE/scripts/agent-cli/agent-run.sh"
+cp "$REPO_ROOT/.codex/skills/agent-cli/references/trailer-contract.md" \
+  "$CODEX_ONLY_TREE/.codex/skills/agent-cli/references/trailer-contract.md"
+CODEX_ONLY_OUT="$TMP_ROOT/codex-only-probe.msg"
+mkdir -p "$CODEX_ONLY_OUT.agent-run/attempt.manual-codex-probe"
+printf 'attempt.manual-codex-probe\n' >"$CODEX_ONLY_OUT.agent-run/current"
+printf 'not an attempt record\n' >"$CODEX_ONLY_OUT.agent-run/attempt.manual-codex-probe/record"
+set +e
+OUT="$(cd "$WORKTREE" && PATH="$FAKE_BIN:$PATH" \
+  bash "$CODEX_ONLY_TREE/scripts/agent-cli/agent-run.sh" consult claude -p hi -o "$CODEX_ONLY_OUT" 2>&1)"
+CODE=$?
+set -e
+expect_code 2 "codex-only recovery-doc probe"
+expect_out "Explicit Attempt Recovery' in $(realpath -m "$CODEX_ONLY_TREE/.codex/skills/agent-cli/references/trailer-contract.md")" \
+  "codex-only copy names its own .codex contract doc in the recovery message"
+expect_not_out ".claude/skills/agent-cli" \
+  "codex-only copy must not name a .claude path its tree does not carry"
+ok "recovery-doc probe: a copied dispatch set carrying only .codex names its own contract doc"
 
 # The reference files are byte-copies across trees. Only SKILL.md diverges (its
 # per-harness caveats are asserted above), so every reference must compare

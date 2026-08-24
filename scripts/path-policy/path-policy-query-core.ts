@@ -1,5 +1,11 @@
 import { PATH_POLICY, type PathPolicySelector } from "./path-policy.js";
 import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
+import { matchStarOnlySegmentPattern } from "./segment-pattern.js";
+import {
+  isScriptSmokeTestPath,
+  normalizePath,
+  SMOKE_METADATA_FRESHNESS_TEST_NAME,
+} from "./smoke-test-files.js";
 
 export const PATH_POLICY_QUERY_NAMES = [
   "lintable",
@@ -33,19 +39,8 @@ const pathPolicyQueryNameSet: ReadonlySet<string> = new Set(PATH_POLICY_QUERY_NA
 type PathPredicate = (path: string) => boolean;
 type QueryHandler = (paths: readonly string[]) => string[];
 
-const normalizeComparablePath = (path: string): string => path.replaceAll("\\", "/");
-
-const regexSpecialCharacters = /[\\^$+?.()|[\]{}]/gu;
-
-const escapeRegexLiteral = (value: string): string => value.replace(regexSpecialCharacters, "\\$&");
-
-const matchSegmentGlob = (value: string, pattern: string): boolean => {
-  const expression = pattern.split("*").map(escapeRegexLiteral).join("[^/]*");
-  return new RegExp(`^${expression}$`, "u").test(value);
-};
-
 const matchesPathPolicySelector = (path: string, selector: PathPolicySelector): boolean => {
-  const comparablePath = normalizeComparablePath(path);
+  const comparablePath = normalizePath(path);
 
   switch (selector.kind) {
     case "exact":
@@ -53,7 +48,7 @@ const matchesPathPolicySelector = (path: string, selector: PathPolicySelector): 
     case "prefix":
       return comparablePath.startsWith(selector.prefix);
     case "single-segment-glob":
-      return matchSegmentGlob(comparablePath, selector.pattern);
+      return matchStarOnlySegmentPattern(comparablePath, selector.pattern);
     case "extension":
       return comparablePath.endsWith(selector.extension);
     case "prefix-extension":
@@ -67,19 +62,19 @@ const matchesAnySelector = (path: string, selectors: readonly PathPolicySelector
   selectors.some((selector) => matchesPathPolicySelector(path, selector));
 
 const hasExcludedDirectoryName = (path: string, directoryNames: readonly string[]): boolean => {
-  const comparablePath = normalizeComparablePath(path);
+  const comparablePath = normalizePath(path);
   return comparablePath.split("/").some((segment) => directoryNames.includes(segment));
 };
 
 const hasExcludedPrefix = (path: string, prefixes: readonly string[]): boolean => {
-  const comparablePath = normalizeComparablePath(path);
+  const comparablePath = normalizePath(path);
   return prefixes.some((prefix) => comparablePath.startsWith(prefix));
 };
 
 const matchesLintableExtension =
   (extensions: readonly `.${string}`[]): PathPredicate =>
   (path) => {
-    const comparablePath = normalizeComparablePath(path);
+    const comparablePath = normalizePath(path);
     return extensions.some((extension) => comparablePath.endsWith(extension));
   };
 
@@ -124,16 +119,10 @@ const pathFilter =
     paths.filter((path) => path.length > 0 && predicate(path));
 
 const matchesSmokeSubject = (path: string, subject: string): boolean => {
-  const comparablePath = normalizeComparablePath(path);
+  const comparablePath = normalizePath(path);
   if (comparablePath === subject) return true;
   return subject.endsWith("/") && comparablePath.startsWith(subject);
 };
-
-const smokeTestFilePathPattern = /^scripts\/tests\/test-[^/]+\.sh$/u;
-const smokeMetadataFreshnessTestName = "test-harness-check";
-
-const matchesSmokeTestFile = (path: string): boolean =>
-  smokeTestFilePathPattern.test(normalizeComparablePath(path));
 
 const scriptSmokeSubjects: Readonly<Record<string, readonly string[]>> =
   PATH_POLICY.scriptSmoke.subjects;
@@ -149,10 +138,10 @@ const smokeTestsForPaths = (paths: readonly string[]): string[] => {
   }
 
   if (
-    paths.some(matchesSmokeTestFile) &&
-    SCRIPT_SMOKE_TEST_NAMES.includes(smokeMetadataFreshnessTestName)
+    paths.some(isScriptSmokeTestPath) &&
+    SCRIPT_SMOKE_TEST_NAMES.includes(SMOKE_METADATA_FRESHNESS_TEST_NAME)
   ) {
-    selectedTests.add(smokeMetadataFreshnessTestName);
+    selectedTests.add(SMOKE_METADATA_FRESHNESS_TEST_NAME);
   }
 
   return SCRIPT_SMOKE_TEST_NAMES.filter((name) => selectedTests.has(name));

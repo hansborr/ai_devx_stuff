@@ -49,7 +49,6 @@ describe("blameLineIntroductions", () => {
 
     const blame = blameLineIntroductions({
       git: gitWith(output),
-      repoRoot: "/repo",
       path: "src/a.ts",
     });
 
@@ -69,7 +68,6 @@ describe("blameLineIntroductions", () => {
 
     const blame = blameLineIntroductions({
       git: gitWith(output),
-      repoRoot: "/repo",
       path: "src/a.ts",
     });
 
@@ -80,18 +78,15 @@ describe("blameLineIntroductions", () => {
     });
   });
 
-  it("invokes git blame with --line-porcelain anchored at the repo root for the path", () => {
+  it("invokes git blame with exact porcelain arguments for the repo-relative path", () => {
     const recorder: string[][] = [];
     blameLineIntroductions({
       git: gitWith(porcelain([]), recorder),
-      repoRoot: "/repo",
       path: "src/weird path.ts",
     });
 
     const call = recorder[0] ?? [];
-    expect(call[0]).toBe("blame");
-    expect(call).toContain("--line-porcelain");
-    expect(call).toContain("src/weird path.ts");
+    expect(call).toEqual(["blame", "--line-porcelain", "HEAD", "--", "src/weird path.ts"]);
   });
 
   it("returns an empty map when git blame throws (e.g. uncommitted or unreadable)", () => {
@@ -99,7 +94,7 @@ describe("blameLineIntroductions", () => {
       throw new Error("fatal: no such path");
     };
 
-    const blame = blameLineIntroductions({ git, repoRoot: "/repo", path: "src/a.ts" });
+    const blame = blameLineIntroductions({ git, path: "src/a.ts" });
 
     expect(blame.size).toBe(0);
   });
@@ -112,7 +107,6 @@ describe("blameLineIntroductions", () => {
 
     const blame = blameLineIntroductions({
       git: gitWith(output),
-      repoRoot: "/repo",
       path: "src/a.ts",
     });
 

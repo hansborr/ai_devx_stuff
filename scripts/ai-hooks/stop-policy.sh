@@ -3,6 +3,9 @@
 # Shared Stop-hook policies. Keep adapter-specific behavior in .claude wrappers;
 # this file decides whether a Stop event should show a user-visible warning.
 
+# shellcheck source=edited-paths.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/edited-paths.sh"
+
 AI_STOP_COMMIT_KILL_SWITCH=".no-stop-uncommitted"
 AI_STOP_E2E_KILL_SWITCH=".no-stop-e2e"
 AI_STOP_E2E_MAX_NOTIFY="${AI_STOP_E2E_MAX_NOTIFY:-2}"
@@ -82,31 +85,37 @@ ai_stop_read_marker() {
   [ -n "$AI_STOP_MARKER_BRANCH" ] || return 1
 }
 
+ai_stop_write_kv_file() {
+  local path="$1"
+  local dir base tmp
+  shift
+
+  dir=$(dirname "$path")
+  base=$(basename "$path")
+  mkdir -p "$dir" || return 1
+  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
+
+  if ! printf '%s\n' "$@" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+
+  if ! mv -f "$tmp" "$path"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
 ai_stop_write_marker() {
   local marker="$1"
   local fp="$2"
   local branch="$3"
-  local dir base tmp
 
   musi_fingerprint_is_valid "$fp" || return 1
-  dir=$(dirname "$marker")
-  base=$(basename "$marker")
-  mkdir -p "$dir" || return 1
-  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
-
-  if ! {
-    printf 'LAST_TS=%s\n' "$(date +%s)"
-    printf 'LAST_FP=%s\n' "$fp"
-    printf 'LAST_BRANCH=%s\n' "$branch"
-  } > "$tmp"; then
-    rm -f "$tmp"
-    return 1
-  fi
-
-  if ! mv -f "$tmp" "$marker"; then
-    rm -f "$tmp"
-    return 1
-  fi
+  ai_stop_write_kv_file "$marker" \
+    "LAST_TS=$(date +%s)" \
+    "LAST_FP=$fp" \
+    "LAST_BRANCH=$branch"
 }
 
 ai_stop_current_branch() {
@@ -216,25 +225,11 @@ ai_stop_e2e_write_counter() {
   local fp="$2"
   local branch="$3"
   local count="$4"
-  local dir base tmp
 
-  dir=$(dirname "$counter")
-  base=$(basename "$counter")
-  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
-
-  if ! {
-    printf 'LAST_FP=%s\n' "$fp"
-    printf 'LAST_BRANCH=%s\n' "$branch"
-    printf 'LAST_COUNT=%s\n' "$count"
-  } > "$tmp"; then
-    rm -f "$tmp"
-    return 1
-  fi
-
-  if ! mv -f "$tmp" "$counter"; then
-    rm -f "$tmp"
-    return 1
-  fi
+  ai_stop_write_kv_file "$counter" \
+    "LAST_FP=$fp" \
+    "LAST_BRANCH=$branch" \
+    "LAST_COUNT=$count"
 }
 
 # Returns 0 with a user warning on stdout when cached e2e is failing, 1
@@ -379,26 +374,11 @@ ai_stop_async_write_counter() {
   local state="$2"
   local exit_code="$3"
   local count="$4"
-  local dir base tmp
 
-  dir=$(dirname "$counter")
-  base=$(basename "$counter")
-  mkdir -p "$dir" || return 1
-  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
-
-  if ! {
-    printf 'LAST_STATE=%s\n' "$state"
-    printf 'LAST_EXIT=%s\n' "$exit_code"
-    printf 'LAST_COUNT=%s\n' "$count"
-  } > "$tmp"; then
-    rm -f "$tmp"
-    return 1
-  fi
-
-  if ! mv -f "$tmp" "$counter"; then
-    rm -f "$tmp"
-    return 1
-  fi
+  ai_stop_write_kv_file "$counter" \
+    "LAST_STATE=$state" \
+    "LAST_EXIT=$exit_code" \
+    "LAST_COUNT=$count"
 }
 
 # Returns 0 with one short cached async-verification status message when a
@@ -515,27 +495,12 @@ ai_stop_verify_write_counter() {
   local fp="$3"
   local exit_code="$4"
   local count="$5"
-  local dir base tmp
 
-  dir=$(dirname "$counter")
-  base=$(basename "$counter")
-  mkdir -p "$dir" || return 1
-  tmp=$(mktemp "$dir/.${base}.tmp.XXXXXX") || return 1
-
-  if ! {
-    printf 'LAST_MODE=%s\n' "$mode"
-    printf 'LAST_FP=%s\n' "$fp"
-    printf 'LAST_EXIT=%s\n' "$exit_code"
-    printf 'LAST_COUNT=%s\n' "$count"
-  } > "$tmp"; then
-    rm -f "$tmp"
-    return 1
-  fi
-
-  if ! mv -f "$tmp" "$counter"; then
-    rm -f "$tmp"
-    return 1
-  fi
+  ai_stop_write_kv_file "$counter" \
+    "LAST_MODE=$mode" \
+    "LAST_FP=$fp" \
+    "LAST_EXIT=$exit_code" \
+    "LAST_COUNT=$count"
 }
 
 # Extract a string-valued JSON field from a flat single-object JSON file.
@@ -740,19 +705,6 @@ ai_stop_lint_warnings_disabled() {
   [ -f "$repo_root/$AI_STOP_LINT_WARNINGS_KILL_SWITCH" ]
 }
 
-ai_stop_lint_warning_eslint_supported() {
-  local path="$1"
-
-  case "${path,,}" in
-    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts|*.json|*.jsonc|*.json5)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
-
 ai_stop_lint_warning_changed_paths() {
   local repo_root="$1"
   local path
@@ -764,7 +716,7 @@ ai_stop_lint_warning_changed_paths() {
   } | sort -zu | while IFS= read -r -d '' path; do
     [ -n "$path" ] || continue
     [ -f "$repo_root/$path" ] || continue
-    ai_stop_lint_warning_eslint_supported "$path" || continue
+    ai_edited_path_eslint_supported "$path" || continue
     printf '%s\0' "$path"
   done
 }

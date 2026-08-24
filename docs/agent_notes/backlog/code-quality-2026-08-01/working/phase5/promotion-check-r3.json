@@ -1,0 +1,280 @@
+{
+  "contractVersion": 1,
+  "step": "2b-round-3",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewShaConfirmed": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "consults": [
+    {
+      "chunk": "gate-r3-01",
+      "files": 5
+    },
+    {
+      "chunk": "gate-r3-02",
+      "files": 5
+    }
+  ],
+  "results": [
+    {
+      "file": "246-replace-the-eslint-cache-shell-to-typescript-text.md",
+      "promotionId": "R3B-002",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 5,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-124"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-124 is the landed Bash-facade/TypeScript-core precedent; it does not schedule the ESLint cache policy, pruning, keyed locations, or argument transport addressed here.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations were opened at the audit pin; both links resolve, all named script surfaces exist, and the packet metadata and settled direction match."
+    },
+    {
+      "file": "184-human-readable-server-messages-act-client.md",
+      "promotionId": "R3B-003",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 14,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "R3B-003 names no prior-pack record and declares no residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations were verified at the audit pin. The committed predecessor was inspected; the socket augmentation is additive, preserves the existing claims and host header, keeps messages unchanged and presentational, and explicitly limits the discriminator to the local rate-limit flow."
+    },
+    {
+      "file": "247-unify-character-create-choice-chips-around.md",
+      "promotionId": "R3B-004",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack record; linked current-pack leaf 238 concerns distinct homebrew class/subclass select controls.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations were opened at the audit pin and support the claims; the intra-pack link resolves and both packet constraints are explicit."
+    },
+    {
+      "file": "248-preserve-registered-route-typing-through.md",
+      "promotionId": "R3B-005",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Problem calls all five paths “mobile-only destinations,” but app-header.tsx:95-118 shows Campaigns, Homebrew, Settings, and Legal also rendered as direct desktop links. These are five mobile-menu wrapper call sites; only Magic Items lacks a desktop counterpart.",
+          "correction": {
+            "oldString": "untyped gap around five mobile-only destinations even though the application",
+            "newString": "untyped gap around five mobile-menu destinations even though the application"
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "The Proposed direction requires a compile-only type case and an app-header.test.tsx extension, while Scope literally limits “the change” to MobileNavLink and its five call sites, excluding those required test changes.",
+          "correction": {
+            "oldString": "- Limit the change to `MobileNavLink` and its five existing call sites.",
+            "newString": "- Limit the production change to `MobileNavLink` and its five existing call sites."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack record; current leaf 236 covers only the campaign-homebrew dialog's raw anchor, not MobileNavLink.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four citations otherwise match the pinned source, and the intra-pack link resolves."
+    },
+    {
+      "file": "249-keep-charactertab-on-the-inferred-campaign-output.md",
+      "promotionId": "R3B-007",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named; live prior-pack and current-pack searches found no coverage of CharacterTab's local campaign-result assertion.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations were verified at the audit pin; packet metadata and settled direction match, and both author constraints are explicit."
+    },
+    {
+      "file": "250-correct-two-shared-assertion-boundary-categories.md",
+      "promotionId": "R3C-001",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 3,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record or residual is named for these classifications.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": null
+    },
+    {
+      "file": "053-filterselect-erases-schema-derived-option.md",
+      "promotionId": "R3C-101",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 9,
+        "commandsChecked": 2,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-187"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf gives counts for two interop markers, six narrowing helpers, and six allOption call sites without a reproducible command. Re-measurement confirms the counts are correct, but the evidence contract is incomplete.",
+          "correction": {
+            "oldString": "  (`null` versus `\"all\"`).\n- Measurement with\n  `rg -n '<FilterSelect' packages/client/src/components/{campaign/npcs/monster-tab.tsx,compendium/magic-item-list.tsx,sheet/add-spell-dialog.tsx,sheet/spell-filter-bar.tsx}`",
+            "newString": "  (`null` versus `\"all\"`).\n- Measurement with\n  `rg -n 'allOption=|type-assertion-boundary: interop|function (toCreatureTypeFilter|toMonsterSizeFilter|toSpellSchoolFilter|toPreparedFilter|toSpellClassFilter)' packages/client/src/components/{campaign/npcs/monster-tab.tsx,compendium/magic-item-list.tsx,sheet/add-spell-dialog.tsx,sheet/spell-filter-bar.tsx}`\n  returns exactly the two marker lines, six helper definitions, and six\n  `allOption` call sites described above and below.\n- Measurement with\n  `rg -n '<FilterSelect' packages/client/src/components/{campaign/npcs/monster-tab.tsx,compendium/magic-item-list.tsx,sheet/add-spell-dialog.tsx,sheet/spell-filter-bar.tsx}`"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The final scope bullet says no other pack leaf edits the four consumers, but leaf 048 explicitly updates monster-tab.tsx. Its source-carrier changes are disjoint from this leaf's filter controls, making this a soft coordination edge rather than a forced order.",
+          "correction": {
+            "oldString": "- No cross-leaf sequencing edge exists: no other leaf in this pack edits\n  `filter-select.tsx` or these four filter bars. Within this leaf, however, the\n  rendered Level, School, and Status characterization lands before the generic\n  contract changes and remains afterward.",
+            "newString": "- A soft cross-leaf file overlap exists with\n  [048-monsteradddata-erases-mutually-exclusive.md](./048-monsteradddata-erases-mutually-exclusive.md):\n  it also edits `monster-tab.tsx`, although its source-carrier work and this\n  leaf's filter-control work are disjoint. Coordinate the shared file; either\n  leaf may otherwise land first. Within this leaf, the rendered Level, School,\n  and Status characterization lands before the generic contract changes and\n  remains afterward."
+          }
+        }
+      ],
+      "priorPackStatus": "ruled-out",
+      "priorPackNote": "Live CQ25-187 permanently drops leaf 08's roughly 49-site Label/Input sweep; it does not cover FilterSelect typing or SpellFilterBar characterization.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "HEAD~1 comparison confirms the augmentation preserved the host header and substantive pre-existing claims. The augmentation faithfully adds the required pre-refactor rendered characterization and caller-boundary scope; the false overlap claim predates it."
+    },
+    {
+      "file": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+      "promotionId": "R3C-271",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 13,
+        "commandsChecked": 9,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-96",
+          "CQ25-168"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The verification paragraph says no registered shell smoke covers the installer, but at the pin scripts/tests/test-lint-ratchet.sh:23 and :27 registers both scripts/git/install-lint-ratchet-merge-driver.sh and scripts/git/install-baseline-merge-driver.sh as smoke subjects and directly runs the installer, for example at :375-404. The generated subject registry also contains them at scripts/path-policy/path-policy-smoke-subjects-data.ts:713,717.",
+          "correction": {
+            "oldString": "Do not fabricate another\nverification command: no registered shell smoke covers this installer. If one\nis added, follow the `# smoke-subjects:` header and\n`bun run test:scripts:subjects` regeneration recipe; that root script exists\nat `package.json:60`.",
+            "newString": "Extend the registered installer smoke `scripts/tests/test-lint-ratchet.sh` with\na missing-`flock` case that asserts the preflight names the prerequisite and\nexits 0, then run it directly with `bash scripts/tests/test-lint-ratchet.sh`.\nIts `# smoke-subjects:` header already names the shared installer and its\nlint-ratchet shim, so run `bun run test:scripts:subjects` only if that header\nchanges; the regeneration script exists at `package.json:60`."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-96 requires full-document factual verification and CQ25-168 refuses the bulk coordinate sweep; this leaf carries both boundaries and neither covers its targeted residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The false smoke-coverage claim predates the R3C-271 augmentation. HEAD~1 comparison confirms Part C was added faithfully without dropping or contradicting Parts A and B."
+    },
+    {
+      "file": "251-remove-closed-implementation-residue-from-the-active.md",
+      "promotionId": "R3C-272",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 3,
+        "linksChecked": 5,
+        "priorPackRecordsOpened": [
+          "CONSTRAINTS.md",
+          "CQ25-44",
+          "28-PLAN.md"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-44/28-PLAN.md still schedules the unlanded slice 28.11 atomic lint-coverage-map family relocation only; it does not audit or correct the map's policy prose, while CONSTRAINTS.md supplies the cited full-document truth rule.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": null
+    },
+    {
+      "file": "252-expose-persisted-notification-history-beyond-the.md",
+      "promotionId": "R3C-301",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-207"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-207 is Done and preserves finite GC for parameterized lists while deliberately declining maxPages as a general cursor-list rule; it does not cover notification-history pagination.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": null
+    }
+  ],
+  "orchestratorRulings": [
+    {
+      "subject": "augmented host leaf headers",
+      "ruling": "not raised this round",
+      "detail": "Third consecutive gate; the ruling now lives in the augment packets and is enforced by apply-2a-blocks.mjs, and no consult has proposed the rewrite since round 1."
+    }
+  ],
+  "corrections": {
+    "proposed": 5,
+    "applied": 5,
+    "skipped": 0,
+    "skippedDetail": []
+  },
+  "summary": {
+    "filesChecked": 10,
+    "clean": 7,
+    "needsFix": 3,
+    "kill": 0,
+    "defectsByKind": {
+      "evidence": 4,
+      "command": 0,
+      "link": 0,
+      "priorPack": 0,
+      "packetFidelity": 0,
+      "coherence": 1
+    },
+    "notes": [
+      "The live prior-pack review SHA remains unchanged.",
+      "No tests or builds were run, and no files were modified."
+    ]
+  }
+}

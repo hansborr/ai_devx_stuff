@@ -1,10 +1,20 @@
+import type { LintRatchetGitRailAdapter } from "@musi/lint-ratchet/git-rail/executable-config.js";
 import type {
   LintRatchetEngineBinding,
   LintRatchetEngineContext,
 } from "@musi/lint-ratchet/kernel/engine-context.js";
 
-import { lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
-import { baselinePath, debtLogPath, repoRoot } from "./paths.js";
+import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
+import {
+  BASELINE_FILENAME,
+  baselinePath,
+  DEBT_LOG_FILENAME,
+  debtLogPath,
+  repoRoot,
+} from "./paths.js";
+import { musiLintRatchetWorkflowVocabulary } from "./workflow-vocabulary.js";
+
+export { musiLintRatchetWorkflowVocabulary } from "./workflow-vocabulary.js";
 
 /**
  * The Musi adapter's concrete {@link LintRatchetEngineBinding}: the repo root the
@@ -27,4 +37,16 @@ export const musiLintRatchetContext: LintRatchetEngineContext = {
   repoRoot,
   baselinePath,
   debtLogPath,
+  workflowVocabulary: musiLintRatchetWorkflowVocabulary,
+};
+
+export const lintRatchetGitRailAdapter: LintRatchetGitRailAdapter = {
+  baselineFile: BASELINE_FILENAME,
+  debtLogFile: DEBT_LOG_FILENAME,
+  executableModuleSpecifier: "@musi/lint-ratchet/git-rail/executable-cli.js",
+  checkBaselineCommand: ["bun", "run", "lint:ratchet:check-baseline"],
+  worseBaselineExitCode: 3,
+  workflowVocabulary: musiLintRatchetWorkflowVocabulary,
+  binding: musiLintRatchetBinding,
+  ratchets: lintRatchets,
 };

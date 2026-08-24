@@ -13,12 +13,11 @@ import type {
   IsolatedClientTestFileClassification,
   RunClientTestIsolationClassifierCliOptions,
 } from "./client-test-isolation-classifier-types.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
 export { classifyClientTestFileSource } from "./client-test-isolation-classifier-source.js";
 
 const JSON_INDENT_SPACES = 2;
-const PROCESS_ARGV_USER_ARGS_START = 2;
 const DEFAULT_CLIENT_SOURCE_DIR = "packages/client/src";
 const HELP_FLAGS = new Set(["--help", "-h"]);
 const SKIPPED_DIRECTORY_NAMES = new Set(["worktrees", "node_modules", "dist"]);

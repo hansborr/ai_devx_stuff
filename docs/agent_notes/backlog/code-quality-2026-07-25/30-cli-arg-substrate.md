@@ -1,6 +1,7 @@
 # 30. Canonical CLI primitives exist under scripts/lib, but argv offsets have seven spellings and code-intel usage strings are triplicated
 
-Status: Proposed — not promoted
+Status: Scheduled work landed 2026-08-01 on `fix/cq-harness-h3-h5` (merge
+`ac3ce2b0f`) — H3-H5 landed; no scheduled slice remains
 Theme: CLI argument-parsing substrate adoption · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

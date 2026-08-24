@@ -112,15 +112,16 @@ The portable system has three layers:
 - Guidance and machine-readable diagnostics:
   `scripts/lib/lint-rule-docs.ts`, `scripts/generate-lint-guidance.ts`,
   `docs/generated/local-lint-rules.md`, `scripts/lint-agent.ts`,
-  `scripts/lint-agent-changed.sh`, and
-  `packages/shared/src/schemas/harness-diagnostics.ts`.
+  `scripts/lint-agent-changed.sh`, and the portable
+  `tools/harness-diagnostics` package (`@musi/harness-diagnostics`).
 - Agent edit-loop hooks: `scripts/ai-hooks/tidy-edited-file.sh`,
   `scripts/ai-hooks/common.sh`, the thin wrappers under `.codex/hooks/` and
   `.claude/hooks/`, and the corresponding `.codex/hooks.json` /
   `.claude/settings.json` entries.
 - Ratchet runtime: `scripts/lint-ratchet/lint-ratchet-config.ts`,
-  `scripts/lint-ratchet/modes.ts`, `scripts/lint-ratchet/baseline-compare.ts`,
-  `scripts/lint-ratchet/current-collector.ts`,
+  `scripts/lint-ratchet/modes.ts`,
+  `tools/lint-ratchet/src/kernel/baseline-compare.ts`,
+  `tools/lint-ratchet/src/kernel/current-collector.ts`,
   `scripts/lint-ratchet/diagnostics.ts`, and
   `lint-ratchet.baseline.json`.
 
@@ -192,9 +193,9 @@ pipeline:
   `category`, `pairedGuide`, `repairKind`, and optional `repairCommand`.
 - `scripts/generate-lint-guidance.ts` writes
   `docs/generated/local-lint-rules.md`.
-- `scripts/lint-agent.ts` parses ESLint JSON and emits the shared
-  `HarnessDiagnostics` envelope from
-  `packages/shared/src/schemas/harness-diagnostics.ts`.
+- `scripts/lint-agent.ts` parses ESLint JSON and emits the
+  `HarnessDiagnostics` envelope from the portable `tools/harness-diagnostics`
+  package (`@musi/harness-diagnostics`).
 - `scripts/lint-agent-changed.sh` scopes the envelope to changed lintable files,
   falls back to a full scan when lint-affecting config changes, and emits an
   empty valid envelope when nothing relevant changed.
@@ -317,13 +318,13 @@ Most of the ratchet design can survive a Biome adapter:
 
 The ESLint-specific pieces that need an adapter are:
 
-- `scripts/lint-ratchet/eslint-runner.ts`
-- `scripts/lint-ratchet/eslint-config.ts`
-- the `source.kind` union in `scripts/lint-ratchet/lint-ratchet-config.ts`
-- rule-source hashing in `scripts/lint-ratchet/baseline-hash.ts`
-- package/local source identity in `scripts/lint-ratchet/rule-source.ts`
+- `tools/lint-ratchet/src/kernel/eslint-runner.ts`
+- `tools/lint-ratchet/src/kernel/eslint-config.ts`
+- the `source.kind` union in `tools/lint-ratchet/src/kernel/config-types.ts`
+- rule-source hashing in `tools/lint-ratchet/src/kernel/baseline-hash.ts`
+- package/local source identity in `tools/lint-ratchet/src/kernel/rule-source.ts`
 - ESLint message filtering and metric extraction in
-  `scripts/lint-ratchet/current-collector.ts`
+  `tools/lint-ratchet/src/kernel/current-collector.ts`
 - local-rule guidance lookup in `scripts/lint-ratchet/diagnostics.ts`
 - zero-baseline promotion checks that ask ESLint for resolved config
 - ESLint reach checks in `scripts/lint-coverage-map-check-eslint-reach.ts`
@@ -339,9 +340,7 @@ directly:
   files: ["src/**/*.ts", "src/**/*.tsx"],
   ignores: ["src/**/*.test.ts", "src/generated/**"],
   mode: "no-new",
-  target: 0,
   metric: "message-count",
-  repairKind: "manual",
 }
 ```
 
@@ -381,7 +380,7 @@ node_modules/.bin/biome lint --reporter=json \
 
 Hash enough state to make baseline drift meaningful:
 
-- ratchet id, category, files, ignores, mode, metric, target, and rule options
+- ratchet id, category, files, ignores, mode, metric, and rule options
 - `@biomejs/biome` package version
 - generated config content and any base `biome.json` it extends
 - Grit plugin source files

@@ -2,18 +2,18 @@ import type { Project } from "ts-morph";
 
 import { declarationSpace } from "./declaration-utils.js";
 import { getProjectSourceFile } from "./source-project.js";
-import type { IntelResult } from "./types.js";
+import type { ExportResult } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
 
 export function queryExports(
   project: Project,
   resolver: WorkspaceResolver,
   file: string,
-): IntelResult[] {
+): ExportResult[] {
   const sourceFile = getProjectSourceFile(project, resolver.mapFileToSource(file));
   const sourceRelative = resolver.relative(sourceFile.getFilePath());
   const exported = sourceFile.getExportedDeclarations();
-  const results: IntelResult[] = [];
+  const results: ExportResult[] = [];
 
   for (const [name, declarations] of exported) {
     const declaration = declarations[0];
@@ -30,8 +30,6 @@ export function queryExports(
   return results.sort(compareNamedResults);
 }
 
-function compareNamedResults(left: IntelResult, right: IntelResult): number {
-  const leftName = "name" in left ? left.name : "";
-  const rightName = "name" in right ? right.name : "";
-  return leftName.localeCompare(rightName, "en");
+function compareNamedResults(left: ExportResult, right: ExportResult): number {
+  return left.name.localeCompare(right.name, "en");
 }

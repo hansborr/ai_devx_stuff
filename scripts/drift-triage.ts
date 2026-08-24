@@ -26,11 +26,10 @@ import { buildTriageReport, type TriageReport } from "./drift-triage/triage-repo
 import { formatTriageText } from "./drift-triage/triage-report-text.js";
 import { ensureDirWriteFileAtomicallySync } from "./lib/atomic-write.js";
 import { errorMessage } from "./lib/error-message.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
 const TOOL_ERROR_EXIT_CODE = 2;
 const JSON_INDENT_SPACES = 2;
-const PROCESS_ARGS_OFFSET = 2;
 
 export type RunDriftTriageOptions = {
   readonly argv: readonly string[];
@@ -178,7 +177,7 @@ function defaultWriteFile(filePath: string, contents: string): void {
 }
 
 if (isCliEntrypoint(import.meta.url)) {
-  const result = runDriftTriageCommand({ argv: process.argv.slice(PROCESS_ARGS_OFFSET) });
+  const result = runDriftTriageCommand({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;
 }

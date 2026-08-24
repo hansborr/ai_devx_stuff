@@ -1,9 +1,10 @@
 // Shared loader for the `local/*` ESLint rule `meta.docs` contract.
 // Consumed by scripts/generate-lint-guidance.ts,
-// scripts/harness/generate-harness-controls.ts, scripts/lint-agent*.ts, and
+// scripts/harness/generate-harness-controls.ts,
+// scripts/harness/harness-check-validation.ts, scripts/lint-agent*.ts, and
 // scripts/lint-ratchet/*.ts. The vocabulary intentionally re-declares
 // the `as const` arrays in plain TS rather than reusing the Zod enums in
-// packages/shared/src/schemas/harness-diagnostics.ts — defence in depth
+// @musi/harness-diagnostics/schema.js — defence in depth
 // against a single typo silently widening acceptance (matches PR 1's
 // generator/test split rationale).
 
@@ -12,6 +13,12 @@ import { isAbsolute, join, relative, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 
 import { isObjectLike } from "./records.js";
+
+// Deliberately heuristic: any letter-bearing hyphenated token qualifies a
+// leaf/task reference; pack directories are not checked, and P<n>-<n> has no qualifier.
+const BACKLOG_COORDINATE_PATTERN = /\b(?:leaf|task)\s+\d[a-z0-9]*\b|\bP\d+-\d+\b/iu;
+const PACK_QUALIFIED_COORDINATE_PATTERN =
+  /\b(?=[a-z0-9-]*[a-z])[a-z0-9]+(?:-[a-z0-9]+)+\s+(?:leaf|task)\s+\d[a-z0-9]*\b/giu;
 
 export const RULE_DOC_CATEGORIES = ["maintainability", "architecture-fitness", "behavior"] as const;
 
@@ -49,6 +56,10 @@ interface LocalPlugin {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.trim().length > 0;
+}
+
+export function findBareBacklogCoordinate(text: string): string | undefined {
+  return text.replace(PACK_QUALIFIED_COORDINATE_PATTERN, "").match(BACKLOG_COORDINATE_PATTERN)?.[0];
 }
 
 function isRuleDocCategory(value: unknown): value is RuleDocCategory {
@@ -166,6 +177,10 @@ function validateRuleDocs(
 
   const description = validateStringField(docs, "description", failures);
   const principle = validateStringField(docs, "principle", failures);
+  const coordinate = findBareBacklogCoordinate(principle);
+  if (coordinate !== undefined) {
+    failures.push(`principle contains a bare backlog coordinate: ${coordinate}`);
+  }
   const category = validateCategory(docs, failures);
   const pairedGuide = validatePairedGuide(docs, repoRoot, failures);
   const repairKind = validateRepairKind(docs, failures);

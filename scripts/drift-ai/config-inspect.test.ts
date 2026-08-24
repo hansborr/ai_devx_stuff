@@ -7,6 +7,7 @@ import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js
 import { ALL_CHECKS, DEFAULT_CHECKS } from "./check-metadata.js";
 import { makeDefaultDriftAiConfig } from "./config-defaults.js";
 import { buildConfigInspection, formatConfigInspectionText } from "./config-inspect.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
 const tmpRepo = registerTempRootCleanup();
@@ -80,7 +81,7 @@ describe("formatConfigInspectionText", () => {
 describe("config subcommand", () => {
   it("reports built-in defaults when the target has no config file", () => {
     const repoRoot = makeRepoDir();
-    const result = runDriftAi({ argv: ["config"], git: gitRoot(repoRoot) });
+    const result = runDriftAi({ argv: ["config"], git: currentRepoGit(repoRoot) });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("config source:       default");
@@ -91,13 +92,27 @@ describe("config subcommand", () => {
     const repoRoot = makeRepoDir();
     writeFileSync(
       path.join(repoRoot, "drift-ai.config.json"),
-      JSON.stringify({ roots: ["packages/server/src"], additionalSourceExtensions: [".vue"] }),
+      JSON.stringify({
+        roots: ["packages/server/src"],
+        additionalSourceExtensions: [".vue"],
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: [
+              {
+                files: ["src/foo.ts", "./src/foo-helper.ts"],
+                rationale:
+                  "The helper remains a focused seam for foo; remove when its logic is consolidated.",
+              },
+            ],
+          },
+        },
+      }),
       "utf8",
     );
 
     const result = runDriftAi({
       argv: ["config", "--format", "json"],
-      git: gitRoot(repoRoot),
+      git: currentRepoGit(repoRoot),
     });
     // type-assertion-boundary: JSON parse — narrow the inspection payload under test.
     const payload = JSON.parse(result.stdout) as {
@@ -105,7 +120,15 @@ describe("config subcommand", () => {
       configSource: string;
       configPath: string | null;
       roots: string[];
-      config: { roots: string[]; additionalSourceExtensions: string[] };
+      config: {
+        roots: string[];
+        additionalSourceExtensions: string[];
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: Array<{ files: string[]; rationale: string }>;
+          };
+        };
+      };
     };
 
     expect(result.exitCode).toBe(0);
@@ -114,6 +137,13 @@ describe("config subcommand", () => {
     expect(payload.configPath).toBe("drift-ai.config.json");
     expect(payload.roots).toEqual(["packages/server/src"]);
     expect(payload.config.additionalSourceExtensions).toEqual([".vue"]);
+    expect(payload.config.checks["ghost-files"].currentAllowedPairs).toEqual([
+      {
+        files: ["src/foo-helper.ts", "src/foo.ts"],
+        rationale:
+          "The helper remains a focused seam for foo; remove when its logic is consolidated.",
+      },
+    ]);
     expect("findings" in payload).toBe(false);
   });
 
@@ -124,7 +154,7 @@ describe("config subcommand", () => {
 
     const result = runDriftAi({
       argv: ["config", "--config", configPath, "--format", "json"],
-      git: gitRoot(repoRoot),
+      git: currentRepoGit(repoRoot),
     });
     // type-assertion-boundary: JSON parse — narrow the inspection payload under test.
     const payload = JSON.parse(result.stdout) as { configSource: string; roots: string[] };
@@ -141,7 +171,7 @@ describe("config subcommand", () => {
 
     const result = runDriftAi({
       argv: ["config", "--config", configPath, "--format", "json"],
-      git: gitRoot(repoRoot),
+      git: currentRepoGit(repoRoot),
     });
     // type-assertion-boundary: JSON parse — narrow the inspection payload under test.
     const payload = JSON.parse(result.stdout) as { configSource: string };
@@ -157,7 +187,7 @@ describe("config subcommand", () => {
     const repoRoot = makeRepoDir();
     const result = runDriftAi({
       argv: ["config", "--config", path.join(repoRoot, "nope.json")],
-      git: gitRoot(repoRoot),
+      git: currentRepoGit(repoRoot),
     });
 
     expect(result.exitCode).toBe(2);
@@ -165,7 +195,10 @@ describe("config subcommand", () => {
   });
 
   it("prints usage on --help", () => {
-    const result = runDriftAi({ argv: ["config", "--help"], git: gitRoot(makeRepoDir()) });
+    const result = runDriftAi({
+      argv: ["config", "--help"],
+      git: currentRepoGit(makeRepoDir()),
+    });
 
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain("bun run drift:ai config");
@@ -179,7 +212,7 @@ describe("config subcommand", () => {
 
     const result = runDriftAi({
       argv: ["config", "--format", "json", "--output", outputPath],
-      git: gitRoot(repoRoot),
+      git: currentRepoGit(repoRoot),
       writer: (filePath, contents) => writes.push({ path: filePath, contents }),
     });
 
@@ -194,8 +227,4 @@ describe("config subcommand", () => {
 
 function makeRepoDir(): string {
   return tmpRepo.makeTempRepo("drift-config-inspect-");
-}
-
-function gitRoot(repoRoot: string): (args: readonly string[]) => string {
-  return (args) => (args[0] === "rev-parse" ? `${repoRoot}\n` : "");
 }

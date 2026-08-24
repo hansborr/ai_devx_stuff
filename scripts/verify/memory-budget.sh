@@ -47,6 +47,8 @@
 # opt-in that permits a zero-reservation launch below measured headroom.
 
 MUSI_VERIFY_MEMORY_BUDGET_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=./memory-wait-timeout.sh
+. "$MUSI_VERIFY_MEMORY_BUDGET_DIR/memory-wait-timeout.sh"
 # shellcheck source=../lib/test-worker-count.sh
 . "$MUSI_VERIFY_MEMORY_BUDGET_DIR/../lib/test-worker-count.sh"
 
@@ -434,16 +436,11 @@ musi_memory_budget_poll_seconds() {
 }
 
 musi_memory_budget_wait_and_reserve() {
-  local slot="$1" label="$2" announced=0 reserve_rc start now timeout
+  local slot="$1" label="$2" announced=0 reserve_rc start now timeout timeout_rc=0
   start="$SECONDS"
   timeout="${MUSI_VERIFY_MEMORY_WAIT_TIMEOUT:-120}"
-  case "$timeout" in
-    '' | *[!0-9]*)
-      printf '%s: invalid MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=%s; expected whole seconds\n' \
-        "$label" "$timeout" >&2
-      return 2
-      ;;
-  esac
+  timeout="$(musi_memory_wait_timeout_parse "$timeout" "$label")" || timeout_rc=$?
+  [ "$timeout_rc" -eq 0 ] || return "$timeout_rc"
   while true; do
     reserve_rc=0
     musi_memory_budget_try_reserve "$slot" || reserve_rc=$?

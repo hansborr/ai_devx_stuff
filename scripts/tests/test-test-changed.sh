@@ -72,7 +72,7 @@ chmod +x "$SANDBOX/bin/bun"
 new_repo() {
   local name="$1"
   local repo="$SANDBOX/$name"
-  mkdir -p "$repo/scripts/ai-hooks" "$repo/scripts/lib" "$repo/packages/server/src" "$repo/packages/client/src" "$repo/docs"
+  mkdir -p "$repo/scripts/ai-hooks" "$repo/scripts/lib" "$repo/packages/server/src/utils" "$repo/packages/client/src" "$repo/docs"
   git -C "$SANDBOX" init -q -b main "$repo"
   cp "$TEST_CHANGED" "$repo/scripts/test-changed.sh"
   cp "$VITEST_RUNNER" "$repo/scripts/vitest.sh"
@@ -84,6 +84,7 @@ new_repo() {
   printf '{"compilerOptions":{"strict":true}}\n' > "$repo/tsconfig.base.json"
   printf '{"extends":"./tsconfig.base.json","include":["scripts/**/*.ts"]}\n' > "$repo/tsconfig.scripts.json"
   printf 'base\n' > "$repo/packages/server/src/base.ts"
+  printf 'base\n' > "$repo/packages/server/src/utils/prisma-types.ts"
   printf 'base\n' > "$repo/packages/client/src/base.ts"
   printf 'base\n' > "$repo/docs/readme.md"
   git -C "$repo" config user.email test@example.com
@@ -120,6 +121,20 @@ run_test_changed "$repo" >/dev/null || fail "server change should run"
 grep -qF 'stub vitest run --passWithNoTests --project=server --project=server-unit --changed main' "$repo/bun.log" \
   || fail "server change should run server project with --changed: $(cat "$repo/bun.log")"
 ok "server-only changes run server changed tests"
+
+repo="$(new_repo server-change-verify-changed-argv)"
+printf 'export const x = 1;\n' > "$repo/packages/server/src/utils/prisma-types.ts"
+: > "$repo/bun.log"
+run_test_changed "$repo" --reporter=dot --reporter=json --outputFile.json=/tmp/t.json >/dev/null \
+  || fail "server change with verify:changed-shaped argv should run"
+grep -qFx \
+  'stub vitest run --passWithNoTests --project=server --project=server-unit --reporter=dot --reporter=json --outputFile.json=/tmp/t.json --changed main' \
+  "$repo/bun.log" \
+  || fail "verify:changed-shaped argv must keep --changed and the server project set: $(cat "$repo/bun.log")"
+if grep -qF -- '--project=scripts' "$repo/bun.log"; then
+  fail "a server-owned change must not pull the scripts project into the run: $(cat "$repo/bun.log")"
+fi
+ok "verify:changed-shaped server runs stay changed and server-only"
 
 repo="$(new_repo scripts-change-cli-worker-cap)"
 printf 'export default { test: { changed: true } };\n' > "$repo/scripts/vitest.config.ts"
@@ -369,6 +384,33 @@ if grep -q -- '--changed' "$repo/bun.log"; then
 fi
 ok "harness script changes run scripts project tests"
 
+repo="$(new_repo script-coverage-map-checker-change)"
+printf 'changed\n' > "$repo/scripts/lint-coverage-map-check.ts"
+git -C "$repo" add scripts/lint-coverage-map-check.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "coverage-map checker change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "coverage-map checker change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "coverage-map checker changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "coverage-map checker changes run scripts project tests"
+
+# The per-area manifest modules are pure data reached through the ordinary
+# import graph (`-manifest.ts` -> checker -> checker tests), so Vitest's own
+# changed-file selection covers them. Forcing a full scripts run for a one-row
+# data edit would run every script test file for nothing.
+repo="$(new_repo script-coverage-manifest-change)"
+printf 'changed\n' > "$repo/scripts/lint-coverage-map-manifest-packages.ts"
+git -C "$repo" add scripts/lint-coverage-map-manifest-packages.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "coverage-manifest change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "coverage-manifest change should run scripts project: $(cat "$repo/bun.log")"
+grep -q -- '--changed' "$repo/bun.log" \
+  || fail "coverage-manifest changes should keep dependency-based selection: $(cat "$repo/bun.log")"
+ok "coverage-manifest module changes keep dependency-based scripts selection"
+
 repo="$(new_repo script-logs-audit-change)"
 printf 'changed\n' > "$repo/scripts/logs-audit.ts"
 git -C "$repo" add scripts/logs-audit.ts
@@ -431,6 +473,19 @@ if grep -q -- '--changed' "$repo/bun.log"; then
   fail "scripts/lib source changes should run scripts project in full: $(cat "$repo/bun.log")"
 fi
 ok "scripts/lib source changes run scripts project tests"
+
+repo="$(new_repo script-import-closure-source-change)"
+mkdir -p "$repo/scripts/import-closure"
+printf 'export const changed = true;\n' > "$repo/scripts/import-closure/closure-walk.ts"
+git -C "$repo" add scripts/import-closure/closure-walk.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "scripts/import-closure source change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=scripts' "$repo/bun.log" \
+  || fail "scripts/import-closure source change should run scripts project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "scripts/import-closure source changes should run scripts project in full: $(cat "$repo/bun.log")"
+fi
+ok "scripts/import-closure source changes run scripts project tests"
 
 repo="$(new_repo script-lib-test-change)"
 printf 'import { it } from "vitest";\nit("noop", () => {});\n' > "$repo/scripts/lib/git.test.ts"
@@ -503,6 +558,19 @@ if grep -q -- '--changed' "$repo/bun.log"; then
 fi
 ok "tsconfig.scripts changes run scripts project tests"
 
+repo="$(new_repo eslint-rule-change)"
+mkdir -p "$repo/eslint-rules"
+printf 'export default {};\n' > "$repo/eslint-rules/example.js"
+git -C "$repo" add eslint-rules/example.js
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "eslint rule change should run"
+grep -qFx 'stub vitest run --passWithNoTests --project=eslint-rules' "$repo/bun.log" \
+  || fail "eslint rule change should run the rule project tests: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "eslint rule changes should run filesystem-driven guards in full: $(cat "$repo/bun.log")"
+fi
+ok "eslint rule changes run rule project filesystem guards in full"
+
 repo="$(new_repo tsconfig-base-change)"
 printf '{"compilerOptions":{"strict":false}}\n' > "$repo/tsconfig.base.json"
 : > "$repo/bun.log"
@@ -515,11 +583,11 @@ ok "base tsconfig changes still run all project tests with split client"
 
 repo="$(new_repo eslint-config-change)"
 mkdir -p "$repo/eslint-config"
-printf 'export const changed = true;\n' > "$repo/eslint-config/shared-policy.js"
-git -C "$repo" add eslint-config/shared-policy.js
+printf 'export const changed = true;\n' > "$repo/eslint-config/path-glob-policy.js"
+git -C "$repo" add eslint-config/path-glob-policy.js
 : > "$repo/bun.log"
 run_test_changed "$repo" >/dev/null || fail "eslint config change should run"
-grep -qF 'stub vitest run --passWithNoTests --project=eslint-rules --project=scripts' "$repo/bun.log" \
+grep -qFx 'stub vitest run --passWithNoTests --project=eslint-rules --project=scripts' "$repo/bun.log" \
   || fail "eslint config change should run eslint-rules and scripts projects: $(cat "$repo/bun.log")"
 if grep -q -- '--changed' "$repo/bun.log"; then
   fail "eslint config changes should run affected projects in full: $(cat "$repo/bun.log")"
@@ -534,7 +602,7 @@ output="$(run_test_changed "$repo")" || fail "root eslint config change should r
 if grep -qF 'test:changed: no Vitest-relevant changes' <<< "$output"; then
   fail "root eslint config change should not be skipped: $output"
 fi
-grep -qF 'stub vitest run --passWithNoTests --project=eslint-rules --project=scripts' "$repo/bun.log" \
+grep -qFx 'stub vitest run --passWithNoTests --project=eslint-rules --project=scripts' "$repo/bun.log" \
   || fail "root eslint config change should run eslint-rules and scripts projects: $(cat "$repo/bun.log")"
 if grep -q -- '--changed' "$repo/bun.log"; then
   fail "root eslint config changes should run affected projects in full: $(cat "$repo/bun.log")"
@@ -643,11 +711,61 @@ exit 0
 STUB
 chmod +x "$repo/node_modules/.bin/vitest"
 : > "$repo/bun.log"
+(cd "$repo" && PATH=/usr/bin:/bin STUB_LOG="$repo/bun.log" \
+  bash scripts/vitest.sh run --project=scripts scripts/example.test.ts) \
+  >/dev/null || fail "Vitest wrapper should forward a scripts TypeScript test"
+(cd "$repo" && PATH=/usr/bin:/bin STUB_LOG="$repo/bun.log" \
+  bash scripts/vitest.sh run -t 'handles tool.sh') \
+  >/dev/null || fail "Vitest wrapper should forward a test-name filter ending in .sh"
 (cd "$repo" && PATH=/usr/bin:/bin STUB_LOG="$repo/bun.log" bash scripts/vitest.sh --version) \
   >/dev/null || fail "Vitest wrapper should find repo-local binary without PATH vitest"
+cat >"$repo/scripts/prisma-client-freshness.sh" <<'STUB'
+# test stub: the wrapper only needs this file to make the preflight available
+STUB
+cat >"$repo/scripts/lib/test-dist-preflight.sh" <<'STUB'
+musi_test_dist_run_includes_server() {
+  printf 'server-scope\n' >>"$PREFLIGHT_LOG"
+  printf '0\n'
+}
+musi_test_dist_run_includes_shared_consumer() {
+  printf 'shared-scope\n' >>"$PREFLIGHT_LOG"
+  printf '0\n'
+}
+musi_test_dist_preflight() {
+  printf 'preflight\n' >>"$PREFLIGHT_LOG"
+}
+STUB
+PREFLIGHT_LOG="$repo/preflight.log"
+: >"$PREFLIGHT_LOG"
+set +e
+output="$(
+  cd "$repo"
+  PATH=/usr/bin:/bin STUB_LOG="$repo/bun.log" PREFLIGHT_LOG="$PREFLIGHT_LOG" \
+    bash scripts/vitest.sh run --project=scripts scripts/tests/example.sh 2>&1
+)"
+exit_code=$?
+set -e
+[ "$exit_code" -eq 2 ] \
+  || fail "Vitest wrapper should reject a shell smoke with exit 2 (got $exit_code): $output"
+grep -qF "scripts/tests/example.sh" <<<"$output" \
+  || fail "Vitest wrapper shell-smoke diagnostic should name the bad path: $output"
+grep -qF "bash scripts/tests/example.sh" <<<"$output" \
+  || fail "Vitest wrapper shell-smoke diagnostic should recommend direct Bash: $output"
+grep -qF "bun run test:scripts" <<<"$output" \
+  || fail "Vitest wrapper shell-smoke diagnostic should name the registered suite: $output"
+grep -qF 'repo vitest run --project=scripts scripts/example.test.ts' "$repo/bun.log" \
+  || fail "Vitest wrapper should preserve a TypeScript test argv: $(cat "$repo/bun.log")"
+grep -qF 'repo vitest run -t handles tool.sh' "$repo/bun.log" \
+  || fail "Vitest wrapper should preserve a test-name filter ending in .sh: $(cat "$repo/bun.log")"
 grep -qF 'repo vitest --version' "$repo/bun.log" \
   || fail "Vitest wrapper should run repo-local binary: $(cat "$repo/bun.log")"
-ok "Vitest wrapper finds repo-local binary without PATH vitest"
+if grep -qF 'scripts/tests/example.sh' "$repo/bun.log"; then
+  fail "Vitest wrapper should reject a shell smoke before invoking Vitest: $(cat "$repo/bun.log")"
+fi
+if [ -s "$PREFLIGHT_LOG" ]; then
+  fail "Vitest wrapper should reject a shell smoke before dependency preflight: $(cat "$PREFLIGHT_LOG")"
+fi
+ok "Vitest wrapper rejects shell smokes while forwarding Vitest files and --version"
 
 repo="$(new_repo tool-source-change)"
 mkdir -p "$repo/tools/lint-ratchet/src/kernel"
@@ -684,5 +802,28 @@ if grep -q -- '--changed' "$repo/bun.log"; then
   fail "tool stryker config changes should run lint-ratchet project in full: $(cat "$repo/bun.log")"
 fi
 ok "tool stryker config changes run lint-ratchet project tests in full"
+
+repo="$(new_repo harness-diagnostics-source-change)"
+mkdir -p "$repo/tools/harness-diagnostics/src"
+printf 'export const x = 1;\n' > "$repo/tools/harness-diagnostics/src/schema.ts"
+git -C "$repo" add tools/harness-diagnostics/src/schema.ts
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "harness-diagnostics source change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=harness-diagnostics --changed main' "$repo/bun.log" \
+  || fail "harness-diagnostics source change should run harness-diagnostics project with --changed: $(cat "$repo/bun.log")"
+ok "nested harness-diagnostics source changes run harness-diagnostics changed tests"
+
+repo="$(new_repo harness-diagnostics-manifest-change)"
+mkdir -p "$repo/tools/harness-diagnostics"
+printf '{"name":"@musi/harness-diagnostics"}\n' > "$repo/tools/harness-diagnostics/package.json"
+git -C "$repo" add tools/harness-diagnostics/package.json
+: > "$repo/bun.log"
+run_test_changed "$repo" >/dev/null || fail "harness-diagnostics manifest change should run"
+grep -qF 'stub vitest run --passWithNoTests --project=harness-diagnostics' "$repo/bun.log" \
+  || fail "harness-diagnostics manifest change should run harness-diagnostics project: $(cat "$repo/bun.log")"
+if grep -q -- '--changed' "$repo/bun.log"; then
+  fail "harness-diagnostics package.json changes should run harness-diagnostics project in full: $(cat "$repo/bun.log")"
+fi
+ok "harness-diagnostics package.json changes run harness-diagnostics project tests in full"
 
 printf 'test-changed tests passed (%d)\n' "$PASS"

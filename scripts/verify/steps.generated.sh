@@ -18,10 +18,15 @@ declare -ga MUSI_FAST_COMMIT_SKIP_SLOTS=('test' 'scripts')
 
 declare -gA MUSI_VERIFY_SLOT_CMD_VAR=()
 declare -gA MUSI_VERIFY_SLOT_DYNAMIC=()
+declare -gA MUSI_VERIFY_SLOT_PRODUCES=()
+declare -gA MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT=()
 declare -gA MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC=()
+declare -gA MUSI_VERIFY_ARTIFACT_PROBE_FUNC=()
+declare -gA MUSI_VERIFY_ARTIFACT_SUMMARY=()
 
 MUSI_VERIFY_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:lint']='MUSI_VERIFY_LINT_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify:lint']='dist-outputs'
 
 MUSI_VERIFY_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:suppressions']='MUSI_VERIFY_SUPPRESSIONS_CMD'
@@ -31,6 +36,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:suppression-ledger']='MUSI_VERIFY_SUPPRESSION_L
 
 MUSI_VERIFY_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:ratchet']='MUSI_VERIFY_RATCHET_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify:ratchet']='dist-outputs'
 
 MUSI_VERIFY_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:zero-baseline']='MUSI_VERIFY_ZERO_BASELINE_CMD'
@@ -61,6 +67,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:format-check']='MUSI_VERIFY_FORMAT_CHECK_CMD'
 
 MUSI_VERIFY_TYPECHECK_CMD=('bun' 'run' 'typecheck')
 MUSI_VERIFY_SLOT_CMD_VAR['verify:typecheck']='MUSI_VERIFY_TYPECHECK_CMD'
+MUSI_VERIFY_SLOT_PRODUCES['verify:typecheck']='dist-outputs'
 
 MUSI_VERIFY_TEST_CMD=('bun' 'run' 'test' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
 MUSI_VERIFY_SLOT_CMD_VAR['verify:test']='MUSI_VERIFY_TEST_CMD'
@@ -70,6 +77,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify:scripts']='MUSI_VERIFY_SCRIPTS_CMD'
 
 MUSI_VERIFY_CHANGED_LINT_CMD=('bun' 'run' 'lint:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:lint']='MUSI_VERIFY_CHANGED_LINT_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify_changed:lint']='dist-outputs'
 
 MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:suppressions']='MUSI_VERIFY_CHANGED_SUPPRESSIONS_CMD'
@@ -79,6 +87,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:suppression-ledger']='MUSI_VERIFY_CHANG
 
 MUSI_VERIFY_CHANGED_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:ratchet']='MUSI_VERIFY_CHANGED_RATCHET_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify_changed:ratchet']='dist-outputs'
 
 MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:zero-baseline']='MUSI_VERIFY_CHANGED_ZERO_BASELINE_CMD'
@@ -98,7 +107,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:near-duplicates']='MUSI_VERIFY_CHANGED_
 MUSI_VERIFY_CHANGED_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:max-lines-exceptions']='MUSI_VERIFY_CHANGED_MAX_LINES_EXCEPTIONS_CMD'
 
-MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
+MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:coverage-map']='MUSI_VERIFY_CHANGED_COVERAGE_MAP_CMD'
 
 MUSI_VERIFY_CHANGED_FORMAT_CHECK_CMD=('bun' 'run' 'format:changed:check')
@@ -106,6 +115,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:format-check']='MUSI_VERIFY_CHANGED_FOR
 
 MUSI_VERIFY_CHANGED_TYPECHECK_CMD=('bun' 'run' 'typecheck')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:typecheck']='MUSI_VERIFY_CHANGED_TYPECHECK_CMD'
+MUSI_VERIFY_SLOT_PRODUCES['verify_changed:typecheck']='dist-outputs'
 
 MUSI_VERIFY_CHANGED_TEST_CMD=('bun' 'run' 'test:changed' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
 MUSI_VERIFY_SLOT_CMD_VAR['verify_changed:test']='MUSI_VERIFY_CHANGED_TEST_CMD'
@@ -116,6 +126,7 @@ MUSI_VERIFY_SLOT_DYNAMIC['verify_changed:scripts']='staged-script-classifier'
 
 MUSI_VERIFY_PARALLEL_LINT_CMD=('bun' 'run' 'lint')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:lint']='MUSI_VERIFY_PARALLEL_LINT_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify_parallel:lint']='dist-outputs'
 
 MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:suppressions']='MUSI_VERIFY_PARALLEL_SUPPRESSIONS_CMD'
@@ -125,6 +136,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:suppression-ledger']='MUSI_VERIFY_PARA
 
 MUSI_VERIFY_PARALLEL_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:ratchet']='MUSI_VERIFY_PARALLEL_RATCHET_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['verify_parallel:ratchet']='dist-outputs'
 
 MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:zero-baseline']='MUSI_VERIFY_PARALLEL_ZERO_BASELINE_CMD'
@@ -155,6 +167,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:format-check']='MUSI_VERIFY_PARALLEL_F
 
 MUSI_VERIFY_PARALLEL_TYPECHECK_CMD=('bun' 'run' 'typecheck')
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:typecheck']='MUSI_VERIFY_PARALLEL_TYPECHECK_CMD'
+MUSI_VERIFY_SLOT_PRODUCES['verify_parallel:typecheck']='dist-outputs'
 
 MUSI_VERIFY_PARALLEL_TEST_CMD=('bun' 'run' 'test' '--reporter=dot' '--reporter=json' "--outputFile.json=$TIMINGS_FILE")
 MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:test']='MUSI_VERIFY_PARALLEL_TEST_CMD'
@@ -164,6 +177,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['verify_parallel:scripts']='MUSI_VERIFY_PARALLEL_SCRIPT
 
 MUSI_PRE_COMMIT_LINT_CMD=('bun' 'run' 'lint:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:lint']='MUSI_PRE_COMMIT_LINT_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['pre_commit:lint']='dist-outputs'
 
 MUSI_PRE_COMMIT_SUPPRESSIONS_CMD=('bun' 'run' 'lint:suppressions:changed')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:suppressions']='MUSI_PRE_COMMIT_SUPPRESSIONS_CMD'
@@ -173,6 +187,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:suppression-ledger']='MUSI_PRE_COMMIT_SUPPR
 
 MUSI_PRE_COMMIT_RATCHET_CMD=('env' "HARNESS_DIAGNOSTICS_OUTPUT=$LOG_DIR/ratchet-diagnostics.json" 'bun' 'run' 'lint:ratchet')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:ratchet']='MUSI_PRE_COMMIT_RATCHET_CMD'
+MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT['pre_commit:ratchet']='dist-outputs'
 
 MUSI_PRE_COMMIT_ZERO_BASELINE_CMD=('bun' 'run' 'lint:ratchet:zero-baseline')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:zero-baseline']='MUSI_PRE_COMMIT_ZERO_BASELINE_CMD'
@@ -192,7 +207,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:near-duplicates']='MUSI_PRE_COMMIT_NEAR_DUP
 MUSI_PRE_COMMIT_MAX_LINES_EXCEPTIONS_CMD=('bun' 'run' 'lint:max-lines-exceptions')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:max-lines-exceptions']='MUSI_PRE_COMMIT_MAX_LINES_EXCEPTIONS_CMD'
 
-MUSI_PRE_COMMIT_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check' '--' '--staged')
+MUSI_PRE_COMMIT_COVERAGE_MAP_CMD=('bun' 'run' 'docs:lint-coverage-map:check')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:coverage-map']='MUSI_PRE_COMMIT_COVERAGE_MAP_CMD'
 
 MUSI_PRE_COMMIT_FORMAT_CHECK_CMD=('bun' 'run' 'format:changed:check')
@@ -200,6 +215,7 @@ MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:format-check']='MUSI_PRE_COMMIT_FORMAT_CHEC
 
 MUSI_PRE_COMMIT_TYPECHECK_CMD=('bun' 'run' 'typecheck')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:typecheck']='MUSI_PRE_COMMIT_TYPECHECK_CMD'
+MUSI_VERIFY_SLOT_PRODUCES['pre_commit:typecheck']='dist-outputs'
 
 MUSI_PRE_COMMIT_TEST_CMD=('bun' 'run' 'test:changed' '--reporter=dot')
 MUSI_VERIFY_SLOT_CMD_VAR['pre_commit:test']='MUSI_PRE_COMMIT_TEST_CMD'
@@ -211,3 +227,6 @@ MUSI_VERIFY_SLOT_DYNAMIC['pre_commit:scripts']='staged-script-classifier'
 
 MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['precommit-test-timings']='musi_resolve_precommit_test_timing_cmd'
 MUSI_VERIFY_DYNAMIC_RESOLVER_FUNC['staged-script-classifier']='musi_resolve_staged_script_cmd'
+
+MUSI_VERIFY_ARTIFACT_PROBE_FUNC['dist-outputs']='musi_lint_dist_outputs_present'
+MUSI_VERIFY_ARTIFACT_SUMMARY['dist-outputs']='required dist outputs'

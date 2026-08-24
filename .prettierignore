@@ -17,6 +17,14 @@ packages/server/src/generated/prisma/
 # packages/server/src/seed/data/reference/NOTICE.md.
 packages/server/src/seed/data/reference/5e-SRD-*.json
 
+# Published JSON Schema, emitted byte-for-byte by
+# scripts/harness/generate-manifest-json-schema.ts with deterministic
+# codepoint-sorted keys, and freshness-gated against that emitter. prettier
+# collapses short JSON arrays onto one line, which the emitter does not, so
+# leaving it formatted would deadlock `format` against
+# `harness:manifest-schema:check`.
+schemas/harness.controls.schema.json
+
 # Markdown is intentionally not auto-formatted. prettier reflowing prose (line
 # wrapping, list markers, em-dashes) was low-value edit-time noise; `docs/` was
 # already ignored above. See docs/agent_notes/backlog/agent-friction-2026-06 (C1).

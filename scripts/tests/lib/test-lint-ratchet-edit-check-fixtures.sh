@@ -10,6 +10,9 @@ if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
   exit 2
 fi
 
+# shellcheck source=scripts/ai-hooks/edit-check-protocol.sh
+. "$REPO_ROOT/scripts/ai-hooks/edit-check-protocol.sh"
+
 run_edit_check_targets() {
   local dir=$1
   shift
@@ -40,6 +43,48 @@ run_edit_check_with_targets_file() {
     || fail "edit-check (hand-written targets) failed: $(cat "$TMP_ROOT/edit-regress.err")"
 }
 
+run_edit_ratchet_coverage() {
+  local dir=$1
+  shift
+  (cd "$dir" && bun run scripts/lint-ratchet.ts --edit-ratchet-coverage "$@" \
+    >"$TMP_ROOT/edit-coverage.txt" 2>"$TMP_ROOT/edit-coverage.err") \
+    || fail "edit-ratchet-coverage failed: $(cat "$TMP_ROOT/edit-coverage.err")"
+}
+
+assert_protocol_rows() {
+  local file=$1
+  local expected_kind=$2
+  local expected_count=$3
+  local label=$4
+  local row kind field_count
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    kind="${row%%$'\t'*}"
+    field_count=$(awk -F '\t' '{ print NF; exit }' <<< "$row")
+    [ "$kind" = "$expected_kind" ] \
+      || fail "$label emitted kind '$kind', expected '$expected_kind': $row"
+    [ "$field_count" -eq "$expected_count" ] \
+      || fail "$label emitted $field_count fields, expected $expected_count: $row"
+  done < "$file"
+}
+
+assert_edit_check_result_rows() {
+  local file=$1
+  local row kind field_count expected_count
+  while IFS= read -r row; do
+    [ -n "$row" ] || continue
+    kind="${row%%$'\t'*}"
+    field_count=$(awk -F '\t' '{ print NF; exit }' <<< "$row")
+    case "$kind" in
+      "$EDIT_CHECK_CHECKED_KIND") expected_count=$EDIT_CHECK_CHECKED_FIELD_COUNT ;;
+      "$EDIT_CHECK_REGRESSION_KIND") expected_count=$EDIT_CHECK_REGRESSION_FIELD_COUNT ;;
+      *) fail "edit-check emitted unknown row kind '$kind': $row" ;;
+    esac
+    [ "$field_count" -eq "$expected_count" ] \
+      || fail "edit-check $kind row emitted $field_count fields, expected $expected_count: $row"
+  done < "$file"
+}
+
 run_lint_ratchet_edit_check_fixtures() {
   local EDIT_CHECK_BAD_BASELINE_DIR
   local EDIT_CHECK_DIR
@@ -67,6 +112,10 @@ run_lint_ratchet_edit_check_fixtures() {
   # (1) Discovery lists the matching minimal-TS ratchet; an unchanged file at its
   # committed floor produces no regression row.
   run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
+  assert_protocol_rows \
+    "$TMP_ROOT/edit-targets.txt" "$EDIT_CHECK_TARGET_KIND" "$EDIT_CHECK_TARGET_FIELD_COUNT" \
+    "edit-check-targets"
+  assert_edit_check_result_rows "$TMP_ROOT/edit-regress.txt"
   grep -qF $'target\tpackages/app/src/example.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary' \
     "$TMP_ROOT/edit-targets.txt" \
     || fail "edit-check discovery missing target row: $(cat "$TMP_ROOT/edit-targets.txt")"
@@ -77,6 +126,15 @@ run_lint_ratchet_edit_check_fixtures() {
   # no-regression result from a soft skip that never ran ESLint.
   grep -qF $'checked\tpackages/app/src/example.ts' "$TMP_ROOT/edit-regress.txt" \
     || fail "edit-check should emit a checked row for a clean unchanged file: $(cat "$TMP_ROOT/edit-regress.txt")"
+
+  # The coverage emitter is the fourth protocol producer and must satisfy the
+  # same generated kind/count contract as the edit-check exchange.
+  run_edit_ratchet_coverage "$EDIT_CHECK_DIR" "packages/app/src/example.ts"
+  [ -s "$TMP_ROOT/edit-coverage.txt" ] \
+    || fail "edit-ratchet-coverage should emit a row for a ratcheted path"
+  assert_protocol_rows \
+    "$TMP_ROOT/edit-coverage.txt" "$EDIT_CHECK_RATCHET_COVERED_KIND" \
+    "$EDIT_CHECK_RATCHET_COVERED_FIELD_COUNT" "edit-ratchet-coverage"
 
   # (2) No discovery output when no minimal-TS ratchet matches the edited path.
   (cd "$EDIT_CHECK_DIR" && bun run scripts/lint-ratchet.ts --edit-check-targets "README.md" \
@@ -91,6 +149,7 @@ const rawFresh = {};
 export const freshValue = rawFresh as { value: number };
 TS
   run_edit_check "$EDIT_CHECK_DIR" "packages/app/src/fresh.ts"
+  assert_edit_check_result_rows "$TMP_ROOT/edit-regress.txt"
   grep -qF $'regression\tpackages/app/src/fresh.ts\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\tnew-path' \
     "$TMP_ROOT/edit-regress.txt" \
     || fail "edit-check missing fresh new-path regression: $(cat "$TMP_ROOT/edit-regress.txt")"

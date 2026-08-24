@@ -1,14 +1,16 @@
+import { z } from "zod";
+
 import type { PathProbe } from "./adapter-support.js";
 import type { BoundedHistoryGitRunner } from "./bounded-full-history.js";
-import { DriftAiHelp, parseArgs } from "./cli-args.js";
+import { parseArgs } from "./cli-args.js";
 import { type ColdspotsRunOptions, runColdspots } from "./coldspots.js";
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
 import type { FileReader } from "./comments.js";
 import { type ConfigInspectRunOptions, runConfigInspect } from "./config-inspect-command.js";
 import { type BufferGitRunner, type StatRunner } from "./current-inventory.js";
 import { writeDriftDiagnosticsSidecar } from "./diagnostics-projection.js";
 import type { DolosRunner } from "./dolos-runner.js";
 import type { JscpdRunner } from "./duplicates-runner.js";
-import { DriftAiError } from "./errors.js";
 import type { DirectoryListing } from "./ghost-files.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
 import {
@@ -32,8 +34,11 @@ import { formatJson, formatText } from "./report-format.js";
 import { defaultReportWriter, type ReportWriter, writeReportOutputs } from "./report-output.js";
 import type { SemgrepRunner } from "./semgrep-runner.js";
 import {
-  parseSubcommandArgs,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
   type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
   writeSubcommandOutput,
 } from "./subcommand-args.js";
 import type { SuppressionsGitRunner } from "./suppressions.js";
@@ -63,9 +68,7 @@ export type RunOptions = {
   readonly writer?: (path: string, contents: string) => void;
 };
 
-export type RunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
+export type RunResult = DriftAiCommandResult & {
   readonly report?: DriftReport;
 };
 
@@ -103,17 +106,6 @@ function resolveRunContext(
   };
 }
 
-// drift:ai surfaces exactly two sentinel errors to the CLI: DriftAiHelp is a
-// successful help request (exit 0) and DriftAiError is a usage/config problem
-// (exit 2). Anything else is an unexpected bug and propagates. Centralizing the
-// mapping keeps arg parsing, run preparation, and the harness-freshness
-// subcommand from each re-deriving (and drifting on) these exit codes.
-function toExitResult(err: unknown): RunResult {
-  if (err instanceof DriftAiHelp) return { exitCode: 0, stdout: err.message };
-  if (err instanceof DriftAiError) return { exitCode: 2, stdout: err.message };
-  throw err;
-}
-
 export function runDriftAi(options: RunOptions): RunResult {
   const subcommand = runSubcommand(options);
   if (subcommand !== undefined) return subcommand;
@@ -122,7 +114,7 @@ export function runDriftAi(options: RunOptions): RunResult {
   try {
     parsed = parseArgs(options.argv);
   } catch (err) {
-    return toExitResult(err);
+    return sentinelToCommandResult(err);
   }
 
   let prepared: PreparedRun;
@@ -132,7 +124,7 @@ export function runDriftAi(options: RunOptions): RunResult {
         ? prepareCurrentRun(parsed, options)
         : prepareChangedRun(parsed, options);
   } catch (err) {
-    return toExitResult(err);
+    return sentinelToCommandResult(err);
   }
 
   const resolved = resolveRunContext(prepared, options);
@@ -154,7 +146,7 @@ export function runDriftAi(options: RunOptions): RunResult {
   try {
     writeDriftDiagnosticsSidecar(report);
   } catch (err) {
-    return toExitResult(err);
+    return sentinelToCommandResult(err);
   }
   return { exitCode: resolveExitCode(parsed, report, resolved.warnStderr), stdout, report };
 }
@@ -248,12 +240,23 @@ const HARNESS_FRESHNESS_USAGE = [
   "Report-only. Checks docs/ai-harness.md against docs/guides and backtick paths.",
 ].join("\n");
 
+// harness-freshness takes only the base surface and stays config-free, so its
+// schema is exactly the shared base fragment.
+const harnessFreshnessSchema = z.object({ ...subcommandBaseSchemaShape });
+
 function runHarnessFreshnessSubcommand(options: RunOptions): RunResult {
   let parsed: SubcommandBaseOptions;
   try {
-    parsed = parseSubcommandArgs(options.argv.slice(1), { usage: HARNESS_FRESHNESS_USAGE });
+    parsed = subcommandBaseFromOptions(
+      parseSubcommandCli({
+        argv: options.argv.slice(1),
+        usage: HARNESS_FRESHNESS_USAGE,
+        options: SUBCOMMAND_BASE_CLI_OPTIONS,
+        schema: harnessFreshnessSchema,
+      }).options,
+    );
   } catch (err) {
-    return toExitResult(err);
+    return sentinelToCommandResult(err);
   }
   const git = options.git ?? defaultGitRunner();
   const repoRoot = resolveRepoRoot(git);

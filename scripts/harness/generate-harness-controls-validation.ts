@@ -3,19 +3,16 @@
 
 import type { RuleDocs } from "../lib/lint-rule-docs.js";
 import {
-  CONTROL_CATEGORIES,
+  collectNonLintFieldIssues,
+  type ControlFieldIssue,
+  type ControlFieldName,
   type ControlKind,
-  isControlCategory,
   isControlKind,
   isNonEmptyString,
-  isRepairKind,
   KINDS,
   lintRuleRestatementFailures,
   missingRatchetPrincipleMessage,
-  ratchetPrincipleRestatementFailures,
-  REPAIR_KINDS,
   validatePairedGuidePath,
-  validateRepairCommandPresence,
   validateSourcePath,
 } from "./control-field-validation.js";
 import type {
@@ -74,31 +71,35 @@ function pushNonLintFieldFailures(
   failures: string[],
   options: { readonly principleFromRegistry?: boolean } = {},
 ): void {
-  if (raw.ruleName !== undefined) {
-    failures.push("ruleName is only allowed on lint-rule entries");
+  const issues = collectNonLintFieldIssues(raw, {
+    principleFromRegistry: options.principleFromRegistry === true,
+    // The generator reports source with the non-lint fields, after repair.
+    includeSource: true,
+    // Bare backlog coordinates remain a checker-only policy.
+    bareCoordinateCheck: false,
+  });
+  const pushField = (field: ControlFieldName): void => {
+    failures.push(
+      ...issues
+        .filter((issue: ControlFieldIssue) => issue.field === field)
+        .map((issue) => issue.message),
+    );
+  };
+
+  pushField("ruleName");
+  pushField("category");
+  pushField("principle");
+  pushField("pairedGuide");
+  if (isNonEmptyString(raw.pairedGuide)) {
+    failures.push(...validatePairedGuidePath(repoRoot, raw.pairedGuide));
   }
-  if (!isControlCategory(raw.category)) {
-    failures.push(`category must be one of: ${CONTROL_CATEGORIES.join(", ")}`);
-  }
-  if (options.principleFromRegistry === true) {
-    failures.push(...ratchetPrincipleRestatementFailures(raw));
-  } else if (!isNonEmptyString(raw.principle)) {
-    failures.push("principle must be a non-empty string");
-  }
-  failures.push(...validatePairedGuidePath(repoRoot, raw.pairedGuide));
-  if (!isRepairKind(raw.repairKind)) {
-    failures.push(`repairKind must be one of: ${REPAIR_KINDS.join(", ")}`);
-  } else {
-    failures.push(...validateRepairCommandPresence(raw.repairKind, raw.repairCommand));
-  }
-  if (!isNonEmptyString(raw.source)) {
-    failures.push("source must be a non-empty string");
-  } else {
+  pushField("repairKind");
+  pushField("repairCommand");
+  pushField("source");
+  if (isNonEmptyString(raw.source)) {
     failures.push(...validateSourcePath(repoRoot, raw.source));
   }
-  if (!isNonEmptyString(raw.invocation)) {
-    failures.push("invocation must be a non-empty string");
-  }
+  pushField("invocation");
 }
 
 function resolveOptionalHookWiring(

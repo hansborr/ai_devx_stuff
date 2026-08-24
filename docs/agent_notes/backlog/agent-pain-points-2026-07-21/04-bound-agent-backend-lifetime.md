@@ -5,7 +5,9 @@ Date: 2026-07-21
 Priority: — (was P1)
 Size: — (was L)
 Risk: high
-Source: `pain_points.log` — orphaned Codex processes
+Source:
+`/home/node/persist/musi/pain_points/agent-cli-and-external-reviews.md` —
+orphaned Codex processes
 
 > **Cancelled.** The owner declined this lifecycle redesign on 2026-07-22. Do
 > not schedule or implement it. The analysis below is retained because it

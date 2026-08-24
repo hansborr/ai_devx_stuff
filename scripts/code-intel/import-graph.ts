@@ -1,6 +1,7 @@
-import type { CallExpression, ExportDeclaration, ImportDeclaration, SourceFile } from "ts-morph";
-import { Node, SyntaxKind } from "ts-morph";
+import type { CallExpression, SourceFile } from "ts-morph";
+import { Node } from "ts-morph";
 
+import { extractModuleRefs, type ModuleRefKind } from "../lib/ts-module-refs.js";
 import { isTestFile } from "./test-files.js";
 import type { ImportEdge, ImportGraph, Via } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
@@ -36,6 +37,12 @@ export function buildImportGraph(
   return { incoming };
 }
 
+const VIA_BY_KIND: Record<ModuleRefKind, Via> = {
+  import: "direct",
+  "export-from": "re-export",
+  "dynamic-import": "dynamic",
+};
+
 function collectImportEdges(
   sourceFile: SourceFile,
   resolver: WorkspaceResolver,
@@ -46,57 +53,21 @@ function collectImportEdges(
     ? collectViMockSpecifiers(sourceFile)
     : new Set<string>();
 
-  for (const importDeclaration of sourceFile.getImportDeclarations()) {
-    const specifier = importDeclaration.getModuleSpecifierValue();
-    if (mockedSpecifiers.has(specifier)) continue;
+  // Drop to the compiler API at the pure-syntax seam: the shared kernel
+  // (scripts/lib/ts-module-refs.ts) classifies edges on the compiler node.
+  for (const ref of extractModuleRefs(sourceFile.compilerNode)) {
+    if (ref.kind === "import" && mockedSpecifiers.has(ref.specifier)) continue;
     addResolvedEdge({
       edges,
       from,
       resolver,
-      runtime: importDeclarationHasRuntimeEdge(importDeclaration),
-      specifier,
-      via: "direct",
+      runtime: !ref.typeOnly,
+      specifier: ref.specifier,
+      via: VIA_BY_KIND[ref.kind],
     });
   }
-
-  for (const exportDeclaration of sourceFile.getExportDeclarations()) {
-    const specifier = exportDeclaration.getModuleSpecifierValue();
-    if (!specifier) continue;
-    addResolvedEdge({
-      edges,
-      from,
-      resolver,
-      runtime: exportDeclarationHasRuntimeEdge(exportDeclaration),
-      specifier,
-      via: "re-export",
-    });
-  }
-
-  sourceFile.forEachDescendant((node) => {
-    if (!Node.isCallExpression(node)) return;
-    if (node.getExpression().getKind() !== SyntaxKind.ImportKeyword) return;
-    const specifier = literalFirstArgument(node);
-    if (!specifier) return;
-    addResolvedEdge({ edges, from, resolver, runtime: true, specifier, via: "dynamic" });
-  });
 
   return uniqueEdges(edges);
-}
-
-function importDeclarationHasRuntimeEdge(importDeclaration: ImportDeclaration): boolean {
-  if (importDeclaration.isTypeOnly()) return false;
-  if (importDeclaration.getDefaultImport() || importDeclaration.getNamespaceImport()) return true;
-  const namedImports = importDeclaration.getNamedImports();
-  if (namedImports.length === 0) return true;
-  return namedImports.some((specifier) => !specifier.isTypeOnly());
-}
-
-function exportDeclarationHasRuntimeEdge(exportDeclaration: ExportDeclaration): boolean {
-  if (exportDeclaration.isTypeOnly()) return false;
-  if (exportDeclaration.getNamespaceExport()) return true;
-  const namedExports = exportDeclaration.getNamedExports();
-  if (namedExports.length === 0) return true;
-  return namedExports.some((specifier) => !specifier.isTypeOnly());
 }
 
 function addResolvedEdge(candidate: EdgeCandidate): void {

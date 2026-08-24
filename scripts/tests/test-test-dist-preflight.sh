@@ -71,6 +71,7 @@ make_fresh_repo() {
     "$repo/packages/server/prisma/schema.prisma"
   touch \
     "$repo/packages/shared/dist/constants.js" \
+    "$repo/packages/shared/dist/logging-policy.js" \
     "$repo/packages/shared/dist/dice/dice-roller.js" \
     "$repo/packages/shared/dist/map/drawing.js" \
     "$repo/packages/shared/dist/rules/attack-damage.js" \
@@ -131,6 +132,16 @@ rm "$REPO_DIST_MISSING/packages/shared/dist/constants.js"
 expect_preflight_fail "dist-missing" "$REPO_DIST_MISSING" \
   "bun run --filter @musi/shared build"
 ok "missing shared dist output fails with build remediation"
+
+# A top-level export can be absent independently while an incremental build's
+# marker and sibling output remain. Every runtime subpath imported by a test
+# consumer therefore needs its own sentinel.
+REPO_LOGGING_POLICY_MISSING="$ROOT/logging-policy-missing"
+make_fresh_repo "$REPO_LOGGING_POLICY_MISSING"
+rm "$REPO_LOGGING_POLICY_MISSING/packages/shared/dist/logging-policy.js"
+expect_preflight_fail "logging-policy-missing" "$REPO_LOGGING_POLICY_MISSING" \
+  "packages/shared/dist/logging-policy.js"
+ok "missing logging-policy runtime output fails despite sibling top-level output"
 
 # --- stale shared dist (src newer than dist) fails fast ----------------------
 REPO_DIST_STALE="$ROOT/dist-stale"

@@ -9,8 +9,8 @@
 import { defineKnipPassThroughCheck } from "./knip-pass-through-check.js";
 import {
   buildUnusedExportFindings,
-  parseKnipUnusedExports,
   type ParseKnipUnusedExportsResult,
+  projectKnipUnusedExports,
 } from "./knip-unused-exports.js";
 import {
   unusedExportsCheckConfig,
@@ -26,7 +26,7 @@ export const unusedExportsCheck = defineKnipPassThroughCheck<
   ParsedUnusedExports
 >({
   ...unusedExportsCheckConfig,
-  parseReport: parseKnipUnusedExports,
+  projectReport: projectKnipUnusedExports,
   buildFindings: (parsed, ctx, provenance) =>
     buildUnusedExportFindings(
       parsed.symbols,

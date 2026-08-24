@@ -1,6 +1,10 @@
 import type {
   CodeIntelQueryResult,
   DefinitionNearMatchHint,
+  DefinitionResult,
+  DependentResult,
+  ExecutableCliCommand,
+  ExportResult,
   FormatResultsOptions,
   IntelResult,
   OutputFormat,
@@ -8,17 +12,29 @@ import type {
   ProjectBucket,
   ProjectBucketSummary,
   ProjectFilter,
+  ReferenceResult,
   ResultMetadata,
   SourceLocation,
+  TestResult,
 } from "./types.js";
-import { PROJECT_BUCKETS } from "./types.js";
+import { DISCOVERY_SCOPE_STATEMENT, PROJECT_BUCKETS } from "./types.js";
 
 const JSON_INDENT_SPACES = 2;
 const MIN_PROJECT_SUMMARY_BUCKETS = 2;
+const EMPTY_RESULT_LINE_BY_COMMAND = {
+  def: "  no definitions found",
+  defName: "  no definitions found",
+  dependents: "  no dependents found",
+  exports: "  no exports found",
+  overview: "  no results found",
+  refs: "  no references found",
+  tests: "  no tests found",
+} as const satisfies Record<ExecutableCliCommand["kind"], string>;
 
 export function formatCodeIntelQueryResult(
   execution: CodeIntelQueryResult,
   format: OutputFormat,
+  commandKind: ExecutableCliCommand["kind"],
 ): string {
   if (execution.kind === "definitionNameMiss") {
     return formatDefinitionNameMiss(execution.header, execution.hint, format);
@@ -28,6 +44,7 @@ export function formatCodeIntelQueryResult(
   }
   return formatResults(execution.header, execution.results, format, {
     byProject: execution.projectSummary?.byProject,
+    commandKind,
     limit: execution.limit,
     metadata: execution.metadata,
     textSuffix: formatQueryTextSuffix(execution),
@@ -70,7 +87,7 @@ function formatResults(
   header: string,
   results: IntelResult[],
   format: OutputFormat,
-  options: FormatResultsOptions = {},
+  options: FormatResultsOptions,
 ): string {
   const display = limitResults(results, options.limit);
   const metadata = options.metadata ?? {};
@@ -83,6 +100,7 @@ function formatResults(
       limit?: number;
       meta?: ResultMetadata;
       results: IntelResult[];
+      scope?: string;
       total?: number;
       truncated?: boolean;
     } = { header, count: display.results.length, results: display.results };
@@ -93,16 +111,34 @@ function formatResults(
     }
     if (Object.keys(metadata).length > 0) payload.meta = metadata;
     if (options.byProject) payload.byProject = options.byProject;
+    // Name-only search is discovery-mode even on a hit: a matching symbol in
+    // an excluded workspace stays silently omitted, so defName hits carry the
+    // searched scope exactly as the miss payload does.
+    if (options.commandKind === "defName") payload.scope = DISCOVERY_SCOPE_STATEMENT;
     return JSON.stringify(payload, undefined, JSON_INDENT_SPACES);
   }
 
   const heading = `${header} (${formatResultSummary(results.length, metadata)})${
     options.textSuffix ?? ""
   }`;
-  if (results.length === 0) return [heading, emptyResultLine(header)].join("\n");
-  const lines = [heading, ...display.results.map(formatResultLine)];
-  if (display.truncated) lines.push(formatLimitFooter(display.omitted));
+  const lines = [heading, ...formatTextBodyLines(results, display, options)];
+  // Name-only search is discovery-mode even on a hit; the statement line
+  // accompanies defName hits exactly as it accompanies misses.
+  if (options.commandKind === "defName") lines.push(`  ${DISCOVERY_SCOPE_STATEMENT}`);
   return lines.join("\n");
+}
+
+// Extracted, not inlined: formatResults sits at the complexity-10 lint cap,
+// and inlining this empty/truncated branching pushes it to 11.
+function formatTextBodyLines(
+  results: IntelResult[],
+  display: ReturnType<typeof limitResults>,
+  options: FormatResultsOptions,
+): string[] {
+  if (results.length === 0) return [emptyResultLine(options.commandKind)];
+  const lines = display.results.map(formatResultLine);
+  if (display.truncated) lines.push(formatLimitFooter(display.omitted));
+  return lines;
 }
 
 function formatDefinitionNameMiss(
@@ -117,14 +153,22 @@ function formatDefinitionNameMiss(
       results: [],
       nearMatches: hint.results,
       nearMatchTotal: hint.total,
+      // JSON misses must carry the searched scope like the text path below:
+      // JSON is the piping format, whose consumers are least able to infer
+      // that an empty result is not whole-workspace authority.
+      scope: DISCOVERY_SCOPE_STATEMENT,
     };
     return JSON.stringify(payload, undefined, JSON_INDENT_SPACES);
   }
 
   const heading = `${header} (${formatResultSummary(0, {})})`;
-  const lines = [heading, emptyResultLine(header)];
+  const lines = [heading, emptyResultLine("defName")];
   const hintLine = formatNearMatchHintLine(hint);
   if (hintLine) lines.push(hintLine);
+  // Name-only search is discovery-mode: nothing validates that the symbol's
+  // home is inside the supported roots, so a miss must state the searched
+  // scope instead of reading as whole-workspace authority.
+  lines.push(`  ${DISCOVERY_SCOPE_STATEMENT}`);
   return lines.join("\n");
 }
 
@@ -199,13 +243,8 @@ function pluralize(word: string, count: number): string {
   return count === 1 ? word : `${word}s`;
 }
 
-function emptyResultLine(header: string): string {
-  if (header.startsWith("definition ")) return "  no definitions found";
-  if (header.startsWith("exports ")) return "  no exports found";
-  if (header.startsWith("dependents ")) return "  no dependents found";
-  if (header.startsWith("references ")) return "  no references found";
-  if (header.startsWith("tests ")) return "  no tests found";
-  return "  no results found";
+function emptyResultLine(kind: ExecutableCliCommand["kind"]): string {
+  return EMPTY_RESULT_LINE_BY_COMMAND[kind];
 }
 
 function formatResultLine(result: IntelResult): string {
@@ -216,43 +255,36 @@ function formatResultLine(result: IntelResult): string {
   return formatTestLine(result);
 }
 
-function formatReferenceLine(result: IntelResult): string {
-  if (result.kind !== "reference") throw new Error("Expected reference result.");
+function formatReferenceLine(result: ReferenceResult): string {
   return `  ${result.file}:${String(result.line)}:${String(result.col)} ${result.referenceKind}`;
 }
 
-function formatDefinitionLine(result: IntelResult): string {
-  if (result.kind !== "definition") throw new Error("Expected definition result.");
+function formatDefinitionLine(result: DefinitionResult): string {
   return `  ${result.file}:${String(result.line)}:${String(result.col)} ${result.exportKind}`;
 }
 
-function formatExportLine(result: IntelResult): string {
-  if (result.kind !== "export") throw new Error("Expected export result.");
+function formatExportLine(result: ExportResult): string {
   return `  ${result.name} ${result.exportKind}`;
 }
 
-function formatDependentLine(result: IntelResult): string {
-  if (result.kind !== "dependent") throw new Error("Expected dependent result.");
+function formatDependentLine(result: DependentResult): string {
   const reason = result.depth === 1 ? result.via : formatTransitiveReason(result);
   return `  ${result.file} ${reason}`;
 }
 
-function formatTransitiveReason(result: IntelResult): string {
-  if (result.kind !== "dependent") throw new Error("Expected dependent result.");
+function formatTransitiveReason(result: DependentResult): string {
   const via = result.via === "direct" ? "" : ` via ${result.via}`;
   return `transitive (depth=${String(result.depth)})${via}`;
 }
 
-function formatTestLine(result: IntelResult): string {
-  if (result.kind !== "test") throw new Error("Expected test result.");
+function formatTestLine(result: TestResult): string {
   const reason = formatTestReason(result);
   const via = result.via && result.via !== "direct" ? ` via ${result.via}` : "";
   const slow = result.slow ? " slow" : "";
   return `  ${result.file} ${reason}${via}${slow}`;
 }
 
-function formatTestReason(result: IntelResult): string {
-  if (result.kind !== "test") throw new Error("Expected test result.");
+function formatTestReason(result: TestResult): string {
   if (result.reason === "co-located") return "co-located";
   if (result.reason === "direct") return "direct candidate";
   const depth = result.depth ? ` (depth=${String(result.depth)})` : "";

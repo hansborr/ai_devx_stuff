@@ -1,6 +1,13 @@
 #!/usr/bin/env bash
 # smoke-order: 320
 # smoke-subjects: scripts/harness-check.ts
+# smoke-subjects: scripts/harness-registration-check.ts
+# smoke-subjects: scripts/harness/registration-explain.ts
+# smoke-subjects: scripts/harness/registration-explain-cli.ts
+# smoke-subjects: scripts/harness/registration-explain-describe.ts
+# smoke-subjects: scripts/harness/registration-explain-matchers.ts
+# smoke-subjects: scripts/harness/registration-explain-model.ts
+# smoke-subjects: scripts/harness/registration-explain-render.ts
 # smoke-subjects: scripts/lint-agent-guidance.ts
 # smoke-subjects: scripts/lint-coverage-map-gen.ts
 # smoke-subjects: scripts/lint-coverage-map-gen-core.ts
@@ -9,6 +16,7 @@
 # smoke-subjects: scripts/harness/harness-gate-parity.ts
 # smoke-subjects: scripts/doctor.sh
 # smoke-subjects: scripts/harness/generated-surfaces.ts
+# smoke-subjects: scripts/harness/generated-surface-dependencies.ts
 # smoke-subjects: scripts/harness/hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/generate-hook-timeout-constants.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
@@ -17,10 +25,16 @@
 # smoke-subjects: scripts/harness/harness-paths.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.ts
 # smoke-subjects: scripts/harness/porting-knob-parity.test.ts
-# smoke-subjects: scripts/harness/pre-push-scope-pin.ts
-# smoke-subjects: scripts/drift-ai/scope.ts
-# smoke-subjects: drift-ai.config.json
+# `.husky/pre-push` is still a harness:check input after the scope pin's removal:
+# porting-knob-parity scans `.husky` for source markers and the hook/pre-push
+# control declares it as its source, so edits there can still fail this smoke.
 # smoke-subjects: .husky/pre-push
+# smoke-subjects: scripts/harness/pre-push-scope-trigger.ts
+# smoke-subjects: scripts/harness/generate-pre-push-scope-trigger.ts
+# smoke-subjects: scripts/harness/pre-push-scope-trigger.generated.sh
+# smoke-subjects: scripts/drift-ai/scope.ts
+# smoke-subjects: scripts/lib/path-taxonomy.ts
+# smoke-subjects: drift-ai.config.json
 # smoke-subjects: scripts/harness/generate-hook-wiring.ts
 # smoke-subjects: scripts/harness/hook-shims.ts
 # smoke-subjects: scripts/harness/hook-shim-files.ts
@@ -34,8 +48,10 @@
 # smoke-subjects: scripts/harness/check-skill-inventory.ts
 # smoke-subjects: scripts/harness/skill-inventory-schema.ts
 # smoke-subjects: scripts/path-policy/generate-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/path-policy/smoke-subject-headers.ts
 # smoke-subjects: scripts/path-policy/fixture-copy-expressions.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/fixture-import-closure.ts
 # smoke-subjects: scripts/path-policy/fixture-shell-dependencies.ts
 # smoke-subjects: scripts/path-policy/fixture-shell-scope.ts
@@ -48,16 +64,17 @@
 # smoke-subjects: scripts/verify/steps.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
+# smoke-subjects: scripts/harness/verify-step-programs.ts
+# smoke-subjects: scripts/harness/verify-step-artifacts.ts
 # smoke-subjects: scripts/harness/fixture-closure-check.ts
-# smoke-subjects: scripts/worktree-seed-import-closure.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loaders.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-validation.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-exports.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-identifiers.ts
+# smoke-subjects: scripts/import-closure/closure-walk.ts
+# smoke-subjects: scripts/import-closure/runtime-imports.ts
+# smoke-subjects: scripts/import-closure/runtime-resolution.ts
 # smoke-subjects: scripts/tests/harness-check-fixture-manifest.generated.txt
 # smoke-subjects: scripts/lint-ratchet/ratchet-manifest-message.ts
 # smoke-subjects: tools/lint-ratchet/src/kernel/codepoint-compare.ts
@@ -84,8 +101,8 @@
 #   by their generatedSurface checkScript alias (no exemption entry), so
 #   dropping the facet orphans the script and a redundant exemption fails;
 # - the Porting This checklist and greppable source markers stay in parity;
-# - the pre-push source-extension pin fails when the fixture hook's boundary
-#   trigger alternation drifts from the scanner extensions or is missing;
+# - the generated pre-push boundary trigger fails freshness when the fixture's
+#   checked-in fragment drifts from the scanner's source extensions;
 # - generated smoke-subjects, verify step, hook-wiring, local lint guidance,
 #   harness-controls doc, and restricted disable rule-list freshness fail when
 #   their checked-in outputs are stale.
@@ -94,10 +111,12 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."
 
 # The synthesized fixture manifest deliberately declares no
-# generatedSurface.fixturePaths, and the fixture tree cannot resolve the
-# `typescript` walker, so every copied harness-check run below uses the
-# explicit closure-walk opt-out. Everywhere else the validator fails closed on
-# zero declarations (see scripts/harness/fixture-closure-check.ts).
+# generatedSurface.fixtureExtras and consumes the real tree's checked-in copy
+# projection, so every copied generator and harness-check run below uses the
+# explicit closure-walk permission. Declared fixtures still validate when the
+# walker is available, and the later real-tree check explicitly removes this
+# inherited variable. Everywhere else the validator fails closed on zero
+# declarations (see scripts/harness/fixture-closure-check.ts).
 export MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS=1
 
 # Derive ratchet manifest entries from the live harness.controls.json so the
@@ -120,9 +139,9 @@ copy_validator() {
   local manifest_path="scripts/tests/harness-check-fixture-manifest.generated.txt"
   local copy_path
   # Plain-copy closure: rendered into the generated manifest from the
-  # harness.controls.json generatedSurface fixturePaths facets
-  # (`bun run verify:steps` regenerates); harness:check's closure-walk
-  # validator keeps the declarations honest against the real import graph.
+  # static import graph plus reasoned generatedSurface fixtureExtras
+  # (`bun run verify:steps` regenerates); harness:check's residue validator
+  # keeps mechanical import echo out of the authored manifest.
   # Blank and `#` lines are manifest headers, not copy entries.
   while IFS= read -r copy_path; do
     case "$copy_path" in '' | '#'*) continue ;; esac
@@ -130,10 +149,20 @@ copy_validator() {
     # fixture-closure: unmodelled-copy - the copy set is the generated manifest
     # read line by line, so the fixture-copy-set checker cannot enumerate it
     # statically; scripts/harness/fixture-closure-check.ts walks the same
-    # fixturePaths declarations over the real import graph instead.
+    # derived fixture projection over the real import graph instead.
     cp "$copy_path" "$fixture_dir/$copy_path"
   done <"$manifest_path"
-  # Fixture-synthesized stub (FIXTURE_SYNTHESIZED_PATHS in generated-surfaces.ts):
+  # This fixture's synthetic root config deliberately imports the focused
+  # max-lines loader so the real-tree conflict-marker presentation contract is
+  # still exercised after the shared policy split. These are fixture-only
+  # dependencies, not dependencies of a generated surface.
+  cp eslint-config/max-lines-exceptions-codec.js \
+    "$fixture_dir/eslint-config/max-lines-exceptions-codec.js"
+  cp eslint-config/max-lines-exceptions.baseline.json \
+    "$fixture_dir/eslint-config/max-lines-exceptions.baseline.json"
+  cp eslint-config/max-lines-policy.js "$fixture_dir/eslint-config/max-lines-policy.js"
+  # Fixture-synthesized stub (FIXTURE_SYNTHESIZED_PATHS in
+  # generated-surface-dependencies.ts):
   # the real overlay table drags ESLint-oriented imports into harness-check that
   # the fixture never needs, so it gets an empty overlay map instead of a copy.
   cat >"$fixture_dir/scripts/lint-agent-guidance.ts" <<'TS'
@@ -150,10 +179,10 @@ TS
   # The lint coverage-map generator calls ESLint.calculateConfigForFile(); the
   # fixture supplies a minimal flat config but resolves the real ESLint module.
   [ -e "$fixture_dir/node_modules/eslint" ] || ln -s "$PWD/node_modules/eslint" "$fixture_dir/node_modules/eslint"
-  # scripts/worktree-seed-import-closure.ts (the shared static-import-graph
-  # walker, copied above) imports the TypeScript compiler at module load; the
-  # smoke-subjects generator now reaches it through the fixture copy-set
-  # import-closure guard, so the fixture resolves the real package.
+  # scripts/import-closure/closure-walk.ts (the shared static-import-graph
+  # walker, copied above) imports the TypeScript compiler at module load. The
+  # smoke-subjects generator still walks its own fixture copy set, so the
+  # fixture resolves the real package for that separate generator.
   [ -e "$fixture_dir/node_modules/typescript" ] || ln -s "$PWD/node_modules/typescript" "$fixture_dir/node_modules/typescript"
 }
 
@@ -186,6 +215,7 @@ export default {
 };
 JS
   cat >"$fixture_dir/eslint.config.js" <<'JS'
+import "./eslint-config/max-lines-policy.js";
 import local from "./local-plugin.js";
 
 export default [
@@ -211,23 +241,38 @@ write_source_files() {
   : >"$fixture_dir/eslint-rules/fixture-rule.js"
   : >"$fixture_dir/scripts/sensor-fixture.ts"
   : >"$fixture_dir/scripts/doctor.sh"
-  : >"$fixture_dir/scripts/harness-registration-check.ts"
   : >"$fixture_dir/scripts/lint-coverage-map-check.ts"
   : >"$fixture_dir/scripts/lint-ratchet/zero-baseline.ts"
   : >"$fixture_dir/scripts/codemods/fixture.ts"
   : >"$fixture_dir/scripts/drift-ai/fixture.ts"
   printf 'same\n' >"$fixture_dir/.claude/skills/fixture/SKILL.md"
   printf 'same\n' >"$fixture_dir/.codex/skills/fixture/SKILL.md"
+  # The smoke-subject generator runs against this fixture root, and an empty
+  # scripts/tests tree is now a discovery failure rather than an empty
+  # projection, so the fixture seeds one minimal smoke. This also keeps the
+  # fixture an honest model of a real repo root. The header lines are printed
+  # rather than heredoc'd so that no line of this file starts with a
+  # smoke-subjects header the real repo's parser would attribute to this smoke.
+  printf '%s\n' \
+    '#!/usr/bin/env bash' \
+    '# smoke-order: 010' \
+    '# smoke-subjects: scripts/tests/test-fixture.sh' \
+    'exit 0' \
+    >"$fixture_dir/scripts/tests/test-fixture.sh"
   cat >"$fixture_dir/scripts/ai-hooks/README.md" <<'MD'
 ## Porting This
 
 - `fixture-knob` — Retarget the fixture value.
 - `bun-command-runner` — Retarget the fixture command runner.
 - `repo-root-fallback` — Retarget the fixture shim repo-root fallback.
+- `canonical-adapter-matcher` — Retarget the fixture adapter matcher syntax.
+- `canonical-adapter-shim-dir` — Retarget the fixture adapter shim directories.
 - `generated-surface-freshness` — Retarget the fixture generated-surface registry.
 - `fixture-copy-manifest` — Retarget the fixture copy manifest.
 - `verify-consumers` — Retarget the fixture verify consumers.
 - `wrapped-bun-scripts` — Retarget the fixture wrapped-script classifier slices.
+- `command-policy` — Retarget the fixture hard-deny rule set.
+- `pre-push-scope-trigger` — Retarget the fixture near-duplicates boundary trigger.
 MD
   cat >"$fixture_dir/scripts/ai-hooks/common.sh" <<'SH'
 # porting-knob: fixture-knob -- fixture source marker
@@ -271,6 +316,8 @@ write_package_json() {
     "harness:config-surfaces:check": "bun run scripts/harness/generate-config-surfaces.ts -- --check",
     "harness:hook-timeouts": "bun run scripts/harness/generate-hook-timeout-constants.ts",
     "harness:hook-timeouts:check": "bun run scripts/harness/generate-hook-timeout-constants.ts -- --check",
+    "harness:pre-push-trigger": "bun run scripts/harness/generate-pre-push-scope-trigger.ts",
+    "harness:pre-push-trigger:check": "bun run scripts/harness/generate-pre-push-scope-trigger.ts -- --check",
     "harness:wiring": "bun run scripts/harness/generate-hook-wiring.ts",
     "harness:wiring:check": "bun run scripts/harness/generate-hook-wiring.ts -- --check",
     "harness:registration:check": "bun run scripts/harness-registration-check.ts",
@@ -299,8 +346,17 @@ SH
 #!/usr/bin/env bash
 musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
 musi_staged_has_source_relevant_change
+MUSI_PRECOMMIT_REGISTRATION_TIMEOUT="${MUSI_PRECOMMIT_REGISTRATION_TIMEOUT:-$MUSI_GATE_PRECOMMIT_REGISTRATION_TIMEOUT_DEFAULT}"
+case "$MUSI_PRECOMMIT_REGISTRATION_TIMEOUT" in
+  '' | *[!0-9]* | 0*)
+    printf 'pre-commit: invalid MUSI_PRECOMMIT_REGISTRATION_TIMEOUT=%s; expected positive whole seconds without a suffix or leading zero (for example, 30)\n' \
+      "$MUSI_PRECOMMIT_REGISTRATION_TIMEOUT" >&2
+    exit 2
+    ;;
+esac
 musi_precommit_registration_admission() {
-  timeout --foreground --signal=TERM --kill-after=1s 5s \
+  timeout --foreground --signal=TERM --kill-after=1s \
+    "${MUSI_PRECOMMIT_REGISTRATION_TIMEOUT}s" \
     bun run harness:registration:check
 }
 musi_precommit_snapshot_fast_mode() {
@@ -328,24 +384,16 @@ declare -A PRECOMMIT_GATE_POLICY=(
 )
 musi_verify_run_gate PRECOMMIT_GATE_POLICY
 SH
-  # Representative near-duplicates boundary trigger: the pre-push scope pin
-  # (scripts/harness/pre-push-scope-pin.ts) reads this alternation and compares
-  # it against the copied scanner's BUILT_IN_SOURCE_EXTENSIONS (the fixture has
-  # no drift-ai.config.json, so no additional extensions apply).
-  cat >"$fixture_dir/.husky/pre-push" <<'SH'
-#!/usr/bin/env bash
-changed="fixture.ts"
-if grep -qE '(^|/)(sensor-near-duplicates\.baseline|drift-ai\.config)\.json$|\.(ts|tsx|js|jsx|mjs|cjs)$' <<< "$changed"; then
-  echo boundary-scan
-fi
-SH
   mkdir -p "$fixture_dir/.github/workflows"
   cat >"$fixture_dir/.github/workflows/ci.yml" <<'YAML'
 jobs:
   validate:
     steps:
-      # harness-ci-gate: verify-wrapper/verify
+      - name: Install
+        run: bun install
       - name: Verify
+        env:
+          HARNESS_CI_GATE: verify-wrapper/verify
         run: bun run verify
 YAML
 }
@@ -376,13 +424,16 @@ JSON
 JSON
 }
 
-write_valid_manifest() {
+# The generated lint-rule control include. The real tree owns `kind: lint-rule`
+# controls here and nowhere else, and scripts/harness/harness-manifest.ts is the
+# only seam that joins the two files — so this fixture carries an include too,
+# and every validator and generator run below reads the ASSEMBLED manifest.
+write_lint_rule_include() {
   local fixture_dir=$1
   local extra_entries=${2-}
-  cat >"$fixture_dir/harness.controls.json" <<JSON
+  cat >"$fixture_dir/harness.controls.lint-rules.generated.json" <<JSON
 {
-  "scriptParityExemptions": ["lint:changed"],
-  "ciGateControlIds": ["verify-wrapper/verify"],
+  "\$comment": "Fixture stand-in for the generated lint-rule control include.",
   "controls": [
     {
       "id": "lint/local/fixture-rule",
@@ -390,7 +441,78 @@ write_valid_manifest() {
       "ruleName": "local/fixture-rule",
       "source": "eslint-rules/fixture-rule.js",
       "invocation": "bun run lint"
+    }$extra_entries
+  ]
+}
+JSON
+}
+
+write_valid_manifest() {
+  local fixture_dir=$1
+  local extra_entries=${2-}
+  cat >"$fixture_dir/harness.controls.json" <<JSON
+{
+  "scriptParityExemptions": ["lint:changed"],
+  "ciGateControlIds": ["verify-wrapper/verify"],
+  "verifySlotCatalog": [
+    {
+      "name": "lint",
+      "full": { "script": "lint" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode lints changed files.",
+        "slot": { "script": "lint:changed" }
+      }
     },
+    {
+      "name": "ratchet",
+      "full": { "script": "lint:ratchet" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "zero-baseline",
+      "full": { "script": "lint:ratchet:zero-baseline" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "coverage-map",
+      "full": { "script": "docs:lint-coverage-map:check" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "format-check",
+      "full": { "script": "format:check" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode format-checks changed files.",
+        "slot": { "script": "format:changed:check" }
+      }
+    },
+    {
+      "name": "typecheck",
+      "full": { "script": "typecheck" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "test",
+      "full": { "script": "test" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode selects tests from changed inputs.",
+        "slot": { "script": "test:changed" }
+      }
+    },
+    {
+      "name": "scripts",
+      "full": { "script": "test:scripts" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode classifies script-smoke inputs.",
+        "slot": { "script": "test:scripts:changed" }
+      }
+    }
+  ],
+  "controls": [
 $FIXTURE_RATCHET_ENTRIES,
     {
       "id": "sensor/fixture",
@@ -464,7 +586,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "invocation": "bun run harness:config-surfaces",
       "generatedSurface": {
         "triggerPaths": [
-          "eslint-config/shared-policy.js",
+          "eslint-config/path-glob-policy.js",
           "scripts/harness/generate-config-surfaces.ts"
         ],
         "outputPaths": ["tsconfig.configs.json"],
@@ -495,6 +617,28 @@ $FIXTURE_RATCHET_ENTRIES,
       }
     },
     {
+      "id": "check/pre-push-scope-trigger-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Pre-push scope trigger generator fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-pre-push-scope-trigger.ts",
+      "invocation": "bun run harness:pre-push-trigger",
+      "generatedSurface": {
+        "triggerPaths": [
+          "drift-ai.config.json",
+          "scripts/drift-ai/scope.ts",
+          "scripts/harness/generate-pre-push-scope-trigger.ts",
+          "scripts/harness/pre-push-scope-trigger.ts"
+        ],
+        "outputPaths": ["scripts/harness/pre-push-scope-trigger.generated.sh"],
+        "checkScript": "harness:pre-push-trigger:check",
+        "warnLabel": "pre-push near-duplicates scope trigger",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+      }
+    },
+    {
       "id": "check/verify-steps-generator",
       "kind": "check",
       "category": "maintainability",
@@ -508,8 +652,9 @@ $FIXTURE_RATCHET_ENTRIES,
           "harness.controls.json",
           "scripts/harness/generate-verify-steps.ts",
           "scripts/harness/generated-surfaces.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-schema.ts",
-          "scripts/harness/verify-step-bridge-divergences.ts"
+          "scripts/harness/verify-step-artifacts.ts"
         ],
         "outputPaths": [
           "scripts/verify/steps.generated.sh",
@@ -613,7 +758,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "generatedSurface": {
         "triggerPaths": [
           "eslint-rules/",
-          "eslint-config/local-plugin.js",
+          "local-plugin.js",
           "scripts/generate-lint-guidance.ts",
           "scripts/lib/lint-rule-docs.ts"
         ],
@@ -674,16 +819,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify",
-      "slots": [
-        { "name": "lint", "script": "lint" },
-        { "name": "ratchet", "script": "lint:ratchet" },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
-        { "name": "format-check", "script": "format:check" },
-        { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test" },
-        { "name": "scripts", "script": "test:scripts" }
-      ]
+      "slotProfile": { "mode": "full" }
     },
     {
       "id": "verify-wrapper/verify-changed",
@@ -694,16 +830,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed",
-      "slots": [
-        { "name": "lint", "script": "lint:changed" },
-        { "name": "ratchet", "script": "lint:ratchet" },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
-        { "name": "format-check", "script": "format:changed:check" },
-        { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test:changed" },
-        { "name": "scripts", "script": "test:scripts:changed" }
-      ]
+      "slotProfile": { "mode": "changed" }
     },
     {
       "id": "verify-wrapper/verify-parallel",
@@ -714,16 +841,7 @@ $FIXTURE_RATCHET_ENTRIES,
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:parallel",
-      "slots": [
-        { "name": "lint", "script": "lint" },
-        { "name": "ratchet", "script": "lint:ratchet" },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
-        { "name": "format-check", "script": "format:check" },
-        { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test" },
-        { "name": "scripts", "script": "test:scripts" }
-      ]
+      "slotProfile": { "mode": "full" }
     },
     {
       "id": "skill/fixture",
@@ -767,6 +885,7 @@ $FIXTURE_RATCHET_ENTRIES,
         "event": "PreToolUse",
         "body": "scripts/ai-hooks/git-commit-quiet.sh",
         "order": 20,
+        "surface": "bash",
         "harnesses": {
           "claude": {
             "matcher": "Bash",
@@ -793,6 +912,7 @@ $FIXTURE_RATCHET_ENTRIES,
         "event": "PreToolUse",
         "body": "scripts/ai-hooks/bun-run-quiet.sh",
         "order": 30,
+        "surface": "bash",
         "harnesses": {
           "claude": {
             "matcher": "Bash",
@@ -815,20 +935,19 @@ $FIXTURE_RATCHET_ENTRIES,
       "repairKind": "manual",
       "source": ".husky/pre-commit",
       "invocation": "git commit",
-      "slots": [
-        { "name": "lint", "script": "lint:changed" },
-        { "name": "ratchet", "script": "lint:ratchet" },
-        { "name": "zero-baseline", "script": "lint:ratchet:zero-baseline" },
-        { "name": "coverage-map", "script": "docs:lint-coverage-map:check" },
-        { "name": "format-check", "script": "format:changed:check" },
-        { "name": "typecheck", "script": "typecheck" },
-        { "name": "test", "script": "test:changed" },
-        {
-          "name": "scripts",
-          "script": "test:scripts:changed",
-          "condition": "when staged hook/script/harness inputs require script smoke"
-        }
-      ]
+      "slotProfile": {
+        "mode": "changed",
+        "overrides": [
+          {
+            "name": "scripts",
+            "reason": "Pre-commit documents staged script-smoke inputs.",
+            "slot": {
+              "script": "test:scripts:changed",
+              "condition": "when staged hook/script/harness inputs require script smoke"
+            }
+          }
+        ]
+      }
     }$extra_entries
   ]
 }
@@ -844,11 +963,17 @@ write_valid_fixture() {
   write_generated_hook_files "$fixture_dir"
   write_package_json "$fixture_dir"
   write_valid_manifest "$fixture_dir"
+  write_lint_rule_include "$fixture_dir"
   git -C "$fixture_dir" init -q
   git -C "$fixture_dir" add .
   (cd "$fixture_dir" && bun run docs:lint-coverage-map:generate >/dev/null)
   (cd "$fixture_dir" && bun run scripts/path-policy/generate-smoke-subjects.ts >/dev/null)
+  # verify-steps must consume the copied fixture projection, not derive it in
+  # this reduced tree. Hide the walker dependency while the generator runs so
+  # a future accidental derivation fails this smoke at the boundary.
+  mv "$fixture_dir/node_modules/typescript" "$fixture_dir/node_modules/typescript.smoke-disabled"
   (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null)
+  mv "$fixture_dir/node_modules/typescript.smoke-disabled" "$fixture_dir/node_modules/typescript"
   (cd "$fixture_dir" && bun run scripts/harness/generate-hook-timeout-constants.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-config-surfaces.ts >/dev/null)
   (cd "$fixture_dir" && bun run scripts/harness/generate-hook-wiring.ts >/dev/null)
@@ -869,6 +994,17 @@ run_pass_case() {
   if ! grep -q "harness:check OK" "$TMP_ROOT/pass.out"; then
     echo "FAIL: valid fixture did not print OK summary"
     cat "$TMP_ROOT/pass.out"
+    exit 1
+  fi
+  # The lint-rule control reached both the validator and the doc generator
+  # through the include seam, not the root manifest: it is authored in
+  # harness.controls.lint-rules.generated.json only.
+  if grep -q '"kind": "lint-rule"' "$fixture_dir/harness.controls.json"; then
+    echo "FAIL: fixture root manifest still owns a lint-rule control"
+    exit 1
+  fi
+  if ! grep -q "lint/local/fixture-rule" "$fixture_dir/docs/generated/harness-controls.md"; then
+    echo "FAIL: generated harness controls doc lost the included lint-rule control"
     exit 1
   fi
 }
@@ -896,16 +1032,12 @@ run_failure_case() {
   fi
 }
 
-mutate_pre_push_pin_drift() {
+mutate_pre_push_scope_trigger_drift() {
   local fixture_dir=$1
-  # Drop .cjs from the boundary trigger alternation so the scope pin reports
-  # the hook as out of sync with the scanner's source extensions.
-  sed -i 's/|mjs|cjs)/|mjs)/' "$fixture_dir/.husky/pre-push"
-}
-
-mutate_pre_push_pin_missing_hook() {
-  local fixture_dir=$1
-  rm "$fixture_dir/.husky/pre-push"
+  # Drop .cjs from the generated boundary trigger so freshness reports the
+  # checked-in fragment as stale against the scanner's source extensions.
+  sed -i 's/|mjs|cjs)/|mjs)/' \
+    "$fixture_dir/scripts/harness/pre-push-scope-trigger.generated.sh"
 }
 
 mutate_missing_registration_admission() {
@@ -941,16 +1073,22 @@ mutate_undeclared_script() {
 
 mutate_missing_ci_gate() {
   local fixture_dir=$1
-  sed -i '/harness-ci-gate:/d' "$fixture_dir/.github/workflows/ci.yml"
+  sed -i '/HARNESS_CI_GATE:/d' "$fixture_dir/.github/workflows/ci.yml"
 }
 
 mutate_extra_ci_gate() {
   local fixture_dir=$1
   cat >>"$fixture_dir/.github/workflows/ci.yml" <<'YAML'
-      # harness-ci-gate: verify-wrapper/extra
       - name: Extra gate
+        env:
+          HARNESS_CI_GATE: verify-wrapper/extra
         run: bun run verify:changed
 YAML
+}
+
+mutate_unparseable_ci_workflow() {
+  local fixture_dir=$1
+  printf '    steps: [\n' >> "$fixture_dir/.github/workflows/ci.yml"
 }
 
 mutate_renamed_ci_gate_script() {
@@ -995,7 +1133,7 @@ mutate_missing_source() {
 
 mutate_unknown_rule_name() {
   local fixture_dir=$1
-  write_valid_manifest "$fixture_dir" ',
+  write_lint_rule_include "$fixture_dir" ',
     {
       "id": "lint/local/ghost",
       "kind": "lint-rule",
@@ -1049,9 +1187,10 @@ mutate_codemod_unknown_repair_command() {
 
 mutate_lint_restates_field() {
   local fixture_dir=$1
-  # Replace the manifest's single lint-rule entry with one that restates
-  # category — re-projected fields must not appear on lint-rule entries.
-  cat >"$fixture_dir/harness.controls.json" <<'JSON'
+  # Replace the include's single lint-rule entry with one that restates
+  # category — re-projected fields must not appear on lint-rule entries, and
+  # the check must reach entries that arrive through the include seam.
+  cat >"$fixture_dir/harness.controls.lint-rules.generated.json" <<'JSON'
 {
   "controls": [
     {
@@ -1061,7 +1200,13 @@ mutate_lint_restates_field() {
       "category": "behavior",
       "source": "eslint-rules/fixture-rule.js",
       "invocation": "bun run lint"
-    },
+    }
+  ]
+}
+JSON
+  cat >"$fixture_dir/harness.controls.json" <<'JSON'
+{
+  "controls": [
     {
       "id": "sensor/fixture",
       "kind": "sensor",
@@ -1094,13 +1239,6 @@ mutate_repair_command_bad_prefix() {
   cat >"$fixture_dir/harness.controls.json" <<'JSON'
 {
   "controls": [
-    {
-      "id": "lint/local/fixture-rule",
-      "kind": "lint-rule",
-      "ruleName": "local/fixture-rule",
-      "source": "eslint-rules/fixture-rule.js",
-      "invocation": "bun run lint"
-    },
     {
       "id": "sensor/fixture",
       "kind": "sensor",
@@ -1135,13 +1273,6 @@ mutate_missing_ratchet_control() {
 {
   "controls": [
     {
-      "id": "lint/local/fixture-rule",
-      "kind": "lint-rule",
-      "ruleName": "local/fixture-rule",
-      "source": "eslint-rules/fixture-rule.js",
-      "invocation": "bun run lint"
-    },
-    {
       "id": "sensor/fixture",
       "kind": "sensor",
       "category": "maintainability",
@@ -1173,13 +1304,6 @@ mutate_paired_guide_missing() {
 {
   "controls": [
     {
-      "id": "lint/local/fixture-rule",
-      "kind": "lint-rule",
-      "ruleName": "local/fixture-rule",
-      "source": "eslint-rules/fixture-rule.js",
-      "invocation": "bun run lint"
-    },
-    {
       "id": "sensor/fixture",
       "kind": "sensor",
       "category": "maintainability",
@@ -1203,6 +1327,28 @@ mutate_paired_guide_missing() {
   ]
 }
 JSON
+}
+
+mutate_dropped_lint_rule_include() {
+  local fixture_dir=$1
+  # The include is the only owner of lint-rule controls, so losing it must
+  # surface as ordinary rule parity rather than as a silently smaller manifest.
+  rm "$fixture_dir/harness.controls.lint-rules.generated.json"
+}
+
+mutate_malformed_lint_rule_include() {
+  local fixture_dir=$1
+  # An include that exists but carries no controls array is a hard error: a
+  # tolerated one would drop every lint-rule control without a word.
+  #
+  # Deliberately kept alongside harness-manifest.test.ts's unit case for the
+  # same branch: that case calls readHarnessManifest directly, while this one
+  # is the only coverage that the parse-layer error reaches an operator through
+  # `bun run harness:check` still naming the include, rather than surfacing
+  # against harness.controls.json — the exact misdirection this branch had to
+  # repair twice elsewhere (harness-check-validation.ts, doctor.sh, and the two
+  # schema diagnostics in registration-manifest-checks.ts).
+  printf '{"controls": {}}\n' >"$fixture_dir/harness.controls.lint-rules.generated.json"
 }
 
 mutate_stale_verify_steps() {
@@ -1256,6 +1402,7 @@ SH
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/missing-body.sh",
         "order": 10,
+        "surface": "edit",
         "harnesses": {
           "codex": {
             "matcher": "apply_patch",
@@ -1337,7 +1484,9 @@ run_failure_checks() {
   run_failure_case "orphan-rule" "is not declared in the manifest" mutate_orphan_rule
   run_failure_case "undeclared-script" "not declared in harness.controls.json and not exempt" mutate_undeclared_script
   run_failure_case "undeclared-db-script" "db:undeclared" mutate_undeclared_db_script
-  run_failure_case "missing-ci-gate" "CI has no harness-ci-gate marker" mutate_missing_ci_gate
+  run_failure_case "missing-ci-gate" "no CI step carries HARNESS_CI_GATE" mutate_missing_ci_gate
+  run_failure_case "unparseable-ci-workflow" "could not be parsed as YAML" \
+    mutate_unparseable_ci_workflow
   run_failure_case "extra-ci-gate" "ciGateControlIds does not declare it" mutate_extra_ci_gate
   run_failure_case "renamed-ci-gate" "expected manifest invocation" mutate_renamed_ci_gate_script
   run_failure_case "non-object-manifest-entry" "is not an object" mutate_non_object_manifest_entry
@@ -1350,6 +1499,11 @@ run_failure_checks() {
   run_failure_case "lint-restates-field" "must not restate category" mutate_lint_restates_field
   run_failure_case "paired-guide-missing" "pairedGuide does not resolve" mutate_paired_guide_missing
   run_failure_case "missing-ratchet-control" "Next steps:" mutate_missing_ratchet_control
+  run_failure_case "dropped-lint-rule-include" "local rule local/fixture-rule" \
+    mutate_dropped_lint_rule_include
+  run_failure_case "malformed-lint-rule-include" \
+    "harness.controls.lint-rules.generated.json must declare a controls array" \
+    mutate_malformed_lint_rule_include
   run_failure_case "stale-verify-steps" "steps.generated.sh is out of date" mutate_stale_verify_steps
   run_failure_case "stale-dynamic-resolver-dispatch" "steps.generated.sh is out of date" mutate_stale_dynamic_resolver_dispatch
   run_failure_case "stale-config-surfaces" "tsconfig.configs.json is out of date" mutate_stale_config_surfaces
@@ -1369,10 +1523,8 @@ run_failure_checks() {
     "already covered as a generatedSurface checkScript alias" \
     mutate_redundant_alias_exemption
   run_failure_case "undocumented-porting-knob" "source-only" mutate_undocumented_porting_knob
-  run_failure_case "pre-push-pin-drift" \
-    "near-duplicates boundary trigger is out of sync" mutate_pre_push_pin_drift
-  run_failure_case "pre-push-pin-missing-hook" ".husky/pre-push could not be read" \
-    mutate_pre_push_pin_missing_hook
+  run_failure_case "pre-push-scope-trigger-drift" \
+    "pre-push-scope-trigger.generated.sh is out of date" mutate_pre_push_scope_trigger_drift
   run_failure_case "missing-registration-admission" \
     "Restore the direct registration admission wiring" mutate_missing_registration_admission
 }
@@ -1404,9 +1556,40 @@ run_conflict_marker_presentation_check() {
 }
 
 run_real_tree_check() {
-  if ! bun run harness:check >"$TMP_ROOT/real.out" 2>&1; then
+  if ! env -u MUSI_HARNESS_CHECK_ALLOW_NO_FIXTURE_PATHS \
+    bun run harness:check >"$TMP_ROOT/real.out" 2>&1; then
     echo "FAIL: real-tree harness:check rejected the current manifest"
     cat "$TMP_ROOT/real.out"
+    exit 1
+  fi
+}
+
+run_walkerless_declared_projection_check() {
+  local fixture_dir="$TMP_ROOT/walkerless-declared"
+  local projection="scripts/tests/harness-check-fixture-manifest.generated.txt"
+  write_valid_fixture "$fixture_dir"
+  jq '(.controls[] | select(.id == "check/verify-steps-generator") | .generatedSurface.fixtureExtras) = [
+        {
+          "path": "scripts/verify.sh",
+          "reason": "Fully declared runtime file for the walker-less fixture."
+        }
+      ]' "$fixture_dir/harness.controls.json" >"$fixture_dir/harness.controls.next.json"
+  mv "$fixture_dir/harness.controls.next.json" "$fixture_dir/harness.controls.json"
+  printf '# stale projection\n' >"$fixture_dir/$projection"
+
+  mv "$fixture_dir/node_modules/typescript" \
+    "$fixture_dir/node_modules/typescript.smoke-disabled"
+  if ! (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null); then
+    echo "FAIL: walker-less declared fixture projection did not generate"
+    exit 1
+  fi
+  mv "$fixture_dir/node_modules/typescript.smoke-disabled" \
+    "$fixture_dir/node_modules/typescript"
+
+  if ! grep -Fxq "scripts/verify.sh" "$fixture_dir/$projection" || \
+    grep -Fq "stale projection" "$fixture_dir/$projection"; then
+    echo "FAIL: walker-less declarations did not produce the effective fixture projection"
+    cat "$fixture_dir/$projection"
     exit 1
   fi
 }
@@ -1448,15 +1631,158 @@ run_public_archive_boundary_check() {
   assert_archive_includes ".codex/hooks/pre-tool-use.sh"
   assert_archive_includes ".codex/hooks.json"
   assert_archive_includes ".codex/config.toml"
-  assert_archive_includes ".codex/skills/ts-graph/SKILL.md"
+  assert_archive_includes ".codex/skills/playwright-cli/SKILL.md"
   assert_archive_includes "docs/generated/lint-coverage-map.md"
   assert_archive_includes "docs/generated/observed_flaky_tests.md"
   assert_archive_excludes "docs/agent_notes/LOG.md"
 }
 
+# Non-vacuity proof for the --explain provenance view: register a unique
+# control, source path, package script, verify slot, and generated output that
+# exist only in this fixture, then require every query direction to discover
+# them from the live parsed registration state. The probe names appear in no
+# production source or allowlist, so a discovery path that consulted one would
+# fail each assertion here. After the probe is registered, the verify
+# projections are regenerated inside the fixture: --explain refuses to report
+# over a failing registration state, and the stale checked-in fragments would
+# otherwise (correctly) trip that refusal — which the final direction proves.
+assert_explain_reports() {
+  local fixture_dir=$1
+  local label=$2
+  shift 2
+  local needles=()
+  while [ "$#" -gt 0 ] && [ "$1" != "--" ]; do
+    needles+=("$1")
+    shift
+  done
+  [ "${1-}" = "--" ] && shift
+  local out_path="$TMP_ROOT/explain-$label.out"
+  if ! (cd "$fixture_dir" && bun run scripts/harness-registration-check.ts -- "$@" \
+      >"$out_path" 2>"$TMP_ROOT/explain-$label.err"); then
+    echo "FAIL: explain query $label exited non-zero"
+    cat "$out_path" "$TMP_ROOT/explain-$label.err"
+    exit 1
+  fi
+  local needle
+  for needle in "${needles[@]}"; do
+    if ! grep -Fq "$needle" "$out_path"; then
+      echo "FAIL: explain query $label did not report: $needle"
+      cat "$out_path"
+      exit 1
+    fi
+  done
+}
+
+assert_explain_rejects() {
+  local fixture_dir=$1
+  local label=$2
+  local needle=$3
+  shift 3
+  local err_path="$TMP_ROOT/explain-$label.err"
+  if (cd "$fixture_dir" && bun run scripts/harness-registration-check.ts -- "$@" \
+      >"$TMP_ROOT/explain-$label.out" 2>"$err_path"); then
+    echo "FAIL: explain query $label exited zero over a failing registration state"
+    cat "$TMP_ROOT/explain-$label.out" "$err_path"
+    exit 1
+  fi
+  if ! grep -Fq "$needle" "$err_path"; then
+    echo "FAIL: explain refusal $label did not name: $needle"
+    cat "$err_path"
+    exit 1
+  fi
+}
+
+run_explain_provenance_check() {
+  local fixture_dir="$TMP_ROOT/explain"
+  write_valid_fixture "$fixture_dir"
+  # The probe source imports a dependency that appears nowhere in the manifest,
+  # so only the walked import closure can discover it; the .txt residue file is
+  # declared via fixtureExtras like production reasoned residue.
+  printf 'import "./explain-probe-dep.js";\n' >"$fixture_dir/scripts/explain-probe-source.ts"
+  : >"$fixture_dir/scripts/explain-probe-dep.ts"
+  printf 'probe residue\n' >"$fixture_dir/scripts/explain-probe-fixture.txt"
+  mkdir -p "$fixture_dir/docs/generated"
+  printf 'probe\n' >"$fixture_dir/docs/generated/explain-probe.generated.md"
+  jq '.scripts["explain-probe:refresh"] = "bun run scripts/explain-probe-source.ts"
+      | .scripts["explain-probe:check"] = "bun run scripts/explain-probe-source.ts -- --check"
+      | .scripts["explain-probe:slot"] = "bash scripts/explain-probe-slot.sh"' \
+    "$fixture_dir/package.json" >"$fixture_dir/package.json.tmp"
+  mv "$fixture_dir/package.json.tmp" "$fixture_dir/package.json"
+  jq '.verifySlotCatalog += [{
+        "name": "explain-probe",
+        "full": { "script": "explain-probe:slot" },
+        "changed": { "kind": "inherit" }
+      }]
+      | .controls += [{
+        "id": "check/explain-probe",
+        "kind": "check",
+        "category": "maintainability",
+        "principle": "Explain probe fixture principle.",
+        "pairedGuide": "none",
+        "repairKind": "autofix",
+        "source": "scripts/explain-probe-source.ts",
+        "invocation": "bun run explain-probe:refresh",
+        "generatedSurface": {
+          "triggerPaths": ["scripts/explain-probe-source.ts"],
+          "outputPaths": ["docs/generated/explain-probe.generated.md"],
+          "checkScript": "explain-probe:check",
+          "warnLabel": "explain probe metadata",
+          "bunHook": { "refresh": "bypass", "check": "wrapped" },
+          "fixtureExtras": [
+            { "path": "scripts/explain-probe-fixture.txt", "reason": "Explain probe residue." }
+          ]
+        }
+      }]' "$fixture_dir/harness.controls.json" >"$fixture_dir/harness.controls.json.tmp"
+  mv "$fixture_dir/harness.controls.json.tmp" "$fixture_dir/harness.controls.json"
+  # The probe control and slot stale the checked-in verify projections;
+  # regenerate them so the positive queries run over a clean registration state.
+  (cd "$fixture_dir" && bun run scripts/harness/generate-verify-steps.ts >/dev/null)
+
+  # One process call per selector direction; unit tests own the per-relation
+  # permutations. Control direction: the probe control resolves with its
+  # generated surface, and the joined summary carries every unique fixture
+  # artifact — the walked import dependency, the declared residue, and the
+  # generated output — proving the real closure walker fed the report.
+  assert_explain_reports "$fixture_dir" "control" \
+    "control-id: check/explain-probe" \
+    "generated check script: explain-probe:check" \
+    "scripts/explain-probe-dep.ts" \
+    "scripts/explain-probe-fixture.txt" \
+    "docs/generated/explain-probe.generated.md" \
+    -- --explain --control check/explain-probe
+  # Path direction: the probe source is discovered as source and trigger.
+  assert_explain_reports "$fixture_dir" "path-source" \
+    "control-source: scripts/explain-probe-source.ts" \
+    "generated-trigger: scripts/explain-probe-source.ts" \
+    -- --explain --path scripts/explain-probe-source.ts
+  # Script direction, through the JSON renderer so the executable's format
+  # selection is exercised end to end: the fixture-only probe slot resolves
+  # to its declared consumer.
+  assert_explain_reports "$fixture_dir" "script-slot-json" \
+    '"reason": "verify-slot"' \
+    '"consumer": "verify-wrapper/verify"' \
+    '"script": "explain-probe:slot"' \
+    -- --explain --script explain-probe:slot --json
+  # Smoke direction: the fixture-declared subject selects the fixture smoke.
+  assert_explain_reports "$fixture_dir" "smoke-subject" \
+    "smoke test: test-fixture (subject scripts/tests/test-fixture.sh)" \
+    -- --explain --path scripts/tests/test-fixture.sh
+
+  # Refusal direction: a registration failure fails --explain loudly, naming
+  # the failure, instead of reporting authoritative-looking omissions.
+  jq '(.controls[] | select(.id == "check/explain-probe")
+        | .generatedSurface.checkScript) = "explain-probe:unregistered"' \
+    "$fixture_dir/harness.controls.json" >"$fixture_dir/harness.controls.json.tmp"
+  mv "$fixture_dir/harness.controls.json.tmp" "$fixture_dir/harness.controls.json"
+  assert_explain_rejects "$fixture_dir" "refusal" "explain-probe:unregistered" \
+    --explain --control check/explain-probe
+}
+
 run_pass_case
 run_failure_checks
+run_explain_provenance_check
 run_conflict_marker_presentation_check
+run_walkerless_declared_projection_check
 run_real_tree_check
 run_public_archive_boundary_check
 

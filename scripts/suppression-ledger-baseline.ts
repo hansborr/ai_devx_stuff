@@ -15,6 +15,7 @@ import {
 import { gateEntries, type GateResult } from "@musi/lint-ratchet/kernel/gate.js";
 
 import { parseBaselineEntries } from "./lib/baseline/read-entries.js";
+import { isRecord } from "./lib/records.js";
 import {
   isSuppressionKind,
   SUPPRESSION_KINDS,
@@ -29,10 +30,6 @@ export const SUPPRESSION_LEDGER_UPDATE_COMMAND = "bun scripts/suppression-ledger
 
 const SELECTOR_HASH_PATTERN = /^sha256:[0-9a-f]{12}$/u;
 const SCOPE_PATH_PREVIEW_LIMIT = 3;
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 function isSuppressionScope(value: unknown): value is SuppressionScope {
   return typeof value === "string" && SUPPRESSION_SCOPES.some((scope) => scope === value);

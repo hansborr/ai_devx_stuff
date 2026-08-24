@@ -1,9 +1,10 @@
 # 14. Character-sheet dialog wiring is flattened into seven loose state pairs and 24-prop pass-throughs
 
-Status: Open only as [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
-**O2** plus step 3's rider in **F2**. The plan drops this as a scheduled
-session: **steps 5-7 are dropped permanently**, while steps 1, 2 and 4 form the
-XS opportunistic remainder and step 3 is merged into F2.
+Status: **Landed 2026-07-27 on branch `feat/cq-slice-h` (merge
+`d539cfdbd`)** through [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slice
+**O2** plus step 3's rider in **F2**. The plan dropped this as a scheduled
+session: **steps 5-7 are dropped permanently**, while steps 1, 2 and 4 landed
+as the XS opportunistic remainder and step 3 landed in F2.
 Theme: Sheet dialog state and prop plumbing · Area: client · Severity: low · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

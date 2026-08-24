@@ -6,15 +6,20 @@ import path from "node:path";
 import { extractInlineCodeTokens } from "./backtick-paths.js";
 import { formatFindingLines } from "./finding-lines.js";
 import {
-  backtickPathIgnoreCandidates,
+  defaultPathIgnored,
+  normalizeConfiguredPath,
+  type PathIgnored,
+  stripTrailingSlash,
+} from "./repo-ignore.js";
+import {
   compareStrings,
   defaultDirectoryListing,
   defaultFileReader,
   defaultPathExists,
-  defaultPathIgnored,
-  normalizeConfiguredPath,
-  stripTrailingSlash,
-} from "./harness-freshness-io.js";
+  type DirectoryListing,
+  type PathExists,
+  type RepoFileReader,
+} from "./repo-io.js";
 
 export type HarnessFreshnessPathKind = "file" | "directory";
 
@@ -36,11 +41,6 @@ export type HarnessFreshnessFinding = {
   };
 };
 
-type RepoFileReader = (filePath: string) => string | undefined;
-type DirectoryListing = (directory: string) => readonly string[];
-export type PathExists = (repoRelativePath: string, kind: HarnessFreshnessPathKind) => boolean;
-export type PathIgnored = (repoRelativePath: string) => boolean;
-
 export type RunHarnessFreshnessCheckOptions = {
   readonly repoRoot?: string;
   readonly harnessPath?: string;
@@ -56,7 +56,7 @@ type GuideReference = {
   readonly line: number;
 };
 
-export type BacktickPathReference = {
+type BacktickPathReference = {
   readonly path: string;
   readonly kind: HarnessFreshnessPathKind;
   readonly line: number;
@@ -99,13 +99,25 @@ export function runHarnessFreshnessCheck(
   const guideReferences = extractGuideReferences(harness);
   const backtickPaths = extractBacktickPathReferences(harness);
   const isIgnored =
-    options.isIgnored ?? defaultPathIgnored(repoRoot, backtickPathIgnoreCandidates(backtickPaths));
+    options.isIgnored ??
+    defaultPathIgnored(repoRoot, backtickPathIgnoreCandidates(backtickPaths), "harness-freshness");
 
   return [
     ...unreferencedGuideFindings(harnessPath, guidePaths, guideReferences),
     ...staleBacktickPathFindings(harnessPath, backtickPaths, pathExists, isIgnored),
     ...missingReferencedGuideFindings(harnessPath, guideReferences, guidePathSet),
   ];
+}
+
+function backtickPathIgnoreCandidates(
+  backtickPaths: readonly BacktickPathReference[],
+): readonly string[] {
+  const candidates = new Set<string>();
+  for (const reference of backtickPaths) {
+    candidates.add(reference.path);
+    candidates.add(stripTrailingSlash(reference.path));
+  }
+  return [...candidates];
 }
 
 // harness-freshness IS a trusted findings stream (unlike the hotspots advisory),

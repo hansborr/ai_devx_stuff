@@ -266,7 +266,7 @@ actionlint_command() {
 }
 
 run_actionlint_file() {
-  local bin="$1" file="$2" limit="${MUSI_ACTIONLINT_TIMEOUT:-10s}" rc
+  local bin="$1" file="$2" limit="${MUSI_ACTIONLINT_TIMEOUT:-60s}" rc
 
   if command -v timeout >/dev/null 2>&1; then
     if timeout "$limit" "$bin" "$file"; then

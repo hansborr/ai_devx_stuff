@@ -2,11 +2,12 @@
 // task 48a). `inventoryClasses` parses a set of in-memory sources, inventories
 // every class, attributes name-based reference evidence across the whole set,
 // and attaches caveat labels for the risky construction contexts a static scan
-// cannot rule out. It is library/test-only: no `DriftCheckId`, subcommand, or
-// advisory row. Task 48 owns the user-facing never-instantiated-classes output.
+// cannot rule out. It is the finding-free inventory beneath the registered
+// `class-construction` command and its advisory layer.
 
 import { ts } from "ts-morph";
 
+import { INVENTORY_TEST_ATTRIBUTION_PATTERN } from "../lib/path-taxonomy.js";
 import { collectClassDeclarations } from "./class-construction-declarations.js";
 import { collectClassReferenceEvents } from "./class-construction-references.js";
 import {
@@ -52,8 +53,10 @@ const CONSTRUCTION_BUCKETS: ReadonlySet<ClassReferenceBucket> = new Set([
   "value",
 ]);
 
-const DEFAULT_TEST_FILE_PATTERN =
-  /\.(?:test|spec)\.[cm]?[jt]sx?$|(?:^|\/)(?:__tests__|__mocks__|__fixtures__|fixtures)\//u;
+// Swept into the shared taxonomy (leaf 134): the inventory test-attribution
+// policy counts mocks/fixtures as test context because a class constructed
+// only there is still test-only-constructed. Overridable via options.
+const DEFAULT_TEST_FILE_PATTERN = INVENTORY_TEST_ATTRIBUTION_PATTERN;
 
 type ParsedClassFile = {
   readonly filePath: string;

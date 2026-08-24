@@ -5,7 +5,7 @@ ratchet-merge, ratchet-platform, lint-rule, and hook lanes landed
 2026-07-12..2026-07-15. The 25 Done/superseded leaf files were removed at
 the 2026-07-19 backlog triages — recoverable from git history; their rows
 below keep the landing record)
-Created: 2026-07-01
+Created: 2026-07-01 · Updated: 2026-07-30
 Source: 2026-07-01 AI-harness review (multi-agent: harness surface map, lint +
 ratchet deep-dive, web research, Codex second opinion). Provenance,
 convergence signals, and rejected verdicts:
@@ -57,6 +57,24 @@ rules, **H** hooks, **P** public-reference fitness.
 | 70 | export-ignore vs the reference goal | P | S | high | none | Partially superseded — copyable config carved into archives; discoverability → harness-audit 63 |
 | 71 | Coverage-map claim vs checker scope | P | S | med | none | Done — `TRACKED_EXTENSION_PATTERN`/`TRACKED_BASENAMES` widened (`c28439e4`) |
 | 74 | Relocate cadence output-style rules | P | S | med | none | Done — cadence policy relocated into `AGENTS.md`, output style trimmed to tone-only (`c62c2f3b`, 2026-07-02); leaf removed 2026-07-19 (git history) |
+
+## Ratchet lifecycle follow-ups
+
+Leaf 37 was pruned after its rule additions landed, but two of its ratchets
+still need a durable exit decision:
+
+- `ratchet/no-real-time-in-package-tests` — when the current inventory drains,
+  enable its `Date.now()` and no-argument `new Date()` restrictions in normal
+  package-test lint at error, then retire the ratchet through the proven
+  promotion path.
+- `ratchet/react-refresh-only-export-components-client` — when the current
+  inventory drains, enable `react-refresh/only-export-components` with
+  `allowConstantExport: true` in normal client TSX lint at error, then retire
+  the ratchet through the proven promotion path.
+
+These are the surviving ownership records for the `exitPath` values in
+`scripts/lint-ratchet/lint-ratchet-config.ts`; the deleted leaf remains
+recoverable from Git history but is not restored as live backlog.
 
 ## Recommended Order
 

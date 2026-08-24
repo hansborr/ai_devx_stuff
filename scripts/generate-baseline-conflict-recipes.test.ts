@@ -10,17 +10,6 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const driverSource = readFileSync(join(repoRoot, "scripts/git/baseline-merge-driver.sh"), "utf8");
 
 describe("extractDriverRecipe", () => {
-  it("pulls the lint-ratchet recipe body without the heredoc scaffolding", () => {
-    const recipe = extractDriverRecipe(driverSource, "lint-ratchet");
-    expect(recipe).toContain("lint-ratchet baseline conflict: $path is generated");
-    expect(recipe).toContain("bun run lint:ratchet:update");
-    // The BEGIN/END marker comments and the EOF terminator are scaffolding, not
-    // recipe text, so they must not leak into the projected block.
-    expect(recipe).not.toContain("BEGIN lint-ratchet-baseline-conflict-recipe");
-    expect(recipe).not.toContain("END lint-ratchet-baseline-conflict-recipe");
-    expect(recipe.split("\n")).not.toContain("EOF");
-  });
-
   it("extracts each keyed baseline recipe with its own driver command", () => {
     expect(extractDriverRecipe(driverSource, "knip-unused-exports")).toContain(
       "bun scripts/sensor-knip-unused-exports.ts --update",
@@ -113,9 +102,7 @@ describe("spliceRecipeBlocks", () => {
   });
 
   it("throws when a marker pair is missing", () => {
-    expect(() => spliceRecipeBlocks("no markers here", driverSource)).toThrow(
-      /missing lint-ratchet recipe markers/,
-    );
+    expect(() => spliceRecipeBlocks("no markers here", driverSource)).toThrow(/missing .* markers/);
   });
 
   it("inserts `$&`/`$$` recipe text literally rather than as replacement patterns", () => {
@@ -130,7 +117,7 @@ describe("spliceRecipeBlocks", () => {
       ...arms.flatMap((key) => [
         `    ${key})`,
         "      cat >&2 <<EOF",
-        key === "lint-ratchet"
+        key === "knip-unused-exports"
           ? "matched span $& whole doc $$ tail-quote $' back $` group $1 for $path"
           : `${key} recipe $path`,
         "EOF",

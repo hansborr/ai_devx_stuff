@@ -1,6 +1,7 @@
 // @ts-check
 
-import { staticKeyName, staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { parentOf, staticKeyName, staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { resolveDeclaredVariable } from "./binding-resolution.js";
 
 const ARBITRARY_VALUE_RE = /^!?-?(?<utility>[a-z][\w/-]*)-\[[^\]]+\](?:\/\S+)?!?$/iu;
 const CLASS_ATTRIBUTE_NAMES = new Set(["class", "className"]);
@@ -87,11 +88,6 @@ function templateLiteralText(node) {
       return index < node.expressions.length ? `${text} ` : text;
     })
     .join("");
-}
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
 }
 
 /** @param {import('estree').Node} node */
@@ -209,27 +205,6 @@ function isReferenceInClassContext(identifier) {
   }
 
   return isDirectClassStringContext(current);
-}
-
-/**
- * Resolve the scope `Variable` that the given declarator identifier defines by
- * searching the identifier's scope and its ancestors. Scope analysis records a
- * variable in the scope where it is declared, which for a module-level
- * `const`/`let` is an ancestor of the scope `getScope` returns for the
- * identifier node.
- *
- * @param {import('eslint').Scope.Scope | null} scope
- * @param {import('estree').Identifier} identifier
- * @returns {import('eslint').Scope.Variable | undefined}
- */
-function resolveDeclaredVariable(scope, identifier) {
-  for (let current = scope; current !== null; current = current.upper) {
-    const variable = current.variables.find((candidate) =>
-      candidate.identifiers.includes(identifier),
-    );
-    if (variable !== undefined) return variable;
-  }
-  return undefined;
 }
 
 /**

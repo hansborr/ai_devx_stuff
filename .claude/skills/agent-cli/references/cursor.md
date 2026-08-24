@@ -1,12 +1,12 @@
 # cursor backend notes
 
-Verified against Cursor Agent CLI 2026.07.09-c59fd9a. The binary is confusingly named `agent`. Requires a logged-in account (`agent login`) and, like the claude backend, `python3` on PATH to parse the JSON result envelope.
+Verified against Cursor Agent CLI 2026.08.11-e8db854. The binary is confusingly named `agent`. Requires a logged-in account (`agent login`) and, like the claude backend, `python3` on PATH to parse the JSON result envelope.
 
-## Model catalog (`-m` defaults to `grok-4.5-xhigh`)
+## Model catalog (`-m` defaults to `cursor-grok-4.6-xhigh`)
 
-- `grok-4.5-xhigh` — "Cursor Grok 4.5", the wrapper default: not served by any other backend, so it is the fresh-perspective pick for consults and reviews. `grok-4.5-fast-xhigh` is the faster/cheaper variant.
+- `cursor-grok-4.6-xhigh` — "Cursor Grok 4.6 Extra High", the wrapper default: not served by any other backend, so it is the fresh-perspective pick for consults and reviews. `-xhigh-fast` is the faster/cheaper variant; `-low`/`-medium`/`-high` tiers exist too. (The catalog renamed the grok ids with a `cursor-` prefix in 2026-08; the old `grok-4.5-xhigh` id is gone.)
 - `composer-2.5` — Cursor's own fast agentic model; a reasonable `work cursor` delegate for mechanical tasks.
-- `gpt-5.3-codex[-low|-high|-xhigh][-fast]`, `gpt-5.6-sol-*`, `gpt-5.5-high` — GPT family: a Claude Code caller wanting GPT should prefer `consult codex` (native harness); these are fallbacks.
+- `gpt-5.3-codex[-low|-high|-xhigh][-fast]`, `gpt-5.6-sol-*`, `gpt-5.5-high` — GPT family. While the codex subscription is lapsed (since 2026-08-23) this is the only GPT route; `gpt-5.6-sol-high` is the review-panel seat. When codex is back, prefer `consult codex` (native harness).
 - `claude-opus-4-8-thinking-high`, `claude-fable-5-thinking-high` (no ZDR) — Claude family: prefer the native claude CLI.
 - There is no separate effort flag (the wrapper rejects `-e`): effort is encoded in the model id (`-xhigh`, `-low`) or a bracket override, e.g. `-m 'claude-opus-4-8[context=1m,effort=high]'`.
 - The catalog is account-side and changes; re-discover it with `agent --list-models` (safe to run directly — it only prints and exits).

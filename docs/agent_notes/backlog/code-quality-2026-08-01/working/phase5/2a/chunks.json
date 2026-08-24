@@ -1,0 +1,219 @@
+{
+  "base": 204,
+  "chunks": [
+    {
+      "chunk": "au2a-01",
+      "members": [
+        {
+          "promotionId": "B-001",
+          "file": "204-decompose-the-stateful-bash-verification-engine.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-001.md"
+        },
+        {
+          "promotionId": "B-002",
+          "file": "205-rename-auth-service-to-reflect-its.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-002.md"
+        },
+        {
+          "promotionId": "B-003",
+          "file": "206-single-source-memory-wait-timeout-validation-across.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-003.md"
+        },
+        {
+          "promotionId": "B-005",
+          "file": "207-encode-ghost-files-mode-dependencies-as.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-005.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-02",
+      "members": [
+        {
+          "promotionId": "B-006",
+          "file": "208-converge-drift-ai-command-result-and-sentinel-error.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-006.md"
+        },
+        {
+          "promotionId": "B-007",
+          "file": "209-remove-the-unused-repository-root-parameter-from.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-007.md"
+        },
+        {
+          "promotionId": "B-008",
+          "file": "210-load-metamagics-only-after-level-up-applicability-is.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-008.md"
+        },
+        {
+          "promotionId": "B-009",
+          "file": "211-reuse-validated-class-references-during.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-009.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-03",
+      "members": [
+        {
+          "promotionId": "B-010",
+          "file": "212-give-initiative-orchestration-layers.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-010.md"
+        },
+        {
+          "promotionId": "B-011",
+          "file": "182-logging-producers-their-auditor-separately.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a/packets/B-011.md"
+        },
+        {
+          "promotionId": "B-013",
+          "file": "213-make-character-wizard-step-validation-exhaustive.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-013.md"
+        },
+        {
+          "promotionId": "B-016",
+          "file": "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-016.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-04",
+      "members": [
+        {
+          "promotionId": "B-017",
+          "file": "215-converge-destructive-client-actions-on-one.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-017.md"
+        },
+        {
+          "promotionId": "B-018",
+          "file": "216-route-npc-mutations-through-the-campaign.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/B-018.md"
+        },
+        {
+          "promotionId": "C-001",
+          "file": "217-correct-the-architecture-plan-s-unsupported-level-up.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-001.md"
+        },
+        {
+          "promotionId": "C-002",
+          "file": "218-replace-the-coverage-cadence-guide-s-deleted.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-002.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-05",
+      "members": [
+        {
+          "promotionId": "C-004",
+          "file": "219-give-repository-workflows-cwd-stable-scope-bearing.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-004.md"
+        },
+        {
+          "promotionId": "C-005",
+          "file": "220-add-a-joined-explain-view-for-harness-control.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-005.md"
+        },
+        {
+          "promotionId": "C-007",
+          "file": "221-rename-metamagic-slot-terminology-to-options-known.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-007.md"
+        },
+        {
+          "promotionId": "C-008",
+          "file": "222-make-multiclass-prerequisite-table-states-exclusive.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-008.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-06",
+      "members": [
+        {
+          "promotionId": "C-009",
+          "file": "025-spellcastingts-contains-five-independently.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a/packets/C-009.md"
+        },
+        {
+          "promotionId": "C-011",
+          "file": "223-remove-the-fulfilled-shared-rules-mutation-gap-from.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-011.md"
+        },
+        {
+          "promotionId": "C-014",
+          "file": "082-devcontainer-quick-start-depends.md",
+          "ruling": "augment-existing-leaf",
+          "packet": "working/phase5/2a/packets/C-014.md"
+        },
+        {
+          "promotionId": "C-016",
+          "file": "224-remove-lint-ratchet-compatibility-apis-used-only-by.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-016.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-07",
+      "members": [
+        {
+          "promotionId": "C-018",
+          "file": "225-use-the-canonical-markdown-table-escaper-in.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-018.md"
+        },
+        {
+          "promotionId": "C-019",
+          "file": "226-signal-overflow-when-token-conditions-exceed-the.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-019.md"
+        },
+        {
+          "promotionId": "C-020",
+          "file": "227-make-legal-license-and-srd-attribution-available.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/C-020.md"
+        },
+        {
+          "promotionId": "D-01-001",
+          "file": "228-align-shared-export-guidance-with-adr-0005-s.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/D-01-001.md"
+        }
+      ]
+    },
+    {
+      "chunk": "au2a-08",
+      "members": [
+        {
+          "promotionId": "D-01-002",
+          "file": "229-standardize-datetimefield-backed-mapper-result.md",
+          "ruling": "new-leaf",
+          "packet": "working/phase5/2a/packets/D-01-002.md"
+        }
+      ]
+    }
+  ]
+}

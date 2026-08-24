@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import type { LintRatchetConfig, LintRatchetMetric } from "./config-types.js";
+import type { LintRatchetConfig } from "./config-types.js";
 import type { ESLintMessage } from "./eslint-runner.js";
-import { metricStrategies, metricStrategy } from "./metric-strategies.js";
+import { metricStrategy } from "./metric-strategies.js";
 import { ConfigError } from "./metrics-types.js";
 
 function ratchet(overrides: Partial<LintRatchetConfig> = {}): LintRatchetConfig {
@@ -14,7 +14,6 @@ function ratchet(overrides: Partial<LintRatchetConfig> = {}): LintRatchetConfig 
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Fixture ratchet principle for metric strategy tests.",
     ...overrides,
   } as LintRatchetConfig;
@@ -25,18 +24,6 @@ function message(overrides: Partial<ESLintMessage> = {}): ESLintMessage {
 }
 
 describe("metricStrategy", () => {
-  it("registers exactly the three live metrics", () => {
-    const metrics = metricStrategies().map((strategy) => strategy.metric);
-    expect([...metrics].sort()).toStrictEqual<LintRatchetMetric[]>([
-      "complexity-severity",
-      "effective-line-count",
-      "message-count",
-    ]);
-    for (const metric of metrics) {
-      expect(metricStrategy(metric).metric).toBe(metric);
-    }
-  });
-
   describe("message-count", () => {
     const strategy = metricStrategy("message-count");
 

@@ -8,10 +8,16 @@ import ts from "typescript";
 import tseslint from "typescript-eslint";
 import { describe, expect, it } from "vitest";
 
+import { localPlugin } from "../eslint-config/local-plugin.generated.js";
 import { LINT_AGENT_GUIDANCE_OVERLAYS } from "../scripts/lint-agent-guidance.js";
-import { ALL_LOCAL_RULES } from "./all-local-rules.js";
 import noExplicitAny from "./no-explicit-any.js";
 import typeAssertionBoundary from "./type-assertion-boundary.js";
+
+// Derived from the generated registry rather than the rule files on disk, so
+// this meta-contract suite always checks the rule set lint actually runs.
+// Completeness of that registry versus the filesystem is owned by
+// scripts/harness/generate-local-plugin.ts and its freshness gate.
+const ALL_LOCAL_RULES = Object.entries(localPlugin.rules).map(([id, rule]) => ({ id, rule }));
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const LOCAL_ESLINT_RULES_GUIDE = readFileSync(
@@ -332,6 +338,10 @@ function ruleIdsByPairedGuide() {
 }
 
 describe("local rule message guidance", () => {
+  it("discovers local rules before checking their meta-contract", () => {
+    expect(ALL_LOCAL_RULES, "local plugin rule registry").not.toHaveLength(0);
+  });
+
   it("keeps Before/After snippets in high-traffic agent overlays", () => {
     const linter = new Linter();
     const filename = "packages/server/src/services/structural-guidance-example.ts";

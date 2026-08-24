@@ -160,4 +160,5 @@ they govern nothing:
   `scripts/tests/test-harness-check.sh`, because that fixture runs the
   smoke-subjects generator, which now loads the TypeScript-backed walker.
 - `bun run test:scripts:changed` green (`test-dependency-freshness` failed once
-  under parallel load and passes standalone — the known memory-deadline flake).
+  under parallel load because its coarse outer elapsed assertion fired; the
+  memory deadline and lock-release checks passed).

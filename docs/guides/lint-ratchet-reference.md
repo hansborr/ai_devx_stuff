@@ -22,27 +22,33 @@ comparison, semantic-minimum merge, item lifecycle, and atomic replacement.
 There is no retained legacy parser, comparator, merge implementation, or
 ratchet-local atomic writer.
 
-Leaf 02's internal workspace package will expose this existing surface rather
-than invent another one:
+The package exposes this surface through exact, reviewed subpaths rather than
+through its private implementation modules:
 
-- `group-baseline.ts`: `GroupedBaselineSpec`, `GroupedBaseline`,
+- `@musi/lint-ratchet/kernel/group-baseline.js`: `GroupedBaselineSpec`, `GroupedBaseline`,
   `GroupedBaselineGroup`, `GroupedParseResult`,
   `CompareGroupedBaselineResult`, `MergeGroupedBaselineInput`, and
   `MergeGroupedBaselineResult`, plus `parseGroupedBaseline`,
   `formatGroupedBaseline`, `compareGroupedBaseline`, `mergeGroupedBaseline`,
   and `conflictMarkerTripwire`.
-- `item-merge.ts`: `ItemMergePolicy`, `ItemMergeOutcome`, and `mergeItemMaps`.
-- `single-group-spec.ts`: `SingleGroupMeta`, `SingleGroupMergePolicyOptions`,
+- `@musi/lint-ratchet/kernel/single-group-spec.js`: `SingleGroupMeta`,
+  `SingleGroupMergePolicyOptions`,
   `singleGroupSpec`, `singleGroupBaseline`, and `singleGroupEntries`, which
   adapt flat entry documents without changing their wire format.
-- `entry-baseline.ts`: the existing flat compatibility exports
+- `@musi/lint-ratchet/kernel/entry-baseline.js`: the flat compatibility exports
   `BaselineMetricSpec`, `BaselineEntry`, `parseBaseline`, `formatBaseline`, and
   `entryCount`.
-- `atomic-write.ts`: `writeFileAtomically`, `writeFileAtomicallySync`, and
-  `writePostMergeTruthUpMarker`.
-- `merge-cli.ts` and `merge-driver-presence.ts`: `runMergeDriverCli`,
-  `runMergeDriverCliMain`, and `forwardMissingMergeDriverWarning` for the Git
-  rail.
+- `@musi/lint-ratchet/kernel/atomic-write.js`: `writeFileAtomically`,
+  `writeFileAtomicallySync`, and `writePostMergeTruthUpMarker`.
+- `@musi/lint-ratchet/git-rail/merge-cli.js` and
+  `@musi/lint-ratchet/git-rail/merge-driver-presence.js`:
+  `runMergeDriverCli`, `runMergeDriverCliMain`, and
+  `forwardMissingMergeDriverWarning` for the Git rail.
+
+The package README's supported-entry-point inventory and `package.json#exports`
+are authoritative for the complete public surface. For example,
+`tools/lint-ratchet/src/kernel/item-merge.ts` remains package-private behind the
+grouped-baseline facade.
 
 Two diagnostics/merge contracts are pinned by tests (lint-arch-review-2026-07
 leaf 11): the tests-family structural parse accumulates and reports the full
@@ -65,15 +71,18 @@ resolver-aware boundary check and knip self-containment in
 The coverage map is the inventory companion to the ratchet. A ratchet entry
 protects the files named by that one rule's `files` and `ignores`; it does not
 prove that every maintained file family has a lint owner. The map records that
-broader boundary in a committed Markdown table derived from `git ls-files`,
-normal ESLint reach, and the current ratchet registry. Musi's current map lives
-at `docs/generated/lint-coverage-map.md`.
+broader boundary in a committed policy manifest, cross-checked against
+`git ls-files`, normal ESLint reach, and the current ratchet registry. Musi's
+current manifest is `scripts/lint-coverage-map-manifest.ts` plus its
+`-manifest-<area>.ts` entry modules; the reader-facing table it renders lives at
+`docs/generated/lint-coverage-map.md`.
 
-The map is partially generated, not wholly generated. One marker-delimited
-block owns the direct-child `scripts/drift-ai/*.ts` row; root entrypoints,
-nested fixtures, every other table, and durable policy prose stay
-hand-maintained. Run `bun run docs:lint-coverage-map:generate` after its tracked
-files, ESLint reach, or ratchet membership changes. The paired
+The map is wholly generated. Coverage policy is typed data validated by a Zod
+schema, and the Markdown document — narrative prose included — is rendered from
+it, so nothing in the document is a policy input. One row, the direct-child
+`scripts/drift-ai/*.ts` family, additionally derives its file count and ratchet
+membership from the live tree. Edit the manifest, then run
+`bun run docs:lint-coverage-map:generate`. The paired
 `docs:lint-coverage-map:generate:check` command performs a read-only byte
 freshness check and is registered as a generated surface. It is separate from
 the semantic `:check` and reach-aware `:audit` commands below.
@@ -82,54 +91,71 @@ the semantic `:check` and reach-aware `:audit` commands below.
 (it mirrors the committing gate's behaviour — no ESLint-reach probe; see the
 `:audit` split below):
 
-- Every path code span in the path column must match at least one tracked file.
-- Every `ratchet/<name>` in the ratchet column must exist in
-  `scripts/lint-ratchet/lint-ratchet-config.ts`.
-- Every status must be one of `linted`, `ratcheted`, `proposed`,
-  `pending-leaf`, `excluded`, or `not-code`, combined with `+` when needed.
+- Every glob in an entry's `globs` must match at least one tracked file. Globs
+  are explicit and repo-rooted, and are matched only by the canonical ratchet
+  matcher (`tools/lint-ratchet/src/kernel/ratchet-globs.ts`) — the same engine
+  ESLint flat config and the ratchet registry use, so the map cannot drift into
+  a private glob dialect.
+- Every `ratchet/<name>` an entry names must exist in Musi's
+  `scripts/lint-ratchet/lint-ratchet-config.ts`, and must cover at least one
+  tracked file that entry matches.
+- The status vocabulary (`linted`, `ratcheted`, `proposed`, `pending-leaf`,
+  `excluded`, `not-code`), the rule that lint-target and non-lint-target parts
+  may not mix, and the agreement between an entry's `normalLint.covered` and its
+  `linted` status part are schema invariants: they fail at manifest load, before
+  the checker runs.
 - Every tracked maintained file must be accounted for by some row. The Musi
   checker intentionally ignores generated/cache directories and only treats
   common code, config, script, docs, Prisma, SQL, and Dockerfile paths as
   coverage-map inputs.
 
-The `--check-eslint-reach` flag adds the slow but important proof for rows
-marked `linted`: each matched ESLint-managed tracked file must resolve an
-ESLint config through `ESLint.calculateConfigForFile()`. That catches
-ignore/unignore mistakes where a row says "normal lint owns this" but ESLint
-would never run on the file. It is especially important when adopting local
-rules, because a `local/*` rule can have metadata, tests, and even a ratchet
-baseline while the target file family is still outside normal ESLint reach. The
-reach check proves the prerequisite for a normal-lint claim; it does not inspect
-every rule setting or replace targeted rule tests.
+The `--check-eslint-reach` flag adds the slow but important proof that every
+row's `linted` claim matches what the ESLint config actually does. For each
+matched ESLint-managed tracked file it asks `ESLint.calculateConfigForFile()`
+whether at least one rule resolves — merely getting a config object back is not
+enough, because that answers for any file with a known extension, including one
+every `ignores` entry excludes. Both directions are checked: a row marked
+`linted` whose files resolve no rules, and a row that does not claim `linted`
+whose files do. That catches ignore/unignore mistakes in either direction, where
+a row says "normal lint owns this" but ESLint would never run on the file, or a
+row is written off as excluded while lint quietly still covers it. It is
+especially important when adopting local rules, because a `local/*` rule can
+have metadata, tests, and even a ratchet baseline while the target file family
+is still outside normal ESLint reach. The reach check proves the prerequisite
+for a normal-lint claim; it does not inspect every rule setting or replace
+targeted rule tests.
 
-Staged and full modes have different jobs:
+The committing gate and full verification have different jobs, and the two
+package scripts — not a mode flag — are what tell them apart:
 
-- Full mode reads the worktree map and should run with `--check-eslint-reach`
-  in CI or full verification. In Musi, the dedicated `docs:lint-coverage-map:audit`
-  package script bakes that flag in, and full `verify`/`verify:parallel` run the
-  `:audit` form. The plain `docs:lint-coverage-map:check` script matches the
-  committing gate (no reach probe) so a standalone pre-flight no longer reports
-  reach gaps the `--staged` gate never trips.
-- Staged mode reads the index copy of the map with `git show :<map-path>`, so
-  pre-commit validates the map that will actually be committed. It deliberately
-  skips ESLint reach, even when the package script also supplies
-  `--check-eslint-reach`, so a hook invocation that includes both flags still
-  treats `--staged` as the reach-skip mode. That keeps the parallel pre-commit
-  gate fast and avoids mixing staged map content with slow worktree ESLint
-  config resolution.
+- Full mode should run with `--check-eslint-reach` in CI or full verification.
+  In Musi, the dedicated `docs:lint-coverage-map:audit` package script bakes
+  that flag in, and full `verify`/`verify:parallel` run the `:audit` form.
+- The committing gate runs the plain `docs:lint-coverage-map:check`, which omits
+  the reach probe. That keeps the parallel pre-commit gate fast — the whole-tree
+  ESLint config resolution it would otherwise do is the single slowest part of
+  the check — and it means a standalone pre-flight of the same script agrees
+  with what pre-commit actually enforces.
+- There is no separate staged mode. Because the manifest is TypeScript,
+  changed-mode verification already aborts on unstaged source-relevant work, so
+  the worktree manifest is the manifest that will be committed and there is no
+  index copy to read.
 
 Adopters should copy the pattern, not the Musi paths verbatim:
 
-- Keep a committed coverage map with the same table columns and status
-  vocabulary, or adapt the parser with the map format.
-- Copy `scripts/lint-coverage-map-check.ts` and
-  `scripts/lint-coverage-map-check-eslint-reach.ts`, then update the map path,
-  root path prefixes, tracked extensions, generated-directory exclusions, and
-  ratchet-registry import for the adopting repository.
+- Keep coverage policy in typed data with a schema, not in the rendered
+  document. A generated table is a presentation of policy; parsing it back is
+  what forces a private glob dialect and column-offset readers into existence.
+- Copy `scripts/lint-coverage-map-check.ts`,
+  `scripts/lint-coverage-map-check-eslint-reach.ts`, and
+  `scripts/lint-coverage-map-check-scope.ts`, then update the tracked
+  extensions, generated-directory exclusions, and ratchet-registry import for
+  the adopting repository. Match row membership with the glob engine the
+  adopter's lint config already uses; do not write a second one.
 - Expose one full command that includes `--check-eslint-reach` (Musi's
   `:audit`), and wire that command into CI or full verification. Wire the
-  pre-commit slot to the gate-default `:check` script plus `--staged` so the
-  standalone pre-flight agrees with what pre-commit actually enforces.
+  pre-commit slot to the gate-default `:check` script so the standalone
+  pre-flight agrees with what pre-commit actually enforces.
 - If the project lints non-ESLint surfaces such as shell, YAML, TOML, Prisma,
   SQL, or Markdown with other tools, keep those rows in the map but treat
   tool-specific reach checks as separate sensors or future extensions.
@@ -147,7 +173,6 @@ A small core-rule registry entry is the lowest-dependency starting point:
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Keep debugger statements from growing beyond the current debt.",
 },
 ```
@@ -164,7 +189,6 @@ A local-rule ratchet uses the same shape, but its rule source defaults to
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Keep forbidden placeholder calls from growing beyond the current debt.",
 },
 ```
@@ -190,20 +214,22 @@ changes.
 
 Registry preflight, collection, and lifecycle checks are Git-tracked-file based.
 They call `git ls-files`, then expand each ratchet with the shared
-`ratchet-globs.ts` matcher before invoking ESLint with explicit paths. New
+`@musi/lint-ratchet/kernel/ratchet-globs.js` matcher before invoking ESLint with
+explicit paths. New
 source files must be tracked before empty-glob, collection, coverage-map, and
 zero-baseline checks can prove anything about them; untracked matching files are
 not counted by the ratchet gate.
 
 The ratchet runner writes isolated ESLint configs for each registry entry. It
 does not reuse the project's full flat config and toggle one rule. Rules that
-depend on project `settings`, globals, processors, import resolvers, or custom
-TypeScript project setup need changes in `scripts/lint-ratchet/eslint-config.ts`
-before they are reliable ratchet candidates. The registry preflight glob matcher
-(`scripts/lint-ratchet/ratchet-globs.ts`) resolves `files`/`ignores` patterns
-with minimatch and `{ dot: true }` — the same engine and option ESLint flat
-config uses — so the gate selects exactly the file set ESLint would, dotfiles
-included, with no hand-maintained supported-syntax subset to keep in sync.
+depend on project `settings`, globals, processors, or import resolvers need
+changes in `tools/lint-ratchet/src/kernel/eslint-config.ts` before they are
+reliable ratchet candidates. A custom TypeScript project instead uses the
+registry entry's `typeAwareProject` field. The registry preflight glob matcher
+(`@musi/lint-ratchet/kernel/ratchet-globs.js`) resolves `files`/`ignores`
+patterns with minimatch and `{ dot: true }` — the same engine and option ESLint
+flat config uses — so the gate selects exactly the file set ESLint would,
+dotfiles included, with no hand-maintained supported-syntax subset to keep in sync.
 Leading `!` negation is rejected by registry preflight because the ratchet
 combines patterns as an unordered OR and cannot preserve ESLint's ordered
 unignore semantics safely.
@@ -215,34 +241,36 @@ Local-rule scaffold is only needed for `local/*` ratchets:
   `local/<rule-name>` metadata.
 - Each ratcheted local rule needs an `eslint-rules/<rule-name>.js` source file.
   The runner hashes this exact file for `ruleSourceHash`.
-- Each local rule's `meta.docs` must include `description`, `principle`,
-  `category`, `pairedGuide`, and `repairKind`; `pairedGuide` should point at an
-  existing guide path unless the project replaces `scripts/lib/lint-rule-docs.ts`
-  with a reduced policy stub.
+- In Musi's adapter, each local rule's `meta.docs` must include `description`,
+  `principle`, `category`, `pairedGuide`, and `repairKind`, and `pairedGuide`
+  must point at an existing guide path. Musi's
+  `scripts/lib/lint-rule-docs.ts` owns that repository-specific policy; another
+  adapter may validate a smaller metadata contract.
 
-Projects that only ratchet core ESLint rules or third-party plugin rules can
-skip `eslint.config.js` local-plugin wiring and `eslint-rules/` files by using
-that reduced `scripts/lib/lint-rule-docs.ts` stub.
+Adapters that only ratchet core ESLint rules or third-party plugin rules can
+skip local-plugin wiring and `eslint-rules/` files entirely. They do not receive
+or need a stub for Musi's `scripts/lib/lint-rule-docs.ts`.
 
 Two runtime knobs matter when tuning the collection:
 
-- The `LINT_RATCHET_REPORT_ARTIFACT_URL` env var is part of the portable
-  surface. The runner's single source of truth is the exported
+- Musi's reporting adapter accepts the `LINT_RATCHET_REPORT_ARTIFACT_URL` env
+  var. Its single source of truth is the exported
   `LINT_RATCHET_REPORT_ARTIFACT_URL_ENV` constant in
-  `scripts/lint-ratchet/report.ts`. If you rename it, update that constant and
-  every workflow `env:` key that still exports the old literal name; otherwise
-  the runner silently omits the `Artifact:` line.
-- Default `lint:ratchet`, `lint:ratchet:update`, and
-  `lint:ratchet:check-baseline` start by running the same registry preflight as
-  `lint:ratchet:check-registry`, including `registry-shape`, `empty-glob`,
-  `dead-glob` (a single `files` pattern that matches no tracked file, even when
-  sibling patterns match — `allowEmpty` waives it), `absolute-path`, and
-  harness-manifest failures. `lint:ratchet:update` skips only `orphan-baseline`
-  preflight failures, because its update gate owns explicit orphan removal
-  through `--allow-worse` or `--retire-ratchet`. Keep
-  `lint:ratchet:check-registry` as a fast standalone setup/debug command when
-  you want those labels without a full ESLint collection; CI does not need a
-  separate visible step if `lint:ratchet` is already a gate.
+  Musi's `scripts/lint-ratchet/report.ts`. An adopter copying that reporting
+  pattern may choose another name; keep its adapter constant and workflow
+  `env:` keys aligned or the report will omit the `Artifact:` line.
+- Musi's default `lint:ratchet`, `lint:ratchet:update`, and
+  `lint:ratchet:check-baseline` modes start by running the same adapter-owned
+  registry preflight as `lint:ratchet:check-registry`, including
+  `registry-shape`, `empty-glob`, `dead-glob` (a single `files` pattern that
+  matches no tracked file, even when sibling patterns match — `allowEmpty`
+  waives it), `absolute-path`, and harness-manifest failures. Musi's update mode
+  skips only `orphan-baseline` preflight failures because its update gate owns
+  explicit orphan removal through `--allow-worse` or `--retire-ratchet`. The
+  demo instead exposes `--check-registry` as a separate adapter mode and does
+  not silently run it before gate/update. Adopters choose and test that
+  composition; when the gate does not include preflight, run the registry check
+  separately in CI.
 
 ## CI parity
 
@@ -259,32 +287,23 @@ post-merge truth-up are intentionally advisory so dependency installation and
 local Git operations stay recoverable; without an equivalent blocking gate, a
 stale driver result or kept-ours fallback can land without validation.
 
-The minimum CI setup runs the ratchet, audits zero-baseline lifecycle metadata,
-and always uploads the diagnostics envelope. Swap `bun` for the adopter's
-package manager if needed:
+The demo-compatible minimum runs its explicit registry check and its blocking
+gate. It prints the demo-owned JSON result to standard output; it does not write
+a diagnostics artifact or expose a zero-baseline command:
 
 ```yaml
+- name: Lint ratchet registry
+  run: bun run lint:ratchet:check-registry
 - name: Lint ratchet
-  env:
-    HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
   run: bun run lint:ratchet
-- name: Lint ratchet zero-baseline lifecycle
-  run: bun run lint:ratchet:zero-baseline
-- name: Upload lint-ratchet diagnostics
-  if: always()
-  uses: actions/upload-artifact@v4
-  with:
-    name: lint-ratchet-diagnostics
-    path: lint-ratchet-diagnostics.json
-    retention-days: 7
 ```
 
-Default `lint:ratchet` runs registry preflight before collecting ESLint
-findings, then compares the current findings to the committed baseline and
-emits the diagnostics envelope. That keeps missing local-rule files, empty
-globs, absolute paths, orphan baseline ids, regressions, and uncommitted
-improvements behind one semantic CI gate. See `.github/workflows/ci.yml` in
-this repository for the worked example.
+The package's gate operation compares current findings to the committed
+baseline and returns typed result data. Registry-preflight composition, output
+format, artifact writing, and zero-baseline mode dispatch are adapter concerns.
+The demo keeps its registry check separate and renders one-line JSON to stdout;
+Musi's adapter composes the broader preflight and reporting features described
+below.
 
 CI should not run `lint:ratchet:update` automatically:
 
@@ -296,9 +315,9 @@ CI should not run `lint:ratchet:update` automatically:
 
 For a failed CI run:
 
-- The step summary (`$GITHUB_STEP_SUMMARY`) carries the per-control breakdown.
-- The uploaded `lint-ratchet-diagnostics.json` artifact carries the full
-  envelope with `path`, `ruleId`, `why`, and `howToFix` for every finding.
+- Inspect the adapter's gate output (the demo's JSON names the status, changed
+  paths, and recovery command). Persist richer diagnostics only if the adapter
+  implements a file-output contract.
 - If the current tree is better than the committed baseline, recover with
   `bun run lint:ratchet:update`, then commit and re-push the tighter baseline.
 - If the current tree is worse than the committed baseline, fix the new
@@ -321,15 +340,13 @@ Avoid hand-written path filters on the ratchet workflow:
   the files matched by a narrow source filter.
 - If an adopter still insists on path filters, the required trigger union must
   cover the registry source globs themselves, meaning every `files` glob from
-  every `ratchet/*` entry; the dynamically expanded ratchet runtime set
-  described under the manifest's `runtimeFiles`/`expandDirectories` in
-  [Lint Ratchet Adoption](lint-ratchet-adoption.md#what-to-copy); and
-  per-project control inputs that change ratchet identity, including
-  `eslint.config.js` and any included config files, the registry source file
-  such as `scripts/lint-ratchet/lint-ratchet-config.ts`, `eslint-rules/**` for
-  local-rule projects, dependency manifests (`package.json` plus the lockfile),
-  and parser project configs the runner consults such as `tsconfig.scripts.json`
-  or equivalent project-service tsconfigs.
+  every `ratchet/*` entry; `tools/lint-ratchet/**` (or the installed package
+  version in the dependency manifests); the adopter's adapter, entry CLI, and
+  registry files; the committed `lint-ratchet.baseline.json`; `eslint.config.js`
+  and any included config files; `eslint-rules/**` for local-rule projects;
+  dependency manifests (`package.json` plus the lockfile); and parser project
+  configs the runner consults, such as `tsconfig.scripts.json` or equivalent
+  project-service tsconfigs.
 - Because that union is so broad, hand-maintaining it tends to drift; in
   practice, no-filter is the only durable option.
 
@@ -338,8 +355,32 @@ with pinned action SHAs, a formatter-backed step summary, a sticky PR comment,
 and the strict-improvement gate described in the operator guide's
 [Commands](lint-ratchet.md#commands) in effect.
 
-The diagnostics envelope is already captured to a file by the artifact plumbing
-above. To render it for reviewers, pipe that file through
+### Musi diagnostics and reporting extension
+
+The rest of this CI section requires adapter features the demo does not
+implement: writing a Musi `HarnessDiagnostics` envelope when
+`HARNESS_DIAGNOSTICS_OUTPUT` is set, auditing zero-baseline lifecycle through a
+CLI mode, and formatting that envelope through a report mode. Musi wires those
+features as follows; adopters must implement and test equivalent modes before
+copying these steps:
+
+```yaml
+- name: Lint ratchet
+  env:
+    HARNESS_DIAGNOSTICS_OUTPUT: lint-ratchet-diagnostics.json
+  run: bun run lint:ratchet
+- name: Lint ratchet zero-baseline lifecycle
+  run: bun run lint:ratchet:zero-baseline
+- name: Upload lint-ratchet diagnostics
+  if: always()
+  uses: actions/upload-artifact@v4
+  with:
+    name: lint-ratchet-diagnostics
+    path: lint-ratchet-diagnostics.json
+    retention-days: 7
+```
+
+Once that adapter has captured the diagnostics envelope, pipe the file through
 `bun run lint:ratchet:report` and append the result to `$GITHUB_STEP_SUMMARY`.
 Pass the uploaded artifact URL through `LINT_RATCHET_REPORT_ARTIFACT_URL` when
 available; the formatter adds an `Artifact: <url>` line above the recovery
@@ -568,19 +609,45 @@ Third-party entries must be explicit:
 `ecmaVersion: "latest"`, `sourceType: "module"`, and JSX parsing enabled.
 `type-aware-ts` mirrors the project-service knobs in `eslint.config.js`:
 `projectService: true` with `tsconfigRootDir` set to the repository root.
-The profile only changes parser configuration; the entry's `files` and
-`ignores` still control scope, including generated, dist, and fixture paths.
+Set `typeAwareProject` on a type-aware entry to use an explicit repo-relative
+tsconfig instead; the generated config then disables project service. Minimal
+entries cannot set that field. The profile only changes parser configuration;
+the entry's `files` and `ignores` still control scope, including generated,
+dist, and fixture paths.
 
-Third-party plugins are not loaded by arbitrary module name. Add a package to
-`lintRatchetThirdPartyPluginAllowlist` in `scripts/lint-ratchet/lint-ratchet-config.ts`
-before adding an entry that uses it. The allowlist binds an npm package name to
-the ESLint rule namespace it is allowed to provide. `pluginExport` defaults to
+Third-party plugins are not loaded by arbitrary module name. In Musi's adapter,
+add a package to `lintRatchetThirdPartyPluginAllowlist` in
+`scripts/lint-ratchet/lint-ratchet-config.ts` before adding an entry that uses
+it; other adapters declare the same allowlist in their own registry module. The
+allowlist binds an npm package name to the ESLint rule namespace it is allowed
+to provide. `pluginExport` defaults to
 `"default"` for the plugin module's default export; set
 `pluginExport: "plugin"` for packages that expose rules from `module.plugin`,
 such as typescript-eslint's combined export. A third-party ratchet whose
 package/namespace pair is absent from the allowlist fails registry validation
 before ESLint runs. This keeps plugin upgrades, namespace choices, and cache
 identity reviewable in the same diff as the ratchet entry.
+
+Use proposal mode to evaluate that complete contract before editing either
+governance surface:
+
+```sh
+bun run lint:ratchet -- --propose @scope/plugin/rule 'packages/**/*.ts' \
+  --plugin @scope/eslint-plugin \
+  --plugin-export default \
+  --parser-profile minimal-ts
+```
+
+When the rule namespace is already allowlisted, omit `--plugin` and proposal
+mode infers the bound module and export; a conflicting supplied module or export
+is rejected. For a new namespace, `--plugin` is required. The command evaluates
+with a preview-only copied binding, then prints both the full third-party
+ratchet config and the exact allowlist entry that must accompany promotion; it
+does not mutate the registry or baseline. `--plugin-export` defaults to
+`default`, and `--parser-profile` defaults to `minimal-ts`. Opting into
+`type-aware-ts` uses project service and can make broad globs substantially
+slower, so the CLI prints progress before collection. Module-resolution and
+bad-export failures name the proposal option to correct.
 
 Core ESLint entries use `source: { kind: "core" }` with a bare built-in rule id
 such as `complexity`; slashed ids are rejected and no allowlist entry is needed.
@@ -626,8 +693,9 @@ not yet inspect.
 2. Run a scoped inventory with the rule set you want to enforce. Keep the
    inventory narrow enough that the first baseline is reviewable by file family
    or tool surface.
-3. Add a ratchet entry in `scripts/lint-ratchet/lint-ratchet-config.ts` with explicit
-   `files`, `ignores`, rule options, source, and parser profile. Prefer a
+3. Add a ratchet entry in the adapter's registry module (in Musi,
+   `scripts/lint-ratchet/lint-ratchet-config.ts`) with explicit `files`,
+   `ignores`, rule options, source, and parser profile. Prefer a
    family-level scope when the rule and parser needs are coherent; split by file
    or tool when the baseline would be too noisy. Avoid overlapping ratchets for
    the same rule/file pair; if multiple cleanup leaves share a tool family, one

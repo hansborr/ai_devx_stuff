@@ -23,8 +23,8 @@ an empty answer, while `validate_launch_paths_copilot` derives the fixed
 sidecar name and rejects any nonempty sidecar. The wrapper tests independently
 pin empty `-o` reuse and stale-sidecar rejection, but do not exercise their
 composition after an intent-only/no-final failure. The source pain point is
-`/home/node/persist/musi/pain_points.log` (2026-07-21, external consult
-reliability), derived from the Claude memory
+`/home/node/persist/musi/pain_points/agent-cli-and-external-reviews.md`
+(2026-07-21, external consult reliability), derived from the Claude memory
 `cross-model-boundary-review-dispatch.md`.
 
 ## Scope

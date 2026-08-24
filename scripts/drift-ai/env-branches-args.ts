@@ -1,6 +1,16 @@
-import { readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { positiveIntValue } from "./arg-readers.js";
 import { DEFAULT_ENV_BRANCHES_TOP, ENV_BRANCHES_SUBCOMMAND } from "./env-branches-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const ENV_BRANCHES_USAGE = [
   "Usage:",
@@ -18,16 +28,24 @@ export type ParsedEnvBranchesArgs = {
   readonly top: number;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--top", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--top": positiveIntValue("--top").default(DEFAULT_ENV_BRANCHES_TOP),
+});
+
 export function parseEnvBranchesArgs(argv: readonly string[]): ParsedEnvBranchesArgs {
-  let top = DEFAULT_ENV_BRANCHES_TOP;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: ENV_BRANCHES_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, top };
+  return { base: subcommandBaseFromOptions(options), top: options["--top"] };
 }

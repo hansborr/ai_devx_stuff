@@ -1,0 +1,328 @@
+{
+  "contractVersion": 1,
+  "consult": "D-06",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-45",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Slices section schedules 34.1 with the named type-only-cycle key and predicate, both caller repoints, and all three ReadonlySet<DriftCheckId> annotations.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-46",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Slices section schedules 34.2 to move the Knip memo into env.reportCache and delete clearKnipRunCache plus its report-builder call.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-47",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step 7 ruling preserves an optional standalone carve-out covering the 465-line triage-report-input and triage-report-drift-input contracts family while explicitly excluding triage-verdict-input.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition permanently drops the bounded-subprocess kernel after verifying that the adapters differ on signal gates, kill signals, buffers, exit-code meaning, and tool-unavailable policy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition permanently drops passing existing objects through the chunks APIs because it would churn exported signatures for arity cosmetics without recovering type information.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition permanently drops the root drift-ai barrel-test split because it adds no coverage, loses incidental barrel verification, and rests on a false colocation premise.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-156",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Evidence honesty section records the SIGTERM/SIGKILL mismatch but finds no live defect because ETIMEDOUT catches real timeout kills first, and Rejected alternatives explicitly leaves it unscheduled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition permanently drops the exact 2,765-line drift-ai barrel-suite split, noting that moving 1,658 lines would add no coverage.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-46",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Slices section makes rewriting the 15-plus clearKnipRunCache call sites across the three named test files an explicit part of scheduled slice 34.2.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition permanently drops both relevant drift-ai decompositions: the bounded-subprocess kernel and the chunks-API object/signature reshape.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-155",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md",
+      "coverage": "partial",
+      "reason": "The live Step disposition drops only the drift-ai barrel-test split; CQ25-155 says nothing about the monolithic lint-ratchet shell suite, whose split is separately scheduled by CQ25-31.",
+      "promotionIds": [
+        "D-06-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-188",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf disposition drops both the fireAfterCommit reshape and the tool-family split, recording lifetime as the only acceptable boundary for any future split.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-189",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops the enterSurface read gate and combat-selection derivation, explaining that selection is not total in either direction.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-190",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops MapCanvasFrame and the panel primitives because VttSurface owns the shared shell and the remaining configurable chrome has only two callers.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-191",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops SheetDialogState grouping due to its dependency-array identity hazard and drops the nested drawer atom until a new mode or cast variant creates a revisit trigger.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-192",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops the realtime-invalidation rename, while the live 17-client-hook-naming.md anchor drops the optional member sweep and explicitly forbids renaming the callback to useFeature.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-193",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Rejected alternatives and later binding design-panel decision retain SheetSharedProps as the responsive layouts' declaration point and expressly reject a React context provider.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-194",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live store-ownership ruling rejects per-surface instancing as a schedule and permits reconsideration only after a visible stale frame, simultaneous VTT surfaces, or a fourth reset-coupled store.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-195",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Verdict and Rejected alternatives refuse a package-root features hierarchy, while the live 48-sheet-module-doc.md scope requires documentation without splitting the sheet directory.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-196",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Rejected alternatives section refuses the descriptor map and generic binder because preserving the six operation shapes would make the abstraction longer than the closures.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-197",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live F1 slice preserves three behaviorally distinct numeric contracts, and Rejected alternatives keeps single-consumer numeric and string-list helpers local under the two-consumer threshold.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-198",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live First landing outcome explicitly records both remaining isDm half-boundaries—InitiativeTracker Next Turn and MapCanvas token dragging—as closed-declined rather than pending.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-199",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live binding design-panel ruling rejects branding the named server-backstopped identity consumers, and Operational risks separately forbids merging the stores or adding server-derived or URL-addressable store state.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-200",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Implemented section says the route search identity is gone, and live 54-character-sheet-campaign-context.md expressly says not to retain, validate, or reintroduce it as provenance.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-187",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf disposition permanently drops the approximately 49-site hand-rolled Label/Input sweep, and Rejected alternatives says any future sweep would be a separate series rather than unfinished cluster work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[30]",
+      "ref": "CQ25-188",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf disposition drops both production-store changes named by the claimant: the fireAfterCommit reshape and the file split, with lifetime recorded as the only future split boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[31]",
+      "ref": "CQ25-189",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Leaf disposition removes the proposed no-stale-frame proof test and drops the enterSurface gate, while slice C3 explicitly says to build neither.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-190",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan rejects both MapCanvasFrame and generic panel primitives, leaving the two-caller duplication because VttSurface already owns the shared tabletop shell.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-193",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan rejects replacing SheetSharedProps threading with context, and its later design-panel ruling re-affirms that no React provider or effect may replace the responsive-layout prop contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-187",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan permanently drops the broad approximately 49-site labeled Input-field sweep across 22 files and expressly declines widening the primitive to absorb other control families.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-06-001",
+      "title": "Split the monolithic lint-ratchet shell smoke by subject ownership",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts/tests/test-lint-ratchet.sh",
+          "line": null,
+          "endLine": null,
+          "measurement": "5,059 lines with 73 # smoke-subjects entries in one shell suite at AUDIT_TARGET_SHA.",
+          "note": "One test file owns lint-ratchet adapter, kernel, governance, Git-rail, merge-driver, hook, documentation, ESLint, and repository-config subjects."
+        },
+        {
+          "path": "scripts/tests/test-lint-ratchet.sh",
+          "line": 3,
+          "endLine": 75,
+          "measurement": null,
+          "note": "The header maps dozens of independently changing subject families to this single smoke suite."
+        },
+        {
+          "path": "scripts/test-scripts.sh",
+          "line": 181,
+          "endLine": 215,
+          "measurement": null,
+          "note": "Changed-mode resolves changed paths to whole smoke-test files, so any mapped subject selects the complete 5,059-line suite."
+        }
+      ],
+      "problem": "A single 5,059-line shell smoke owns 73 subjects spanning several independently changing lint-ratchet and Git-rail families. Changed-mode selects at suite granularity, so touching any mapped subject drags the entire suite into the gate and leaves unrelated contracts coupled to one navigational and execution unit.",
+      "proposedDirection": "Extract one coherent subject cluster per slice—merge-driver/Git-rail, governance/config, then kernel/CLI—moving each cluster's smoke-subject ownership and leaving every remainder independently runnable.",
+      "leafability": "needs-split",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-06",
+          "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[21]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Split the monolithic drift-ai and lint-ratchet test files",
+          "rejectionReason": "Those test reorganizations were explicitly dropped; test-shaped work also belongs to lane 06."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-155",
+          "residual": "CQ25-155 covers only the drift-ai barrel-test half; it does not cover the lint-ratchet shell-suite half."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-31",
+          "residual": "The residual is already scheduled by 27-PLAN as open-ended, subject-coherent splits of test-lint-ratchet.sh; step 1c should adjudicate this exact overlap."
+        }
+      ],
+      "existingLeafHints": [
+        "Looks close to leaf 068, which restructures scripts/lint-ratchet/output.test.ts but explicitly scopes the 5,059-line shell suite out and points to CQ25-31 — hint only."
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent 1: docs/agent_notes/backlog/code-quality-2026-07-25/34-PLAN.md (11 claimants)",
+      "subagent 2: docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md (19 claimants)"
+    ],
+    "notes": [
+      "Disposition totals: 29 full, 1 partial, 0 none.",
+      "D-06-001 does not overturn CQ25-155 because that ruling is confined to drift-ai steps 4-6; its lint-ratchet residual is independently scheduled under CQ25-31 and is returned for step 1c rather than suppressed.",
+      "CQ25-193 remains full despite the later derived SheetCampaignContext type because the binding design panel expressly kept SheetSharedProps and forbade replacing its threading with a React context provider.",
+      "CQ25-199's branding refusal applies to the named server-backstopped presence, socket, roll, and DM-callback consumers; the later narrowed member-capability variant does not overturn that refusal."
+    ]
+  }
+}

@@ -12,6 +12,9 @@ import {
   type UnusedExportSymbol,
 } from "./drift-ai/knip-unused-exports.js";
 import { parseBaselineEntries } from "./lib/baseline/read-entries.js";
+import { isRecord } from "./lib/records.js";
+
+const KNIP_STALE_ENTRIES_EXIT_CODE = 3;
 
 // A single knip unused-export identity. The key is `category|path|symbol` after
 // path normalization to repo-relative POSIX (already applied by the knip
@@ -27,10 +30,6 @@ export type KnipUnusedExportEntry = {
 
 function zeroKnipUnusedExportsCounts(): Record<UnusedExportCategory, number> {
   return { exports: 0, types: 0, enumMembers: 0, namespaceMembers: 0 };
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isUnusedExportCategory(value: unknown): value is UnusedExportCategory {
@@ -85,6 +84,8 @@ export const knipUnusedExportsSpec: BaselineMetricSpec<KnipUnusedExportEntry> = 
   conflictMarkerRemediation: {
     baselineFile: "sensor-knip-unused-exports.baseline.json",
     installerCommand: "bun run sensor:knip-unused-exports:install-merge-driver",
+    restoreOursCommand:
+      "bun run baseline:restore-stage -- --ours sensor-knip-unused-exports.baseline.json",
     updateCommand: "bun scripts/sensor-knip-unused-exports.ts --update",
   },
   parseEntry(raw): ParseResult<KnipUnusedExportEntry> {
@@ -179,8 +180,12 @@ export function compareKnipUnusedExports(
   // knip identities carry no count (each is count-1), so the gate reduces to
   // pure key-set membership — increased/decreased are always empty here.
   const gate = gateEntries(baselineEntries, currentEntries);
-  if (gate.status === "regressed") return { exitCode: 1, stdout: regressionOutput(header, gate) };
-  if (gate.status === "improved") return { exitCode: 1, stdout: improvementOutput(header, gate) };
+  if (gate.status === "regressed") {
+    return { exitCode: KNIP_STALE_ENTRIES_EXIT_CODE, stdout: regressionOutput(header, gate) };
+  }
+  if (gate.status === "improved") {
+    return { exitCode: KNIP_STALE_ENTRIES_EXIT_CODE, stdout: improvementOutput(header, gate) };
+  }
   return {
     exitCode: 0,
     stdout: [

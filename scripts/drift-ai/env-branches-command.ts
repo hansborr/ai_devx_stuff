@@ -1,3 +1,4 @@
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import {
   buildEnvBranchesAdvisory,
@@ -27,10 +28,7 @@ export type EnvBranchesRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type EnvBranchesRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type EnvBranchesRunResult = DriftAiCommandResult;
 
 const EMPTY_INVENTORY: EnvDefineInventory = { reads: [], conditions: [] };
 

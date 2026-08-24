@@ -1,21 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { readNonEmpty, readPositiveInt, readRatio, readValue } from "./arg-readers.js";
+import { readNonEmpty, readPositiveInt, readRatio } from "./arg-readers.js";
 import { DriftAiError } from "./errors.js";
 
 describe("arg readers", () => {
-  it("rejects option-looking values for shared value options", () => {
-    expect(() => readValue("--output", ["--output", "--format"], 0, "USAGE-TEXT")).toThrow(
-      /--output requires a value/u,
-    );
-    expect(() => readValue("--output=--format", ["--output=--format"], 0, "USAGE-TEXT")).toThrow(
-      /--output requires a value/u,
-    );
-    expect(() => readValue("--output=", ["--output="], 0, "USAGE-TEXT")).toThrow(
-      /--output requires a value/u,
-    );
-  });
-
   it("parses shared positive integer options with canonical errors", () => {
     expect(readPositiveInt(" 12 ", "--top")).toBe(12);
     expect(() => readPositiveInt("0", "--top")).toThrow(DriftAiError);

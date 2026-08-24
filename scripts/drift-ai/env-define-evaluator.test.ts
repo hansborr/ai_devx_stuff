@@ -115,6 +115,17 @@ describe("analyzeEnvDefineSource", () => {
     ]);
   });
 
+  it("does not treat shared env assumptions as define substitutions", () => {
+    const inventory = analyzeEnvDefineSource(
+      "src/shared-only.ts",
+      "if (SHARED_FLAG) enableSharedFeature();",
+      { env: { SHARED_FLAG: { value: true, source: "matrix:shared" } } },
+    );
+
+    expect(inventory.reads).toEqual([]);
+    expect(inventory.conditions).toEqual([]);
+  });
+
   it("evaluates obvious conjunction and disjunction cases", () => {
     const inventory = analyzeEnvDefineSource(
       "src/combinations.ts",

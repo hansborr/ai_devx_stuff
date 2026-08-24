@@ -91,7 +91,7 @@ function unresolvedLocations(
   const unresolved = new Set<string>();
   for (const location of items.flatMap((item) => item.locationDetails)) {
     if (!rangeResolves(location, readSourceFile, sourceLines)) {
-      unresolved.add(formatLocation(location));
+      unresolved.add(formatStalenessLocation(location));
     }
   }
   return [...unresolved];
@@ -170,7 +170,7 @@ function splitLines(contents: string): readonly string[] {
   return lines.at(-1) === "" ? lines.slice(0, -1) : lines;
 }
 
-function formatLocation(location: TriageLocation): string {
+function formatStalenessLocation(location: TriageLocation): string {
   if (location.startLine === null || location.endLine === null) return location.path;
   if (location.startCol !== null && location.endCol !== null) {
     return (

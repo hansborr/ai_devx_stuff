@@ -1,18 +1,17 @@
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import { currentRepoGit } from "./git-runner.test-helper.js";
 import {
   type HarnessFreshnessFinding,
   type HarnessFreshnessPathKind,
-  type PathExists,
   runHarnessFreshnessCheck,
 } from "./harness-freshness.js";
+import type { PathExists } from "./repo-io.js";
 import { runDriftAi } from "./runner.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 function makePathExists(paths: ReadonlyArray<`${HarnessFreshnessPathKind}:${string}`>): PathExists {
   const existing = new Set(paths);
@@ -145,6 +144,17 @@ describe("runHarnessFreshnessCheck", () => {
     ]);
   });
 
+  it("identifies harness-freshness when its default Git ignore probe fails", () => {
+    expect(() =>
+      runHarnessFreshnessCheck({
+        repoRoot: tmpRepo.makeTempRepo("drift-harness-ignore-failure-"),
+        readFile: () => "`packages/server/src/missing.ts`",
+        listDirectory: () => [],
+        pathExists: () => false,
+      }),
+    ).toThrow("harness-freshness git check-ignore failed");
+  });
+
   it("cross-checks every guide path referenced by the harness", () => {
     const findings = runFixture({
       harness: [
@@ -187,7 +197,7 @@ describe("runHarnessFreshnessCheck", () => {
 // 50-M4) so it gains --format/--output parity. Pointing git at an empty temp dir
 // makes the check deterministic: a missing harness file yields one finding.
 function gitAtEmptyRepo(): GitRunner {
-  const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-harness-"));
+  const repoRoot = tmpRepo.makeTempRepo("drift-harness-");
   return currentRepoGit(repoRoot);
 }
 

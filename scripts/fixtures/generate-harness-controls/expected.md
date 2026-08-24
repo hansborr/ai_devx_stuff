@@ -7,6 +7,8 @@ Authoritative inventory of Musi's harness controls — every lint rule, ratchet,
 
 For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule's `meta.docs` contract (see `docs/generated/local-lint-rules.md`) so the manifest stays a thin enumeration.
 
+For `kind: hook`, `harness.controls.json` is the **policy** authority — event, canonical order, shared body, timeout, status message, outputs, and notes are authored decisions. The projection tables in `scripts/harness/hook-wiring-schema.ts` are the **adapter-syntax** authority: once a control declares an `adapter surface`, its `matcher` and command strings are canonical-checked copies of that projection, so treat them like committed generated output rather than free text. The `.claude/`, `.codex/`, `.copilot/`, and `.github/` hook files are generated from this manifest by `bun run harness:wiring` and are never authoritative. Controls with no declared surface — the Bash aggregators and the claude-only lifecycle hooks — are documented architectural asymmetries and record the reason in their notes.
+
 ## Lint rules
 
 ### `lint/local/fixture-rule`

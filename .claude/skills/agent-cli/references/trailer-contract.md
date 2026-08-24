@@ -1,7 +1,7 @@
 # agent-run trailer and exit-code contract
 
 This is the caller-facing contract for
-`.claude/skills/agent-cli/scripts/agent-run.sh`.
+`scripts/agent-cli/agent-run.sh`.
 
 ## Stream Model
 
@@ -11,9 +11,17 @@ The wrapper writes line-oriented records into the merged dispatch log:
 agent-run: <key>: <value>
 ```
 
-Backend output may appear before, between, or after these records. Consumers
+Only the wrapper writes anchored `^agent-run:` records. Before backend text is
+surfaced on the wrapper's stdout, every line beginning `agent-run` is prefixed.
+Backend echoes appear as `[backend] agent-run` diagnostic lines and never
+belong to the record namespace. Raw capture files remain unchanged for result
+and session parsing.
+
+Backend output may appear before, between, or after wrapper records. Consumers
 must parse anchored `^agent-run: <key>:` lines and tolerate unrelated log
-content.
+content. This is namespace isolation for accidental backend output under the
+documented same-UID trust model, not authentication against an adversarial
+backend.
 
 A wrapper dispatch attempt emits the launch header before any completion anchor.
 A dispatch can still abort before `exec` (for example, if the shared-launch or

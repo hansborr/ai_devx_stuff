@@ -7,7 +7,7 @@
  * operations.
  */
 
-import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { parentOf, staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveIdentifierBinding } from "./binding-resolution.js";
 
 const MAX_STATIC_TUPLE_SIZE = 5;
@@ -28,11 +28,6 @@ const NON_EXPANDING_ARRAY_METHODS = new Set(["filter", "map", "slice"]);
  *   sourceCode: import('eslint').SourceCode,
  * }} AnalysisState
  */
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
 
 /**
  * @returns {CollectionAnalysis}

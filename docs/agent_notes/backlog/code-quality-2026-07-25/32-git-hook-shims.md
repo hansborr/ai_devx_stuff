@@ -1,6 +1,7 @@
 # 32. Git hooks hold 900 lines of gate orchestration inline, and hook-wiring generation hand-rolls a JSON text editor
 
-Status: Proposed — not promoted
+Status: Scheduled work landed 2026-07-31 on `fix/cq-harness-h16-h17` (merge
+`c6e1be2a2`) — H16 and H17 landed; no scheduled slice remains
 Theme: Hook wiring surfaces carry work that is not hook wiring · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
@@ -136,8 +137,8 @@ Ordered so the zero-risk item lands first and the commit gate is touched last.
 6. **Settle where git hooks sit relative to the shim convention.**
    `docs/agent_notes/backlog/arch-plans-2026-07/03-harness-hook-shim-generation.md`
    is Done (`3e9b28df`); read it for what the generated shim convention now
-   covers, then update `docs/ai-harness.md` (see `:85-89` and `:137-140`, which
-   describe shim templates and `bun run harness:wiring`) so the convention
+   covers, then update `docs/ai-harness.md` (see **Adapter Boundary**, which
+   describes shim templates and `bun run harness:wiring`) so the convention
    explicitly states whether git hooks are in or out of scope.
 
 ## Scope / caveats

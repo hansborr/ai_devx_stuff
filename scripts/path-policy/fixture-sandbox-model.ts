@@ -1,4 +1,6 @@
 // The static model of "what does this smoke put inside its sandbox".
+// fixture-shell-dependencies.ts consumes it to decide which directly copied
+// shell entries must bring their sourced dependency closure, and
 // fixture-import-closure.ts consumes it to decide which copied TS/JS entries
 // must bring their import graph; this module only reads shell.
 //
@@ -36,10 +38,13 @@ import {
   isSandboxInternalPath,
   repoRelativePath,
   resolveFixtureOperand,
+  scriptsFixtureRootFromDestination,
 } from "./fixture-copy-expressions.js";
 import {
+  type FixtureCopyGroup,
   fixtureGroupKey,
   type FixtureHelperCall,
+  type FixtureScopedGroup,
   mergeHelperCallGroups,
   parseFixtureHelperCall,
 } from "./fixture-helper-calls.js";
@@ -66,9 +71,7 @@ import type { ScopedShellLine } from "./fixture-shell-scope.js";
 // sandbox that links the whole `node_modules` tree resolves all of them.
 const repositoryPackageScope = "@musi";
 
-export interface FixtureSandbox {
-  readonly functionScope: readonly string[];
-  readonly fixtureRoot: string;
+export interface FixtureSandbox extends FixtureScopedGroup {
   /**
    * True once a helper call site folded this scope's contributions into a
    * caller's sandbox. Such a group is a fragment — a helper that seeds part of
@@ -77,6 +80,8 @@ export interface FixtureSandbox {
    */
   readonly composedIntoCaller: boolean;
   readonly copiedFiles: ReadonlySet<string>;
+  /** Direct `.sh` sources copied into this sandbox's `scripts/` tree. */
+  readonly shellClosureSources: ReadonlySet<string>;
   /** Copied paths an explicit annotation declares are never executed here. */
   readonly nonEntryPaths: ReadonlySet<string>;
   readonly copiedDirectories: ReadonlySet<string>;
@@ -87,15 +92,16 @@ export interface FixtureSandbox {
 
 export interface FixtureSeedingModel {
   readonly sandboxes: readonly FixtureSandbox[];
+  /** Shell-closure groups in their historical diagnostic iteration order. */
+  readonly shellClosureGroups: readonly FixtureCopyGroup[];
   /** Diagnostics about the seeding statements themselves, not about closures. */
   readonly failures: readonly string[];
 }
 
-interface MutableFixtureSandbox {
-  readonly functionScope: readonly string[];
-  readonly fixtureRoot: string;
+interface MutableFixtureSandbox extends FixtureScopedGroup {
   composedIntoCaller: boolean;
   readonly copiedFiles: Set<string>;
+  readonly shellClosureSources: Set<string>;
   readonly nonEntryPaths: Set<string>;
   readonly copiedDirectories: Set<string>;
   readonly synthesizedPaths: Set<string>;
@@ -112,6 +118,7 @@ function createSandbox(
     fixtureRoot,
     composedIntoCaller: false,
     copiedFiles: new Set<string>(),
+    shellClosureSources: new Set<string>(),
     nonEntryPaths: new Set<string>(),
     copiedDirectories: new Set<string>(),
     synthesizedPaths: new Set<string>(),
@@ -167,25 +174,28 @@ function applyCopyCommand(
   state: SeedingScanState,
   scopedLine: ScopedShellLine,
   sandbox: MutableFixtureSandbox,
+  targetsScriptsTree: boolean,
 ): AppliedCopy {
   const operands = commandOperands(scopedLine.line.trim());
   const copied: string[] = [];
   const unreadable: string[] = [];
   for (const operand of operands.slice(0, -1)) {
-    if (isSandboxInternalPath(operand, state.fixtureRoots)) continue;
     const binding = lookupLoopBinding(
       state.loopBindings,
       scopedLine.functionScope,
       loopVariableName(operand),
     );
-    const { paths, resolved } = resolveFixtureOperand(
-      state.repoRoot,
-      operand,
-      state.assignments,
-      binding,
-    );
-    if (!resolved) unreadable.push(operand);
-    for (const path of paths) {
+    const resolution = resolveFixtureOperand(state.repoRoot, operand, state.assignments, binding);
+    if (targetsScriptsTree && resolution.directPath?.endsWith(".sh") === true) {
+      sandbox.shellClosureSources.add(resolution.directPath);
+      state.shellClosureSandboxes.set(
+        fixtureGroupKey(scopedLine.functionScope, sandbox.fixtureRoot),
+        sandbox,
+      );
+    }
+    if (isSandboxInternalPath(operand, state.fixtureRoots)) continue;
+    if (!resolution.resolved) unreadable.push(operand);
+    for (const path of resolution.paths) {
       const absolutePath = resolve(state.repoRoot, path);
       if (!isDirectory(absolutePath)) {
         sandbox.copiedFiles.add(path);
@@ -227,6 +237,9 @@ interface SeedingScanState {
   ) => MutableFixtureSandbox;
   readonly helperCalls: FixtureHelperCall[];
   readonly failures: string[];
+  // Keep shell groups separate from non-shell facts: helper merge snapshots
+  // historically expose a delegate-only shell group only on the next pass.
+  readonly shellClosureSandboxes: Map<string, MutableFixtureSandbox>;
 }
 
 /** Fold one `cp` line into its sandbox; false when it seeds no known root. */
@@ -237,13 +250,15 @@ function applyCopyLine(
   annotations: readonly string[],
 ): boolean {
   const destination = commandOperands(trimmed).at(-1);
+  const scriptsFixtureRoot =
+    destination === undefined ? undefined : scriptsFixtureRootFromDestination(destination);
   const fixtureRoot =
     destination === undefined
       ? undefined
       : fixtureRootForDestination(destination, state.fixtureRoots);
   if (fixtureRoot === undefined) return false;
   const sandbox = state.sandboxFor(scopedLine.functionScope, fixtureRoot);
-  const applied = applyCopyCommand(state, scopedLine, sandbox);
+  const applied = applyCopyCommand(state, scopedLine, sandbox, scriptsFixtureRoot === fixtureRoot);
   const annotated = applySeedingAnnotations(state.fixturePath, fixtureRoot, annotations, applied);
   state.failures.push(...annotated.failures);
   for (const path of annotated.nonEntryPaths) sandbox.nonEntryPaths.add(path);
@@ -302,6 +317,7 @@ export function collectFixtureSandboxes(
     },
     helperCalls: [],
     failures: [],
+    shellClosureSandboxes: new Map<string, MutableFixtureSandbox>(),
   };
 
   let pending: readonly string[] = [];
@@ -338,6 +354,12 @@ export function collectFixtureSandboxes(
   }
   reportStaleAnnotations();
 
+  mergeHelperCallGroups(state.shellClosureSandboxes, state.helperCalls, {
+    create: createSandbox,
+    absorb: (target, source) => absorbInto(target.shellClosureSources, source.shellClosureSources),
+    isEmpty: (sandbox) => sandbox.shellClosureSources.size === 0,
+  });
+
   mergeHelperCallGroups(sandboxes, state.helperCalls, {
     create: createSandbox,
     absorb: absorbSandbox,
@@ -346,6 +368,11 @@ export function collectFixtureSandboxes(
 
   return {
     sandboxes: [...sandboxes.values()].filter((sandbox) => !isSandboxEmpty(sandbox)),
+    shellClosureGroups: [...state.shellClosureSandboxes.values()].map((sandbox) => ({
+      functionScope: sandbox.functionScope,
+      fixtureRoot: sandbox.fixtureRoot,
+      sources: sandbox.shellClosureSources,
+    })),
     failures: state.failures,
   };
 }

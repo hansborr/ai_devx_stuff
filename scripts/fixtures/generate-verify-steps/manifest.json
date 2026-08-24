@@ -1,64 +1,72 @@
 {
-  "controls": [
+  "verifySlotCatalog": [
     {
-      "id": "verify-wrapper/verify",
-      "slots": [
-        { "name": "lint", "script": "lint" },
-        {
-          "name": "ratchet",
-          "script": "lint:ratchet",
-          "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
-        },
-        {
-          "name": "test",
-          "script": "test",
-          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
-        },
-        { "name": "scripts", "script": "test:scripts" }
-      ]
-    },
-    {
-      "id": "verify-wrapper/verify-changed",
-      "slots": [
-        {
-          "name": "coverage-map",
-          "script": "docs:lint-coverage-map:check",
-          "args": ["--", "--staged"]
-        },
-        {
-          "name": "test",
+      "name": "test",
+      "full": {
+        "script": "test",
+        "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+      },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode selects tests from changed inputs.",
+        "slot": {
           "script": "test:changed",
           "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
-        },
-        {
-          "name": "scripts",
+        }
+      }
+    },
+    {
+      "name": "local-rule-starter",
+      "full": { "script": "docs:local-eslint-rule-starter:check" },
+      "changed": {
+        "kind": "omit",
+        "reason": "The documentation starter is a full-tree-only guard."
+      }
+    },
+    {
+      "name": "scripts",
+      "full": { "script": "test:scripts" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode classifies script-smoke inputs.",
+        "slot": {
           "script": "test:scripts:changed",
           "dynamic": "staged-script-classifier"
         }
-      ]
-    },
-    {
-      "id": "verify-wrapper/verify-parallel",
-      "slots": [{ "name": "scripts", "script": "test:scripts" }]
-    },
+      }
+    }
+  ],
+  "controls": [
+    { "id": "verify-wrapper/verify", "slotProfile": { "mode": "full" } },
+    { "id": "verify-wrapper/verify-changed", "slotProfile": { "mode": "changed" } },
+    { "id": "verify-wrapper/verify-parallel", "slotProfile": { "mode": "full" } },
     {
       "id": "hook/pre-commit",
-      "slots": [
-        {
-          "name": "test",
-          "script": "test:changed",
-          "args": ["--reporter=dot"],
-          "dynamic": "precommit-test-timings",
-          "fastCommitSkip": true
-        },
-        {
-          "name": "scripts",
-          "script": "test:scripts:changed",
-          "dynamic": "staged-script-classifier",
-          "condition": "when staged hook/script/harness inputs require script smoke",
-          "fastCommitSkip": true
-        }
-      ]
+      "slotProfile": {
+        "mode": "changed",
+        "overrides": [
+          {
+            "name": "test",
+            "reason": "Pre-commit resolves its timing reporters dynamically.",
+            "slot": {
+              "script": "test:changed",
+              "args": ["--reporter=dot"],
+              "dynamic": "precommit-test-timings",
+              "fastCommitSkip": true
+            }
+          },
+          {
+            "name": "scripts",
+            "reason": "Pre-commit documents staged inputs and permits fast-commit skipping.",
+            "slot": {
+              "script": "test:scripts:changed",
+              "dynamic": "staged-script-classifier",
+              "condition": "when staged hook/script/harness inputs require script smoke",
+              "fastCommitSkip": true
+            }
+          }
+        ]
+      }
     }
   ]
 }

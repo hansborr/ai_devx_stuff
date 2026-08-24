@@ -85,17 +85,18 @@ create-character wire contract without breaking the non-caster path.
 The shared rules module owns the per-class level-1 counts via
 `getLevel1SpellSelection(classId, casterType)`. The server
 (`character-create-spells.ts`) validates caster-only, level 0/1, class
-availability, count limits, and duplicates; a non-caster submitting spells is
-a contract violation -> `BAD_REQUEST`. Chosen spells persist `prepared: true`
-in the same create transaction.
+availability, count limits, and duplicates, then builds the nested writes; a
+non-caster submitting spells is a contract violation -> `BAD_REQUEST`.
+Cantrips persist prepared, while level-1 picks persist prepared in submitted
+order only up to the level-1 `getMaxPreparedSpells` result.
 
 ### Consequences
 - The `spells` field is optional on the wire: the non-caster flow omits it and
   is unchanged; the wizard enforces exact counts client-side before submit.
 - Class-specific level-1 cantrip/spell counts live in one rules table, shared
   by the wizard step, the Review summary, and server validation.
-- Cantrips and level-1 picks are prepared at creation so a new caster can cast
-  immediately.
+- A wizard's fifth and sixth level-1 picks remain known but unprepared; submitted
+  order is Musi policy until creation collects an explicit prepared subset.
 
 ### References
 - `packages/shared/src/schemas/character-inputs.ts`

@@ -1,6 +1,9 @@
 # 49. The fixture copy-set analyzer is nine modules and 1,541 lines inside `scripts/path-policy/` with no `MODULE.md`, and 43 of its 49 test cases sit in one 803-line file
 
-Status: Proposed — not promoted
+Status: Partially landed 2026-08-01 on `fix/cq-harness-h13-h14` (merge
+`64a7fac64`) — H13 (`9c87ed4fa`) and H14 (`9ced30028`) landed; H15 remains
+blocked on unlanded 27-PLAN slice 27.3, and the test split was dropped by the
+harness cluster plan
 Theme: orientation contract missing where the charter requires one · Area: harness · Severity: low · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

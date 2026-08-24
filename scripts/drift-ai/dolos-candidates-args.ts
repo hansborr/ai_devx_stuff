@@ -1,6 +1,16 @@
-import { readNonEmpty, readPositiveInt, readRatio } from "./arg-readers.js";
+import { z } from "zod";
+
+import { nonEmptyValue, positiveIntValue, ratioValue } from "./arg-readers.js";
 import { DEFAULT_DOLOS_CANDIDATES_TOP, DOLOS_CANDIDATES_SUBCOMMAND } from "./dolos-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 // Dolos defaults. Threshold and language are Dolos' own scale (fragment-overlap
 // similarity), deliberately NOT tied to the near-duplicates similarity threshold,
@@ -39,56 +49,52 @@ export type ParsedDolosCandidatesArgs = {
   readonly command: string | null;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--root", kind: "value", repeatable: true },
+  { name: "--top", kind: "value" },
+  { name: "--language", kind: "value" },
+  { name: "--threshold", kind: "value" },
+  { name: "--max-files", kind: "value" },
+  { name: "--max-candidate-pairs", kind: "value" },
+  { name: "--max-reported-pairs", kind: "value" },
+  { name: "--dolos-bin", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--root": z.array(z.string()).default([]),
+  "--top": positiveIntValue("--top").default(DEFAULT_DOLOS_CANDIDATES_TOP),
+  "--language": nonEmptyValue("--language").default(DEFAULT_DOLOS_LANGUAGE),
+  "--threshold": ratioValue("--threshold").default(DEFAULT_DOLOS_THRESHOLD),
+  "--max-files": positiveIntValue("--max-files").default(DEFAULT_DOLOS_MAX_FILES),
+  "--max-candidate-pairs": positiveIntValue("--max-candidate-pairs").default(
+    DEFAULT_DOLOS_MAX_CANDIDATE_PAIRS,
+  ),
+  "--max-reported-pairs": positiveIntValue("--max-reported-pairs").default(
+    DEFAULT_DOLOS_MAX_REPORTED_PAIRS,
+  ),
+  "--dolos-bin": nonEmptyValue("--dolos-bin").optional(),
+});
+
 export function parseDolosCandidatesArgs(argv: readonly string[]): ParsedDolosCandidatesArgs {
-  const roots: string[] = [];
-  let top = DEFAULT_DOLOS_CANDIDATES_TOP;
-  let languageMode = DEFAULT_DOLOS_LANGUAGE;
-  let threshold = DEFAULT_DOLOS_THRESHOLD;
-  let maxFiles = DEFAULT_DOLOS_MAX_FILES;
-  let maxCandidatePairs = DEFAULT_DOLOS_MAX_CANDIDATE_PAIRS;
-  let maxReportedPairs = DEFAULT_DOLOS_MAX_REPORTED_PAIRS;
-  let command: string | null = null;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: DOLOS_CANDIDATES_USAGE,
-    acceptsConfig: true,
-    pathValueOptions: {
-      "--root": (value) => {
-        roots.push(value);
-      },
-    },
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--language": (value) => {
-        languageMode = readNonEmpty(value, "--language");
-      },
-      "--threshold": (value) => {
-        threshold = readRatio(value, "--threshold");
-      },
-      "--max-files": (value) => {
-        maxFiles = readPositiveInt(value, "--max-files");
-      },
-      "--max-candidate-pairs": (value) => {
-        maxCandidatePairs = readPositiveInt(value, "--max-candidate-pairs");
-      },
-      "--max-reported-pairs": (value) => {
-        maxReportedPairs = readPositiveInt(value, "--max-reported-pairs");
-      },
-      "--dolos-bin": (value) => {
-        command = readNonEmpty(value, "--dolos-bin");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
   return {
-    base,
-    roots,
-    top,
-    languageMode,
-    threshold,
-    maxFiles,
-    maxCandidatePairs,
-    maxReportedPairs,
-    command,
+    base: subcommandBaseFromOptions(options),
+    roots: options["--root"],
+    top: options["--top"],
+    languageMode: options["--language"],
+    threshold: options["--threshold"],
+    maxFiles: options["--max-files"],
+    maxCandidatePairs: options["--max-candidate-pairs"],
+    maxReportedPairs: options["--max-reported-pairs"],
+    command: options["--dolos-bin"] ?? null,
   };
 }

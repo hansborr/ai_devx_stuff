@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { basename } from "node:path";
 
 import { type LintRatchetBaseline, parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
 import type {
@@ -6,6 +7,7 @@ import type {
   LintRatchetMetric,
   LintRatchetMode,
 } from "../kernel/config-types.js";
+import type { LintRatchetWorkflowVocabulary } from "../kernel/engine-context.js";
 import { ConfigError } from "../kernel/metrics-types.js";
 
 type LintRatchetBaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
@@ -42,6 +44,7 @@ interface RunLintRatchetSummaryOptions {
   readonly baselinePath: string;
   readonly registry: readonly LintRatchetConfig[];
   readonly byDirectoryDepth?: number | undefined;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 interface LintRatchetSummaryCells {
@@ -265,7 +268,12 @@ export function formatLintRatchetDirectorySummary(
 }
 
 function runLintRatchetSummary(options: RunLintRatchetSummaryOptions): string {
-  const parsed = parseLintRatchetBaselineStructure(readFileSync(options.baselinePath, "utf8"));
+  const parsed = parseLintRatchetBaselineStructure(
+    readFileSync(options.baselinePath, "utf8"),
+    options.workflowVocabulary,
+    undefined,
+    basename(options.baselinePath),
+  );
   if (parsed.baseline === undefined) {
     throw new ConfigError(parsed.failures.join("\n"));
   }
@@ -285,6 +293,9 @@ export function runLintRatchetSummaryCli(
   baselinePath: string,
   registry: readonly LintRatchetConfig[],
   byDirectoryDepth: number | undefined,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
 ): void {
-  process.stdout.write(runLintRatchetSummary({ baselinePath, registry, byDirectoryDepth }));
+  process.stdout.write(
+    runLintRatchetSummary({ baselinePath, registry, byDirectoryDepth, workflowVocabulary }),
+  );
 }

@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 import {
   collectOrphanRemovals,
@@ -14,8 +15,13 @@ import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 import { matchesAny, matchingTrackedFiles } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 
 import { harnessManifestPath as resolveHarnessManifestPath } from "../harness/harness-manifest.js";
-import { formatRuleDocsFailures, loadLintRuleDocs } from "../lib/lint-rule-docs.js";
+import {
+  findBareBacklogCoordinate,
+  formatRuleDocsFailures,
+  loadLintRuleDocs,
+} from "../lib/lint-rule-docs.js";
 import { isObjectLike } from "../lib/records.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { lintRatchets, lintRatchetThirdPartyPluginAllowlist } from "./lint-ratchet-config.js";
 import { BASELINE_FILENAME, baselinePath, repoRoot } from "./paths.js";
 import { formatMissingRatchetManifestMessage } from "./ratchet-manifest-message.js";
@@ -51,6 +57,7 @@ export interface RegistryPreflightOptions {
 }
 
 export interface CheckLintRatchetRegistryOptions {
+  readonly exitPathExists?: (exitPath: string) => boolean;
   readonly ratchets: readonly LintRatchetConfig[];
   readonly localRuleIds?: ReadonlySet<string>;
   readonly thirdPartyPlugins?: readonly LintRatchetThirdPartyPluginAllowlistEntry[];
@@ -65,10 +72,26 @@ const harnessManifestPath = resolveHarnessManifestPath(repoRoot);
 function registryShapeFailures(
   options: CheckLintRatchetRegistryOptions,
 ): readonly RegistryCheckFailure[] {
-  return validateLintRatchetRegistry(options.ratchets, {
+  const failures: RegistryCheckFailure[] = validateLintRatchetRegistry(options.ratchets, {
+    exitPathExists: options.exitPathExists,
     localRuleIds: options.localRuleIds,
     thirdPartyPlugins: options.thirdPartyPlugins,
   }).map((message) => ({ kind: "registry-shape", message }));
+  for (const ratchet of options.ratchets) {
+    for (const [field, value] of [
+      ["principle", ratchet.principle],
+      ["zeroBaselineDisposition.reason", ratchet.zeroBaselineDisposition?.reason],
+    ] as const) {
+      if (value === undefined) continue;
+      const coordinate = findBareBacklogCoordinate(value);
+      if (coordinate === undefined) continue;
+      failures.push({
+        kind: "registry-shape",
+        message: `${ratchet.id}: ${field} contains a bare backlog coordinate: ${coordinate}`,
+      });
+    }
+  }
+  return failures;
 }
 
 function isAbsolutePathPattern(pathPattern: string): boolean {
@@ -154,7 +177,12 @@ function orphanBaselineFailures(
   options: CheckLintRatchetRegistryOptions,
 ): readonly RegistryCheckFailure[] {
   if (options.baselineText === undefined) return [];
-  const parsed = parseLintRatchetBaselineStructure(options.baselineText);
+  const parsed = parseLintRatchetBaselineStructure(
+    options.baselineText,
+    musiLintRatchetWorkflowVocabulary,
+    undefined,
+    options.baselineLabel,
+  );
   const label = options.baselineLabel ?? BASELINE_FILENAME;
   if (parsed.baseline === undefined) {
     return parsed.failures.map((message) => ({
@@ -263,6 +291,7 @@ async function checkCurrentLintRatchetRegistry(
 ): Promise<RegistryCheckResult> {
   const ruleDocsById = await loadRuleDocsById();
   const result = checkLintRatchetRegistry({
+    exitPathExists: (exitPath) => existsSync(resolve(repoRoot, exitPath)),
     ratchets: lintRatchets,
     localRuleIds: new Set(ruleDocsById.keys()),
     thirdPartyPlugins: lintRatchetThirdPartyPluginAllowlist,

@@ -9,17 +9,31 @@
  * or `prisma || tx`.
  */
 
-import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
+import { isConstDeclarator, staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable, resolveIdentifierBinding } from "./binding-resolution.js";
+import { createTransactionCallbackTracker } from "./transaction-callback-tracker.js";
 
 const PAIRED_GUIDE = "docs/CONCURRENCY.md";
 
 /**
  * @typedef {{
- *   inTransaction: boolean,
  *   transactionClientNames: Set<string>,
  *   transactionClientVariables: Set<import('eslint').Scope.Variable>,
- * }} TransactionFunctionState
+ * }} TransactionClientState
+ */
+
+/**
+ * @typedef {{
+ *   inTransaction: boolean,
+ *   state: TransactionClientState | undefined,
+ * }} ParentTransactionFrame
+ */
+
+/**
+ * @typedef {{
+ *   name: string | undefined,
+ *   variable: import('eslint').Scope.Variable | undefined,
+ * }} TransactionCallbackIdentity
  */
 
 /**
@@ -30,23 +44,6 @@ const PAIRED_GUIDE = "docs/CONCURRENCY.md";
  *   outerPrismaVariables: WeakSet<import('eslint').Scope.Variable>,
  * }} ClientResolutionState
  */
-
-/** @param {import('estree').Node} node */
-function parentOf(node) {
-  return /** @type {import('estree').Node & { parent?: import('estree').Node }} */ (node).parent;
-}
-
-/** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
-function isFunctionNode(node) {
-  return node?.type === "ArrowFunctionExpression" || node?.type === "FunctionExpression";
-}
-
-/** @param {import('estree').CallExpression} node */
-function isTransactionCall(node) {
-  const callee = unwrapChain(node.callee);
-  if (callee.type !== "MemberExpression") return false;
-  return staticPropertyName(callee) === "$transaction";
-}
 
 /**
  * @param {import('estree').Node} node
@@ -107,33 +104,9 @@ function containsOuterPrismaClient(node, state) {
   return false;
 }
 
-/** @param {import('estree').VariableDeclarator} node */
-function isConstDeclarator(node) {
-  return parentOf(node)?.type === "VariableDeclaration" && parentOf(node)?.kind === "const";
-}
-
 /** @param {import('estree').Pattern} param */
 function paramName(param) {
   return param.type === "Identifier" ? param.name : undefined;
-}
-
-/** @param {import('estree').BaseFunction} node */
-function transactionClientNamesFor(node) {
-  const firstParamName = node.params[0] ? paramName(node.params[0]) : undefined;
-  return new Set(firstParamName ? [firstParamName] : []);
-}
-
-/**
- * @param {import('estree').BaseFunction} node
- * @param {import('eslint').SourceCode} sourceCode
- */
-function transactionClientVariablesFor(node, sourceCode) {
-  const variables = new Set();
-  const firstParam = node.params[0];
-  if (firstParam?.type !== "Identifier") return variables;
-  const variable = resolveDeclaredVariable(sourceCode.getScope(firstParam), firstParam);
-  if (variable !== undefined) variables.add(variable);
-  return variables;
 }
 
 /** @param {import('estree').BaseFunction} node */
@@ -165,12 +138,16 @@ function mergedVariables(inheritedVariables, localVariables) {
 }
 
 /**
- * @param {TransactionFunctionState | undefined} parent
- * @param {Set<string> | undefined} callbackNames
+ * @param {ParentTransactionFrame | undefined} parent
+ * @param {TransactionCallbackIdentity | undefined} callback
  * @param {import('estree').BaseFunction} node
  */
-function namesForFunctionFrame(parent, callbackNames, node) {
-  const inheritedNames = callbackNames ?? parent?.transactionClientNames ?? new Set();
+function namesForFunctionFrame(parent, callback, node) {
+  const callbackNames =
+    callback === undefined
+      ? undefined
+      : new Set(callback.name === undefined ? [] : [callback.name]);
+  const inheritedNames = callbackNames ?? parent?.state?.transactionClientNames ?? new Set();
   const localNames =
     callbackNames === undefined && parent?.inTransaction === true
       ? localPrismaParamNamesFor(node)
@@ -179,11 +156,15 @@ function namesForFunctionFrame(parent, callbackNames, node) {
 }
 
 /**
- * @param {TransactionFunctionState | undefined} parent
- * @param {Set<import('eslint').Scope.Variable> | undefined} callbackVariables
+ * @param {ParentTransactionFrame | undefined} parent
+ * @param {TransactionCallbackIdentity | undefined} callback
  */
-function variablesForFunctionFrame(parent, callbackVariables) {
-  return mergedVariables(parent?.transactionClientVariables ?? new Set(), callbackVariables);
+function variablesForFunctionFrame(parent, callback) {
+  const callbackVariables =
+    callback === undefined
+      ? undefined
+      : new Set(callback.variable === undefined ? [] : [callback.variable]);
+  return mergedVariables(parent?.state?.transactionClientVariables ?? new Set(), callbackVariables);
 }
 
 /** @type {import('eslint').Rule.RuleModule} */
@@ -207,21 +188,22 @@ export default {
   },
 
   create(context) {
-    /** @type {WeakMap<object, Set<string>>} */
-    const transactionCallbacks = new WeakMap();
-    /** @type {WeakMap<object, Set<import('eslint').Scope.Variable>>} */
-    const transactionCallbackVariables = new WeakMap();
+    const transactionTracker = createTransactionCallbackTracker(
+      context.sourceCode,
+      (parent, callback, node) => ({
+        transactionClientNames: namesForFunctionFrame(parent, callback, node),
+        transactionClientVariables: variablesForFunctionFrame(parent, callback),
+      }),
+    );
     /** @type {WeakSet<import('eslint').Scope.Variable>} */
     const outerPrismaVariables = new WeakSet();
-    /** @type {TransactionFunctionState[]} */
-    const transactionFunctionStack = [];
 
     function currentTransactionClientNames() {
-      return transactionFunctionStack.at(-1)?.transactionClientNames ?? new Set();
+      return transactionTracker.currentFrame()?.state?.transactionClientNames ?? new Set();
     }
 
     function currentTransactionClientVariables() {
-      return transactionFunctionStack.at(-1)?.transactionClientVariables ?? new Set();
+      return transactionTracker.currentFrame()?.state?.transactionClientVariables ?? new Set();
     }
 
     /** @returns {ClientResolutionState} */
@@ -267,33 +249,13 @@ export default {
       return true;
     }
 
-    function enterFunction(/** @type {import('estree').BaseFunction} */ node) {
-      const parent = transactionFunctionStack.at(-1);
-      const callbackNames = transactionCallbacks.get(node);
-      const callbackVariables = transactionCallbackVariables.get(node);
-      transactionFunctionStack.push({
-        inTransaction: parent?.inTransaction === true || callbackNames !== undefined,
-        transactionClientNames: namesForFunctionFrame(parent, callbackNames, node),
-        transactionClientVariables: variablesForFunctionFrame(parent, callbackVariables),
-      });
-    }
-
-    function exitFunction() {
-      transactionFunctionStack.pop();
-    }
-
     return {
+      ...transactionTracker.functionVisitors,
       VariableDeclarator: recordOuterPrismaAlias,
       CallExpression(node) {
-        if (isTransactionCall(node) && isFunctionNode(node.arguments[0])) {
-          transactionCallbacks.set(node.arguments[0], transactionClientNamesFor(node.arguments[0]));
-          transactionCallbackVariables.set(
-            node.arguments[0],
-            transactionClientVariablesFor(node.arguments[0], context.sourceCode),
-          );
-        }
+        transactionTracker.recordTransactionCall(node);
 
-        if (transactionFunctionStack.at(-1)?.inTransaction !== true) return;
+        if (!transactionTracker.inTransaction()) return;
 
         if (reportOuterClientCallee(node)) return;
         const argument = outerClientArgument(node);
@@ -304,12 +266,6 @@ export default {
           messageId: "outerClientInTransaction",
         });
       },
-      ArrowFunctionExpression: enterFunction,
-      "ArrowFunctionExpression:exit": exitFunction,
-      FunctionDeclaration: enterFunction,
-      "FunctionDeclaration:exit": exitFunction,
-      FunctionExpression: enterFunction,
-      "FunctionExpression:exit": exitFunction,
     };
   },
 };

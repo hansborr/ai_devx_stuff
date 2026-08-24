@@ -29,6 +29,7 @@ function usage(): string {
     "",
     "Check mode gates high-confidence pairs touching staged files; update mode only shrinks the whole-repo baseline.",
     "Admission mode records one reviewed identity with a required reason.",
+    "Exit codes: 0 clean; 1 staged/update verdict; 2 usage or transient failure; 3 stale whole-repo --check-baseline verdict; 6 unreviewed working-tree baseline growth over HEAD.",
   ].join("\n");
 }
 

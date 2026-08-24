@@ -1,0 +1,1357 @@
+{
+  "contractVersion": 1,
+  "consult": "B",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "itemDispositions": [
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[0]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reason": "The TypeScript remedy is barred, but the separable organization problem remains: verify-engine.sh is a 991-line, 30-function stateful module, and leaf 117 explicitly excludes it as separate work.",
+      "promotionIds": ["B-001"]
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[1]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "The 3,503-line adapter is explicitly governed by the portable-skill single-file Bash ruling; splitting it into dependent modules would defeat copyability, and no distinct correctness defect was evidenced.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[2]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "The bare-repository constraint, shared four-column TSV protocol, and fail-closed vocabulary-divergence check remain present; no new consumer or silent-drift mechanism invalidates the rejection.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[3]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reason": "CliOptions remains a small documented resolver bag, only four plugin setup sites read env.cli, and the sole unrelated-default wart does not justify the proposed three-contract decomposition.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[4]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reason": "The Semgrep probe and source walker intentionally have different traversal semantics; their shared residue is too small to support the proposed configurable walker.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[5]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reason": "The broad workflow extraction remains unwarranted, but the rejection itself identifies a confirmed residual: auth-service.ts contains password/token primitives while auth.ts owns the account/session lifecycle.",
+      "promotionIds": ["B-002"]
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[6]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reason": "homebrew.ts performs request-boundary size and untrusted-payload validation while homebrew-import-service.ts owns atomic two-pass persistence; neither side duplicates the other's policy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[7]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reason": "invite.ts keeps simple DM administration together while invite-service.ts owns the shared validity ladder and race-sensitive capacity claim; the split remains coherent.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch1-rejected.json::rejected[8]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reason": "note.ts and npc.ts remain cohesive single-router CRUD implementations with local, single-consumer policy helpers and no transaction, broadcast, or shared orchestration seam.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-directions.json::refuteReviews[0]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reason": "The workflows remain ordinary page-local forms, and CQ25-187 explicitly refuses this exact settings-page split; no changed evidence invalidates that ruling.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[2]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reason": "The 47-field contract still mirrors one persisted stat block and the module already narrows visual concerns into internal sections; splitting the adapters would mostly redistribute required mapping code.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[3]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "The two records intentionally compose over the same smoke-subject projector: one handles generated-test overrides and the other the settled tree, so there are not two drifting implementations.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[7]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "verify-async.sh owns one private runner-state format and delegates cache, process-tree, marker, and watchdog mechanics to shared libraries; no duplicated policy or concrete failure was reconstructed.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[8]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "The EXIT fallback restores only an active merge preview, while explicit cleanup also leaves and deletes an integration branch; the overlap is idempotent and the rollback semantics deliberately differ.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[11]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reason": "Direct schedulers accept any digit string for MUSI_VERIFY_MEMORY_WAIT_TIMEOUT and later perform numeric comparisons, while pre-commit alone normalizes and bounds the value; oversized values can break timeout enforcement.",
+      "promotionIds": ["B-003"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[15]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reason": "lint-agent.ts deliberately invokes the canonical Bash cache-salting implementation, validates its output, and falls back uncached on failure, avoiding duplication of substantial fingerprint policy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[16]",
+      "sourceClass": "cut",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reason": "A 113-line wildcard ambient declaration still manually shadows checked JavaScript policy, and its bespoke test admits it checks only shallow runtime parity rather than semantic type agreement.",
+      "promotionIds": ["B-004"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[0]",
+      "sourceClass": "cut",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reason": "The pair tuple is validated, but DetectorScope and ghost-file options still admit mismatched modes, file variants, and dependencies, leaving runtime throws or silently empty changed-file filtering.",
+      "promotionIds": ["B-005"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[1]",
+      "sourceClass": "cut",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reason": "Coldspot amplifier numbers are deliberately opaque provenance with no production key-level reader and are accompanied by typed kind/detail fields; a closed numeric union would not protect current behavior.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[5]",
+      "sourceClass": "cut",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reason": "Prototype commands and sibling command families redeclare the same result, forwarding, and help/error mapping contract across an unsynchronized CLI boundary.",
+      "promotionIds": ["B-006"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[20]",
+      "sourceClass": "cut",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reason": "BlameLineIntroductionsOptions requires repoRoot, but blameLineIntroductions and runBlame never read it; callers thread state already captured by the injected Git runner.",
+      "promotionIds": ["B-007"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[22]",
+      "sourceClass": "cut",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reason": "Main, prototype, config, hotspots, and coldspots paths independently declare the same result and map DriftAiHelp/DriftAiError to 0/2, requiring coordinated lifecycle edits.",
+      "promotionIds": ["B-006"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[0]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reason": "level-up.ts loads all existing metamagics before sorcerer.ts determines whether choices apply, imposing an avoidable query inside every level-up transaction and splitting applicability from loading.",
+      "promotionIds": ["B-008"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[4]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reason": "Spell-bearing character creation runs two validation paths that independently reload the same class and optional subclass.",
+      "promotionIds": ["B-009"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[11]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reason": "initiative-action.ts aliases a same-named core as executeRollAllInitiative, which calls another executeRollAllInitiative, obscuring three layers contrary to the repository's depth-signalling convention.",
+      "promotionIds": ["B-010"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[12]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reason": "The stateful filter and empty-string fallback are awkward but locally preserve a checked invariant, produce no invalid link, and establish only a small readability cleanup.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[16]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reason": "request-logger.ts calls mutation events and reasons stable low-cardinality vocabulary but types both as unrestricted string, leaving production typos unchecked.",
+      "promotionIds": ["B-011"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[18]",
+      "sourceClass": "cut",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reason": "Seven utils files use the redundant ../utils sibling spelling, but resolution is unambiguous and behavior-identical; changing them is cosmetic churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[10]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reason": "SectionHeading is a five-line drawer-local primitive; two imports from sibling drawer files make the directory name mildly imperfect but create no behavioral or ownership problem.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[11]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "in-vtt-drawer.tsx permanently renders a disabled user-visible Reveal control explicitly titled Not yet implemented.",
+      "promotionIds": ["B-012"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[12]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "A closed wizard-step tuple is widened to string in applicability and validator contracts, so adding a step without a validator is not a compile error and instead blocks advancement at runtime.",
+      "promotionIds": ["B-013"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[15]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "Both auth guards need explicit render-behind stand-down branches because their redirects can otherwise overwrite themselves on the next render.",
+      "promotionIds": ["B-014"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[16]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reason": "The animation utility appears in 25 production files, but placeholders encode different local layouts and dimensions; only small pairs or triples are byte-identical and common repeated-list shells already exist.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[18]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "delete-character-dialog.tsx duplicates the common confirmation component, and the copies have already drifted on pending-state cancellation and label punctuation.",
+      "promotionIds": ["B-015"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[22]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reason": "use-map-image-upload.ts is a cohesive 76-line workflow shared by create and edit dialogs; validation, authentication, request state, and response handling are necessary parts of that operation.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[23]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "CharacterSheetContent derives the SRD lookup bundle, then its body calls useSheetState, which invokes the same full derivation again.",
+      "promotionIds": ["B-016"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[29]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "Four production destructive actions still call window.confirm directly despite the repository's common dialog surface.",
+      "promotionIds": ["B-017"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[33]",
+      "sourceClass": "cut",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reason": "NPC create, update, and delete share a panel-local raw-query-key invalidator while the campaign-wide invalidation facade has no NPC member.",
+      "promotionIds": ["B-018"]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "B-001",
+      "title": "The verification engine remains a framework-sized stateful Bash module",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/lib/verify-engine.sh",
+          "line": 162,
+          "endLine": 183,
+          "measurement": null,
+          "note": "Adjacent mutable globals carry cleanup, process, evidence-transaction, registration, and reporting state across the module."
+        },
+        {
+          "path": "scripts/lib/verify-engine.sh",
+          "line": 329,
+          "endLine": 390,
+          "measurement": null,
+          "note": "A name-passed associative array plus string-named callback fields acts as the gate-policy schema and dependency-injection protocol."
+        },
+        {
+          "path": "scripts/lib/verify-engine.sh",
+          "line": 555,
+          "endLine": 653,
+          "measurement": null,
+          "note": "Backup, staging, displacement, rollback, and finalization of live evidence form a stateful transaction embedded in the lifecycle module."
+        },
+        {
+          "path": "scripts/lib/verify-engine.sh",
+          "line": null,
+          "endLine": null,
+          "measurement": "991 lines and 30 top-level shell functions at the audit pin",
+          "note": "The shared gate engine remains framework-sized."
+        }
+      ],
+      "problem": "Process cleanup, policy validation, locking, slot execution, evidence transactions, and reporting remain coupled through ambient mutable state and string-named contracts in one module. The substrate ruling rejects a TypeScript rewrite but does not remove this high-context maintenance cost.",
+      "proposedDirection": "Keep the public facade and process orchestration in Bash, but split cohesive internal Bash libraries for lifecycle/cleanup, policy validation, and evidence handling through move-only slices.",
+      "leafability": "needs-split",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "triage/batch1-rejected.json::rejected[0]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Verification lifecycle implemented as an untyped Bash framework",
+          "rejectionReason": "The verify-stage rejection held that a TypeScript core re-litigated the Bash-vs-TS substrate ruling and CQ25-124/CQ25-125 while accepting that the factual observations held."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-124",
+          "residual": "CQ25-124 fixes the substrate boundary and defeats the original TypeScript remedy; it does not bar move-only decomposition into internal Bash libraries."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 117 — hint only; that leaf calls verify-engine.sh the same smell but excludes it as separate work"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-002",
+      "title": "auth-service is named and catalogued as orchestration although it contains only authentication primitives",
+      "area": "server",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/auth-service.ts",
+          "line": 23,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The module exports password, timing-oracle, JWT, and refresh-token primitives but owns no account or session workflow."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 69,
+          "endLine": 98,
+          "measurement": null,
+          "note": "The router-local helper creates persisted sessions, tokens, request metadata, and cookies."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 100,
+          "endLine": 330,
+          "measurement": null,
+          "note": "Registration, login, refresh, logout, profile, password, and deletion workflows remain in the router."
+        },
+        {
+          "path": "packages/server/src/services/README.md",
+          "line": 198,
+          "endLine": 202,
+          "measurement": null,
+          "note": "The service inventory labels auth-service.ts a flat service, reinforcing the misleading ownership signal."
+        }
+      ],
+      "problem": "The filename and service inventory promise request-level authentication orchestration, but the file is a cryptography/token primitive module and the router is the actual lifecycle owner. Repository navigation therefore points maintainers to the wrong boundary.",
+      "proposedDirection": "Keep router workflows intact and rename auth-service.ts to an accurate primitive-oriented name such as auth-primitives.ts or auth-crypto.ts, updating imports and the service inventory.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "triage/batch1-rejected.json::rejected[5]",
+          "lane": "lane-03-server",
+          "originalTitle": "The auth router is the request-facing auth service in everything but name",
+          "rejectionReason": "The judge rejected the broad workflow extraction but explicitly identified the misleading auth-service name as a real, unadjudicated S-sized residual suitable for renomination."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-003",
+      "title": "Memory-wait timeout validation diverges across verify entry paths",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/verify/steps-lib.sh",
+          "line": 257,
+          "endLine": 263,
+          "measurement": null,
+          "note": "The parallel scheduler accepts every non-empty digit string as a valid wait timeout."
+        },
+        {
+          "path": "scripts/verify/steps-lib.sh",
+          "line": 310,
+          "endLine": 311,
+          "measurement": null,
+          "note": "The accepted string is later consumed by a Bash numeric comparison without an overflow bound."
+        },
+        {
+          "path": "scripts/verify/memory-budget.sh",
+          "line": 436,
+          "endLine": 461,
+          "measurement": null,
+          "note": "Direct-tool admission repeats the digit-only validation and later performs the same numeric comparison."
+        },
+        {
+          "path": ".husky/pre-commit",
+          "line": 315,
+          "endLine": 345,
+          "measurement": null,
+          "note": "Pre-commit separately normalizes the value, rejects values beyond signed-64-bit range, applies its policy cap, and exports the result."
+        }
+      ],
+      "problem": "The same environment knob has three validation contracts. Direct verify and direct-tool paths accept digit strings outside the shell's usable integer range and later feed them to numeric comparisons, while pre-commit alone bounds them, so malformed large values can break rather than enforce timeout handling.",
+      "proposedDirection": "Add one shared timeout parser and range validator beside the memory-budget implementation and use it from both scheduler forms; let pre-commit apply its separate policy cap afterward.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[11]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Memory-budget and timeout parsing are repeated across verify helpers.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 110 — hint only; that leaf addresses scheduler dependency data and leaves memory-scheduler hygiene outside its core direction"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-004",
+      "title": "Ambient TypeScript declarations manually shadow checked JavaScript policy",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/eslint-config-shared-policy.d.ts",
+          "line": 1,
+          "endLine": 113,
+          "measurement": null,
+          "note": "A 113-line ambient file manually declares five wildcard JavaScript modules, including duplicated policy interfaces and literal unions."
+        },
+        {
+          "path": "scripts/eslint-config-shared-policy.test.ts",
+          "line": 13,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The parity suite says the declaration hand-restates runtime shape and checks only promised exports and shallow shapes."
+        },
+        {
+          "path": "tsconfig.eslint-js.json",
+          "line": 14,
+          "endLine": 26,
+          "measurement": null,
+          "note": "The eslint-config JavaScript policy is already under allowJs/checkJs while the eslint-rules graph remains deliberately excluded."
+        },
+        {
+          "path": "eslint-config/max-lines-exceptions-codec.js",
+          "line": 14,
+          "endLine": 17,
+          "measurement": null,
+          "note": "Checked JavaScript documents the distant ambient declaration as the bridge used by TypeScript consumers."
+        }
+      ],
+      "problem": "TypeScript consumers compile against a manually maintained semantic shadow of runtime JavaScript policy. The declarations are not type-checked against JavaScript inference, and the runtime test proves only shallow parity, so literal unions or nested contracts can drift while consumers compile.",
+      "proposedDirection": "Emit colocated declarations from checked eslint-config JavaScript after tightening its JSDoc, freshness-check them, and retain manual ambient declarations only for deliberately unchecked eslint-rules modules.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[16]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Ambient TypeScript declarations manually shadow JavaScript policy schemas.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": ["looks close to leaf 158 — hint only"],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-005",
+      "title": "Ghost-files mode requirements are not encoded in its scope types",
+      "area": "harness",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/scope.ts",
+          "line": 19,
+          "endLine": 22,
+          "measurement": null,
+          "note": "DetectorScope stores scopeMode beside an unconstrained ScopeFile array, so mode and file variants can disagree."
+        },
+        {
+          "path": "scripts/drift-ai/scope.ts",
+          "line": 42,
+          "endLine": 52,
+          "measurement": null,
+          "note": "changedFilesFromScope silently filters away non-changed variants instead of receiving a mode-consistent collection."
+        },
+        {
+          "path": "scripts/drift-ai/ghost-files.ts",
+          "line": 35,
+          "endLine": 49,
+          "measurement": null,
+          "note": "RunGhostFilesCheckOptions makes both changed-mode listDirectory and current-mode inventoryByDir optional without a mode-discriminated relationship."
+        },
+        {
+          "path": "scripts/drift-ai/ghost-files.ts",
+          "line": 51,
+          "endLine": 70,
+          "measurement": null,
+          "note": "The implementation restores the missing contract through branches and runtime checks."
+        }
+      ],
+      "problem": "The type system accepts impossible ghost-file scan inputs: a mode can carry the other mode's file variants, current scope can omit inventory, and changed scope can omit directory listing. Those states throw only at execution or quietly erase files during filtering.",
+      "proposedDirection": "Make DetectorScope a discriminated union over mode and matching file variants, then express ghost-file run options as mode-specific variants with the required dependency present.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[0]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Ghost-files scope requirements and positional pair state remain convention-only",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "open-leaf",
+          "ref": "CQ25-10",
+          "residual": "CQ25-10's scheduled slices cover other analyzer contract narrowing and do not encode DetectorScope or ghost-files mode dependencies."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-006",
+      "title": "Drift-ai command families redeclare one result and error lifecycle",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/prototype-command.ts",
+          "line": 14,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The prototype framework defines the common exitCode/stdout result and descriptor boundary."
+        },
+        {
+          "path": "scripts/drift-ai/prototype-command.ts",
+          "line": 43,
+          "endLine": 53,
+          "measurement": null,
+          "note": "Prototype commands map DriftAiHelp and DriftAiError to exit codes 0 and 2 locally."
+        },
+        {
+          "path": "scripts/drift-ai/class-construction-command.ts",
+          "line": 39,
+          "endLine": 50,
+          "measurement": null,
+          "note": "A representative prototype command redeclares the result shape and forwards through a near-identical wrapper."
+        },
+        {
+          "path": "scripts/drift-ai/runner.ts",
+          "line": 66,
+          "endLine": 69,
+          "measurement": null,
+          "note": "The main runner independently declares the same base result fields."
+        },
+        {
+          "path": "scripts/drift-ai/runner.ts",
+          "line": 106,
+          "endLine": 125,
+          "measurement": null,
+          "note": "The main path separately implements the same help/error mapping."
+        },
+        {
+          "path": "scripts/drift-ai/config-inspect-command.ts",
+          "line": 47,
+          "endLine": 87,
+          "measurement": null,
+          "note": "Config inspection carries another complete parse/run/output/error lifecycle."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots.ts",
+          "line": 64,
+          "endLine": 88,
+          "measurement": null,
+          "note": "Hotspots declares the same result shape and help/error mapping."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots.ts",
+          "line": 65,
+          "endLine": 91,
+          "measurement": null,
+          "note": "Coldspots independently repeats the same result and error lifecycle."
+        }
+      ],
+      "problem": "One CLI contract is represented by per-command result aliases, prototype forwarding wrappers, and five independent help/error mappings. A lifecycle rule or result-field change therefore requires a broad coordinated edit, and copies can diverge in which phases they catch.",
+      "proposedDirection": "Give shared subcommand infrastructure a neutral run-result and sentinel-error mapping helper, then converge main, prototype, config, hotspots, and coldspots while preserving command-specific parsing and formatting.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[5]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Prototype commands redeclare identical result and forwarding shells",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        },
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[22]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Prototype and main CLI paths duplicate error/output lifecycle policy",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks adjacent to leaf 120, which owns option parsing and registries rather than result/error lifecycle — hint only",
+        "looks adjacent to leaf 161, which excludes runner/output behavior — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-007",
+      "title": "Blame parsing threads an unused repository-root dependency",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/coldspots-blame.ts",
+          "line": 29,
+          "endLine": 36,
+          "measurement": null,
+          "note": "Repository anchoring belongs to defaultBlameGitRunner, which captures repoRoot when constructing the injected runner."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-blame.ts",
+          "line": 45,
+          "endLine": 49,
+          "measurement": null,
+          "note": "BlameLineIntroductionsOptions nevertheless requires a separate repoRoot field."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-blame.ts",
+          "line": 53,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The public function and runBlame consume git and path only; repoRoot is never read."
+        },
+        {
+          "path": "scripts/drift-ai/coldspots-stale-markers.ts",
+          "line": 122,
+          "endLine": 129,
+          "measurement": null,
+          "note": "The reducer threads repoRoot into blameLineIntroductions despite already receiving the anchored Git runner."
+        }
+      ],
+      "problem": "The blame parser advertises repository-root ownership it does not have. Callers must provide duplicate anchoring state, obscuring that the injected Git runner is the actual execution boundary.",
+      "proposedDirection": "Remove repoRoot from BlameLineIntroductionsOptions and its call sites; retain it only where defaultBlameGitRunner is constructed.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[20]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Blame parsing threads an unused repoRoot dependency",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-008",
+      "title": "Level-up queries metamagics before deciding whether metamagic applies",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/level-up/level-up.ts",
+          "line": 69,
+          "endLine": 79,
+          "measurement": null,
+          "note": "Every level-up transaction queries CharacterMetamagic rows before applicability validation."
+        },
+        {
+          "path": "packages/server/src/services/level-up/sorcerer.ts",
+          "line": 24,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The validator immediately returns null unless the target is Sorcerer at a metamagic-choice level."
+        }
+      ],
+      "problem": "Metamagic applicability is owned by the Sorcerer validator, but its conditionally needed database load is owned by the outer orchestrator. Every non-applicable level-up therefore performs an unnecessary transactional query.",
+      "proposedDirection": "Give one Sorcerer-level resolver ownership of applicability followed by the conditional existing-metamagic lookup and validation.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[0]",
+          "lane": "lane-03-server",
+          "originalTitle": "Metamagic applicability is split between level-up orchestration and sorcerer validation.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-25",
+          "residual": "The scheduled LevelUpContext cleanup touches this orchestration but does not move applicability ahead of the unconditional CharacterMetamagic lookup."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-009",
+      "title": "Spell-bearing character creation reloads class and subclass references already being validated",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 50,
+          "endLine": 67,
+          "measurement": null,
+          "note": "Core reference validation loads the selected class and gameplay fields."
+        },
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 142,
+          "endLine": 151,
+          "measurement": null,
+          "note": "Optional-reference validation separately loads and validates the selected subclass."
+        },
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 221,
+          "endLine": 224,
+          "measurement": null,
+          "note": "The coordinator launches general reference and spell-create validation as independent paths."
+        },
+        {
+          "path": "packages/server/src/services/character-create-spells.ts",
+          "line": 115,
+          "endLine": 131,
+          "measurement": null,
+          "note": "When spells are present, the spell path reloads the same class and optional subclass for caster fields."
+        }
+      ],
+      "problem": "A spell-bearing create request has two authorities load overlapping class/subclass projections, adding avoidable reads and allowing future caster-reference changes to diverge between validation paths.",
+      "proposedDirection": "Load and validate class/subclass references once into the creation reference bundle and pass the caster fields to the spell-create builder while preserving error semantics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[4]",
+          "lane": "lane-03-server",
+          "originalTitle": "Character creation loads class and subclass references twice.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-185",
+          "residual": "The ruling preserves the non-SrdClassId caster fallback; consolidating reads must preserve that behavior and addresses only duplicate loading."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 004 — its module move touches both loaders but does not consolidate the duplicated reads"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-010",
+      "title": "Initiative rolling obscures three orchestration depths behind two names and an alias",
+      "area": "server",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/encounter-combat/initiative-action.ts",
+          "line": 7,
+          "endLine": 28,
+          "measurement": null,
+          "note": "The request-facing rollAllInitiative imports a same-named deeper function under the alias executeRollAllInitiative."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/combat-actions.ts",
+          "line": 187,
+          "endLine": 203,
+          "measurement": null,
+          "note": "The middle caller-owned layer is also named rollAllInitiative and invokes a lower executeRollAllInitiative."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/initiative.ts",
+          "line": 27,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The lowest layer performs loading, rolling, sorting, and persistence under executeRollAllInitiative."
+        },
+        {
+          "path": "packages/server/src/services/README.md",
+          "line": 151,
+          "endLine": 171,
+          "measurement": null,
+          "note": "The repository requires wrapper/core pairs to use depth-signalling names."
+        }
+      ],
+      "problem": "Three initiative layers are exposed through two names, with an import alias hiding the collision. Navigation lands on indistinguishable symbols and violates the depth convention used by adjacent orchestration.",
+      "proposedDirection": "Rename the caller-owned middle layer to runRollAllInitiativeCore and give the persistence implementation a role-specific name, then import both without aliases.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[11]",
+          "lane": "lane-03-server",
+          "originalTitle": "Initiative orchestration uses three overlapping depth names.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-58",
+          "residual": "The scheduled initiative-ordering slice edits the low-level module but leaves all three orchestration names and the alias unchanged."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-011",
+      "title": "Mutation logging documents stable vocabulary but accepts arbitrary event and reason strings",
+      "area": "server",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/request-logger.ts",
+          "line": 94,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The contract calls mutation events and reasons stable low-cardinality codes, yet declares both as unrestricted string."
+        },
+        {
+          "path": "packages/server/src/services/character-live-state/side-effects.ts",
+          "line": 27,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The shared command wrapper accepts an arbitrary event string and forwards it to logMutation."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 145,
+          "endLine": 179,
+          "measurement": null,
+          "note": "Authentication producers rely on exact repeated event and reason literals."
+        },
+        {
+          "path": "packages/server/src/routers/encounter.ts",
+          "line": 170,
+          "endLine": 177,
+          "measurement": null,
+          "note": "Encounter failure logging adds another stable pair with no compile-time vocabulary check."
+        }
+      ],
+      "problem": "Operational grouping depends on exact event and reason spellings, but the logger and shared wrapper accept any string. A typo compiles and silently creates a new event family or reason bucket, unlike the adjacent closed authorization vocabulary.",
+      "proposedDirection": "Define server-local MutationEvent and MutationReason unions from production literals and use them in MutationLogPayload and runTopLevelCommand.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[16]",
+          "lane": "lane-03-server",
+          "originalTitle": "Mutation log events and reasons remain open strings.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 182 — that leaf centralizes logging policy but leaves exact mutation vocabularies server-local"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-012",
+      "title": "Remove or complete the permanently disabled VTT reveal control",
+      "area": "client",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/vtt/in-vtt-drawer.tsx",
+          "line": 59,
+          "endLine": 71,
+          "measurement": null,
+          "note": "The monster header always renders a disabled Reveal to party button whose title says the functionality is not implemented."
+        }
+      ],
+      "problem": "A production drawer advertises an action that can never be used, adding visual and test surface while implying a workflow that does not exist.",
+      "proposedDirection": "Remove the disabled control until reveal behavior exists, or let the already-authored reveal-state feature replace it.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[11]",
+          "lane": "lane-05-client",
+          "originalTitle": "The VTT drawer renders a permanently disabled Reveal placeholder.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks fully covered by leaf 179, which replaces the placeholder with persisted reveal behavior — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-013",
+      "title": "Keep character-wizard step keys closed through validation",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/wizard-state.ts",
+          "line": 104,
+          "endLine": 114,
+          "measurement": null,
+          "note": "WIZARD_STEPS is a closed const tuple whose key union is available to the type system."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-state.ts",
+          "line": 130,
+          "endLine": 140,
+          "measurement": null,
+          "note": "isStepApplicable widens the tuple key to string and visibleStepIndices supplies an empty-string sentinel."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-validation.ts",
+          "line": 54,
+          "endLine": 74,
+          "measurement": null,
+          "note": "STEP_VALIDATORS is Record<string, ...>; a new wizard step can omit its validator without a type error and then cannot advance."
+        }
+      ],
+      "problem": "The wizard declares a closed step registry and immediately discards its key union. The compiler cannot enforce validator exhaustiveness, turning an omitted validator into a runtime navigation block.",
+      "proposedDirection": "Derive WizardStepKey from WIZARD_STEPS and use it for applicability and an exhaustive validator record; eliminate the empty-string sentinel where the step is already checked.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[12]",
+          "lane": "lane-05-client",
+          "originalTitle": "Wizard step keys widen a closed tuple back to string.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-014",
+      "title": "Authentication guards depend on render-behind redirect timing",
+      "area": "client",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/common/auth-guard.tsx",
+          "line": 29,
+          "endLine": 41,
+          "measurement": null,
+          "note": "AuthGuard passes conflicting to and href destinations and needs a guest-path stand-down because it remains mounted after redirect."
+        },
+        {
+          "path": "packages/client/src/components/common/guest-guard.tsx",
+          "line": 25,
+          "endLine": 37,
+          "measurement": null,
+          "note": "GuestGuard repeats the dual navigation-prop convention and one-render-behind suppression branch."
+        },
+        {
+          "path": "packages/client/src/lib/login-redirect.ts",
+          "line": 20,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The redirect helper documents that both guards must detect their destination to avoid clobbering it one render later."
+        }
+      ],
+      "problem": "Correct auth navigation depends on framework timing and precedence between two valid navigation props. A router behavior change can overwrite the return destination, and compensating branches are difficult to reason about locally.",
+      "proposedDirection": "Give guest routes validated search contracts, use typed navigation for login, and isolate dynamic href-only resume navigation behind one adapter.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[15]",
+          "lane": "lane-05-client",
+          "originalTitle": "Authentication guards depend on one-render-behind redirect timing.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": ["looks fully covered by leaf 186 — hint only"],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-015",
+      "title": "Character deletion duplicates the common confirmation dialog",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/delete-character-dialog.tsx",
+          "line": 21,
+          "endLine": 55,
+          "measurement": null,
+          "note": "A dedicated character dialog reimplements the full confirmation shell and disables both actions while deletion is pending."
+        },
+        {
+          "path": "packages/client/src/components/common/delete-confirm-dialog.tsx",
+          "line": 22,
+          "endLine": 54,
+          "measurement": null,
+          "note": "The common dialog implements the same flow but has already drifted on pending cancellation and label punctuation."
+        },
+        {
+          "path": "packages/client/src/pages/dashboard-page.tsx",
+          "line": 237,
+          "endLine": 243,
+          "measurement": null,
+          "note": "Dashboard wires the bespoke dialog even though its state and callbacks match the common component's contract."
+        }
+      ],
+      "problem": "Two near-identical confirmation components independently own destructive-dialog behavior and copy. Their pending state and labels have already diverged, so interaction and accessibility fixes must be remembered twice.",
+      "proposedDirection": "Extend DeleteConfirmDialog only as needed to preserve pending behavior, switch DashboardPage to it, and delete the bespoke copy.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[18]",
+          "lane": "lane-05-client",
+          "originalTitle": "Character deletion bypasses DeleteConfirmDialog.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-187",
+          "residual": "CQ25-187 refuses loose-root regrouping; this candidate instead removes a duplicate by converging on the already-landed common dialog."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-016",
+      "title": "Character-sheet composition derives the SRD lookup bundle twice",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/pages/character-sheet/sheet-layout.tsx",
+          "line": 72,
+          "endLine": 97,
+          "measurement": null,
+          "note": "CharacterSheetContent invokes useSrdLookups to gate loading and error rendering."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet/sheet-layout.tsx",
+          "line": 100,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The mounted body immediately calls useSheetState without receiving the lookup result already obtained by its parent."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet/sheet-state.ts",
+          "line": 98,
+          "endLine": 117,
+          "measurement": null,
+          "note": "useSheetState invokes useSrdLookups a second time and returns that second bundle."
+        },
+        {
+          "path": "packages/client/src/hooks/use-srd-lookups.ts",
+          "line": 118,
+          "endLine": 148,
+          "measurement": null,
+          "note": "Each hook instance memoizes its own derivation of five collections into maps, records, and lookup closures."
+        }
+      ],
+      "problem": "One character-sheet mount creates two observers of the same query and independently rebuilds the complete lookup projection. The parent already owns the loading boundary, so the second derivation is avoidable and obscures ownership.",
+      "proposedDirection": "Pass the resolved lookup bundle from CharacterSheetContent into the body/useSheetState boundary and remove the nested hook invocation.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[23]",
+          "lane": "lane-05-client",
+          "originalTitle": "The character sheet derives the full SRD lookup bundle twice.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks adjacent to leaf 200, which renames the lookup-bundle contract but does not remove the duplicate hook invocation"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-017",
+      "title": "Map and token destructive actions bypass the dialog confirmation system",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-sidebar.tsx",
+          "line": 53,
+          "endLine": 64,
+          "measurement": null,
+          "note": "Sidebar token removal uses a blocking browser confirm."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-context-menu.tsx",
+          "line": 213,
+          "endLine": 224,
+          "measurement": null,
+          "note": "Context-menu token removal independently repeats browser-confirm policy and copy."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-toolbar-fog-tools.tsx",
+          "line": 61,
+          "endLine": 72,
+          "measurement": null,
+          "note": "Resetting all fog uses window.confirm instead of an application dialog."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx",
+          "line": 73,
+          "endLine": 84,
+          "measurement": null,
+          "note": "Clearing all drawings is the fourth independently worded browser confirmation."
+        }
+      ],
+      "problem": "Four destructive VTT actions use blocking browser prompts while entity deletion uses styled dialogs. This splits confirmation copy, accessibility, focus behavior, and pending-state policy; token removal is duplicated twice.",
+      "proposedDirection": "Introduce or generalize one configurable destructive-action dialog and route both token removals, fog reset, and drawing clear through it.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[29]",
+          "lane": "lane-05-client",
+          "originalTitle": "Four map/token destructive actions use window.confirm beside DeleteConfirmDialog.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "B-018",
+      "title": "NPC mutations bypass the campaign invalidation facade",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/lib/query-invalidation.ts",
+          "line": 6,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The facade declares ownership of campaign-wide cache invalidations and says additions should be one-place closure edits."
+        },
+        {
+          "path": "packages/client/src/lib/query-invalidation.ts",
+          "line": 21,
+          "endLine": 115,
+          "measurement": null,
+          "note": "The registry covers campaign, invite, homebrew, encounter, map, chat, note, and character domains but has no NPC-list invalidation."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/npc-panel.tsx",
+          "line": 162,
+          "endLine": 172,
+          "measurement": null,
+          "note": "The NPC panel builds a private invalidator from queryOptions(...).queryKey."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/npc-panel.tsx",
+          "line": 179,
+          "endLine": 205,
+          "measurement": null,
+          "note": "Create, update, and delete all depend on the panel-local invalidator."
+        }
+      ],
+      "problem": "NPC-list invalidation is the sole campaign CRUD policy hidden inside its panel rather than the facade intended to own campaign-wide invalidation. Future consumers cannot discover or reuse it, and it uses a raw query-key shape instead of the facade convention.",
+      "proposedDirection": "Add an explicit invalidateNpcs(campaignId) closure to useQueryInvalidation and use it from NPC mutations without introducing the previously refused generic descriptor binder.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[33]",
+          "lane": "lane-05-client",
+          "originalTitle": "NPC CRUD bypasses the centralized invalidation layer.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-196",
+          "residual": "CQ25-196 rejects a generic descriptor binder; adding the missing explicit NPC closure follows rather than overturns that ruling."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "itemsAssigned": 38,
+    "itemsAudited": 38,
+    "subagentPartition": [
+      "lane01 subagent: items 1–3 and 12–17",
+      "lane02 subagent: items 4–5 and 18–22",
+      "lane03 subagent: items 6–9 and 23–28",
+      "lane05 subagent: items 10–11 and 29–38"
+    ],
+    "notes": [
+      "Nineteen source items promoted into eighteen candidates; items 20 and 22 share B-006.",
+      "Authored-leaf overlap was retained as a hint rather than used to suppress evidenced candidates.",
+      "The assigned source surfaces are unchanged from the audit target SHA; only audit documents have accreted.",
+      "No tests or builds were run, and no files, commits, or branches were modified."
+    ]
+  }
+}

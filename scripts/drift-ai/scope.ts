@@ -16,19 +16,26 @@ export type CurrentScopeFile = {
 
 export type ScopeFile = ChangedScopeFile | CurrentScopeFile;
 
-export type DetectorScope = {
-  readonly scopeMode: ScopeMode;
-  readonly files: readonly ScopeFile[];
+export type ChangedDetectorScope = {
+  readonly scopeMode: "changed";
+  readonly files: readonly ChangedScopeFile[];
 };
 
-export const BUILT_IN_SOURCE_EXTENSIONS: ReadonlySet<string> = new Set([
-  ".ts",
-  ".tsx",
-  ".js",
-  ".jsx",
-  ".mjs",
-  ".cjs",
-]);
+export type CurrentDetectorScope = {
+  readonly scopeMode: "current";
+  readonly files: readonly CurrentScopeFile[];
+};
+
+export type DetectorScope = ChangedDetectorScope | CurrentDetectorScope;
+
+// Source-extension truth lives in the shared taxonomy module
+// (scripts/lib/path-taxonomy.ts); these re-exports keep this module the
+// import surface for the scope model, so configured additions route through
+// one place and flow to every consumer that builds its set here.
+export {
+  buildScopeSourceExtensions as buildSourceExtensions,
+  SCOPE_BUILT_IN_SOURCE_EXTENSIONS as BUILT_IN_SOURCE_EXTENSIONS,
+} from "../lib/path-taxonomy.js";
 
 export function toChangedScopeFile(file: ChangedFile): ChangedScopeFile {
   return {
@@ -39,24 +46,17 @@ export function toChangedScopeFile(file: ChangedFile): ChangedScopeFile {
   };
 }
 
+export function changedFilesFromScope(detectorScope: ChangedDetectorScope): ChangedFile[] {
+  return detectorScope.files.map((file) => ({
+    path: file.path,
+    status: file.status,
+    ...(file.previousPath === undefined ? {} : { previousPath: file.previousPath }),
+  }));
+}
+
 export function toCurrentScopeFile(repoRelativePath: string): CurrentScopeFile {
   return {
     scope: "current",
     path: repoRelativePath,
   };
-}
-
-export function buildSourceExtensions(additional: readonly string[]): ReadonlySet<string> {
-  const extensions = new Set(BUILT_IN_SOURCE_EXTENSIONS);
-  for (const extension of additional) {
-    const normalized = normalizeSourceExtension(extension);
-    if (normalized.length > 1) extensions.add(normalized);
-  }
-  return extensions;
-}
-
-function normalizeSourceExtension(extension: string): string {
-  const normalized = extension.trim().toLowerCase();
-  if (normalized.length === 0) return "";
-  return normalized.startsWith(".") ? normalized : `.${normalized}`;
 }

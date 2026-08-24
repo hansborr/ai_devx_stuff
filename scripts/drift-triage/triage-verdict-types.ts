@@ -19,6 +19,35 @@ export type TriageVerdict = {
   readonly canonicalItemId: string | null;
 };
 
+const TRIAGE_VERDICT_REQUIRED_FIELDS = [
+  "itemId",
+  "verdict",
+  "severity",
+  "confidence",
+  "rationale",
+  "verifiedLocations",
+  "recommendedAction",
+  "canonicalItemId",
+] as const satisfies readonly (keyof TriageVerdict)[];
+
+const TRIAGE_DUPLICATE_OF_REQUIREMENT = {
+  verdict: "duplicate-of",
+  requiredField: "canonicalItemId",
+} as const satisfies {
+  readonly verdict: TriageVerdict["verdict"];
+  readonly requiredField: keyof TriageVerdict;
+};
+
+export const TRIAGE_VERDICT_CONTRACT = {
+  verdicts: TRIAGE_VERDICTS,
+  severities: TRIAGE_SEVERITIES,
+  confidences: TRIAGE_CONFIDENCES,
+  requiredFields: TRIAGE_VERDICT_REQUIRED_FIELDS,
+  duplicateOfRequires: TRIAGE_DUPLICATE_OF_REQUIREMENT.requiredField,
+} as const;
+
+export type TriageVerdictContract = typeof TRIAGE_VERDICT_CONTRACT;
+
 export type TriageVerdictFile = {
   readonly schemaVersion: 1;
   readonly kind: "drift-triage-verdicts";

@@ -8,9 +8,14 @@ const ZERO_BASELINE_DISPOSITION_KINDS = new Set<LintRatchetZeroBaselineDispositi
   "temporary-ratchet-only",
 ]);
 
+function requiresExitPath(kind: LintRatchetZeroBaselineDispositionKind): boolean {
+  return kind === "promote-to-normal-lint" || kind === "temporary-ratchet-only";
+}
+
 export function validateZeroBaselineDisposition(
   ratchet: LintRatchetConfig,
   failures: string[],
+  exitPathExists?: (exitPath: string) => boolean,
 ): void {
   const disposition = ratchet.zeroBaselineDisposition;
   if (disposition === undefined) return;
@@ -20,13 +25,13 @@ export function validateZeroBaselineDisposition(
   if (disposition.reason.trim().length === 0) {
     failures.push(`${ratchet.id}: zeroBaselineDisposition.reason must be non-empty`);
   }
-  if (
-    (disposition.kind === "promote-to-normal-lint" ||
-      disposition.kind === "temporary-ratchet-only") &&
-    (disposition.exitPath?.trim() ?? "").length === 0
-  ) {
+  if (!requiresExitPath(disposition.kind)) return;
+  const exitPath = disposition.exitPath?.trim() ?? "";
+  if (exitPath.length === 0) {
     failures.push(
       `${ratchet.id}: zeroBaselineDisposition.exitPath is required for ${disposition.kind}`,
     );
+  } else if (exitPathExists !== undefined && !exitPathExists(exitPath)) {
+    failures.push(`${ratchet.id}: zeroBaselineDisposition.exitPath does not exist: ${exitPath}`);
   }
 }

@@ -112,4 +112,38 @@ describe("knip pass-through check wiring", () => {
       expect(outcome.findings[0]?.provenance).toBeUndefined();
     }
   });
+
+  it.each(KNIP_CHECKS)("keeps empty output as a single diagnostic for $id", ({ id, plugin }) => {
+    const outcome = plugin.runWithSelectedConfig(
+      makeInput(id, () => ({
+        ok: true,
+        reportJson: "   ",
+        exitCode: 0,
+        stderr: "",
+      })),
+    );
+
+    expect(outcome.status).toBe("ran");
+    if (outcome.status === "ran") {
+      expect(outcome.findings).toHaveLength(1);
+      expect(outcome.findings[0]?.check).toBe(id);
+      expect(outcome.findings[0]?.message).toContain("knip produced no JSON output");
+    }
+  });
+
+  it.each(KNIP_CHECKS)(
+    "keeps a non-array issues field as a successful zero-finding run for $id",
+    ({ id, plugin }) => {
+      const outcome = plugin.runWithSelectedConfig(
+        makeInput(id, () => ({
+          ok: true,
+          reportJson: '{"issues":{}}',
+          exitCode: 0,
+          stderr: "",
+        })),
+      );
+
+      expect(outcome).toEqual({ status: "ran", findings: [] });
+    },
+  );
 });

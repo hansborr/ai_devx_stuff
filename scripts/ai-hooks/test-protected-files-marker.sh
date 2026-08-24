@@ -249,12 +249,12 @@ fi
 #
 # The Edit/Write surface is only half of it. The Bash surface reaches the same
 # scanners transitively and must be pinned too:
-#   * scripts/ai-hooks/no-direct-db.sh calls ai_policy_violation_reason and
+#   * scripts/ai-hooks/no-direct-db.sh calls ai_policy_decision and
 #     ai_policy_advisory_context directly, but deliberately keeps its own root
 #     in HOOK_REPO_ROOT and never assigns the global REPO_ROOT — so its safety
 #     rests entirely on .claude/hooks/no-direct-db.sh recomputing it first.
 #   * git-commit-quiet.sh reaches them through ai_preflight_or_block ->
-#     ai_policy_violation_reason -> ai_policy_bash_protected_file_violation_reason.
+#     ai_policy_decision -> ai_policy_bash_protected_file_violation_reason.
 # bash-post-tool-use.sh never invokes the scanners; it stays listed because it
 # is a shipped entrypoint whose REPO_ROOT shape should not silently drift.
 for entrypoint in \

@@ -109,6 +109,20 @@ function functionsFrom(files: Record<string, string>): NearDuplicateFunction[] {
   );
 }
 
+describe("extractNearDuplicateFunctions", () => {
+  it("collects exact tokens by default and omits them when explicitly disabled", () => {
+    const withDefault = extractNearDuplicateFunctions("scripts/totals.ts", RENAMED_VARIABLES);
+    const withoutExactTokens = extractNearDuplicateFunctions(
+      "scripts/totals.ts",
+      RENAMED_VARIABLES,
+      { includeExactTokens: false },
+    );
+
+    expect(withDefault.every((item) => item.exactTokens.length > 0)).toBe(true);
+    expect(withoutExactTokens.every((item) => item.exactTokens.length === 0)).toBe(true);
+  });
+});
+
 // Hand-built fingerprints give precise control over filePath/startLine/endLine
 // so we can exercise the same-file range-overlap guard. Identical features and
 // statementFeatures make every pair a perfect (similarity 1.0) match and share
@@ -387,6 +401,7 @@ describe("defaultNearDuplicateRunner", () => {
       minLines: 8,
       minTokens: 45,
       similarityThreshold: 0.85,
+      includeExactTokens: false,
     });
     expect(result.ok).toBe(true);
     if (result.ok && result.engine === "ts-morph") {
@@ -453,8 +468,50 @@ function positionalPaths(args: readonly string[]): string[] {
   return paths;
 }
 
+// The valid fixtures were captured byte-for-byte from real similarity-ts 0.5.0
+// runs; the truncated variant intentionally declares two records but retains one.
+const SIMILARITY_TS_NO_SOURCE_FILES_STDOUT = `Analyzing code similarity...
+
+=== Function Similarity ===
+No TypeScript/JavaScript files found in the specified paths.
+`;
+
+const SIMILARITY_TS_THREE_PAIRS_STDOUT = `Analyzing code similarity...
+
+=== Function Similarity ===
+Checking 3 files for duplicates...
+
+Found 3 duplicate pairs:
+------------------------------------------------------------
+
+Similarity: 97.27%, Score: 19.5 points (lines 20~20, avg: 20.0)
+  big1.ts:1-20 processData
+  big3.ts:1-20 copyOfProcessData
+
+Similarity: 97.27%, Score: 19.5 points (lines 20~20, avg: 20.0)
+  big1.ts:1-20 processData
+  big4.ts:1-20 thirdVariant
+
+Similarity: 97.27%, Score: 19.5 points (lines 20~20, avg: 20.0)
+  big3.ts:1-20 copyOfProcessData
+  big4.ts:1-20 thirdVariant
+`;
+
+const SIMILARITY_TS_TRUNCATED_PAIRS_STDOUT = `Analyzing code similarity...
+
+=== Function Similarity ===
+Checking 2 files for duplicates...
+
+Found 2 duplicate pairs:
+------------------------------------------------------------
+
+Similarity: 97.27%, Score: 19.5 points (lines 20~20, avg: 20.0)
+  big1.ts:1-20 processData
+  big3.ts:1-20 copyOfProcessData
+`;
+
 describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
-  it("hands similarity-ts only the filtered inventory as explicit positional paths", () => {
+  it("pins the similarity-ts argv and filtered positional inventory", () => {
     const repoRoot = writeRepo({
       "src/totals.ts": RENAMED_VARIABLES,
       "src/totals.test.ts": RENAMED_VARIABLES, // excluded via excludeGlobs
@@ -462,7 +519,16 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       "src/data.json": "{}\n", // unsupported extension
       "node_modules/pkg/index.ts": RENAMED_VARIABLES, // ignored path segment
     });
-    const { spawn, calls } = recordingSpawn({ status: 0, stdout: "", stderr: "" });
+    const stdout = [
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Checking 1 files for duplicates...",
+      "",
+      "No duplicate functions found!",
+      "",
+    ].join("\n");
+    const { spawn, calls } = recordingSpawn({ status: 0, stdout, stderr: "" });
     const result = defaultNearDuplicateRunner({ spawn })({
       repoRoot,
       roots: [],
@@ -473,6 +539,7 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       minLines: 8,
       minTokens: 45,
       similarityThreshold: 0.85,
+      includeExactTokens: false,
     });
     expect(result.ok).toBe(true);
     expect(calls).toHaveLength(1);
@@ -480,12 +547,11 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       "src/totals.ts",
       "--threshold",
       "0.85",
-      "--min-lines",
-      "8",
       "--min-tokens",
       "45",
-      "--cross-file",
+      "--no-types",
     ]);
+    expect(result).toEqual({ ok: true, engine: "similarity-ts", pairs: [] });
   });
 
   it("honors additional configured source extensions in the similarity-ts inventory", () => {
@@ -493,7 +559,16 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       "src/totals.ts": RENAMED_VARIABLES,
       "src/totals.mts": RENAMED_VARIABLES, // only a source file when .mts is configured
     });
-    const { spawn, calls } = recordingSpawn({ status: 0, stdout: "", stderr: "" });
+    const stdout = [
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Checking 2 files for duplicates...",
+      "",
+      "No duplicate functions found!",
+      "",
+    ].join("\n");
+    const { spawn, calls } = recordingSpawn({ status: 0, stdout, stderr: "" });
     defaultNearDuplicateRunner({ spawn })({
       repoRoot,
       roots: ["src"],
@@ -504,6 +579,7 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       minLines: 8,
       minTokens: 45,
       similarityThreshold: 0.85,
+      includeExactTokens: false,
     });
     expect(positionalPaths(calls[0]?.args ?? [])).toEqual(["src/totals.mts", "src/totals.ts"]);
   });
@@ -524,6 +600,7 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       minLines: 8,
       minTokens: 45,
       similarityThreshold: 0.85,
+      includeExactTokens: false,
     });
     expect(calls).toHaveLength(0);
     expect(result.ok).toBe(true);
@@ -532,11 +609,46 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
     }
   });
 
+  it("accepts similarity-ts zero-pair output when its filtered inventory has no parsable files", () => {
+    const repoRoot = writeRepo({ "src/component.vue": "<script>export default {};</script>\n" });
+    const { spawn, calls } = recordingSpawn({
+      status: 0,
+      stdout: SIMILARITY_TS_NO_SOURCE_FILES_STDOUT,
+      stderr: "",
+    });
+    const result = defaultNearDuplicateRunner({ spawn })({
+      repoRoot,
+      roots: ["src"],
+      sourceExtensions: buildSourceExtensions([".vue"]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "similarity-ts",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: false,
+    });
+    expect(calls).toHaveLength(1);
+    expect(result).toEqual({ ok: true, engine: "similarity-ts", pairs: [] });
+  });
+
   it("parses similarity-ts stdout into near-duplicate pairs", () => {
-    const repoRoot = writeRepo({ "src/totals.ts": RENAMED_VARIABLES });
+    const repoRoot = writeRepo({
+      "src/totals.ts": RENAMED_VARIABLES,
+      "src/basket.ts": RENAMED_VARIABLES,
+    });
     const stdout = [
-      "src/totals.ts:3-15 totalForOrder <-> src/basket.ts:1-13 totalForBasket",
-      "  Similarity: 92.50%",
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Checking 2 files for duplicates...",
+      "",
+      "Found 1 duplicate pairs:",
+      "------------------------------------------------------------",
+      "",
+      "Similarity: 92.50%, Score: 12.0 points (lines 13~13, avg: 13.0)",
+      "  src/totals.ts:3-15 totalForOrder",
+      "  src/basket.ts:1-13 totalForBasket",
       "",
     ].join("\n");
     const { spawn } = recordingSpawn({ status: 0, stdout, stderr: "" });
@@ -550,11 +662,178 @@ describe("defaultNearDuplicateRunner (similarity-ts engine)", () => {
       minLines: 8,
       minTokens: 45,
       similarityThreshold: 0.85,
+      includeExactTokens: false,
     });
     expect(result.ok).toBe(true);
     if (result.ok && result.engine === "similarity-ts") {
       expect(result.pairs).toHaveLength(1);
       expect(result.pairs[0]?.similarity).toBeCloseTo(0.925);
+    }
+  });
+
+  it("parses every record from captured multi-pair similarity-ts stdout", () => {
+    const repoRoot = writeRepo({
+      "big1.ts": RENAMED_VARIABLES,
+      "big3.ts": RENAMED_VARIABLES,
+      "big4.ts": RENAMED_VARIABLES,
+    });
+    const { spawn } = recordingSpawn({
+      status: 0,
+      stdout: SIMILARITY_TS_THREE_PAIRS_STDOUT,
+      stderr: "",
+    });
+    const result = defaultNearDuplicateRunner({ spawn })({
+      repoRoot,
+      roots: [],
+      sourceExtensions: buildSourceExtensions([]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "similarity-ts",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: false,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok && result.engine === "similarity-ts") {
+      expect(
+        result.pairs.map((pair) => [
+          pair.left.filePath,
+          pair.left.name,
+          pair.right.filePath,
+          pair.right.name,
+        ]),
+      ).toEqual([
+        ["big1.ts", "processData", "big3.ts", "copyOfProcessData"],
+        ["big1.ts", "processData", "big4.ts", "thirdVariant"],
+        ["big3.ts", "copyOfProcessData", "big4.ts", "thirdVariant"],
+      ]);
+    }
+  });
+
+  it("fails closed when the declared pair count exceeds the complete records", () => {
+    const repoRoot = writeRepo({
+      "big1.ts": RENAMED_VARIABLES,
+      "big3.ts": RENAMED_VARIABLES,
+    });
+    const { spawn } = recordingSpawn({
+      status: 0,
+      stdout: SIMILARITY_TS_TRUNCATED_PAIRS_STDOUT,
+      stderr: "",
+    });
+    const result = defaultNearDuplicateRunner({ spawn })({
+      repoRoot,
+      roots: [],
+      sourceExtensions: buildSourceExtensions([]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "similarity-ts",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("run-failed");
+      expect(result.error).toContain("similarity-ts 0.5.0 text protocol");
+    }
+  });
+
+  it("routes malformed non-empty stdout through the analyzer-failure path", () => {
+    const repoRoot = writeRepo({ "src/totals.ts": RENAMED_VARIABLES });
+    const stdout = [
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Checking 1 files for duplicates...",
+      "",
+      "No duplicate functions found!",
+      `unexpected trailing record ${"x".repeat(1_000)} tail-sentinel`,
+    ].join("\n");
+    const { spawn } = recordingSpawn({ status: 0, stdout, stderr: "" });
+    const result = defaultNearDuplicateRunner({ spawn })({
+      repoRoot,
+      roots: ["src"],
+      sourceExtensions: buildSourceExtensions([]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "similarity-ts",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("run-failed");
+      expect(result.error).toContain("similarity-ts 0.5.0 text protocol");
+      expect(result.error.length).toBeLessThanOrEqual(400);
+      expect(result.error).not.toContain("tail-sentinel");
+    }
+  });
+
+  it("fails closed when the pinned protocol changes or stdout is empty", () => {
+    const repoRoot = writeRepo({ "src/totals.ts": RENAMED_VARIABLES });
+    const changedStdout = [
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Scanning 1 files for duplicates...",
+      "",
+      "No duplicate functions found!",
+      "",
+    ].join("\n");
+    for (const stdout of [changedStdout, ""]) {
+      const { spawn } = recordingSpawn({ status: 0, stdout, stderr: "" });
+      const result = defaultNearDuplicateRunner({ spawn })({
+        repoRoot,
+        roots: ["src"],
+        sourceExtensions: buildSourceExtensions([]),
+        ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+        excludeGlobs: [],
+        engine: "similarity-ts",
+        minLines: 8,
+        minTokens: 45,
+        similarityThreshold: 0.85,
+        includeExactTokens: false,
+      });
+      expect(result.ok).toBe(false);
+      if (!result.ok) {
+        expect(result.reason).toBe("run-failed");
+        expect(result.error).toContain("similarity-ts 0.5.0 text protocol");
+      }
+    }
+  });
+
+  it("rejects the filter-only zero-pair sentinel the adapter cannot produce", () => {
+    const repoRoot = writeRepo({ "src/totals.ts": RENAMED_VARIABLES });
+    const stdout = [
+      "Analyzing code similarity...",
+      "",
+      "=== Function Similarity ===",
+      "Checking 1 files for duplicates...",
+      "",
+      "No duplicate functions found matching the filters!",
+      "",
+    ].join("\n");
+    const { spawn } = recordingSpawn({ status: 0, stdout, stderr: "" });
+    const result = defaultNearDuplicateRunner({ spawn })({
+      repoRoot,
+      roots: ["src"],
+      sourceExtensions: buildSourceExtensions([]),
+      ignore: DEFAULT_DRIFT_AI_CONFIG.ignore,
+      excludeGlobs: [],
+      engine: "similarity-ts",
+      minLines: 8,
+      minTokens: 45,
+      similarityThreshold: 0.85,
+      includeExactTokens: false,
+    });
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.reason).toBe("run-failed");
+      expect(result.error).toContain("similarity-ts 0.5.0 text protocol");
     }
   });
 });
@@ -691,7 +970,10 @@ describe("nearDuplicatesCheck", () => {
       }),
     );
     expect(outcome.status).toBe("skipped");
-    if (outcome.status === "skipped") expect(outcome.code).toBe("tool-not-installed");
+    if (outcome.status === "skipped") {
+      expect(outcome.code).toBe("tool-not-installed");
+      expect(outcome.reason).toContain("cargo install similarity-ts --version 0.5.0 --locked");
+    }
   });
 });
 
@@ -751,9 +1033,9 @@ describe("runNearDuplicatesCli", () => {
     expect(regression.exitCode).toBe(1);
     expect(regression.stdout).toContain("FAIL: near-duplicate function pairs added");
     expect(regression.stdout).toContain("src/new-clone.ts#totalForShipment");
-    expect(runNearDuplicatesCli({ argv: ["--check-baseline"], cwd: repoRoot }).stdout).toContain(
-      "whole-repo near-duplicate baseline is stale",
-    );
+    const fullCheck = runNearDuplicatesCli({ argv: ["--check-baseline"], cwd: repoRoot });
+    expect(fullCheck.exitCode).toBe(3);
+    expect(fullCheck.stdout).toContain("whole-repo near-duplicate baseline is stale");
 
     const refusedUpdate = runNearDuplicatesCli({
       argv: ["--update"],
@@ -859,7 +1141,7 @@ describe("runNearDuplicatesCli", () => {
     );
   });
 
-  it("rejects a staged clone even when its identity is staged in the baseline", () => {
+  it("uses a dedicated verdict when the working baseline proposes unreviewed growth", () => {
     const { baselinePath, repoRoot } = committedDebtRepo();
     tmpRepo.writeRepoFile(repoRoot, "src/new-clone.ts", fixture("new-clone.ts"));
     const current = runNearDuplicatesCli({ argv: ["--check-baseline"], cwd: repoRoot });
@@ -868,14 +1150,17 @@ describe("runNearDuplicatesCli", () => {
       cwd: repoRoot,
     });
 
-    const bypass = runNearDuplicatesCli({
+    const stagedCheck = runNearDuplicatesCli({
       argv: [],
       cwd: repoRoot,
       changedFiles: ["src/new-clone.ts", "sensor-near-duplicates.baseline.json"],
     });
+    const wholeTreeCheck = runNearDuplicatesCli({ argv: ["--check-baseline"], cwd: repoRoot });
 
-    expect(bypass.exitCode).toBe(1);
-    expect(bypass.stdout).toContain("proposed baseline adds near-duplicate debt over HEAD");
+    expect(stagedCheck.exitCode).toBe(6);
+    expect(stagedCheck.stdout).toContain("proposed baseline adds near-duplicate debt over HEAD");
+    expect(wholeTreeCheck.exitCode).toBe(6);
+    expect(wholeTreeCheck.stdout).toContain("proposed baseline adds near-duplicate debt over HEAD");
   });
 
   it("refuses to regenerate a deleted committed baseline", () => {
@@ -902,7 +1187,7 @@ describe("runNearDuplicatesCli", () => {
       encoding: "utf8",
     }).trim();
     const current = runNearDuplicatesCli({ argv: ["--check-baseline"], cwd: repoRoot });
-    expect(current.exitCode).toBe(1);
+    expect(current.exitCode).toBe(3);
     expect(runNearDuplicatesCli({ argv: ["--restore-merge-truth"], cwd: repoRoot }).exitCode).toBe(
       2,
     );

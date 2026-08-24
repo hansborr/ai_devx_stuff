@@ -65,11 +65,33 @@ export function parseCaseJson(caseRoot: string): unknown {
   return JSON.parse(readFileSync(path.join(caseRoot, "case.json"), "utf8"));
 }
 
+// Non-vacuity precondition for the four codemod suites (and, for the trpc
+// file, for each fixture kind independently). Every caller feeds this result
+// straight into `it.each`, so an emptied fixture root would register zero
+// cases and the suite would report success having exercised nothing. Throwing
+// here converts that silent hole into a local failure that names the root it
+// scanned. A mistyped root needs no precondition: `readdirSync` already fails
+// loudly with ENOENT before this check is reached.
 export function enumerateFixtures(root: string): string[] {
-  return readdirSync(root, { withFileTypes: true })
+  const names = readdirSync(root, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
     .sort((left, right) => left.localeCompare(right, "en"));
+  if (names.length === 0) {
+    throw new Error(
+      `No codemod fixture directories found under ${root}. ` +
+        "it.each would register zero cases, so the suite would pass without running any fixture. " +
+        "Restore the fixture case directories under that root.",
+    );
+  }
+  return names;
+}
+
+// A missing `after/` asserts the full output directory against `before/`; it
+// never skips the output check.
+export function expectedRoot(caseRoot: string): string {
+  const afterRoot = path.join(caseRoot, "after");
+  return existsSync(afterRoot) ? afterRoot : path.join(caseRoot, "before");
 }
 
 export function copyDirectoryContents(source: string, target: string): void {
@@ -96,13 +118,13 @@ function relativeFiles(root: string): string[] {
   return files.sort((left, right) => left.localeCompare(right, "en"));
 }
 
-export function expectDirectoriesToMatch(actualRoot: string, expectedRoot: string): void {
+export function expectDirectoriesToMatch(actualRoot: string, expectedFilesRoot: string): void {
   const actualFiles = relativeFiles(actualRoot);
-  const expectedFiles = relativeFiles(expectedRoot);
+  const expectedFiles = relativeFiles(expectedFilesRoot);
   expect(actualFiles).toEqual(expectedFiles);
   for (const file of expectedFiles) {
     expect(readFileSync(path.join(actualRoot, file), "utf8")).toBe(
-      readFileSync(path.join(expectedRoot, file), "utf8"),
+      readFileSync(path.join(expectedFilesRoot, file), "utf8"),
     );
   }
 }

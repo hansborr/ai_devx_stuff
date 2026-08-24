@@ -19,12 +19,11 @@ describe("code:intel CLI front door", () => {
       path.join(process.cwd(), "scripts/code-intel/cli-main.ts"),
       "utf8",
     );
-    const runtimeRunnerImportLines = entrypoint
-      .split("\n")
-      .filter((line) => line.includes('from "./code-intel/runner.js"'))
-      .filter((line) => !line.startsWith("import type ") && !line.startsWith("export type "));
-
-    expect(runtimeRunnerImportLines).toEqual([]);
+    // The entrypoint is a pure executable: no reference to the heavy runner at
+    // all (cli-main.ts loads it lazily), and no export statements — the
+    // library facade was deleted by CQ-142 and must not come back.
+    expect(entrypoint).not.toContain("./code-intel/runner.js");
+    expect(entrypoint).not.toMatch(/^export /mu);
     expect(cliMain).toContain('await import("./runner.js")');
 
     const help = spawnCodeIntel(["--help"]);
@@ -33,6 +32,9 @@ describe("code:intel CLI front door", () => {
     expect(help.stdout).toContain("bun run code:intel -- [--format text|json] def --name <symbol>");
     expect(help.stdout).toContain(
       "Daemon/perf: bun run code:intel:server -- restart|status|stop; bun run code:intel:perf",
+    );
+    expect(help.stdout).toContain(
+      "Scope: packages/shared/src, packages/server/src, packages/client/src, and scripts/ (excluding scripts/codemods/fixtures/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.",
     );
     expect(help.stderr).toBe("");
 

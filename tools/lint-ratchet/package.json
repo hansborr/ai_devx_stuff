@@ -4,7 +4,13 @@
   "private": true,
   "type": "module",
   "description": "Portable, repo-agnostic lint-ratchet engine (kernel + git-rail + governance). Copy this directory into your repo and bind it with a thin adapter; its engine and tests carry no @musi/* or repo-relative imports (the sole sealed exception is the pinned Vitest project config, which an adopter replaces).",
+  "bin": {
+    "lint-ratchet-git-rail": "./bin/lint-ratchet-git-rail.ts"
+  },
   "exports": {
+    "./git-rail/conflict-recovery.js": "./src/git-rail/conflict-recovery.ts",
+    "./git-rail/executable-config.js": "./src/git-rail/executable-config.ts",
+    "./git-rail/executable-cli.js": "./src/git-rail/executable-cli.ts",
     "./git-rail/info-attributes.js": "./src/git-rail/info-attributes.ts",
     "./git-rail/merge-cli.js": "./src/git-rail/merge-cli.ts",
     "./git-rail/merge-driver-presence.js": "./src/git-rail/merge-driver-presence.ts",

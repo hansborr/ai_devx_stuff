@@ -1,0 +1,233 @@
+{
+  "contractVersion": 1,
+  "consult": "D-03",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-79",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling explicitly says the near-duplicates baseline is adjudicated triage output, not a work queue, and entries leave only on independent merit.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-82",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling rejects de-duplicating the validators because each emits distinct user-facing messages and the difference carries a recorded accept-with-reason.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-83",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says the merge-driver family is already parameterized through thin metric-setting installers sourcing one shared implementation.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-84",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling retains WEAPON_MASTERY_MAP's null fallback under noUncheckedIndexedAccess and states that removing it produces TS2322.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-97",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling refuses adding characterSpell to the restricted delegate sets because the fix is transaction-local and permits reopening only with a complete call-site inventory.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-98",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says both P2034 and uncoded commit-time DriverAdapterError shapes are live, with the latter measured as the common prepared-toggle failure.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-101",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling keeps create/delete variants outside v1 and requires a separate ownership-aware policy before connect-style operators can be guarded.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-102",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says FastifyInstance contexts would re-couple services and utilities, break 20 narrow test contexts, and that the BroadcastHost port landed instead.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-85",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says isValidCondition needs the current lookup form for type-predicate narrowing, while Map.has() does not narrow.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-84",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says the null fallback remains live under noUncheckedIndexedAccess and removing it produces TS2322.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-88",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling rejects one authoritative equipment catalog, records the existing weapon-sync drift guard, and says both consolidation forms contradict documented decisions.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-92",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling permanently refutes formula conversion because table form is mandated, proficiency out-of-range behavior would change, and the cantrip tables lack a matching SRD formula basis.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-93",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling forbids the persisted rename because Zod stripping would erase legacy data, and the prior leaf steps proposing it remain unscheduled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[28]",
+      "ref": "CQ25-86",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says the three homebrew schemas deliberately model different read and write contracts, including the documented damage-type split.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[29]",
+      "ref": "CQ25-87",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says consolidation already exists because spellCastResultSchema is the actual tRPC output schema at the cast-spell boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-90",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling retains the effect because close resets the complete global drawer store, behavior the render path does not perform.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[21]",
+      "ref": "CQ25-77",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says the serial structure and shared mutable fixtures are deliberate and assigns any split to leaf 42 only after reusable seeding helpers exist.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[33]",
+      "ref": "CQ25-98",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling explicitly rejects hand-rolled retry shapes because real-driver coverage pins both P2034 and the more common commit-time DriverAdapterError shape.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-78",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says the four-guide split is deliberately audience-partitioned, was performed in that direction on purpose, and has no material overlapping text.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-80",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling keeps the input and output rules separate because shared machinery is already extracted, leaving only about 25 declarative lines per rule.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-81",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling expressly rejects merging the codemod input and output candidate finders and inherits the already-shared rule machinery remedy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[18]",
+      "ref": "CQ25-83",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling records that the family is already parameterized through thin metric-specific installers sourcing one shared body.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[22]",
+      "ref": "CQ25-100",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling explicitly rejects hand-listed relations and removal of model/context tracking because one generated relation artifact drives both consumers and the context prevents reproduced false positives.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-81",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling explicitly keeps the input and output candidate finders separate by inheriting the rule-pair remedy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-100",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling makes the generated relation subgraph authoritative for both consumers and records that the prior hand-list was wrong.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-83",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling records the requested parameterization as already landed through approximately 15-line installers over one shared 155-line body.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [],
+  "coverageNotes": {
+    "claimantsAssigned": 26,
+    "claimantsJudged": 26,
+    "subagentPartition": [
+      "subagent d03_a: claimants 1–7 (CQ25-79, CQ25-82, CQ25-83, CQ25-84, CQ25-97, CQ25-98, CQ25-101; 7 claimants)",
+      "subagent d03_b: claimants 8–14 (CQ25-102, CQ25-85, CQ25-84, CQ25-88, CQ25-92, CQ25-93, CQ25-86; 7 claimants)",
+      "subagent d03_c: claimants 15–20 (CQ25-87, CQ25-90, CQ25-77, CQ25-98, CQ25-78, CQ25-80; 6 claimants)",
+      "subagent d03_d: claimants 21–26 (CQ25-81, CQ25-83, CQ25-100, CQ25-81, CQ25-100, CQ25-83; 6 claimants)"
+    ],
+    "notes": [
+      "All 26 drops are upheld against the live standing rulings; no residual required repository evidence or promotion.",
+      "CQ25-77 is conditional, but the claimant's rejection reason invokes the same unmet reusable-seeding prerequisite recorded by the live ruling.",
+      "CQ25-82's lane rationale mentions trust boundaries, while the live ruling grounds the refusal in distinct user-facing messages and a recorded accept-with-reason; that live rationale still fully covers validator unification."
+    ]
+  }
+}

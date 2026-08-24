@@ -73,15 +73,17 @@ deepen it (Codex ruling); the seam grows named, typed primitives only.
 
 ## Phase-1 implementation inventory (re-verified 2026-07-19)
 
-At `341505fc`, 23 TypeScript files under `scripts/` directly call a Node
-child-process API with literal `"git"`; excluding `scripts/lib/git.ts` leaves
-the specified 22 bypassing files. Their semantic contracts are:
+At `341505fc`, the initial inventory found 23 TypeScript files under `scripts/`
+directly calling a Node child-process API with literal `"git"`; excluding
+`scripts/lib/git.ts` left the specified 22 bypassing files. As of CQ-163, the
+ratchet tracks 15 bypassing files (16 including `scripts/lib/git.ts`). Their
+phase-1 semantic contracts were:
 
 | Contract | Files | Disposition |
 | --- | --- | --- |
 | UTF-8, throwing, cwd-bound injectable runners (some with per-call caps or larger buffers) | `drift-ai/{bounded-full-history,coldspots-blame,hotspots-history,suppressions}.ts` | Keep the injectable adapter seam; do not force these through the basic string runner. The birth-blob caller may still consume the named ref/blob primitive. |
 | Buffer/binary, throwing, cwd-bound injectable runner | `drift-ai/current-inventory.ts` | Keep the binary adapter seam; a string-returning runner would corrupt its NUL-delimited inventory contract. |
-| UTF-8 status/nullable production probes | `drift-triage/drift-triage-packet-io.ts`, `drift-ai/harness-freshness-io.ts` | Preserve the explicit status/error contracts; do not replace them with the throwing runner. |
+| UTF-8 status/nullable production probes | `drift-triage/drift-triage-packet-io.ts`; formerly `drift-ai/harness-freshness-io.ts` | Preserve the explicit status/error contracts; do not replace them with the throwing runner. CQ-163 migrated the harness probe to `drift-ai/repo-ignore.ts` over the named, typed `gitCheckIgnore` primitive. |
 | UTF-8 or buffer production commands that catch/map failures locally | `backlog-lint.ts`, `logs-audit/logs-audit-latest.ts`, `sensor-blob-size.ts`, `sensor-near-duplicates-{baseline-io,core}.ts` | Eligible for named seam primitives when their current cwd, output, and failure mapping remain intact. |
 | Test-fixture repository setup or committed-fixture inspection | `drift-ai/{current-inventory,near-duplicates,prototype-subcommands}.test.ts`, `drift-triage/drift-triage.test.ts`, `lint-coverage-map-check.test.ts`, `lint-ratchet/{baseline,check-registry,output}.test.ts`, `sensor-blob-size.test.ts`, `test-support/tmp-repo.test-helper.ts` | Keep direct fixture git setup/inspection; the ratchet freezes these accepted bypasses but migration is not required. |
 

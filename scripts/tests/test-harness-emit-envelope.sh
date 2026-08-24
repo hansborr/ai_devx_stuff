@@ -4,7 +4,7 @@
 # smoke-subjects: scripts/harness/harness-diagnostics-output.ts
 # smoke-subjects: scripts/lib/atomic-write.ts
 # smoke-subjects: scripts/tests/test-harness-emit-envelope.sh
-# smoke-subjects: packages/shared/src/schemas/harness-diagnostics.ts
+# smoke-subjects: tools/harness-diagnostics/
 # test-harness-emit-envelope.sh - contract smoke for the shared envelope emitter.
 #
 # The emitter reads newline-delimited findings from stdin and writes a validated

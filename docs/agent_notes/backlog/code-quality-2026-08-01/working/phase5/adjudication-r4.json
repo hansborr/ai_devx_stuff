@@ -1,0 +1,485 @@
+{
+  "contractVersion": 1,
+  "step": "1c-round-4",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "decisions": [
+    {
+      "promotionId": "R4B-011",
+      "ruling": "new-leaf",
+      "title": "Converge typecheck fan-out on the shared parallel runner",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Removing a second subtle FIFO, signal, cleanup, and exit-aggregation lifecycle repays the bounded runner extension.",
+      "rulingReason": "Leaf 204 is confined to decomposing `scripts/lib/verify-engine.sh`; its move-only scope explicitly excludes cleanup-behavior changes and does not reach typecheck's independent fan-out.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add the smallest per-lane logging or failure-report seam needed to `parallel-runner.sh`, then express typecheck's four lanes through it. Keep only TypeScript diagnostic excerpting and presentation policy in `typecheck.sh`.",
+      "authorConstraints": [
+        "Preserve existing signal handling, lane-prefix output, exit aggregation, and diagnostic excerpts.",
+        "Do not fold this into leaf 204's `verify-engine.sh` decomposition; coordinate only if shared harness fixtures overlap."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `204-decompose-the-stateful-bash-verification-engine.md:10-18,41-72` exclusively owns `verify-engine.sh`; `scripts/lib/parallel-runner.sh:4-9` distinguishes its lifecycle from verify/pre-commit orchestration.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-021",
+      "ruling": "new-leaf",
+      "title": "Route current inventory through the canonical ignore predicate",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "One small delegation prevents current and changed analysis from silently scanning different inventories after ignore-policy changes.",
+      "rulingReason": "Leaf 134 owns source-versus-test taxonomy, not configured ignore semantics; its named-policy scope does not include this copied predicate.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Compute the explicit-root-relative suffix locally, then delegate the complete ignore decision to `isPathIgnored`. Retain focused characterization of whole-repository and explicit-root behavior.",
+      "authorConstraints": [
+        "Preserve explicit-root suffix semantics.",
+        "Do not mix ignore configuration into leaf 134's source/test taxonomy module."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `134-analyzer-families-maintain-divergent-source.md:10-20,68-113` covers source extensions and test classification only and expressly preserves distinct named policies.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-022",
+      "ruling": "new-leaf",
+      "title": "Make exact-token collection explicit at the near-duplicate runner boundary",
+      "area": "harness",
+      "category": "idiom",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A tiny signature correction removes opposite omission semantics at adjacent APIs before another caller relies on the wrong default.",
+      "rulingReason": "No authored leaf owns this option contract; leaf 173 only relocates near-duplicate gate tests and forbids production semantic changes.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Require `includeExactTokens` at the runner boundary and pass each production caller's intended boolean explicitly. Either require the extractor choice too or document its standalone default without allowing the runner to inherit it accidentally.",
+      "authorConstraints": [
+        "Preserve eligibility filtering for exact-clone files.",
+        "Do not combine this semantic correction with leaf 173's test-ownership move."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `173-near-duplicate-sensor-gate-tests-buried.md:44-71` is a move-only test-ownership proposal and explicitly excludes production sensor semantics.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-031",
+      "ruling": "augment-existing-leaf",
+      "title": "Enforce starting equipment's transaction-only contract",
+      "area": "server",
+      "category": "layering",
+      "severity": "high",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The widened database capability actively advertises a partial-character persistence mode that the sole production pipeline does not safely support.",
+      "rulingReason": "Leaf 004 already folds starting equipment into character creation as an internal transaction stage and moves its implementation and tests, so the type correction belongs in that same change rather than a path-stale second leaf.",
+      "targetLeaf": "004-character-creation-large-pseudo-module-loose.md",
+      "augmentInstruction": "Amend the problem/evidence to record that `createStartingInventory` accepts `DbClient | TxClient` despite having one transaction-scoped production caller. In the move to `character-create/starting-equipment.ts`, narrow the parameter to `TxClient` and adapt focused tests to enter a transaction or test a pure data-building seam; update scope to state that this is compile-time capability narrowing with no runtime transaction-shape change.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make the internal starting-equipment stage accept only `TxClient` as part of leaf 004's folder move. Preserve the current character-creation transaction and persistence behavior.",
+      "authorConstraints": [
+        "Apply the change at leaf 004's post-move path and update the tests leaf 004 already relocates.",
+        "Do not introduce a second transaction or change transaction ordering, error behavior, or persistence semantics."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `004-character-creation-large-pseudo-module-loose.md:100-112` already moves the implementation and tests, while `:119-124` and `:163-169` define starting equipment as an internal transaction stage. Its no-runtime-behavior constraint is at `:147-151`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-032",
+      "ruling": "augment-existing-leaf",
+      "title": "Make the attunement concurrency header truthful",
+      "area": "server",
+      "category": "comment",
+      "severity": "high",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A false concurrency guarantee is cheap to correct and otherwise becomes a dangerous precedent for future invariant work.",
+      "rulingReason": "Leaf 033 already edits the attunement rule's service import and explicitly treats the invariant header as requiring no change; the candidate proves that assessment wrong, so the correction belongs in that leaf.",
+      "targetLeaf": "033-attunement-game-rule-lives-request-schema.md",
+      "augmentInstruction": "Replace the direction's `inventory-service.ts` documentation no-op with an explicit header correction. Add evidence that the default count-then-write transaction provides atomic grouping but not serialization, rewrite the header to describe the deliberately accepted single-writer race, and amend the scope so no CAS, lock, or Serializable gate is added.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "During the attunement constant relocation, correct the service header so it distinguishes transactional grouping from concurrent exclusion. State that policy accepts the theoretical race because this is a recoverable single-writer path.",
+      "authorConstraints": [
+        "Comment correction only; do not alter `assertAttunementLimit`, isolation level, or write protocol.",
+        "Preserve the admission bar in `docs/CONCURRENCY.md`; do not infer broader Serializable eligibility from leaf 092."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `033-attunement-game-rule-lives-request-schema.md:30-34,71-84` already relies on and evaluates the same service header, while leaf `092-concurrency-rulebook-claims-three-exhaustive.md:59-84` is docs-only and does not cover the local false guarantee.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-033",
+      "ruling": "new-leaf",
+      "title": "Constrain class caster metadata with database enums",
+      "area": "server",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Closing two persisted vocabularies prevents invalid rows and removes competing parse-versus-assert boundary strategies.",
+      "rulingReason": "Leaf 006 derives read payload types in three mapper utilities and expressly excludes `routers/srd.ts`; it does not own these database columns or their migration.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add a Prisma `CasterType` enum, reuse `AbilityAbbreviation` for both spellcasting-ability columns, validate existing values, and land the required migration. Remove only boundary parsing or assertions made genuinely redundant by the generated enum types.",
+      "authorConstraints": [
+        "Follow the Prisma migration guide and validate existing persisted values before altering columns.",
+        "Honor leaf 006's binding guard not to restructure `routers/srd.ts` row types or its `narrow*EnumColumns` helpers without a separate overturn.",
+        "Keep any runtime parsing still needed at untrusted JSON or transport boundaries."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `006-server-mappers-maintain-parallel-handwritten.md:147-159` excludes `routers/srd.ts` restructuring and retains runtime parses; its 14-shape mapper scope does not include Class/Subclass caster columns.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-034",
+      "ruling": "new-leaf",
+      "title": "Delete the no-op auth configuration validator",
+      "area": "server",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Deleting a false startup boundary is nearly churn-free and leaves the eager environment parse as the unmistakable authority.",
+      "rulingReason": "No current leaf covers this no-op; leaf 205 renames the authentication-primitives module and deliberately preserves its implementations and API.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Delete `validateAuthConfig` and its `buildServer` call. Keep `loadServerEnv`'s eager schema parse as the sole startup validation boundary and retain `getJwtSecret` for real consumers.",
+      "authorConstraints": [
+        "Do not weaken or defer environment parsing.",
+        "Do not broaden this into auth-service or authentication workflow restructuring."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `205-rename-auth-service-to-reflect-its.md:38-58` is a path-and-doc rename that preserves authentication primitives; it does not cover `config/auth.ts`'s no-op validator.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-051",
+      "ruling": "new-leaf",
+      "title": "Share inventory draft fields between add and edit dialogs",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A bounded field-body extraction removes roughly duplicated controls and conversion rules without merging the dialogs' distinct workflows.",
+      "rulingReason": "The global pack screen found no leaf owning inventory draft fields; R4B-052 concerns persisted homebrew conversion, not the add/edit form contract.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Extract a controlled five-field inventory body plus typed numeric normalizers. Keep add reset/homebrew behavior and edit change detection, footer behavior, and dialog lifetime in their current owners.",
+      "authorConstraints": [
+        "Preserve unique label/control IDs, required-name behavior, numeric bounds, and add/edit-specific buttons.",
+        "Do not merge add and edit dialog lifecycle or submission ownership."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "The pooled cross-candidate screen confirmed that R4B-052's `homebrew-item-tab.tsx` adapter is separate; no authored leaf indexed or opened owns `add-item-dialog.tsx` and `edit-item-dialog.tsx` field duplication.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-052",
+      "ruling": "new-leaf",
+      "title": "Extract a one-pass homebrew-item read adapter",
+      "area": "client",
+      "category": "layering",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The extraction separates substantial compatibility policy from React and eliminates duplicate parsing without reopening shared persisted schemas.",
+      "rulingReason": "Leaf 195 owns pre-submit editor validation, not linked-item read conversion. CQ25-173 refused shared persisted-schema normalization, while this residual remains client-local.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Extract a client-local adapter that normalizes and parses each entry once and returns both display data and the inventory create input. Leave query state and rendering in the component.",
+      "authorConstraints": [
+        "Do not change persisted schemas, writers, storage spellings, or the existing `twoHandedDice`/`versatileDice` translation boundary.",
+        "Retain unknown-value failure behavior and the current legacy damage-type normalization.",
+        "Keep leaf 195's parsed-value submit validation independent."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-173",
+          "residual": "Client-local separation of linked-item read normalization and conversion from React, including one-pass parsing, remains outside the refused shared persisted-schema normalization."
+        }
+      ],
+      "dedupBasis": "Leaf `195-validate-concrete-homebrew-entry-data-before.md:25-41` is limited to the editor submit boundary. CQ25-173 is recorded at `working/dedup-corpus.md:239-242`, with its storage-spelling refusal reinforced by prior `CONSTRAINTS.md:28`.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-053",
+      "ruling": "new-leaf",
+      "title": "Rename create-only map-layer actions as enable operations",
+      "area": "client",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small callback-chain rename prevents internal APIs from promising reversible behavior they cannot perform.",
+      "rulingReason": "Leaf 215 touches the fog and drawing toolbars for destructive confirmation, but it does not own creation callback semantics or their misleading toggle names.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Rename the fog and drawing callback chains from toggle terminology to enable terminology, preserving their no-layer guards and create-only behavior.",
+      "authorConstraints": [
+        "Do not add disable, delete, reset, or clear behavior.",
+        "Coordinate with leaf 215 because both edit the fog and drawing toolbar files."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `215-converge-destructive-client-actions-on-one.md:24-33,45-69` owns confirmation for reset/clear actions, not the enable-only callbacks.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-054",
+      "ruling": "new-leaf",
+      "title": "Debounce notes search before changing its infinite-query key",
+      "area": "client",
+      "category": "dx",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Using the existing debounce hook avoids per-keystroke API, database, and cache-key churn on a normal interactive path.",
+      "rulingReason": "CQ25-207 governs page eviction, garbage collection, and staleness policy; it does not govern how quickly successive search parameters enter the query key.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep immediate controlled input state but feed a trimmed debounced value into `note.list` and active-filter derivation. Add focused fake-timer coverage for settling, clearing, and whitespace normalization.",
+      "authorConstraints": [
+        "Do not add `maxPages`, `gcTime: Infinity`, custom stale time, or other retention/freshness policy.",
+        "Reuse the existing `useDebouncedValue` hook."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-207",
+          "residual": "Request and query-key frequency while typing remains; the prior ruling only settles page retention, garbage collection, and normal staleness."
+        }
+      ],
+      "dedupBasis": "CQ25-207 is recorded at `working/dedup-corpus.md:281`; prior leaf `56-infinite-list-refetch-cost.md:61-71` expressly separates finite-GC and max-pages policy from this input-frequency concern.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-055",
+      "ruling": "new-leaf",
+      "title": "Single-source the class and subclass feature codec",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "One shared parse/build pair removes a live two-copy codec at the ownership boundary the subclass already imports.",
+      "rulingReason": "Leaf 238 owns caster-selector presentation and explicitly leaves form-data ownership in entity modules; it does not reach feature persistence parsing or building.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Export a focused feature parser and builder from the class-owned feature form boundary and reuse them from subclass. Keep whole-class and whole-subclass builders separate.",
+      "authorConstraints": [
+        "Preserve positive-level fallback and all persisted field behavior.",
+        "Do not broaden leaf 238's shared caster component or move whole-entity form-data ownership."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `238-share-class-and-subclass-caster-selection-fields.md:35-53,60-68` owns selector presentation only and explicitly preserves entity form-data ownership.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4B-056",
+      "ruling": "new-leaf",
+      "title": "Preserve closed vocabularies through homebrew form state",
+      "area": "client",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Restoring schema-derived unions across several forms makes option, parser, callback, and payload drift compiler-visible on a common authoring path.",
+      "rulingReason": "Leaf 053 is limited to `FilterSelect` and its call sites; leaf 195 owns runtime submit validation. Leaf 189 overlaps only the spell-school authority, leaving magic-item and other spell form-state unions uncovered.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Type schema-backed form fields with their inferred unions plus explicit empty sentinels, parse unknown persisted values at form-data seams, and localize checked Radix narrowing. Cover magic-item category/rarity and spell combat vocabularies without widening the task into generic form infrastructure.",
+      "authorConstraints": [
+        "Exclude open text, stringified numeric fields, and any field without a closed shared vocabulary.",
+        "Land or account for leaf 189's spell-school parser first; extend that schema-derived boundary rather than recreating a private school authority.",
+        "Keep leaf 195's runtime submit validation as defense in depth."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `053-filterselect-erases-schema-derived-option.md:99-122` is confined to `FilterSelect`; leaf `195-validate-concrete-homebrew-entry-data-before.md:25-41` covers submit parsing; leaf `189-downstream-packages-keep-semantic-copies.md:69-81,96-100` reaches spell-school authority but not the wider form-state contract.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4C-001",
+      "ruling": "new-leaf",
+      "title": "Make ad-hoc Fastify test teardown failure-safe",
+      "area": "tests",
+      "category": "test-shape",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Immediate cleanup registration prevents assertion failures from stranding Fastify and Socket.IO resources and obscuring the original failure.",
+      "rulingReason": "Leaf 164 covers temporary roots in drift-AI tests. Prior leaf 39's `useTestApp` lifecycle is suite-scoped and does not cover custom instances created within individual tests.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Register every custom Fastify instance for per-test cleanup immediately after construction, before readiness, injection, or assertions. Keep each custom configuration local.",
+      "authorConstraints": [
+        "Do not widen `useTestApp` into a configuration or per-test framework.",
+        "Preserve the existing custom Fastify and Socket.IO test variants."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-121",
+          "residual": "Custom per-test Fastify instances remain outside the landed suite-scoped `useTestApp` beforeAll/afterAll lifecycle."
+        }
+      ],
+      "dedupBasis": "Leaf `164-drift-ai-suites-leave-dozens-temporary.md:10-12,23-33` is limited to drift-AI temporary roots. Prior leaf `39-server-test-lifecycle.md:180-198`, reached through CQ25-121, owns only the universal suite-scoped app lifecycle.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4C-002",
+      "ruling": "new-leaf",
+      "title": "Document cross-worktree status modes",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small guide edit makes existing read-only provisioning and lane-coordination commands discoverable where operators need them.",
+      "rulingReason": "Leaf 096 documents a credential prerequisite in the same guide but does not reach status command discovery or mode semantics.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add `worktree:status --all` and `worktree:status --lanes [--base <ref>]` to the command table and multi-lane workflow, distinguishing provisioning diagnostics from Git-work coordination.",
+      "authorConstraints": [
+        "Keep `scripts/worktree-db.sh` as the behavior authority.",
+        "State that `--base` belongs only to `--lanes` and that the two modes are mutually exclusive."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `096-per-worktree-guide-omits-mandatory.md:10-23,48-79` exclusively covers the primary checkout credential prerequisite and related leaf-198 coordination.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4C-003",
+      "ruling": "new-leaf",
+      "title": "Add a human-focused contribution entrypoint",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A concise conventional entrypoint prevents human contributors from discovering mandatory workflow rules only through agent instructions or failed hooks.",
+      "rulingReason": "Leaf 103 adds only a host prerequisite, while leaf 085 catalogs specialist commands; neither owns the branch, commit, verification, and review workflow for humans.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add a concise `CONTRIBUTING.md` linked from the root README. State the human branch, conventional-commit, focused-verification, commit-gate, push, and PR expectations while linking to task guides for detailed procedures.",
+      "authorConstraints": [
+        "Do not copy the full AGENTS.md or task guides; keep one human-owned entrypoint and link authoritative detail.",
+        "Verify every factual workflow claim against the live hooks and guides under the prior-pack documentation-truth ruling."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `103-primary-onboarding-omits-bashunix-runtime.md:41-65` is capped at a host-prerequisite line. Leaf `085-specialist-package-script-surface-has-no.md:10-37` concerns command cataloging, not contribution workflow.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4C-004",
+      "ruling": "augment-existing-leaf",
+      "title": "Use the shared description limit in campaign and collection forms",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Replacing three stale literals both restores valid 5,001–10,000-character input and prevents another drift from the shared contract.",
+      "rulingReason": "Leaf 189 currently enumerates seven downstream semantic copies, and description limits are outside that enumeration, but this is exactly the same canonical-authority-versus-downstream-copy problem and belongs as an eighth bounded subpart.",
+      "targetLeaf": "189-downstream-packages-keep-semantic-copies.md",
+      "augmentInstruction": "Expand the problem, evidence, Part A, Part B, and all seven-authority counts to eight. Add `MAX_DESCRIPTION_LENGTH` as the authority for the two campaign and one collection Textareas, replace their `5000` literals, add focused UI assertions for the shared limit, and include description-limit stragglers in the required semantic sweep without creating a generic literal detector.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Extend leaf 189's bounded consolidation list with description length. Import `MAX_DESCRIPTION_LENGTH` into all three controls and pin that their exposed `maxLength` matches the shared create/update schemas.",
+      "authorConstraints": [
+        "Apply the prior-pack CQ25-110 whole-tree semantic-straggler search to this eighth authority.",
+        "Do not introduce a general constants framework or generic duplicate-literal detector.",
+        "Update leaf 189's seven-authority counts and narrow regression-test inventory consistently."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf `189-downstream-packages-keep-semantic-copies.md:10-12,55-81` defines the same consolidation fingerprint but currently lists only seven authorities; `:100-101` bounds the mechanism and preserves the whole-tree acceptance criterion.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R4C-005",
+      "ruling": "reject",
+      "title": "Keep expand-barrel's coupled export queries until divergence is demonstrated",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "low",
+      "size": "M",
+      "worthIt": false,
+      "worthItReason": "The cold-path semantic rewrite does not repay its resolver and test churn without an observed alias, star-export, ambiguity, or cycle divergence.",
+      "rulingReason": "The two-traversal framing materially narrows away from R2C-008/D-167's bulk merged-plan remedy, but it does not defeat that ruling's proportionality reasoning: the map and symbol paths already call each other and share helpers, and no incorrect result is demonstrated.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Retain the current coupled export-map and single-symbol queries. Reconsider consolidation only after a concrete semantic divergence, material measured cost, or new export-graph invariant demonstrates that the existing shared helpers are insufficient.",
+      "authorConstraints": [
+        "Do not treat leaf 149's generic codemod extraction as authorization to restructure expand-barrel's engine.",
+        "Preserve dry-run, per-barrel validation, alias handling, star-export ambiguity handling, and cycle behavior.",
+        "A future re-raise must provide an observed failure or measurement, not line count alone."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "R2C-008's binding churn ruling is at `working/phase5/adjudication-r2.json:525-545`; D-167 is recorded at `working/triage/batch2-judgments.json:1335-1339`. Leaf `149-generic-codemod-infrastructure-hidden-behind.md:87-103` excludes engine restructuring. The prior-pack CQ25-80/81 records at `working/dedup-corpus.md:131-132` concern different input/output candidate finders.",
+      "confidence": "high"
+    }
+  ],
+  "summary": {
+    "totalDecisions": 18,
+    "newLeaf": 14,
+    "augmentExistingLeaf": 3,
+    "mergeWithPromotion": 0,
+    "rejected": 1,
+    "acceptedForAuthoring": 17,
+    "bySeverity": {
+      "high": 2,
+      "medium": 7,
+      "low": 9
+    },
+    "bySize": {
+      "S": 14,
+      "M": 4,
+      "L": 0,
+      "XL": 0
+    },
+    "notes": [
+      "Author three in-place augmentations: R4B-031 into leaf 004, R4B-032 into leaf 033, and R4C-004 into leaf 189; preserve each host leaf's existing header grades.",
+      "No cross-candidate merge survived the global comparison.",
+      "R4B-056 must coordinate its spell-school subpart with leaf 189, and R4B-053 must coordinate toolbar edits with leaf 215.",
+      "Seventeen accepted rulings exceed the plan's round trigger; 50 eligible cuts remain unread, so step 2c must surface the owner's round-limit decision before dispatching a fifth draw."
+    ]
+  }
+}

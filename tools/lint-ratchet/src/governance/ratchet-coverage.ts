@@ -3,25 +3,13 @@ import { existsSync, readFileSync } from "node:fs";
 import { parseLintRatchetBaselineStructure } from "../kernel/baseline.js";
 import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
 import { matchesRatchet } from "../kernel/ratchet-globs.js";
+import type { RatchetCoverageRow } from "./edit-check-protocol.js";
+
+export { formatRatchetCoverageRow, type RatchetCoverageRow } from "./edit-check-protocol.js";
 
 // One edited path and the committed-baseline rule(s) that track it. The hook
 // only ever shows the rule ids, but the path round-trips so a multi-path query
 // can be split back apart by the caller.
-export interface RatchetCoverageRow {
-  readonly path: string;
-  readonly ruleIds: readonly string[];
-}
-
-const COVERAGE_KIND = "ratchet-covered";
-
-// Single owner of the ratchet-coverage wire row consumed by
-// scripts/ai-hooks/lint-coverage-check.sh. The rule ids are joined the way the
-// hook renders them in `(<rules>)`, so the shell can pass the field straight
-// through without re-formatting. The path/rules fields never contain a tab.
-export function formatRatchetCoverageRow(row: RatchetCoverageRow): string {
-  return [COVERAGE_KIND, row.path, row.ruleIds.join(", ")].join("\t");
-}
-
 // Report which committed-baseline ratchets track each edited path, reusing the
 // canonical ratchet glob matcher so the lint-coverage hook no longer carries its
 // own copy of the glob semantics. Matching is baseline-driven (the test's own
@@ -35,7 +23,12 @@ export function ratchetCoverageForPaths(
 ): RatchetCoverageRow[] {
   if (paths.length === 0) return [];
   if (!existsSync(context.baselinePath)) return [];
-  const structural = parseLintRatchetBaselineStructure(readFileSync(context.baselinePath, "utf8"));
+  const structural = parseLintRatchetBaselineStructure(
+    readFileSync(context.baselinePath, "utf8"),
+    context.workflowVocabulary,
+    undefined,
+    relativeToRepoRoot(context.repoRoot, context.baselinePath),
+  );
   if (structural.baseline === undefined) return [];
   const tests = Object.values(structural.baseline.tests);
 

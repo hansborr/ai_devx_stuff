@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import {
   formatLintRatchetBaseline,
   type LintRatchetBaseline,
@@ -7,7 +8,6 @@ import {
 } from "./baseline.js";
 import {
   createLintRatchetBaselineVersionPolicy,
-  LINT_RATCHET_BASELINE_REGENERATE,
   LINT_RATCHET_BASELINE_WRITE_VERSION,
   lintRatchetBaselineRegenerateForVersion,
   type LintRatchetBaselineVersion,
@@ -19,8 +19,10 @@ const CONFIG_HASH = `sha256:${"a".repeat(64)}`;
 const RULE_SOURCE_HASH = `sha256:${"b".repeat(64)}`;
 const MESSAGE_FINGERPRINT_A = `sha256:${"c".repeat(64)}`;
 const MESSAGE_FINGERPRINT_B = `sha256:${"d".repeat(64)}`;
+const LINT_RATCHET_BASELINE_REGENERATE = fixtureWorkflowVocabulary.updateCommand;
 const WRITE_REGENERATE = lintRatchetBaselineRegenerateForVersion(
   LINT_RATCHET_BASELINE_WRITE_VERSION,
+  fixtureWorkflowVocabulary.updateCommand,
 );
 
 type MessageItemFixture = number | LintRatchetMetricItem;
@@ -140,9 +142,10 @@ function mergeResult(
   other: LintRatchetBaseline,
 ): ReturnType<typeof mergeLintRatchetBaselines> {
   return mergeLintRatchetBaselines({
-    baseText: formatLintRatchetBaseline(base),
-    currentText: formatLintRatchetBaseline(current),
-    otherText: formatLintRatchetBaseline(other),
+    workflowVocabulary: fixtureWorkflowVocabulary,
+    baseText: formatLintRatchetBaseline(base, fixtureWorkflowVocabulary),
+    currentText: formatLintRatchetBaseline(current, fixtureWorkflowVocabulary),
+    otherText: formatLintRatchetBaseline(other, fixtureWorkflowVocabulary),
   });
 }
 
@@ -150,7 +153,9 @@ function baselineTextWithoutRuleSourceHash(
   baseline: LintRatchetBaseline,
   testId = "ratchet/fixture-one",
 ): string {
-  const parsed: unknown = JSON.parse(formatLintRatchetBaseline(baseline));
+  const parsed: unknown = JSON.parse(
+    formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary),
+  );
   if (!isRecord(parsed) || !isRecord(parsed.tests)) {
     throw new Error("expected baseline object fixture");
   }
@@ -363,16 +368,29 @@ describe("lint ratchet baseline semantic merge", () => {
 
       for (const engineWriteVersion of [1, 2] as const) {
         const result = mergeLintRatchetBaselines({
-          baseText: formatLintRatchetBaseline(baselineAtVersion(base, baseVersion)),
-          currentText: formatLintRatchetBaseline(baselineAtVersion(current, currentVersion)),
-          otherText: formatLintRatchetBaseline(baselineAtVersion(other, otherVersion)),
+          workflowVocabulary: fixtureWorkflowVocabulary,
+          baseText: formatLintRatchetBaseline(
+            baselineAtVersion(base, baseVersion),
+            fixtureWorkflowVocabulary,
+          ),
+          currentText: formatLintRatchetBaseline(
+            baselineAtVersion(current, currentVersion),
+            fixtureWorkflowVocabulary,
+          ),
+          otherText: formatLintRatchetBaseline(
+            baselineAtVersion(other, otherVersion),
+            fixtureWorkflowVocabulary,
+          ),
           versionPolicy: createLintRatchetBaselineVersionPolicy(engineWriteVersion),
         });
 
         expect(result.failures).toEqual([]);
         expect(result.postMergeTruthUpRequired).toBe(true);
         expect(result.mergedText).toBe(
-          formatLintRatchetBaseline(baselineAtVersion(other, engineWriteVersion)),
+          formatLintRatchetBaseline(
+            baselineAtVersion(other, engineWriteVersion),
+            fixtureWorkflowVocabulary,
+          ),
         );
       }
     },
@@ -390,14 +408,20 @@ describe("lint ratchet baseline semantic merge", () => {
     });
 
     const result = mergeLintRatchetBaselines({
-      baseText: formatLintRatchetBaseline(baselineAtVersion(base, 1)),
-      currentText: formatLintRatchetBaseline(baselineAtVersion(current, 2)),
-      otherText: formatLintRatchetBaseline(baselineAtVersion(other, 1)),
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      baseText: formatLintRatchetBaseline(baselineAtVersion(base, 1), fixtureWorkflowVocabulary),
+      currentText: formatLintRatchetBaseline(
+        baselineAtVersion(current, 2),
+        fixtureWorkflowVocabulary,
+      ),
+      otherText: formatLintRatchetBaseline(baselineAtVersion(other, 1), fixtureWorkflowVocabulary),
     });
 
     expect(result.failures).toEqual([]);
     expect(result.postMergeTruthUpRequired).toBe(true);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(baselineAtVersion(other, 2)));
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(baselineAtVersion(other, 2), fixtureWorkflowVocabulary),
+    );
     expect(result.mergedText).toContain(`"regenerate": "${LINT_RATCHET_BASELINE_REGENERATE}"`);
   });
 
@@ -408,7 +432,9 @@ describe("lint ratchet baseline semantic merge", () => {
 
       expect(result.failures).toEqual(failures);
       expect(result.mergedText).toBe(
-        expected === undefined ? undefined : formatLintRatchetBaseline(expected),
+        expected === undefined
+          ? undefined
+          : formatLintRatchetBaseline(expected, fixtureWorkflowVocabulary),
       );
     },
   );
@@ -436,6 +462,7 @@ describe("lint ratchet baseline semantic merge", () => {
           "ratchet/fixture-one": { "packages/server/src/one.ts": 2 },
           "ratchet/fixture-two": { "packages/client/src/two.tsx": 3 },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -470,6 +497,7 @@ describe("lint ratchet baseline semantic merge", () => {
         messageBaseline({
           "ratchet/fixture-one": { "packages/server/src/shared.ts": 4 },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -492,7 +520,7 @@ describe("lint ratchet baseline semantic merge", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.postMergeTruthUpRequired).toBe(false);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(current));
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(current, fixtureWorkflowVocabulary));
   });
 
   it("drops an item drained on one side and requests truth-up", () => {
@@ -516,7 +544,7 @@ describe("lint ratchet baseline semantic merge", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.postMergeTruthUpRequired).toBe(true);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(current));
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(current, fixtureWorkflowVocabulary));
   });
 
   it("takes the minimum when both sides add the same item", () => {
@@ -540,7 +568,7 @@ describe("lint ratchet baseline semantic merge", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.postMergeTruthUpRequired).toBe(true);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(other));
+    expect(result.mergedText).toBe(formatLintRatchetBaseline(other, fixtureWorkflowVocabulary));
   });
 
   it("uses item-level base semantics for a mixed both-sides-changed test", () => {
@@ -580,6 +608,7 @@ describe("lint ratchet baseline semantic merge", () => {
             "packages/server/src/shared.ts": 6,
           },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -605,6 +634,7 @@ describe("lint ratchet baseline semantic merge", () => {
             "packages/server/src/other.ts": 3,
           },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -663,6 +693,7 @@ describe("lint ratchet baseline semantic merge", () => {
             },
           },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -698,6 +729,7 @@ describe("lint ratchet baseline semantic merge", () => {
             },
           },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -729,6 +761,7 @@ describe("lint ratchet baseline semantic merge", () => {
             },
           },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -742,9 +775,10 @@ describe("lint ratchet baseline semantic merge", () => {
     });
 
     const result = mergeLintRatchetBaselines({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseText: "",
-      currentText: formatLintRatchetBaseline(current),
-      otherText: formatLintRatchetBaseline(other),
+      currentText: formatLintRatchetBaseline(current, fixtureWorkflowVocabulary),
+      otherText: formatLintRatchetBaseline(other, fixtureWorkflowVocabulary),
     });
 
     expect(result.failures).toEqual([]);
@@ -754,6 +788,7 @@ describe("lint ratchet baseline semantic merge", () => {
           "ratchet/fixture-one": { "packages/server/src/one.ts": 2 },
           "ratchet/fixture-two": { "packages/client/src/two.tsx": 3 },
         }),
+        fixtureWorkflowVocabulary,
       ),
     );
   });
@@ -767,9 +802,10 @@ describe("lint ratchet baseline semantic merge", () => {
     });
 
     const result = mergeLintRatchetBaselines({
-      baseText: formatLintRatchetBaseline(base),
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      baseText: formatLintRatchetBaseline(base, fixtureWorkflowVocabulary),
       currentText: baselineTextWithoutRuleSourceHash(current),
-      otherText: formatLintRatchetBaseline(base),
+      otherText: formatLintRatchetBaseline(base, fixtureWorkflowVocabulary),
     });
 
     expect(result.mergedText).toBeUndefined();
@@ -785,7 +821,9 @@ describe("lint ratchet baseline semantic merge", () => {
     const result = mergeResult(base, current, other);
 
     expect(result.failures).toEqual([]);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(maxLinesBaseline(path, 300)));
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(maxLinesBaseline(path, 300), fixtureWorkflowVocabulary),
+    );
   });
 
   it("refuses equal-count complexity payloads when function vectors differ", () => {
@@ -827,6 +865,7 @@ describe("lint ratchet baseline semantic merge", () => {
     ]);
 
     const result = mergeLintRatchetBaselines({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseText: baselineTextWithoutRuleSourceHash(base, "ratchet/fixture-complexity"),
       currentText: baselineTextWithoutRuleSourceHash(current, "ratchet/fixture-complexity"),
       otherText: baselineTextWithoutRuleSourceHash(other, "ratchet/fixture-complexity"),
@@ -884,7 +923,7 @@ describe("lint ratchet baseline semantic merge", () => {
         },
       },
     };
-    const parsed: unknown = JSON.parse(formatLintRatchetBaseline(base));
+    const parsed: unknown = JSON.parse(formatLintRatchetBaseline(base, fixtureWorkflowVocabulary));
     if (!isRecord(parsed) || !isRecord(parsed.tests)) {
       throw new Error("expected baseline object fixture");
     }
@@ -896,13 +935,16 @@ describe("lint ratchet baseline semantic merge", () => {
     const reorderedCurrentText = `${JSON.stringify(parsed, null, 2)}\n`;
 
     const result = mergeLintRatchetBaselines({
-      baseText: formatLintRatchetBaseline(base),
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      baseText: formatLintRatchetBaseline(base, fixtureWorkflowVocabulary),
       currentText: reorderedCurrentText,
-      otherText: formatLintRatchetBaseline(messageBaseline({})),
+      otherText: formatLintRatchetBaseline(messageBaseline({}), fixtureWorkflowVocabulary),
     });
 
     expect(result.failures).toEqual([]);
-    expect(result.mergedText).toBe(formatLintRatchetBaseline(messageBaseline({})));
+    expect(result.mergedText).toBe(
+      formatLintRatchetBaseline(messageBaseline({}), fixtureWorkflowVocabulary),
+    );
   });
 
   // Companion guard to the reorder pin above. Comparing canonically formatted
@@ -928,9 +970,10 @@ describe("lint ratchet baseline semantic merge", () => {
     });
 
     const result = mergeLintRatchetBaselines({
-      baseText: formatLintRatchetBaseline(baseline),
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      baseText: formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary),
       currentText: "{not json",
-      otherText: formatLintRatchetBaseline(baseline),
+      otherText: formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary),
     });
 
     expect(result.mergedText).toBeUndefined();

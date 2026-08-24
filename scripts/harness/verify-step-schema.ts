@@ -1,5 +1,10 @@
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
 import { isRecord } from "../lib/records.js";
+import {
+  parseVerifyStepSlotArtifacts,
+  VERIFY_STEP_ARTIFACT_SLOT_KEYS,
+  type VerifyStepSlotArtifacts,
+} from "./verify-step-artifacts.js";
 
 export const VERIFY_STEP_DYNAMIC_RESOLVER_BINDINGS = [
   {
@@ -27,7 +32,7 @@ function formatVerifyStepDynamicResolvers(): string {
   return VERIFY_STEP_DYNAMIC_RESOLVERS.join(", ");
 }
 
-export interface VerifyStepSlot {
+export interface VerifyStepSlot extends VerifyStepSlotArtifacts {
   readonly name: string;
   readonly script: string;
   readonly args?: readonly string[];
@@ -37,7 +42,32 @@ export interface VerifyStepSlot {
   readonly condition?: string;
   /** Pre-commit only: fast-commit mode skips this slot; generated into MUSI_FAST_COMMIT_SKIP_SLOTS. */
   readonly fastCommitSkip?: boolean;
+  // `produces` / `requiresArtifact` come from VerifyStepSlotArtifacts; the
+  // artifact vocabulary and its probe bindings live in verify-step-artifacts.ts.
 }
+
+export function verifyStepCommandTokens(slot: VerifyStepSlot): readonly string[] {
+  const envTokens = Object.entries(slot.env ?? {}).map(([name, value]) => `${name}=${value}`);
+  // porting-knob: bun-command-runner -- generated verification invokes package scripts via Bun
+  return [
+    ...(envTokens.length > 0 ? ["env", ...envTokens] : []),
+    "bun",
+    "run",
+    slot.script,
+    ...(slot.args ?? []),
+  ];
+}
+
+export function verifyStepBridgeSignature(slot: VerifyStepSlot): string {
+  const tokens = JSON.stringify(verifyStepCommandTokens(slot));
+  return slot.dynamic === undefined ? tokens : `${tokens} [dynamic:${slot.dynamic}]`;
+}
+
+// Authored catalog/profile syntax is resolved in verify-step-programs.ts by
+// composing each catalog-owned name with one of these slot bodies, then
+// validating the result through this module. Consumers never receive the
+// profile vocabulary: the manifest parse returns materialized
+// VerifyStepSlot[] arrays in catalog order.
 
 const ENV_NAME_PATTERN = /^[A-Za-z_]\w*$/u;
 const SLOT_NAME_PATTERN = /^[A-Za-z0-9][\w-]*$/u;
@@ -50,6 +80,7 @@ const SLOT_KEYS = [
   "env",
   "dynamic",
   "fastCommitSkip",
+  ...VERIFY_STEP_ARTIFACT_SLOT_KEYS,
 ] as const;
 const slotKeySet: ReadonlySet<string> = new Set(SLOT_KEYS);
 
@@ -213,20 +244,22 @@ function parseSlot(
     failures,
     contextPrefix,
   );
+  const artifacts = parseVerifyStepSlotArtifacts(rawSlot, header.name, failures, contextPrefix);
   return {
     ...header,
     ...(args !== undefined ? { args } : {}),
     ...(env !== undefined ? { env } : {}),
     ...(dynamic !== undefined ? { dynamic } : {}),
     ...(fastCommitSkip !== undefined ? { fastCommitSkip } : {}),
+    ...artifacts,
   };
 }
 
 /**
- * Shared manifest slot parser for every slots consumer (the shell generator
- * and the harness-controls docs validator), so they cannot drift in what they
- * accept. Accumulates problems into `failures` instead of throwing; callers
- * that want throw-on-error semantics join the failures themselves.
+ * Shared materialized-slot parser for every slots consumer and for catalog /
+ * profile resolution, so authored and resolved programs cannot drift in what
+ * they accept. Accumulates problems into `failures` instead of throwing;
+ * callers that want throw-on-error semantics join the failures themselves.
  */
 export function parseVerifyStepSlots(
   rawSlots: unknown,

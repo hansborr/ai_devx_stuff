@@ -1,0 +1,1202 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-09-lint-machinery",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L09-001",
+      "title": "Baseline updates serialize stale local toolchain state into repository-wide hash churn",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "lint-ratchet.baseline.json",
+          "line": 18,
+          "endLine": null,
+          "measurement": null,
+          "note": "Every baseline entry commits a ruleSourceHash alongside its debt floor."
+        },
+        {
+          "path": "lint-ratchet.baseline.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "19 ruleSourceHash fields contain 13 distinct values, counted from the pinned JSON.",
+          "note": "A dependency-identity refresh fans out across most of the generated baseline."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 97,
+          "endLine": 99,
+          "measurement": null,
+          "note": "The update workflow explicitly derives identity from the contributor's installed eslint and typescript-eslint versions."
+        },
+        {
+          "path": "lint-ratchet.baseline.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "History contains commit 45e57e33d refreshing 20 hashes followed by a81fda0dc reverting the stale-dependency refresh, for 40 replacement lines.",
+          "note": "The recorded revert demonstrates that an out-of-date installation can contaminate an otherwise legitimate update."
+        }
+      ],
+      "problem": "An ordinary debt-floor update also serializes identities from the caller's installed dependency tree. A stale lane can therefore rewrite most of the baseline, create review-hostile churn, and require a corrective revert; the update command does not establish the installation hygiene on which its output depends.",
+      "proposedDirection": "Before writing, verify the installed toolchain against the lockfile and reject dependency-driven hash-only churn with a focused recovery message. Separate intentional toolchain-identity refreshes from ordinary debt-floor updates.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-002",
+      "title": "The portable lint-ratchet package hard-codes Musi's operational vocabulary",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/baseline-spec.ts",
+          "line": 105,
+          "endLine": 118,
+          "measurement": null,
+          "note": "The reusable spec embeds Musi's baseline filename, merge-driver installer command, and update command."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/recovery-command.ts",
+          "line": 7,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Kernel recovery output is assembled around the literal bun run lint:ratchet:update command."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/baseline-debt-accounting-format.ts",
+          "line": 63,
+          "endLine": 72,
+          "measurement": null,
+          "note": "Governance-layer diagnostics likewise prescribe a Musi-specific Bun script."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel",
+          "line": null,
+          "endLine": null,
+          "measurement": "11 bun run lint:ratchet references occur across 5 non-test kernel files, counted from pinned production sources.",
+          "note": "Host command spelling is spread through parsing, validation, recovery, drift classification, and remediation."
+        }
+      ],
+      "problem": "Adopters can inject repository paths but cannot bind the commands and names printed by the kernel and governance layers. Copying the claimed reusable engine requires source edits across several package modules, while a Musi command rename is itself a multi-surface change.",
+      "proposedDirection": "Introduce one workflow-presentation binding for filenames and update, install, and restore commands, or move all host-facing remediation prose into the adapter.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-12",
+        "novelty": "The prior vocabulary work landed its planned naming cleanup; this finding identifies remaining Musi command and presentation leakage across kernel and governance modules."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-003",
+      "title": "The public lint-ratchet demo asks adopters to maintain a 1,245-line fork",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 88,
+          "endLine": 103,
+          "measurement": null,
+          "note": "Adopters are instructed to copy the package and the scripts/git family, then author their own adapter."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/scripts/lint-ratchet.ts",
+          "line": 1,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The nominally minimal demo adapter still owns five operational modes."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/scripts/git/install-baseline-merge-driver.sh",
+          "line": 1,
+          "endLine": 18,
+          "measurement": null,
+          "note": "Merge-driver installation behavior remains consumer-owned shell rather than a supported package executable."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/scripts",
+          "line": null,
+          "endLine": null,
+          "measurement": "15 adapter and Git files total 1,245 lines; among 11 files mirrored at the repository root, 5 are byte-identical and 6 are maintained forks.",
+          "note": "The adoption example is a duplicated subsystem, while its actual demo application is only 17 lines."
+        }
+      ],
+      "problem": "The reusable package stops below the operational adoption seam. An outside repository must vendor CLI parsing, merge-driver management, recovery, truth-up hooks, and preflight wrappers, violating the public-reference goal of requiring at most one repository-specific coupling file.",
+      "proposedDirection": "Ship supported package executables or a versioned bootstrap generator for the operational rail, leaving adopters with one registry/binding file and optional renderers.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-83",
+        "novelty": "The in-repository merge-driver bodies are already parameterized; the new issue is their distribution model, which still requires outside adopters to copy 1,245 lines."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-004",
+      "title": "Rule-source hashing depends on a home-grown JavaScript import lexer",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/rule-source.ts",
+          "line": 20,
+          "endLine": 46,
+          "measurement": null,
+          "note": "Static dependency discovery uses anchored regular expressions and a deliberately naive comment stripper."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/rule-source-import-guard.ts",
+          "line": 3,
+          "endLine": 15,
+          "measurement": null,
+          "note": "Unsupported syntax is handled by rejecting dynamic loading and even a second static import on one physical line."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/rule-source-import-guard.ts",
+          "line": 17,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The guard implements its own context-sensitive masking for comments, strings, templates, and regex literals."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel",
+          "line": null,
+          "endLine": null,
+          "measurement": "rule-source.ts and rule-source-import-guard.ts total 445 production lines at the audit pin.",
+          "note": "A substantial bespoke lexer exists solely to compute source-closure identity."
+        }
+      ],
+      "problem": "Source-identity correctness depends on maintaining a partial JavaScript lexer and on contributors remembering unusual formatting restrictions. New syntax requires synchronized extraction and masking changes, making this difficult to extend safely or present as a reusable reference.",
+      "proposedDirection": "Use the already-declared TypeScript parser API to enumerate static imports and exports and detect dynamic loading, retaining explicit policy errors while removing the regex tokenizer.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-005",
+      "title": "Eight selectors require a 450-line custom glob-policy theorem prover",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "eslint-config/restricted-syntax-builder.js",
+          "line": 1,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The module introduces a custom family tree, intersections, ignore unions, and disjointness proof model solely to compose no-restricted-syntax."
+        },
+        {
+          "path": "eslint-config/restricted-syntax-builder.js",
+          "line": 191,
+          "endLine": 216,
+          "measurement": null,
+          "note": "Disjointness is approximated using exact ignore equality, literal evaluation, and static glob prefixes."
+        },
+        {
+          "path": "eslint-config/restricted-syntax-builder.js",
+          "line": 307,
+          "endLine": 343,
+          "measurement": null,
+          "note": "Authors must satisfy custom proof rules or use a global escape hatch."
+        },
+        {
+          "path": "eslint-config/restricted-syntax-policy.js",
+          "line": null,
+          "endLine": null,
+          "measurement": "A 450-line builder plus a 266-line policy supports 8 selectors, 5 policies, and 4 exceptions.",
+          "note": "The supporting abstraction is substantially larger than its current policy vocabulary."
+        }
+      ],
+      "problem": "The abstraction replaces one ESLint ordering hazard with a repository-specific glob language and proof system. Positive-pattern restrictions, approximate disjointness, terminal exceptions, nested file arrays, and an escape hatch make routine policy extension unusually difficult.",
+      "proposedDirection": "Compose over a small set of explicit named scopes, or generate a concrete flat-config partition from declarative scope membership and retain the resolution snapshot as the behavior oracle.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-006",
+      "title": "Concurrency policy is fragmented across generated data, the lint rule, and the codemod",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/codemods/concurrency-guard/constants.ts",
+          "line": 14,
+          "endLine": 24,
+          "measurement": null,
+          "note": "The codemod owns gated delegates and mutators used to generate the relation graph."
+        },
+        {
+          "path": "scripts/codemods/concurrency-guard/constants.ts",
+          "line": 27,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The same module separately hand-lists accepted helper shapes and function-specific concurrency policy."
+        },
+        {
+          "path": "scripts/codemods/concurrency-guard/constants.ts",
+          "line": 118,
+          "endLine": 139,
+          "measurement": null,
+          "note": "Codemod repair suggestions form another delegate-indexed policy table."
+        },
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": 63,
+          "endLine": 88,
+          "measurement": null,
+          "note": "The lint rule imports the generated graph but repeats a separate version of every direct-write suggestion."
+        },
+        {
+          "path": "scripts/codemods/concurrency-guard/generate-relation-graph.ts",
+          "line": 16,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Generation consumes only the structural delegate and mutator sets, leaving repair and helper policy outside the authoritative artifact."
+        }
+      ],
+      "problem": "One logical concurrency change still spans a generator input, generated graph, lint implementation, codemod scanner, helper-shape inventory, and two suggestion tables. The generated artifact solves only relation structure, so contributors must discover which remaining policy surfaces require synchronized edits.",
+      "proposedDirection": "Define one generated concurrency-policy descriptor containing structural gates and repair metadata, consumed by the lint rule and codemod scanner. Preserve the deliberately separate direct and nested corpora.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-100",
+        "novelty": "This preserves the generated relation graph as authoritative and does not reintroduce hand-listed relations; it extends the generation seam to the adjacent repair and helper metadata that remains manually duplicated."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-007",
+      "title": "Generic codemod infrastructure is hidden behind a tRPC-specific grab bag",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema.ts",
+          "line": 1,
+          "endLine": 7,
+          "measurement": null,
+          "note": "A domain-named barrel exposes seven modules as the common codemod utility surface."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-types.ts",
+          "line": 47,
+          "endLine": 69,
+          "measurement": null,
+          "note": "Generic CodemodError, fail, and ts-morph project construction live beside tRPC schema types and paths."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-writes.ts",
+          "line": 108,
+          "endLine": 161,
+          "measurement": null,
+          "note": "Generic preview, file-writing, and ESLint import-fix orchestration lives in another tRPC-named module."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/run.ts",
+          "line": 6,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The unrelated barrel codemod imports its project, sorting, and write infrastructure through the tRPC schema barrel."
+        },
+        {
+          "path": "scripts/codemods/structured-logging-fix.ts",
+          "line": 7,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The structured-logging codemod likewise depends on the tRPC-specific utility name."
+        }
+      ],
+      "problem": "The reusable codemod foundation has no neutral home. New tools learn that error handling, ts-morph setup, preview/write behavior, formatting, and import fixing are obtained from a tRPC schema module, while domain-specific exports are exposed alongside them.",
+      "proposedDirection": "Extract focused codemod-core modules for errors, project construction, import normalization, and write/preview orchestration; leave tRPC candidate and schema logic in the domain-specific family.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-008",
+      "title": "Engine context leaves local-rule and cache layout hard-coded inside the kernel",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/engine-context.ts",
+          "line": 13,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The public context parameterizes the repository root and data filenames but not local-rule or cache roots."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/rule-source.ts",
+          "line": 91,
+          "endLine": 101,
+          "measurement": null,
+          "note": "Every local rule is assumed to live at repoRoot/eslint-rules/rule.js."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/eslint-config.ts",
+          "line": 45,
+          "endLine": 69,
+          "measurement": null,
+          "note": "Generated configs and ESLint caches are fixed under node_modules/.cache/eslint-ratchet."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/eslint-runner.ts",
+          "line": 100,
+          "endLine": 129,
+          "measurement": null,
+          "note": "Cache cleanup independently reconstructs the writer's directory convention."
+        }
+      ],
+      "problem": "Repositories with compiled rules elsewhere or a different cache policy cannot use the thin adapter seam without patching kernel code. Reconstructing cache paths in two modules also creates an internal synchronization point.",
+      "proposedDirection": "Extend the engine binding with local-rule resolution and a cache root or injected path functions, then centralize config and cache path construction.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-009",
+      "title": "The ratchet CLI has no authoritative command catalog",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/lint-ratchet/cli-types.ts",
+          "line": 1,
+          "endLine": 59,
+          "measurement": null,
+          "note": "Fourteen modes and their options are repeated across immutable parsed arguments and mutable parser state."
+        },
+        {
+          "path": "scripts/lint-ratchet/cli.ts",
+          "line": 18,
+          "endLine": 76,
+          "measurement": null,
+          "note": "Mode flags, terminal grammars, parseArgs declarations, and inline-value policy are separate tables."
+        },
+        {
+          "path": "scripts/lint-ratchet/cli-validate.ts",
+          "line": 15,
+          "endLine": 170,
+          "measurement": null,
+          "note": "Mode-specific option scoping and result construction form another representation."
+        },
+        {
+          "path": "scripts/lint-ratchet/modes.ts",
+          "line": 335,
+          "endLine": 427,
+          "measurement": null,
+          "note": "Execution and registry-preflight policy are encoded in independent if ladders."
+        },
+        {
+          "path": "scripts/lint-ratchet",
+          "line": null,
+          "endLine": null,
+          "measurement": "Five command-surface files total 963 lines for 14 modes.",
+          "note": "A mode change requires coordinated parser, type, validation, help, dispatch, and preflight edits."
+        }
+      ],
+      "problem": "There is no authoritative descriptor for a command's spelling, accepted options, handler, validation level, or help. Contributors can implement one representation while omitting another, and review must reconstruct each command across five modules.",
+      "proposedDirection": "Introduce a typed command catalog owning mode names, option grammar, validation and preflight policy, usage fragments, and handlers; derive duplicated unions and dispatch tables from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "Earlier CLI cleanup landed, but the current 14-mode registration surface remains hand-synchronized across five modules."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-010",
+      "title": "The metric strategy registry does not make metric additions registration-only",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/metric-strategies.ts",
+          "line": 1,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The module promises that adding a metric becomes a registration instead of a cross-cutting edit."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/config-types.ts",
+          "line": 17,
+          "endLine": 19,
+          "measurement": null,
+          "note": "Metric names remain a separately maintained closed union."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/baseline-spec-parse.ts",
+          "line": 48,
+          "endLine": 56,
+          "measurement": null,
+          "note": "Baseline parsing separately enumerates every metric string."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/registry-validation.ts",
+          "line": 259,
+          "endLine": 288,
+          "measurement": null,
+          "note": "Metric and rule pairings are manually repeated instead of being derived from requiredRuleId metadata."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/metric-strategies.ts",
+          "line": 241,
+          "endLine": 253,
+          "measurement": null,
+          "note": "The strategy enumerator has no non-test consumer and is not exported as an extension seam."
+        }
+      ],
+      "problem": "A contributor following the module's registration guidance will miss parser, type, validation, item-schema, and rule-pairing edits. Unused metadata makes the abstraction look more complete than it is while duplicated switches remain authoritative.",
+      "proposedDirection": "Define one typed metric descriptor table supplying parsing, codec, comparison, merge, and rule-pairing metadata, and either expose an intentional extension seam or state that metrics are closed-world.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-011",
+      "title": "Fixture copies are parsed and grouped by two independent shell models",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 59,
+          "endLine": 104,
+          "measurement": null,
+          "note": "The shell-source closure recognizes cp commands, resolves operands, groups them by scope and root, and merges helper contributions."
+        },
+        {
+          "path": "scripts/path-policy/fixture-sandbox-model.ts",
+          "line": 165,
+          "endLine": 205,
+          "measurement": null,
+          "note": "The sandbox model separately tokenizes the same cp command and resolves its source operands."
+        },
+        {
+          "path": "scripts/path-policy/fixture-sandbox-model.ts",
+          "line": 232,
+          "endLine": 250,
+          "measurement": null,
+          "note": "A second destination and root attribution path applies each copy to a sandbox."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 222,
+          "endLine": 237,
+          "measurement": null,
+          "note": "One caller sends the same scoped lines through both copy-group and sandbox collectors."
+        }
+      ],
+      "problem": "One logical shell edit is interpreted twice through different orchestration paths. Supporting another cp spelling, loop or glob form, destination shape, or helper case requires contributors to keep both models aligned.",
+      "proposedDirection": "Produce one canonical stream of parsed copy facts, or derive shell-only copy groups from the richer sandbox model while preserving the distinct closure policies.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-17",
+        "novelty": "The prior work documented the analyzer and its vocabulary but did not identify the two independent cp recognition and grouping passes."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-012",
+      "title": "The path-policy query core is closed over Musi's generated smoke registry",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/path-policy.ts",
+          "line": 1,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The nominal policy-data module imports Musi adapter modules and the generated smoke-subject payload."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 1,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The query engine imports concrete global policy and filesystem-backed smoke discovery instead of accepting dependencies."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 159,
+          "endLine": 202,
+          "measurement": null,
+          "note": "Every query handler is constructed eagerly around the concrete PATH_POLICY value."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-smoke-subjects-data.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "The generated payload is 913 lines with 53 smoke-subject entries; only 2 of the query core's 22 query names are smoke queries.",
+          "note": "Twenty non-smoke modes retain a static dependency on the repository-specific smoke artifact."
+        }
+      ],
+      "problem": "The apparent data and engine boundary is not reusable: the engine is bound to Musi's config, process-based discovery, and a large generated registry even for non-smoke queries.",
+      "proposedDirection": "Split the pure selector/query engine from a thin Musi adapter, injecting policy and smoke-subject resolution so non-smoke consumers do not depend on the generated registry.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-64",
+        "novelty": "The blocked H15 work would make smoke-name discovery lazy but does not address the concrete global engine boundary or generated subject payload."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-013",
+      "title": "Global restricted-import policy survives only through five manual restatements",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-config/code-quality-configs.js",
+          "line": 218,
+          "endLine": 226,
+          "measurement": null,
+          "note": "The repository-wide schemas-barrel restriction is installed as one no-restricted-imports value."
+        },
+        {
+          "path": "eslint-config/client-configs.js",
+          "line": 107,
+          "endLine": 125,
+          "measurement": null,
+          "note": "A narrower Socket.io restriction manually repeats the global pattern because flat config replaces rule values."
+        },
+        {
+          "path": "eslint-config/package-boundary-configs.js",
+          "line": 114,
+          "endLine": 143,
+          "measurement": null,
+          "note": "The shared-package boundary block repeats the same global pattern."
+        },
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": null,
+          "endLine": null,
+          "measurement": "Five rule-value uses of sharedSchemasBarrelRestrictedImportPattern were counted at the audit pin.",
+          "note": "Every new scoped no-restricted-imports block must remember this invariant manually."
+        }
+      ],
+      "problem": "Adding a scoped no-restricted-imports policy can erase the global schemas-barrel fence unless the author knows to copy it into the replacement array. Comments acknowledge the trap, but correctness still depends on repeated ceremony.",
+      "proposedDirection": "Give the global fence its own local rule, or introduce an additive restricted-import composer so scoped policies cannot replace it accidentally.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-014",
+      "title": "The local-rule authoring contract exists only as repeated raw ESLint objects",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-rules/all-local-rules.js",
+          "line": 3,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The shared production registry derives rule objects for validation but provides no authoring API."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "All 32 production rule modules export raw object literals; 30 of 32 repeat schema: [], counted from the 43 non-test JavaScript files.",
+          "note": "Every rule hand-copies ESLint metadata and Musi-specific documentation vocabulary."
+        },
+        {
+          "path": "eslint-rules/rule-tester.js",
+          "line": 3,
+          "endLine": 15,
+          "measurement": null,
+          "note": "Test construction has a centralized factory, highlighting the absence of an equivalent definition boundary."
+        }
+      ],
+      "problem": "Adding or extending a rule requires copying metadata, message declarations, schema/default handling, and raw visitor structure. Omissions are found indirectly by meta-checks, and the two option-bearing rules establish no reusable plumbing pattern.",
+      "proposedDirection": "Introduce a small JSDoc-typed defineLocalRule factory that owns the Musi metadata contract and option/default plumbing, then migrate rules mechanically.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-015",
+      "title": "The concurrency guard compresses two analyzers and their orchestration into one rule",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": 15,
+          "endLine": 47,
+          "measurement": null,
+          "note": "The header defines direct and nested detectors with different authority, coverage, and exemptions."
+        },
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": 130,
+          "endLine": 157,
+          "measurement": null,
+          "note": "The direct-write detector has its own delegate-alias analysis."
+        },
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": 257,
+          "endLine": 423,
+          "measurement": null,
+          "note": "The nested branch contains Prisma recognition and a model-aware payload state machine."
+        },
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": 467,
+          "endLine": 559,
+          "measurement": null,
+          "note": "One create function owns both alias registries, branch suppression, detectors, and reporting paths."
+        },
+        {
+          "path": "eslint-rules/concurrency-guard.js",
+          "line": null,
+          "endLine": null,
+          "measurement": "The rule is 562 physical lines at the audit pin.",
+          "note": "It is the largest production rule in the directory."
+        }
+      ],
+      "problem": "Direct and nested writes are separate policies with different guarantees, aliases, corpora, and messages, but their state and reporting are interleaved. Changes to either branch require understanding the entire hotspot.",
+      "proposedDirection": "Keep one public rule and separate corpora, but extract direct-write and nested-write analyzers behind narrow alias and result interfaces.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-19",
+        "novelty": "CQ25-19 concerns parity with the runtime nested walker; this finding proposes only internal decomposition of the lint rule's direct and nested branches."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-016",
+      "title": "Transaction callback tracking is duplicated between two local rules",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-rules/no-broadcast-in-transaction.js",
+          "line": 24,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The broadcast rule declares its own transaction-callback and alias state."
+        },
+        {
+          "path": "eslint-rules/no-broadcast-in-transaction.js",
+          "line": 110,
+          "endLine": 146,
+          "measurement": null,
+          "note": "It independently discovers transaction callbacks and tracks entry and exit."
+        },
+        {
+          "path": "eslint-rules/no-outer-client-in-transaction.js",
+          "line": 39,
+          "endLine": 44,
+          "measurement": null,
+          "note": "The outer-client rule declares a parallel callback and alias model."
+        },
+        {
+          "path": "eslint-rules/no-outer-client-in-transaction.js",
+          "line": 260,
+          "endLine": 303,
+          "measurement": null,
+          "note": "It separately implements transaction-call recognition and callback lifecycle tracking."
+        }
+      ],
+      "problem": "Two rules must stay aligned on what constitutes a transaction and when a callback scope is active. Extending alias or callback syntax requires parallel edits in separate state machines.",
+      "proposedDirection": "Extract a focused transaction-callback tracker that supplies entry, exit, and transaction-client identity to both rules without creating a general-purpose classification framework.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-218",
+        "novelty": "This is a concrete shared state tracker for two transaction rules, not the declined general module-classification framework or helper-home merge."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-017",
+      "title": "Normal-lint probing is fragmented across fake configs and duplicate ESLint runners",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/retire-rule-proof.ts",
+          "line": 28,
+          "endLine": 40,
+          "measurement": null,
+          "note": "Retirement proof constructs a synthetic config to probe normal lint behavior."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/zero-baseline.ts",
+          "line": 268,
+          "endLine": 294,
+          "measurement": null,
+          "note": "Zero-baseline governance contains a separate reusable-looking config resolver."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/zero-baseline.ts",
+          "line": 310,
+          "endLine": 329,
+          "measurement": null,
+          "note": "The same workflow directly constructs and invokes ESLint."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/retire-rule-update.ts",
+          "line": 48,
+          "endLine": 77,
+          "measurement": null,
+          "note": "Rule retirement independently performs ESLint setup, discovery, and a second pass."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/retire-rule-update.ts",
+          "line": 90,
+          "endLine": 113,
+          "measurement": null,
+          "note": "It also maintains another result parser."
+        }
+      ],
+      "problem": "Governance operations that need normal-lint evidence do not share one injected probe. Each workflow owns a different mixture of config synthesis, file discovery, runner construction, and output parsing, so policy changes require finding every variant.",
+      "proposedDirection": "Introduce one package-level normal-lint probe with injected config and file-selection policy, then route retirement and zero-baseline governance through it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-018",
+      "title": "The hook edit-check protocol is maintained manually in TypeScript and shell",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/edit-check-protocol.ts",
+          "line": 3,
+          "endLine": 19,
+          "measurement": null,
+          "note": "The protocol warns that positional columns must remain synchronized with a shell consumer."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/edit-check-protocol.ts",
+          "line": 21,
+          "endLine": 32,
+          "measurement": null,
+          "note": "Validation covers target-row arity and separator assumptions but no shared producer contract."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/edit-check-protocol.ts",
+          "line": 96,
+          "endLine": 113,
+          "measurement": null,
+          "note": "Regression output has a separate nine-column positional layout without a typed decoder."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/ratchet-coverage.ts",
+          "line": 15,
+          "endLine": 22,
+          "measurement": null,
+          "note": "Another hook protocol independently emits raw tab-separated fields."
+        }
+      ],
+      "problem": "A logical wire-format edit spans package and shell code without a machine-readable shared contract. Only some rows are decoded, so producer and consumer drift is detected late and the pattern is difficult for adopters to copy safely.",
+      "proposedDirection": "Use a versioned self-describing record or generate TypeScript codecs and shell field contracts from one schema; at minimum centralize all row layouts and decode every emitted form.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-019",
+      "title": "Lint-message evaluation records source provenance but never verifies it",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/lint-message-eval/trace.ts",
+          "line": 20,
+          "endLine": 35,
+          "measurement": null,
+          "note": "Fixtures carry a filename, source range, copied source, and a run-level git commit."
+        },
+        {
+          "path": "scripts/lint-message-eval/trace.ts",
+          "line": 83,
+          "endLine": 119,
+          "measurement": null,
+          "note": "Parsing validates field shapes and SHA syntax but never binds the copied source to the named commit."
+        },
+        {
+          "path": "scripts/lint-message-eval/evaluator.ts",
+          "line": 127,
+          "endLine": 145,
+          "measurement": null,
+          "note": "Evaluation lints only fixture.source and fixture.filename; gitCommit and sourceEndLine cannot affect the result."
+        },
+        {
+          "path": "scripts/lint-message-eval/reporter.ts",
+          "line": 32,
+          "endLine": 35,
+          "measurement": null,
+          "note": "Reports nevertheless label the SHA as the evaluated commit."
+        }
+      ],
+      "problem": "The trace appears reproducible, but arbitrary copied source can be attributed to any syntactically valid SHA. The parsed sourceEndLine is otherwise dead, and stale fixtures retain authoritative-looking provenance.",
+      "proposedDirection": "Load the named path and range from gitCommit and require an exact source match, or explicitly model the trace as an unverified replay and remove or relabel the ceremonial metadata.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-020",
+      "title": "shared-policy.js is a grab bag for unrelated lint domains",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 21,
+          "endLine": 62,
+          "measurement": null,
+          "note": "The module begins with language extensions and config-surface manifest projections."
+        },
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 64,
+          "endLine": 111,
+          "measurement": null,
+          "note": "It then owns fixture paths, codemod inventory, codemod tests, and Vitest assertion vocabulary."
+        },
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 113,
+          "endLine": 184,
+          "measurement": null,
+          "note": "The same module owns test and package globs, ratchet sorting, and a package import restriction."
+        },
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 186,
+          "endLine": 270,
+          "measurement": null,
+          "note": "Its final third performs baseline IO, merge-conflict diagnosis, schema parsing, generated exemptions, and max-lines assembly."
+        }
+      ],
+      "problem": "The name suggests reusable policy, but the module is simultaneously a path vocabulary, test-runner registry, codemod inventory, package-boundary holder, and stateful max-lines loader. Unrelated changes converge on one high-fan-in file.",
+      "proposedDirection": "Split it into focused config-surface, scripts-and-tests, package-boundary, and max-lines policy modules, retaining direct imports rather than creating another barrel.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-43",
+        "novelty": "CQ25-43 moves the max-lines command family and explicitly avoids eslint-config edits; this is the residual cohesion problem inside shared-policy.js."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Path-policy dead fields, duplicated excluded-directory literals, constant-true format predicate, and eager smoke-name discovery",
+      "ref": "CQ25-64",
+      "reason": "These are the exact blocked H15 items and add no novelty."
+    },
+    {
+      "title": "Document the fixture analyzer composition and annotation vocabulary",
+      "ref": "CQ25-119",
+      "reason": "The MODULE and vocabulary work already landed at the audit pin."
+    },
+    {
+      "title": "Split the path-policy fixture-shell test along analyzer seams",
+      "ref": "CQ25-134",
+      "reason": "The prior pack explicitly declined this test split, and test-shaped work belongs to lane 06."
+    },
+    {
+      "title": "Require every script smoke subject to declare a static import closure",
+      "ref": "CQ25-67",
+      "reason": "This exact optional sensor is already recorded."
+    },
+    {
+      "title": "Move the max-lines command family and its loader",
+      "ref": "CQ25-43",
+      "reason": "The scheduled slice already owns that move; only residual config cohesion was retained."
+    },
+    {
+      "title": "Reorganize the lint-coverage-map trigger and manifest surfaces",
+      "ref": "CQ25-44",
+      "reason": "The scheduled move already requires these generated and trigger surfaces to change atomically."
+    },
+    {
+      "title": "Give eslint-config its own Vitest project",
+      "ref": "CQ25-112",
+      "reason": "The standing ruling rejects recreating this project split."
+    },
+    {
+      "title": "Centralize config factory sources and relocate parked config tests",
+      "ref": "CQ25-201",
+      "reason": "The prior decision keeps the suites in place and rejects the hoisting-incompatible central mock."
+    },
+    {
+      "title": "Remove ratchetExcluded metadata or restore maxLinesPolicy.ratchets",
+      "ref": "CQ25-215",
+      "reason": "The recorded outcome preserves historical metadata and retires the ratchets surface."
+    },
+    {
+      "title": "Add a general ESLint classification framework or merge helper homes",
+      "ref": "CQ25-218",
+      "reason": "The prior decision explicitly declines both general directions."
+    },
+    {
+      "title": "Share the nested-write state machine between lint and runtime",
+      "ref": "CQ25-19",
+      "reason": "That parity and simplification work is already an open leaf; the retained rule finding is limited to internal decomposition."
+    },
+    {
+      "title": "Merge the direct and nested concurrency corpora",
+      "ref": "CQ25-214",
+      "reason": "The prior decision deliberately keeps the corpora separate."
+    },
+    {
+      "title": "Restore the retired nested detector",
+      "ref": "CQ25-211",
+      "reason": "The detector's retirement is a recorded decision."
+    },
+    {
+      "title": "Merge the tRPC input and output schema rules",
+      "ref": "CQ25-80",
+      "reason": "The standing ruling keeps these distinct controls."
+    },
+    {
+      "title": "Merge the codemod input and output candidate finders",
+      "ref": "CQ25-81",
+      "reason": "The standing ruling keeps these finders separate."
+    },
+    {
+      "title": "Rename remaining testId vocabulary to ratchetId",
+      "ref": "CQ25-74",
+      "reason": "The package-wide optional rename is already recorded."
+    },
+    {
+      "title": "Move allowEmpty out of the portable kernel",
+      "ref": "CQ25-133",
+      "reason": "The prior ruling explicitly keeps allowEmpty as kernel behavior."
+    },
+    {
+      "title": "Strengthen zero-baseline exitPath validation beyond existence",
+      "ref": "CQ25-208",
+      "reason": "Semantic ownership and anchor validation were explicitly left to a pack-wide convention change."
+    },
+    {
+      "title": "Parameterize or consolidate the baseline merge-driver family",
+      "ref": "CQ25-83",
+      "reason": "The shared driver bodies are already parameterized; the retained demo finding concerns distribution."
+    },
+    {
+      "title": "Create a shared manifest framework for the lint-ratchet test sandboxes",
+      "ref": "CQ25-113",
+      "reason": "The prior ruling deliberately leaves the two test sandbox copies unmodelled."
+    },
+    {
+      "title": "Revisit whether the Stryker lint-ratchet config can use an .mjs route",
+      "ref": "CQ25-221",
+      "reason": "The .mjs route already landed and the current file is a small conventional adapter."
+    },
+    {
+      "title": "Repeat the portable-kernel vocabulary cleanup",
+      "ref": "CQ25-12",
+      "reason": "The planned vocabulary work landed; only distinct command and presentation leakage was retained."
+    },
+    {
+      "title": "Hand-list concurrency relation names or remove model context",
+      "ref": "CQ25-100",
+      "reason": "The generated relation graph remains authoritative; the retained seam finding preserves it."
+    },
+    {
+      "title": "Rename the tRPC list and search output schemas independently",
+      "ref": "CQ25-175",
+      "reason": "The prior ruling permits those opportunistic renames only with the recorded candidate-finder fixes."
+    }
+  ],
+  "featureIdeas": [
+    "Lane 08: lint:ratchet:propose rejects third-party rule ids and names a possible future --plugin option at tools/lint-ratchet/src/governance/propose.ts:137-142."
+  ],
+  "bugsSideList": [
+    {
+      "title": "no-plain-error-in-trpc may treat a shadowed Error binding as the global constructor",
+      "paths": [
+        "eslint-rules/no-plain-error-in-trpc.js:8"
+      ],
+      "whySuspectedBug": "The rule's constructor recognition appears name-based, so a local binding named Error may be reported as the global built-in.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "uninvoked-array-callback may treat a shadowed Array binding as the global constructor",
+      "paths": [
+        "eslint-rules/uninvoked-array-callback.js:44"
+      ],
+      "whySuspectedBug": "The rule's Array recognition appears name-based and may misclassify a locally shadowed binding.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "no-async-array-callbacks may treat a shadowed Promise binding as the global constructor",
+      "paths": [
+        "eslint-rules/no-async-array-callbacks.js:44"
+      ],
+      "whySuspectedBug": "The rule's Promise recognition appears name-based and may misclassify a locally shadowed binding.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Trend series compare values across metric migrations",
+      "paths": [
+        "tools/lint-ratchet/src/governance/trend.ts:173",
+        "tools/lint-ratchet/src/governance/trend.ts:228"
+      ],
+      "whySuspectedBug": "A reused ratchet id preserves prior points while overwriting metric metadata, allowing first, last, and delta calculations across incomparable metrics.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Hook TSV protocols cannot round-trip legal Git paths containing tabs or newlines",
+      "paths": [
+        "tools/lint-ratchet/src/governance/edit-check-protocol.ts:28",
+        "tools/lint-ratchet/src/governance/ratchet-coverage.ts:17"
+      ],
+      "whySuspectedBug": "Git permits tab and newline characters in filenames, which can corrupt the unescaped positional protocol.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "PnP-aware ESLint launch is paired with root-node_modules-only version hashing",
+      "paths": [
+        "tools/lint-ratchet/src/kernel/eslint-runner.ts:54",
+        "tools/lint-ratchet/src/kernel/rule-source.ts:123"
+      ],
+      "whySuspectedBug": "The runner resolves ESLint through createRequire for PnP, but source hashing reads package manifests from repoRoot/node_modules, which a PnP host may not have.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Smoke-source overrides are not used by the fixture-validation precondition",
+      "paths": [
+        "scripts/path-policy/smoke-subject-headers.ts",
+        "scripts/path-policy/fixture-shell-dependencies.ts",
+        "scripts/harness/generate-skill-artifacts.ts"
+      ],
+      "whySuspectedBug": "Fixture validation reads on-disk smoke files before sourceOverrides are parsed, so a proposed generated source may be checked against its previous copy set.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "The public demo merge-driver installer silently depends on flock",
+      "paths": [
+        "examples/lint-ratchet-demo/scripts/git/install-baseline-merge-driver.sh:103",
+        "examples/lint-ratchet-demo/scripts/git/install-baseline-merge-driver.sh:108"
+      ],
+      "whySuspectedBug": "When flock is unavailable, including on stock macOS, the advisory exit path returns success while leaving the driver uninstalled.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "The demo CLI silently accepts conflicting modes and update-only flags",
+      "paths": [
+        "examples/lint-ratchet-demo/scripts/lint-ratchet.ts:56",
+        "examples/lint-ratchet-demo/scripts/lint-ratchet.ts:64",
+        "examples/lint-ratchet-demo/scripts/lint-ratchet.ts:86",
+        "examples/lint-ratchet-demo/scripts/lint-ratchet.ts:176"
+      ],
+      "whySuspectedBug": "Later mode flags overwrite earlier ones, and --allow-worse is parsed in every mode but consumed only by update.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "eslint-rules/** excluding test, spec, and test-helper files — 47 production/config files, including both concurrency corpora",
+      "eslint-config/** — all 20 files and 3,278 lines, including max-lines-exceptions.baseline.json",
+      "tools/lint-ratchet/src/kernel/** excluding test-shaped files, plus package context files — 57 files and 6,882 kernel production/context lines",
+      "tools/lint-ratchet/src/governance/** and src/git-rail/** excluding test-shaped files — 24 production files and 4,288 lines",
+      "scripts/lint-ratchet/** excluding test-shaped files — 21 production files and 2,799 lines",
+      "scripts/lint-message-eval/** — all 3 files and 405 lines",
+      "tools/stryker-lint-ratchet.mjs — all 21 lines",
+      "examples/lint-ratchet-demo/** — all 25 files and 1,704 lines",
+      "lint-ratchet.baseline.json — all 1,382 lines, 19 ratchets, and 224 item rows",
+      "scripts/path-policy/** excluding test-shaped files — 17 production TypeScript files and 3,288 lines, plus MODULE.md",
+      "scripts/codemods/** production/config implementations — all 45 files and 5,562 lines",
+      "scripts/codemods/fixtures/**/case.json — all 90 fixture descriptors"
+    ],
+    "sampled": [
+      "scripts/codemods/fixtures/** before/after source bodies — deterministic 21-case sample spanning every codemod family and ordinary, edge, and error-oriented cases; 70 source files inspected"
+    ],
+    "skipped": [
+      "eslint-rules/**/*.{test,spec,test-helper}.* — 49 test-owned files skipped under lane-06 precedence",
+      "tools/lint-ratchet/**/*.{test,spec,test-helper}.* and tools/lint-ratchet/test/** — 44 test-shaped files skipped under lane-06 precedence",
+      "scripts/lint-ratchet/**/*.{test,spec,test-helper}.* — 12 test-shaped files skipped under lane-06 precedence",
+      "scripts/path-policy/**/*.{test,spec,test-helper}.* — 6 test files skipped under lane-06 precedence",
+      "scripts/codemods/**/*.{test,spec,test-helper}.* — test implementations skipped under lane-06 precedence",
+      "The unsampled 69 codemod fixture source cases — fixture descriptors were read, but source bodies were sampled as permitted",
+      "All test suites and builds — not run by explicit user instruction; tests were assumed passing"
+    ],
+    "pointers": [
+      "Lane 06: Dolos' eslint-rules clone signal is entirely test-only; all test-shaped files in this lane's directories were excluded from findings.",
+      "Lane 06: tools/lint-ratchet/src/kernel/fixtures/message-identity-golden.json is a test-only corpus under src and embeds a former absolute worktree path.",
+      "Lane 07: tools/lint-ratchet/README.md:19-33 says path construction and CLI composition stay in the adapter, conflicting with the kernel and governance layering evidence.",
+      "Lane 07: examples/lint-ratchet-demo/README.md:30-34 lists only Bun and Git as requirements, while its installer requires flock.",
+      "Lane 07: rule-source-import-guard.ts:60-61 says regex literals are not tracked even though its masking expression includes REGEX_LITERAL_SOURCE.",
+      "Lane 07: history-only verdict and archived-note references embedded in eslint-config comments merit a documentation-navigation check.",
+      "Lane 08: evaluate the architectural merits of the cross-package restrictions in package-boundary-configs.js; this lane assessed only their config machinery.",
+      "Lane 08: the recurring lint-message evaluation step replays a fixed two-fixture pilot rather than collecting fresh independent sessions."
+    ],
+    "cut": [
+      "structured-logging combines static-message, console-use, and script-import controls — valuable but lower-ranked than the broader rule-authoring and concurrency findings",
+      "strict-shared-schemas has a broader name than its InputSchema-only enforcement — localized naming cleanup",
+      "max-lines override fragments require precise consumer ordering — retained as a cut because CQ25-43 already occupies the adjacent surface",
+      "max-lines baseline reasons have become per-change changelog prose — lower-value churn contributor",
+      "package dependency policy is six parallel config blocks — small declarative-factory opportunity",
+      "registry validation has similarly named shape-only and repository-integrity entry points — partially addressed by the retained command-catalog direction",
+      "debt-log variants use several disconnected dispatch surfaces — larger and less certain than the retained metric registry finding",
+      "superseded governance convenience exports remain — low-confidence dead-surface cleanup",
+      "registry validation retains a legacy ReadonlySet overload — small compatibility cleanup",
+      "six kernel modules repeat isRecord — low-value primitive duplication",
+      "smoke-subject syntax and matching have multiple owners — concrete but lower-ranked than the duplicate copy models",
+      "fixture and smoke discovery accept an empty subject tree — routed as a low-priority scanner-hardening observation",
+      "expand-barrel --all executes per barrel instead of constructing one batch plan — lower-ranked codemod transactionality concern",
+      "codemods contain multiple import-normalization paths — lower-ranked after extracting the broader codemod-core finding",
+      "terminal-table rendering is duplicated between summary and trend governance reports — localized duplication",
+      "zero-baseline duplicates Markdown table-cell escaping — one-line cleanup"
+    ]
+  }
+}

@@ -1,0 +1,151 @@
+import type { CoverageEntry } from "./lint-coverage-map-manifest-schema.js";
+
+export const localEslintRuleEntries: readonly CoverageEntry[] = [
+  {
+    id: "eslint-rules-ast-helpers-bad-comparison-sequence-bad-min-max-func-binding-resolution-concurrency-guard-concurrency-guard-direct-concurrency-guard-graph-concurrency-guard-nested-e2e-prefer-role-selectors-effect-misuse-execution-effect-misuse-trpc-provenance-eslint-config-resolution-timeout-max-lines-missing-throw-no-arbitrary-tailwind-value-no-async-array-callbacks-no-barrel-no-broadcast-in-transaction-no-commented-out-code-no-effect-misuse-no-explicit-any-no-incorrect-sort-no-llm-artifacts-no-node-builtin-reference-no-outer-client-in-transaction-no-plain-error-in-trpc-no-redundant-central-mock-no-retired-parse-success-import-no-swallowed-errors-no-swallowed-errors-paths-no-unbounded-promise-all-repo-config-harness-rule-module-shape-rule-tester-shared-schema-prefix-socket-listener-cleanup-socket-registry-broadcasts-strict-shared-schemas-strict-trpc-input-structured-logging-test-file-location-transaction-callback-tracker-trpc-require-output-schema-trpc-shared-input-schema-trpc-shared-output-schema-trpc-shared-schema-import-collector-type-assertion-boundary-uninvoked-array-callback-js",
+    globs: [
+      "eslint-rules/{ast-helpers,bad-comparison-sequence,bad-min-max-func,binding-resolution,concurrency-guard,concurrency-guard-direct,concurrency-guard-graph,concurrency-guard-nested,e2e-prefer-role-selectors,effect-misuse-execution,effect-misuse-trpc-provenance,eslint-config-resolution-timeout,max-lines,missing-throw,no-arbitrary-tailwind-value,no-async-array-callbacks,no-barrel,no-broadcast-in-transaction,no-commented-out-code,no-effect-misuse,no-explicit-any,no-incorrect-sort,no-llm-artifacts,no-node-builtin-reference,no-outer-client-in-transaction,no-plain-error-in-trpc,no-redundant-central-mock,no-retired-parse-success-import,no-swallowed-errors,no-swallowed-errors-paths,no-unbounded-promise-all,repo-config-harness,rule-module-shape,rule-tester,shared-schema-prefix,socket-listener-cleanup,socket-registry-broadcasts,strict-shared-schemas,strict-trpc-input,structured-logging,test-file-location,transaction-callback-tracker,trpc-require-output-schema,trpc-shared-input-schema,trpc-shared-output-schema,trpc-shared-schema-import-collector,type-assertion-boundary,uninvoked-array-callback}.js",
+    ],
+    pathNote: "(rule implementations + shared helpers)",
+    files:
+      "48 .js (33 registered rules plus their shared analyzers, adapters, test timeout, shape classifier, RuleTester factory, and real-repo config harness)",
+    normalLint: { covered: true },
+    ratchets: "none",
+    parser:
+      "ESLint recommended JS + explicit `no-unused-vars` + non-type-aware syntactic strict-tier / regexp floor; `simple-import-sort`, `eslint-comments` hygiene, generic `local/*`, and scoped `eslint-plugin-jsdoc` syntax/name/type checks apply without requiring new prose blocks.",
+    proposed:
+      "Domain/path-specific local rules and type-aware `local/no-explicit-any` / `local/no-barrel` remain deferred as non-broad-shallow. Deeper JSDoc floors such as `require-jsdoc`, descriptions, and broad return requirements remain intentionally off to avoid mass rewrites.",
+    status: ["linted"],
+    followUp: "—",
+  },
+  {
+    id: "eslint-rules-test-js",
+    globs: ["eslint-rules/*.test.js"],
+    pathNote: "(rule and lint-config tests)",
+    files: "50 .js",
+    normalLint: { covered: true },
+    ratchets: "none",
+    parser:
+      "ESLint recommended JS + explicit `no-unused-vars` + Vitest recommended floor; no project service",
+    proposed: "none — the complete RuleTester and config-test floors are in normal lint",
+    status: ["linted"],
+    followUp: "The three pure config suites intentionally remain in this Vitest project.",
+  },
+];
+
+export const shellScriptEntries: readonly CoverageEntry[] = [
+  {
+    id: "scripts-sh",
+    globs: ["scripts/**/*.sh"],
+    pathNote:
+      "(top-level verify, smoke tests, worktree-*, db, doctor, land, shared shell libs, the agent-cli dispatch wrappers, etc.; excludes the ai-hooks row and the separately itemized generated fixture)",
+    files: "157 .sh",
+    filesCountNote:
+      "excludes the separately itemized ai-hooks and generated-fixture shell rows, which `scripts/**/*.sh` also matches; rows carry no `ignores`.",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp:
+      "Inventory: `git ls-files -- 'scripts/*.sh'` yields 205 tracked files; excluding 47 `scripts/ai-hooks/*.sh` files and the separately itemized generated fixture leaves 157. Smoke: `scripts/tests/test-lint-shell.sh`; `scripts/lib/gate-env.sh` owns local/CI gate heap defaults.",
+  },
+  {
+    id: "scripts-ai-hooks-sh",
+    globs: ["scripts/ai-hooks/*.sh"],
+    pathNote: "(agent hook implementations)",
+    files: "47 .sh",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "—",
+  },
+  {
+    id: "scripts-ai-hooks-readme-md",
+    globs: ["scripts/ai-hooks/README.md"],
+    files: "1 .md",
+    normalLint: { covered: false },
+    ratchets: "none",
+    parser: "n/a",
+    proposed: "`excluded` — implementation reference, not executable code",
+    status: ["excluded"],
+    followUp:
+      "Paired with `docs/ai-harness.md`; the doc-length advisory does not cover this file (not in the policy's file list).",
+  },
+  {
+    id: "claude-hooks-sh",
+    globs: [".claude/hooks/*.sh"],
+    pathNote: "(Claude Code hooks)",
+    files: "14 .sh",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "changed-gate relevant",
+  },
+  {
+    id: "codex-hooks-sh",
+    globs: [".codex/hooks/*.sh"],
+    pathNote: "(Codex hooks)",
+    files: "9 .sh",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "changed-gate relevant",
+  },
+  {
+    id: "copilot-hooks-sh",
+    globs: [".copilot/hooks/*.sh"],
+    pathNote: "(Copilot hooks)",
+    files: "9 .sh",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "changed-gate relevant",
+  },
+  {
+    id: "devcontainer-container-entrypoint-sh",
+    globs: [
+      ".devcontainer/container-entrypoint.sh",
+      ".devcontainer/start-servers.sh",
+      ".devcontainer/post-create.sh",
+    ],
+    files: "3 .sh",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "changed-gate relevant",
+  },
+  {
+    id: "husky-pre-commit-pre-push-post-commit-post-checkout-post-merge-commit-msg",
+    globs: [".husky/{pre-commit,pre-push,post-commit,post-checkout,post-merge,commit-msg}"],
+    files: "6 (extensionless shell, with `#!/bin/bash` or `#!/usr/bin/env bash` shebangs)",
+    normalLint: { covered: true, note: "`bun run lint:shell`" },
+    ratchets: "ShellCheck floor",
+    parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
+    proposed: "none",
+    status: ["linted"],
+    followUp:
+      "`pre-push` provides the fast-commit full-verify backstop; `post-commit` records fast-commit provenance after Git creates the commit SHA.",
+  },
+  {
+    id: "init-test-db-sql",
+    globs: ["init-test-db.sql", ".devcontainer/init-test-db.sql"],
+    files: "2 .sql",
+    normalLint: { covered: false },
+    ratchets: "none",
+    parser: "—",
+    proposed: "`excluded` — bootstrap SQL, not maintained as live ESLint surface",
+    status: ["excluded"],
+    followUp: "—",
+  },
+];

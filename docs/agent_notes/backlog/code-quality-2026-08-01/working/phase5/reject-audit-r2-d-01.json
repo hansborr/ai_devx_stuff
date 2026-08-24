@@ -1,0 +1,573 @@
+{
+  "contractVersion": 1,
+  "consult": "R2D01",
+  "step": "1b-round-2",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[20]",
+      "lane": "lane-03-server-services",
+      "disposition": "uphold",
+      "reasoning": "CQ25-178 accurately covers this proposal. The live plan distinguishes persisted Spell.classes tags from class primary keys and refuses normalization because packages/server/src/utils/spell-mapping.ts:18-34 parses the column directly through the closed schema at packages/shared/src/schemas/spell.ts:39-66, without a compatibility fallback. Mapper-side normalization would weaken or reinterpret that persisted boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[21]",
+      "lane": "lane-03-server-services",
+      "disposition": "uphold",
+      "reasoning": "CQ25-180 covers the exact constants. packages/shared/src/schemas/homebrew-export.ts:17-31 defines decimal BYTES_PER_MB as 1,000,000, while packages/shared/src/schemas/map.ts:26-34 documents MAP_IMAGE_BYTES_PER_MB as binary 1,048,576. packages/server/src/services/upload-service.ts:111-114 uses the binary value for map limits. Sharing them would conflate distinct units rather than remove duplication.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[24]",
+      "lane": "lane-03-server-services",
+      "disposition": "uphold",
+      "reasoning": "CQ25-222 explicitly records that AppSocketServer remains defined in packages/server/src/socket/socket-types.ts:45-53 and is not re-exported by packages/server/src/socket/index.ts:13-23. The live prior leaf at docs/agent_notes/backlog/code-quality-2026-07-25/02-fastify-io-augmentation.md:3-18 and ADR-0005 at docs/adr/0005-shared-subpath-exports.md:45-46 require defining-module imports rather than sibling index re-exports.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[0]",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reasoning": "CQ25-115 covers retaining deep imports but leaves a documentation residual. packages/shared/src/schemas/MODULE.md:30-34 and :192-195 still advertise a future aggregate-export leaf, while accepted ADR-0005 at docs/adr/0005-shared-subpath-exports.md:29-43 treats the missing root export and removed schemas barrel as load-bearing decisions. The material issue is contradictory guidance, not adding a barrel.",
+      "promotionIds": [
+        "R2D01-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[3]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-180 covers this exact consolidation. ConcentrationSaveInput and ConcentrationSaveResult at packages/shared/src/rules/concentration-save.ts:20-38 omit rollMode and secondRoll, while resolveD20Roll at packages/shared/src/rules/d20-roll.ts:5-18 requires and returns them. packages/server/src/utils/concentration-helpers.ts:116-137 persists the concentration result in CombatLog.rolls, so routing through resolveD20Roll would alter rules semantics and a persisted shape.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[4]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "The live ruling at docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:840 correctly distinguishes the three meanings. packages/shared/src/rules/saving-throw.ts:111 halves damage after a successful save, packages/shared/src/rules/concentration-save.ts:14-17 derives a concentration DC, and packages/shared/src/map/area-template.ts:104-109 uses two for geometry centering and parity. Their equal values do not represent one concept.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[5]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-174 fully covers the move. packages/shared/src/rules/armor-class.ts:71-89 keeps both shield-dependent decisions together: lines 77-80 disable monk Unarmored Defense and lines 85-86 add the shield bonus. unarmoredAc at :48-57 otherwise computes a shield-free base. Moving only one check would split a coherent rule across helpers.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[9]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-76 is the exact available follow-up, not a neighboring concern. The live plan at docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:427-441 and :820 records that narrowing is feasible but preserves the public unknown-string-to-zero contract. packages/shared/src/rules/character-rules.ts:168-185 implements that guard, while all three current callers pass canonical names.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[11]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-177 fully adjudicates these boundaries. packages/shared/src/rules/class-identity.ts:18-43 defines SrdClassId, one total forward map, and a derived reverse map; :45-66 preserves string-facing lookup behavior. Public rules functions such as packages/shared/src/rules/spellcasting.ts:189-205 and multiclass-rules.ts:88-94 retain deliberate unknown-id fallbacks.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[12]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-178 explicitly refuses this normalization. packages/shared/src/schemas/spell.ts:39-66 defines the unprefixed persisted vocabulary and packages/server/src/utils/spell-mapping.ts:18-34 parses it without fallback. Prefixed class record IDs remain a separate free-form primary-key namespace in packages/server/prisma/schema.prisma:468-479. A partial normalization would make rows unreadable.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[13]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-182 fully covers the title. The live plan at docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:443-456 explains that CasterType tables are not SRD class tables, so an SRD citation would be fictitious. packages/shared/src/rules/spellcasting.ts:251-252, :276, and :300 now label all three as Musi non-SRD policy and :340-341 distinguishes the SRD class-specific table.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[14]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-185 records the exact latent extension contradiction and the decision not to guess. packages/shared/src/rules/spellcasting.ts:372-379 supplies the fallback, while spell-selection-step.tsx:114-136 cannot query an unmapped spell-list identity and wizard-validation.ts:46-51 still requires choices. packages/server/src/seed/seed-srd-classes.ts:8-16 documents the sole live Class writer as SRD-only, so the contradictory path is not currently reachable.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[15]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-175 chose documentation over extraction after identifying the actual defect as inaccurate navigation. packages/shared/src/schemas/MODULE.md:104-119 now explicitly assigns inline request schemas to srd.ts, spell.ts, and auth.ts. Their inputs remain at spell.ts:283-307, auth.ts:8-30 and :82-110, and srd.ts:318-352. Extraction would add boundaries after the documented layout was corrected.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[16]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-175 fully adjudicates the generic output names at docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:376-385 and :828. Each router imports one symbol through a concrete schema subpath, so no collision site exists; for example npc.ts:35 is imported directly by routers/npc.ts:1-4, and monster.ts:249 by routers/monster.ts:2-13. The rename remains readability-only and carries codemod-fixture churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[17]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-176 covers the proposal and its failure mechanism. packages/shared/src/schemas/notification.ts:20-51 retains an additive optional-key payload because a strict discriminator could reject legacy rows. packages/server/src/utils/notification-helpers.ts:19-26 salvages valid keys, but routers/notification.ts:54-56 still validates the entire mapped entity with notificationSchema, so a nested fallback cannot protect an incompatible outer discriminator.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[20]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-173 fully covers the persisted-key migration. inventory.ts:33-46 accepts both spellings, srd.ts:279-289 and homebrew.ts:321-332 retain twoHandedDice, attack-damage.ts:100-106 translates it at the sole rules seam, and client item-form-data.ts:131-143 and :187-196 round-trips the storage key. Normalization would introduce persisted-data erasure risk without an uncovered reader.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[21]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-181 covers this exact validator swap. packages/shared/src/schemas/MODULE.md:206-213 records the bare homebrew and magic-item timestamp strings as deliberate. homebrew.ts:262-270 and :284-299 and magic-item.ts:56-71 retain z.string(), while server homebrew-helpers.ts:51-74 and routers/magic-item.ts:45-59 still perform required ISO conversion. Changing only the validators deletes no mapper work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[22]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-183's distilled wording is narrower than this generic title, but the live standing rule closes it. packages/shared/src/schemas/MODULE.md:196-199 forbids compatibility re-exports because they create a second public path, and ADR-0005 at docs/adr/0005-shared-subpath-exports.md:29-46 requires defining-module imports. Current notification and weapon-mastery consumers follow that rule.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[23]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-181 directly rejects the shared export. Shared area-template.ts:36-55 has private GridCell and TemplateParams, while client tool-handlers.ts:109-130 defines a different wrapper shape and passes a full object literal directly to templateCells, so required-field drift is already checked. The client owns a distinct GridCell at map-canvas-store.ts:74-77 and :626. The abstractions differ and no unchecked seam remains.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[25]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-179 makes the required distinction: the package-private input AST is discriminated at packages/shared/src/dice/types.ts:14-28, but persisted result records remain stable. dice-roller.ts:8-12 emits flat terms as rolls: [] plus subtotal; schemas/dice-inputs.ts:29-40 requires that shape, routers/dice.ts:55-62 persists it, and client chat-message.tsx:23-28 parses stored metadata. Changing results would reject legacy rows.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[26]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "The live R3 slice at docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:570 exactly requires DEFAULT_STROKE_WIDTH and MIN_FREEHAND_POINTS to remain independent plain literals with no suppression. packages/shared/src/map/drawing.ts:21 and :24 follow that direction, and eslint-config/rule-groups.js:32-40 already permits numeric literals in const declarators. A disable wrapper would add suppression debt without fixing lint.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[27]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "CQ25-116 fully covers the four one-field contracts. They remain separately constructed at packages/shared/src/schemas/socket-events.ts:11-21, :42-46, and :99-103 and represent differently directed events. packages/server/src/socket/broadcast-registry.test.ts:112-118 checks campaign:updated against the exact campaignUpdatedSchema identity. Coupling independently versioned contracts saves only a few lines and aliasing would weaken the mis-wiring gate.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[30]",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reasoning": "The coverage claim does not survive the live plan. SHARED-CLUSTER-PLAN.md:506-510 measures getValidTransitions, hasActionsRemaining, and getCurrentParticipant as colocated-test-only, but landed E1 at :574 only deletes ClassPreparedEntry and makes FRESH_ACTION_ECONOMY live. The three helpers remain exported at rules/combat.ts:19-21 and :47-49 and rules/initiative.ts:106-110, with no production references and no recorded retention rationale.",
+      "promotionIds": [
+        "R2D01-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[31]",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reasoning": "The cited completed slice does not adjudicate these helpers. SHARED-CLUSTER-PLAN.md:506-510 explicitly measures snapToGrid, pixelToHex, and hexRound as colocated-test-only, while the landed E1/E2 scopes at :574-575 do not touch or justify them. They remain exported at packages/shared/src/map/grid-utils.ts:39-46 and :77-102 with no production consumer.",
+      "promotionIds": [
+        "R2D01-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[16]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "CQ25-185 covers the latent non-SRD full-caster contradiction at SHARED-CLUSTER-PLAN.md:611-635 and explicitly defers behavior until a product contract exists. The fallback remains at spellcasting.ts:366-379, while wizard state exposes the step and validation requires choices the unmapped queries cannot supply. The sole live Class writer remains SRD-only at seed-srd-classes.ts:8-16, so changing this unreachable extension behavior would still be speculative.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[9]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reasoning": "CQ25-181 fully covers a blind repository-wide conversion and the deliberately string-only homebrew and magic-item schemas, but it leaves a narrower mapper-boundary residual. dateTimeField at packages/shared/src/constants.ts:104-111 already accepts Prisma Date inputs and normalizes them. Against the same mapLayerSchema, utils/map-helpers.ts:106-115 returns raw Dates through a z.input result type while routers/map-layer.ts:22-31 manually converts them through an output type. Campaign and encounter mappers repeat the latter policy. The prior leaf itself calls uniform mapper retyping separate work at code-quality-2026-07-25/26-shared-dead-and-vestigial.md:159-165.",
+      "promotionIds": [
+        "R2D01-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[14]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "CQ25-175 directly adjudicates the generic list/search names. SHARED-CLUSTER-PLAN.md:376-385 records eight list and two search declarations, deep-module imports without collision sites, and the required same-commit candidate-finder fix for any opportunistic rename. Current declarations and consumers preserve that isolated pattern, so no new impact mechanism is present.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[15]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "CQ25-173 and the standing refusal in CONSTRAINTS.md:28 fully cover this migration. twoHandedDice remains the authoring/storage spelling and versatileDice the rules spelling, translated at packages/shared/src/rules/attack-damage.ts:100-106. The persisted schemas and form still preserve the storage key. Unifying them would risk Zod stripping and whole-payload rewrite erasure without benefiting a reader.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[23]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "CQ25-175 covers this exact list/search rename. SHARED-CLUSTER-PLAN.md:376-385 rejects it as readability-only under deep imports and requires scripts/codemods/trpc-shared-output-candidates.ts:86-92 to change in the same commit or the generic names regrow. The current claimant supplies no residual beyond that recorded population.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[8]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "This is the same fully adjudicated CQ25-175 population phrased broadly. The live record counts the remaining list/search declarations, finds no collision under concrete schema imports, and records the candidate-finder coupling. scripts/codemods/trpc-shared-output-candidates.ts:86-92 still contains the exact name-derivation mechanism the ruling identifies.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R2D01-001",
+      "title": "Align shared export guidance with ADR-0005's scoped-only decision",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/MODULE.md",
+          "line": 30,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The live orientation guide says there is no root or schemas barrel but promises a separate future aggregate-export leaf."
+        },
+        {
+          "path": "packages/shared/src/schemas/MODULE.md",
+          "line": 192,
+          "endLine": 199,
+          "measurement": null,
+          "note": "The Gotchas section repeats the deferred-leaf promise immediately before requiring defining-file imports and forbidding compatibility re-exports."
+        },
+        {
+          "path": "docs/adr/0005-shared-subpath-exports.md",
+          "line": 29,
+          "endLine": 43,
+          "measurement": null,
+          "note": "Accepted ADR-0005 makes the opposite durable decision: scoped subpaths only, the schemas barrel stays removed, and the absent root export is gated."
+        },
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+          "line": 376,
+          "endLine": 385,
+          "measurement": null,
+          "note": "The live prior record relies on the no-barrel state when declining generic schema renames but does not settle the guide's promised aggregate-export review."
+        }
+      ],
+      "problem": "Contributor guidance presents a root or schemas aggregate export as intended deferred work while the accepted and enforced ADR treats either export as an architecture regression. Agents and reviewers can reach opposite conclusions from two live authorities and repeatedly reopen settled barrel work.",
+      "proposedDirection": "Replace both deferred-leaf statements in schemas/MODULE.md with affirmative scoped-subpath guidance linked to ADR-0005, including its specific-subpath extension path. Do not change exports or enforcement.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2D01",
+          "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[0]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Add a shared root or schemas barrel",
+          "rejectionReason": "The completed shared cluster deliberately retained concrete deep subpaths."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-115",
+          "residual": "The landed shared cluster retained deep imports but left its live MODULE.md promising a separate aggregate-export review, so the governing ADR and contributor guide still conflict."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 228 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2D01-002",
+      "title": "Remove three shared rule helpers whose only consumers are their own tests",
+      "area": "shared",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+          "line": 506,
+          "endLine": 510,
+          "measurement": null,
+          "note": "The live prior plan itself measures getValidTransitions, hasActionsRemaining, and getCurrentParticipant as referenced only by colocated tests."
+        },
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+          "line": 574,
+          "endLine": 575,
+          "measurement": null,
+          "note": "The claimed landed dead-surface remainder wires FRESH_ACTION_ECONOMY and handles ClassPreparedEntry and initiative sorting, but does not dispose of or justify these helpers."
+        },
+        {
+          "path": "packages/shared/src/rules/combat.ts",
+          "line": 19,
+          "endLine": 21,
+          "measurement": null,
+          "note": "getValidTransitions remains exported."
+        },
+        {
+          "path": "packages/shared/src/rules/combat.ts",
+          "line": 47,
+          "endLine": 49,
+          "measurement": null,
+          "note": "hasActionsRemaining remains exported."
+        },
+        {
+          "path": "packages/shared/src/rules/initiative.ts",
+          "line": 106,
+          "endLine": 110,
+          "measurement": null,
+          "note": "getCurrentParticipant remains exported."
+        },
+        {
+          "path": "packages/shared/src/rules/combat.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production references outside the declaration file (`rg -n '\\b(getValidTransitions|hasActionsRemaining)\\b' packages e2e scripts --glob '!**/*.test.*' --glob '!packages/shared/src/rules/combat.ts'`; exit 1)",
+          "note": "Both combat helpers are test-only at the audit pin."
+        },
+        {
+          "path": "packages/shared/src/rules/initiative.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production references outside the declaration file (`rg -n '\\bgetCurrentParticipant\\b' packages e2e scripts --glob '!**/*.test.*' --glob '!packages/shared/src/rules/initiative.ts'`; exit 1)",
+          "note": "The initiative helper is test-only at the audit pin."
+        },
+        {
+          "path": "knip.config.ts",
+          "line": 18,
+          "endLine": 24,
+          "measurement": null,
+          "note": "Shared rules and map exports are exempt from unused-export reporting, so the dead surface is not automatically detected."
+        }
+      ],
+      "problem": "Three exported shared-rule APIs have no shipping consumer; only tests written specifically for the unused helpers exercise them. They enlarge the contract surface and create maintenance work that protects no production behavior. The prior pack measured this accurately but its landed slice only made FRESH_ACTION_ECONOMY live and left these three behind without a retention ruling.",
+      "proposedDirection": "Delete getValidTransitions, hasActionsRemaining, and getCurrentParticipant plus their dedicated imports and test blocks. Keep isValidTransition, FRESH_ACTION_ECONOMY, turn advancement, and production-backed tests unchanged.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2D01",
+          "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[30]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Delete or privatize the previously adjudicated combat and initiative helpers",
+          "rejectionReason": "The finished dead-surface review already measured and retained those exact names."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-115",
+          "residual": "CQ25-115 marks the shared cluster finished, but its live plan only makes FRESH_ACTION_ECONOMY production-used; the other three helpers remain exported and test-only despite the plan's own measurement."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2D01-003",
+      "title": "Delete three grid conversion helpers used only by their own tests",
+      "area": "shared",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+          "line": 506,
+          "endLine": 510,
+          "measurement": null,
+          "note": "The live prior plan measures snapToGrid, pixelToHex, and hexRound as referenced only by their colocated test."
+        },
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md",
+          "line": 574,
+          "endLine": 575,
+          "measurement": null,
+          "note": "The completed dead-surface slices do not touch or provide a retention reason for these grid helpers."
+        },
+        {
+          "path": "packages/shared/src/map/grid-utils.ts",
+          "line": 39,
+          "endLine": 46,
+          "measurement": null,
+          "note": "snapToGrid remains exported despite having no caller."
+        },
+        {
+          "path": "packages/shared/src/map/grid-utils.ts",
+          "line": 77,
+          "endLine": 102,
+          "measurement": null,
+          "note": "pixelToHex and its internal hexRound dependency remain exported without a production consumer."
+        },
+        {
+          "path": "packages/shared/src/map/grid-utils.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production references outside the declaration file (`rg -n '\\b(snapToGrid|pixelToHex|hexRound)\\b' packages e2e scripts --glob '!**/*.test.*' --glob '!packages/shared/src/map/grid-utils.ts'`; exit 1)",
+          "note": "All three names are absent from production consumers at the audit pin."
+        },
+        {
+          "path": "packages/shared/src/map/grid-utils.test.ts",
+          "line": 50,
+          "endLine": 60,
+          "measurement": null,
+          "note": "snapToGrid's only consumer is its dedicated test block."
+        },
+        {
+          "path": "packages/shared/src/map/grid-utils.test.ts",
+          "line": 110,
+          "endLine": 168,
+          "measurement": null,
+          "note": "pixelToHex and hexRound are exercised only by dedicated tests."
+        },
+        {
+          "path": "knip.config.ts",
+          "line": 18,
+          "endLine": 24,
+          "measurement": null,
+          "note": "Shared map exports are exempt from unused-export reporting."
+        }
+      ],
+      "problem": "snapToGrid and the pixelToHex/hexRound pair are exported shared map APIs with no production caller. Their tests make the dead surface look maintained while protecting no shipping path, and the shared-map Knip exemption prevents automatic reporting. The cited prior pack recognized the exact dead surface but omitted it from its landed slices.",
+      "proposedDirection": "Delete snapToGrid, pixelToHex, and hexRound together with their imports and dedicated tests. Preserve the live grid-line, hexToPixel, hexCorners, and hexGridCenters APIs and tests.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2D01",
+          "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[31]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Delete snapToGrid and the pixelToHex/hexRound pair",
+          "rejectionReason": "The completed shared dead-code slice already adjudicated these helpers."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-115",
+          "residual": "CQ25-115 labels the shared cluster complete, but its live landed slices neither implement nor reject deletion of these test-only grid helpers."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2D01-004",
+      "title": "Standardize dateTimeField-backed mapper result boundaries",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 104,
+          "endLine": 111,
+          "measurement": null,
+          "note": "dateTimeField explicitly accepts Prisma Date values as schema input and owns canonical Date-to-ISO normalization."
+        },
+        {
+          "path": "packages/shared/src/schemas/map.ts",
+          "line": 101,
+          "endLine": 116,
+          "measurement": null,
+          "note": "mapLayerSchema applies dateTimeField to both timestamps and exports the normalized output type."
+        },
+        {
+          "path": "packages/server/src/utils/map-types.ts",
+          "line": 76,
+          "endLine": 83,
+          "measurement": null,
+          "note": "The map-detail mapper family derives schema-input result contracts with z.input."
+        },
+        {
+          "path": "packages/server/src/utils/map-helpers.ts",
+          "line": 106,
+          "endLine": 115,
+          "measurement": null,
+          "note": "One MapLayer mapper returns raw Prisma Date values through that input contract."
+        },
+        {
+          "path": "packages/server/src/routers/map-layer.ts",
+          "line": 22,
+          "endLine": 31,
+          "measurement": null,
+          "note": "A second mapper targeting the same schema instead uses its output type and manually duplicates both ISO conversions."
+        },
+        {
+          "path": "packages/server/src/routers/campaign.ts",
+          "line": 63,
+          "endLine": 115,
+          "measurement": null,
+          "note": "Campaign member, detail, and summary mappers repeat field-by-field timestamp normalization despite dateTimeField-backed contracts."
+        },
+        {
+          "path": "packages/server/src/utils/encounter-query.ts",
+          "line": 226,
+          "endLine": 301,
+          "measurement": null,
+          "note": "Combat-log and encounter mapper families likewise distribute ISO policy through their implementations."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "45 matches across 18 files (`rg -n 'toISOString\\(\\)' packages/server/src --glob '!*.test.ts' --glob '!*.test.tsx' | wc -l`; `rg -l 'toISOString\\(\\)' packages/server/src --glob '!*.test.ts' --glob '!*.test.tsx' | wc -l`)",
+          "note": "This bounds the inventory requiring classification; it is not a claim that all 45 calls should be removed."
+        },
+        {
+          "path": "docs/agent_notes/backlog/code-quality-2026-07-25/26-shared-dead-and-vestigial.md",
+          "line": 159,
+          "endLine": 165,
+          "measurement": null,
+          "note": "The prior pack's own source leaf identifies uniform mapper retyping as a separate larger question rather than resolving it."
+        }
+      ],
+      "problem": "dateTimeField already owns the Prisma-Date-to-wire-string boundary, but server mapper families inconsistently return schema input or manually construct schema output. This duplicates serialization policy, makes timestamp additions coordinated schema-and-mapper edits, and obscures whether every raw mapper result reaches a real parse boundary.",
+      "proposedDirection": "Inventory dateTimeField-backed mappers and their consumers, then convert cohesive domains to z.input result contracts that pass Prisma Dates to the existing schema parse. Keep pagination, logging, protocol timestamps, and deliberately string-only homebrew and magic-item schemas excluded.",
+      "leafability": "single-leaf",
+      "confidence": "medium",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2D01",
+          "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[9]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Perform a repository-wide dateTimeField and toISOString conversion",
+          "rejectionReason": "The prior plan explicitly declined this sweep."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-181",
+          "residual": "CQ25-181 correctly retains the three deliberately string-only homebrew and magic-item schemas and rejects a blind sweep, but it leaves inconsistent result typing across existing dateTimeField-backed mappers unresolved."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 229 — hint only"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "The live prior-pack documents were byte-identical to priorPackReviewSha in a read-only git diff.",
+    "CQ25-183's distilled scope is narrower than the compatibility-re-export claimant, but the live schemas MODULE and ADR-0005 fully close that broader proposal. CQ25-181's statement that TemplateParams was renamed is imprecise, but the actual structural seam still supports uphold.",
+    "For the dateTimeField residual, the 45-call and 18-file measurements are inventory bounds, not removal targets. I opened the same-schema MapLayer split and representative campaign and encounter families; a promoted leaf must complete the consumer/parse-boundary census before implementation."
+  ]
+}

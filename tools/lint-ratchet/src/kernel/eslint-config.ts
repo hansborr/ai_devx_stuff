@@ -7,7 +7,12 @@ import { writeFileAtomicallySync } from "./atomic-write.js";
 import { ruleNamespace } from "./baseline.js";
 import { normalizeRuleOptions, normalizeStringList } from "./baseline-hash.js";
 import type { LintRatchetConfig } from "./config-types.js";
-import { type LintRatchetEngineBinding, safeRatchetId } from "./engine-context.js";
+import {
+  cacheRootFor,
+  configRootFor,
+  type LintRatchetEngineBinding,
+  safeRatchetId,
+} from "./engine-context.js";
 import { ConfigError } from "./metrics-types.js";
 import { localRuleName, localRulePath, thirdPartySupportFor } from "./rule-source.js";
 import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-config.js";
@@ -19,11 +24,12 @@ interface WriteEslintConfigOptions {
 }
 
 // The ESLint cache is keyed by exactly what changes the generated config text
-// and its findings — files/ignores/ruleId/ruleOptions/source/parserProfile plus
-// the rule-source hash — and NOTHING else. Reusing computeLintRatchetConfigHash
-// here pulled in `mode` and `target`, which never reach writeEslintConfig, so
-// editing either needlessly invalidated the cache. `metric` is likewise excluded
-// (it only affects post-parse interpretation, not the ESLint invocation).
+// and its findings — files/ignores/ruleId/ruleOptions/source/parserProfile/
+// typeAwareProject plus the rule-source hash — and NOTHING else. Reusing
+// computeLintRatchetConfigHash here pulled in `mode`, which never reaches
+// writeEslintConfig, so editing it needlessly invalidated the cache.
+// `metric` is likewise excluded (it only affects post-parse interpretation, not
+// the ESLint invocation).
 export function cacheKeyHashFor(ratchet: LintRatchetConfig, ruleSourceHash: string): string {
   const cacheKeyInput = {
     files: normalizeStringList(ratchet.files),
@@ -32,9 +38,8 @@ export function cacheKeyHashFor(ratchet: LintRatchetConfig, ruleSourceHash: stri
     ruleOptions: normalizeRuleOptions(ratchet.ruleOptions),
     source: ratchetSource(ratchet),
     parserProfile: ratchetParserProfile(ratchet),
-    // Only the explicit override needs listing; the scripts/-prefix inference is
-    // a pure function of `files`, already covered above. Undefined ⇒ dropped by
-    // JSON.stringify ⇒ no cache-key change for ratchets that don't set it.
+    // Undefined ⇒ dropped by JSON.stringify ⇒ no cache-key change for ratchets
+    // that don't set an explicit override.
     typeAwareProject: ratchet.typeAwareProject,
     ruleSourceHash,
   };
@@ -42,18 +47,14 @@ export function cacheKeyHashFor(ratchet: LintRatchetConfig, ruleSourceHash: stri
   return combined.slice(0, CACHE_HASH_PREFIX_LENGTH);
 }
 
-function defaultEslintConfigDirectory(repoRoot: string): string {
-  return join(repoRoot, "node_modules/.cache/eslint-ratchet/configs");
-}
-
 function eslintConfigPathFor(
   ratchet: LintRatchetConfig,
   ruleSourceHash: string,
-  repoRoot: string,
+  binding: LintRatchetEngineBinding,
   options: WriteEslintConfigOptions,
 ): string {
   return join(
-    options.configDirectory ?? defaultEslintConfigDirectory(repoRoot),
+    options.configDirectory ?? configRootFor(binding),
     `${safeRatchetId(ratchet.id)}-${cacheKeyHashFor(ratchet, ruleSourceHash)}.mjs`,
   );
 }
@@ -61,11 +62,10 @@ function eslintConfigPathFor(
 export function eslintCachePathFor(
   ratchet: LintRatchetConfig,
   ruleSourceHash: string,
-  repoRoot: string,
+  binding: LintRatchetEngineBinding,
 ): string {
   return join(
-    repoRoot,
-    "node_modules/.cache/eslint-ratchet",
+    cacheRootFor(binding),
     `${safeRatchetId(ratchet.id)}-${cacheKeyHashFor(ratchet, ruleSourceHash)}`,
     ".eslintcache",
   );
@@ -77,8 +77,11 @@ export function usesEslintCache(ratchet: LintRatchetConfig): boolean {
 
 const noInlineConfigEntry = "  { linterOptions: { noInlineConfig: true } },";
 
-function renderLocalEslintConfig(ratchet: LintRatchetConfig, repoRoot: string): string {
-  const rulePath = pathToFileURL(localRulePath(ratchet, repoRoot)).href;
+function renderLocalEslintConfig(
+  ratchet: LintRatchetConfig,
+  binding: LintRatchetEngineBinding,
+): string {
+  const rulePath = pathToFileURL(localRulePath(ratchet, binding)).href;
   const ruleName = localRuleName(ratchet.ruleId);
   return [
     'import tseslint from "typescript-eslint";',
@@ -105,18 +108,6 @@ function renderLocalEslintConfig(ratchet: LintRatchetConfig, repoRoot: string): 
   ].join("\n");
 }
 
-// The tsconfig a type-aware ratchet's generated config should use, or undefined
-// for the `projectService: true` default. An explicit `typeAwareProject` wins;
-// otherwise a ratchet scoped entirely to `scripts/` infers the scripts tsconfig
-// (a Musi-registry convenience — see LintRatchetConfig.typeAwareProject).
-export function typeAwareProjectFor(ratchet: LintRatchetConfig): string | undefined {
-  if (ratchet.typeAwareProject !== undefined) return ratchet.typeAwareProject;
-  if (ratchet.files.every((filePattern) => filePattern.startsWith("scripts/"))) {
-    return "./tsconfig.scripts.json";
-  }
-  return undefined;
-}
-
 function parserOptionsLines(ratchet: LintRatchetConfig, repoRoot: string): readonly string[] {
   const profile = ratchetParserProfile(ratchet);
   const common = [
@@ -126,7 +117,7 @@ function parserOptionsLines(ratchet: LintRatchetConfig, repoRoot: string): reado
     "        ecmaFeatures: { jsx: true },",
   ];
   if (profile === "minimal-ts") return [...common, "      },"];
-  const project = typeAwareProjectFor(ratchet);
+  const project = ratchet.typeAwareProject;
   if (project !== undefined) {
     return [
       ...common,
@@ -152,7 +143,7 @@ function thirdPartyPluginImportLines(
     return [`import ratchetedPlugin from ${JSON.stringify(pluginModule)};`];
   }
   return [
-    `import ratchetedPluginModule from ${JSON.stringify(pluginModule)};`,
+    `import * as ratchetedPluginModule from ${JSON.stringify(pluginModule)};`,
     "const ratchetedPlugin = ratchetedPluginModule.plugin;",
   ];
 }
@@ -219,7 +210,7 @@ function renderEslintConfig(ratchet: LintRatchetConfig, binding: LintRatchetEngi
   const source = ratchetSource(ratchet);
   switch (source.kind) {
     case "local":
-      return renderLocalEslintConfig(ratchet, binding.repoRoot);
+      return renderLocalEslintConfig(ratchet, binding);
     case "third-party":
       return renderThirdPartyEslintConfig(ratchet, binding);
     case "core":
@@ -235,7 +226,7 @@ export function writeEslintConfig(
   binding: LintRatchetEngineBinding,
   options: WriteEslintConfigOptions = {},
 ): string {
-  const configPath = eslintConfigPathFor(ratchet, ruleSourceHash, binding.repoRoot, options);
+  const configPath = eslintConfigPathFor(ratchet, ruleSourceHash, binding, options);
   mkdirSync(dirname(configPath), { recursive: true });
   const rendered = renderEslintConfig(ratchet, binding);
   if (!existsSync(configPath) || readFileSync(configPath, "utf8") !== rendered) {

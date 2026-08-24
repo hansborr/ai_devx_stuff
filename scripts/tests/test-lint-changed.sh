@@ -4,10 +4,17 @@
 # smoke-subjects: scripts/lint-shell.sh
 # smoke-subjects: scripts/lib/parallel-runner.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/lib/changed-base.sh
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
@@ -17,12 +24,15 @@
 # smoke-subjects: eslint-config/
 # smoke-subjects: scripts/eslint-main.sh
 # smoke-subjects: scripts/lib/eslint-main-cache.sh
+# smoke-subjects: scripts/lib/eslint-main-cache.ts
+# smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/lib/eslint-main-partitions.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
 # smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # Pure-shell smoke tests for scripts/lint-changed.sh selection behavior.
 
 set -euo pipefail
@@ -38,9 +48,17 @@ LINT_SHELL="$SCRIPT_DIR/../lint-shell.sh"
 PARALLEL_RUNNER="$SCRIPT_DIR/../lib/parallel-runner.sh"
 LINT_CONFIG_SENSORS="$SCRIPT_DIR/../lint-config-sensors.sh"
 ESLINT_MAIN_CACHE="$SCRIPT_DIR/../lib/eslint-main-cache.sh"
+ESLINT_MAIN_CACHE_CORE="$SCRIPT_DIR/../lib/eslint-main-cache.ts"
+PROCESS_ARGV="$SCRIPT_DIR/../lib/process-argv.ts"
 ESLINT_MAIN_PARTITIONS="$SCRIPT_DIR/../lib/eslint-main-partitions.sh"
 ESLINT_MAIN_RUNNER="$SCRIPT_DIR/../eslint-main.sh"
 VERIFY_METADATA="$SCRIPT_DIR/../lib/verify-metadata.sh"
+VERIFY_COMMIT_QUEUE="$SCRIPT_DIR/../lib/verify-commit-queue.sh"
+VERIFY_FAST_COMMIT="$SCRIPT_DIR/../lib/verify-fast-commit.sh"
+VERIFY_MARKERS="$SCRIPT_DIR/../lib/verify-markers.sh"
+VERIFY_PATH_POLICY="$SCRIPT_DIR/../lib/verify-path-policy.sh"
+VERIFY_RUN_META="$SCRIPT_DIR/../lib/verify-run-meta.sh"
+VERIFY_STATE_PATHS="$SCRIPT_DIR/../lib/verify-state-paths.sh"
 # Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
 # source tree via the MUSI_VERIFY_META_CORE seam.
 export MUSI_VERIFY_META_CORE="$SCRIPT_DIR/../lib/verify-metadata-core.ts"
@@ -50,16 +68,18 @@ LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
 PATH_POLICY_SMOKE_SUBJECTS_DATA="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects-data.ts"
+SMOKE_TEST_FILES="$SCRIPT_DIR/../path-policy/smoke-test-files.ts"
 HARNESS_PATHS="$SCRIPT_DIR/../harness/harness-paths.ts"
 HARNESS_MANIFEST="$SCRIPT_DIR/../harness/harness-manifest.ts"
 RECORDS="$SCRIPT_DIR/../lib/records.ts"
 LINT_RATCHET_PATHS="$SCRIPT_DIR/../lint-ratchet/paths.ts"
 CONFIG_SURFACES="$REPO_ROOT/eslint-config/config-surfaces.js"
 CONFIG_SURFACE_MANIFEST="$REPO_ROOT/eslint-config/config-surface-manifest.json"
-SHARED_POLICY="$REPO_ROOT/eslint-config/shared-policy.js"
+PATH_GLOB_POLICY="$REPO_ROOT/eslint-config/path-glob-policy.js"
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -125,19 +145,29 @@ new_repo() {
   cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
   cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
   cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+  cp "$ESLINT_MAIN_CACHE_CORE" "$repo/scripts/lib/eslint-main-cache.ts"
+  cp "$PROCESS_ARGV" "$repo/scripts/lib/process-argv.ts"
   cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
   cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
   cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$VERIFY_COMMIT_QUEUE" "$repo/scripts/lib/verify-commit-queue.sh"
+  cp "$VERIFY_FAST_COMMIT" "$repo/scripts/lib/verify-fast-commit.sh"
+  cp "$VERIFY_MARKERS" "$repo/scripts/lib/verify-markers.sh"
+  cp "$VERIFY_PATH_POLICY" "$repo/scripts/lib/verify-path-policy.sh"
+  cp "$VERIFY_RUN_META" "$repo/scripts/lib/verify-run-meta.sh"
+  cp "$VERIFY_STATE_PATHS" "$repo/scripts/lib/verify-state-paths.sh"
   cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
   cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
   cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
     "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+  cp "$SMOKE_TEST_FILES" "$repo/scripts/path-policy/smoke-test-files.ts"
   cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
   cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
   # harness-manifest.ts narrows the manifest JSON through the shared record
@@ -151,9 +181,7 @@ new_repo() {
   [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
   cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
   cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
-  cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
-  cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
+  cp "$PATH_GLOB_POLICY" "$repo/eslint-config/path-glob-policy.js"
   cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -180,6 +208,7 @@ STUB
   printf 'name: CI\non: push\njobs: {}\n' > "$repo/.github/workflows/ci.yml"
   printf 'base\n' > "$repo/packages/server/src/app.ts"
   touch "$repo/packages/shared/dist/constants.d.ts"
+  touch "$repo/packages/shared/dist/logging-policy.d.ts"
   touch "$repo/packages/shared/dist/dice/dice-roller.d.ts"
   touch "$repo/packages/shared/dist/map/drawing.d.ts"
   touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
@@ -259,7 +288,8 @@ eslint_cache_log_args() {
     cd "$repo"
     # shellcheck source=/dev/null
     . scripts/lib/eslint-main-cache.sh
-    musi_eslint_main_cache_args "$repo" "$cache_key"
+    musi_eslint_main_cache_load_plans "$repo" "$cache_key"
+    musi_eslint_main_cache_args_for_key "$cache_key"
     for arg in "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}"; do
       printf ' <%s>' "$arg"
     done
@@ -326,236 +356,91 @@ grep -qF 'no staged/base changed lintable files vs main' <<< "$output" \
   || fail "clean repo should still run the always-on import-cycles floor"
 ok "clean repo skips eslint but runs the import-cycles floor"
 
-repo="$(new_repo cache-types-fingerprint)"
-first_fingerprint="$(
+repo="$(new_repo cache-adapter)"
+(
   cd "$repo"
   # shellcheck source=/dev/null
   . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-mkdir -p "$repo/packages/shared/src"
-printf 'export type CacheSaltSourceProbe = string;\n' > "$repo/packages/shared/src/cache-salt-probe.ts"
-source_fingerprint="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$first_fingerprint" != "$source_fingerprint" ] \
-  || fail "source type-graph edits should change the main ESLint cache salt"
-printf 'export type CacheSaltProbe = string;\n' > "$repo/packages/shared/dist/constants.d.ts"
-second_fingerprint="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$source_fingerprint" != "$second_fingerprint" ] \
-  || fail "built declaration edits should change the main ESLint cache salt"
-printf 'tsbuildinfo changed\n' > "$repo/packages/shared/tsconfig.tsbuildinfo"
-third_fingerprint="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$second_fingerprint" != "$third_fingerprint" ] \
-  || fail "tsbuildinfo edits should change the main ESLint cache salt"
-ok "main ESLint cache salt changes when type-graph inputs change"
+  musi_eslint_main_cache_load_plans "$repo" shared server client remainder
+  first_cache_dir=""
+  for partition in shared server client remainder; do
+    musi_eslint_main_cache_args_for_key "$partition"
+    cache_location="${MUSI_ESLINT_MAIN_CACHE_ARGS[2]}"
+    [ "$(basename "$cache_location")" = "$partition.eslintcache" ] \
+      || fail "$partition cache should keep its typed filename: $cache_location"
+    if [ -z "$first_cache_dir" ]; then
+      first_cache_dir="$(dirname "$cache_location")"
+    else
+      [ "$(dirname "$cache_location")" = "$first_cache_dir" ] \
+        || fail "adapter plans should share one identity directory"
+    fi
+  done
+) || fail "typed cache adapter should load and select every partition plan"
+ok "main ESLint shell adapter preserves typed partition plans"
 
-repo="$(new_repo cache-policy-fingerprint)"
-policy_first="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-printf 'stricter rule\n' > "$repo/eslint-rules/example.js"
-policy_rule="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$policy_first" != "$policy_rule" ] \
-  || fail "local rule edits should change the main ESLint cache salt"
-mkdir -p "$repo/eslint-config"
-printf 'export const localPolicy = true;\n' > "$repo/eslint-config/policy.js"
-policy_config="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$policy_rule" != "$policy_config" ] \
-  || fail "eslint-config edits should change the main ESLint cache salt"
-printf 'export default [{ rules: { semi: "error" } }];\n' > "$repo/eslint.config.js"
-policy_root_config="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$policy_config" != "$policy_root_config" ] \
-  || fail "root ESLint config edits should change the main ESLint cache salt"
-ok "main ESLint cache salt changes when lint policy inputs change"
+# The adapter transports the argument vector opaquely, so these fixtures use
+# neutral sentinel fields rather than ESLint flags: the only field the adapter
+# is entitled to read is the one path under the declared identity directory.
+# A record of a different length, in a different order, still round-trips
+# verbatim, so growing the vector stays a one-file edit in
+# scripts/lib/eslint-main-cache.ts instead of a lockstep TS+shell change.
+write_cache_record_fixture() {
+  local path="$1" body="" field
+  shift
+  for field in "$@"; do
+    body+="$field\\x00"
+  done
+  cat >"$path" <<TS
+process.stdout.write("musi-eslint-cache-plan-v1\\x00$body");
+TS
+}
 
-repo="$(new_repo cache-dependency-fingerprint)"
-dependency_first="$(
+write_cache_record_fixture "$repo/scripts/lib/opaque-eslint-main-cache.ts" \
+  1 shared /tmp/identity-test \
+  4 first-field /tmp/identity-test/shared.cache-file third-field fourth-field
+actual="$(
   cd "$repo"
   # shellcheck source=/dev/null
   . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-printf '{"devDependencies":{"typescript":"1.0.0"}}\n' > "$repo/package.json"
-dependency_root_package="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$dependency_first" != "$dependency_root_package" ] \
-  || fail "root package.json edits should change the main ESLint cache salt"
-printf '{"dependencies":{"@musi/shared":"workspace:*"}}\n' > "$repo/packages/server/package.json"
-dependency_workspace_package="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$dependency_root_package" != "$dependency_workspace_package" ] \
-  || fail "workspace package.json edits should change the main ESLint cache salt"
-printf 'lockfile changed\n' > "$repo/bun.lock"
-dependency_lock="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$dependency_workspace_package" != "$dependency_lock" ] \
-  || fail "bun.lock edits should change the main ESLint cache salt"
-mkdir -p "$repo/packages/server/node_modules/example"
-printf '{"name":"ignored"}\n' > "$repo/packages/server/node_modules/example/package.json"
-dependency_nested_node_modules="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-[ "$dependency_lock" = "$dependency_nested_node_modules" ] \
-  || fail "nested node_modules package.json files should not change the main ESLint cache salt"
-ok "main ESLint cache salt changes when dependency identity changes"
+  MUSI_ESLINT_MAIN_CACHE_CORE="$repo/scripts/lib/opaque-eslint-main-cache.ts" \
+    musi_eslint_main_cache_load_plans "$repo" shared || exit 1
+  musi_eslint_main_cache_args_for_key shared || exit 1
+  printf '<%s>' "${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}"
+)" || fail "cache adapter should load a record of neutral sentinel fields"
+[ "$actual" = "<first-field></tmp/identity-test/shared.cache-file><third-field><fourth-field>" ] \
+  || fail "cache adapter should reconstruct the declared vector verbatim: $actual"
+ok "main ESLint shell adapter transports the argument vector opaquely"
 
-repo="$(new_repo cache-newline-path-fingerprint)"
-newline_first="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-newline_file="$repo/packages/server/src/cache-salt
-probe.ts"
-printf 'export const cacheSaltNewlineProbe = true;\n' > "$newline_file"
-set +e
-newline_second="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_identity_fingerprint "$repo"
-)"
-newline_rc=$?
-set -e
-[ "$newline_rc" -eq 0 ] \
-  || fail "newline-containing lint identity paths should hash without error: $newline_second"
-[ "$newline_first" != "$newline_second" ] \
-  || fail "newline-containing lint identity paths should still change the cache salt"
-ok "main ESLint cache salt handles newline-containing paths"
-
-repo="$(new_repo cache-missing-path-fingerprint)"
-missing_fingerprint="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  printf './packages/server/src/deleted-during-hash.ts\0' \
-    | musi_eslint_main_cache_identity_fingerprint_from_paths "$repo"
-)"
-repeat_missing_fingerprint="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  printf './packages/server/src/deleted-during-hash.ts\0' \
-    | musi_eslint_main_cache_identity_fingerprint_from_paths "$repo"
-)"
-[ -n "$missing_fingerprint" ] \
-  || fail "missing lint identity paths should still produce a cache salt"
-[ "$missing_fingerprint" = "$repeat_missing_fingerprint" ] \
-  || fail "missing lint identity paths should hash deterministically"
-ok "main ESLint cache salt handles files missing during hashing"
-
-repo="$(new_repo cache-location-policy)"
-mkdir -p \
-  "$repo/node_modules/.cache/eslint-main/identity-stale" \
-  "$repo/node_modules/.cache/eslint-main/other-cache"
-cache_location="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  musi_eslint_main_cache_args "$repo"
-  printf '%s\n' "${MUSI_ESLINT_MAIN_CACHE_ARGS[2]}"
-)"
-case "$cache_location" in
-  "$repo"/node_modules/.cache/eslint-main/identity-*/.eslintcache) ;;
-  *) fail "main ESLint cache location should be repo-absolute: $cache_location" ;;
-esac
-[ -d "$(dirname "$cache_location")" ] \
-  || fail "current main ESLint cache directory should be created"
-[ ! -e "$repo/node_modules/.cache/eslint-main/identity-stale" ] \
-  || fail "stale identity cache directories should be pruned"
-[ -d "$repo/node_modules/.cache/eslint-main/other-cache" ] \
-  || fail "non-identity cache directories should not be pruned"
-ok "main ESLint cache args use absolute paths and prune stale identity caches"
-
-partition_cache_dir=""
-for partition in shared server client remainder; do
-  partition_cache_location="$(
+# Framing rejections: no field under the identity directory, fewer fields than
+# the declared count, and one field more than the whole record accounts for.
+assert_cache_record_rejected() {
+  local name="$1" description="$2"
+  shift 2
+  write_cache_record_fixture "$repo/scripts/lib/$name-eslint-main-cache.ts" "$@"
+  if (
     cd "$repo"
     # shellcheck source=/dev/null
     . scripts/lib/eslint-main-cache.sh
-    musi_eslint_main_cache_args "$repo" "$partition"
-    printf '%s\n' "${MUSI_ESLINT_MAIN_CACHE_ARGS[2]}"
-  )"
-  [ "$(basename "$partition_cache_location")" = "$partition.eslintcache" ] \
-    || fail "$partition cache should have a stable isolated filename: $partition_cache_location"
-  if [ -z "$partition_cache_dir" ]; then
-    partition_cache_dir="$(dirname "$partition_cache_location")"
-  else
-    [ "$(dirname "$partition_cache_location")" = "$partition_cache_dir" ] \
-      || fail "all partition caches should share one salted identity directory"
+    MUSI_ESLINT_MAIN_CACHE_CORE="$repo/scripts/lib/$name-eslint-main-cache.ts" \
+      musi_eslint_main_cache_load_plans "$repo" shared
+  ); then
+    fail "cache adapter should reject $description"
   fi
-  : > "$partition_cache_location"
-done
-[ "$(find "$partition_cache_dir" -maxdepth 1 -type f -name '*.eslintcache' | wc -l)" -eq 4 ] \
-  || fail "all four partition cache entries should coexist"
-ok "partition caches coexist under the safe whole-graph identity salt"
+  ok "main ESLint shell adapter rejects $description"
+}
 
-repo="$(new_repo cache-root-trailing-slash)"
-mkdir -p "$repo/node_modules/.cache/eslint-main/identity-stale"
-cache_location="$(
-  cd "$repo"
-  # shellcheck source=/dev/null
-  . scripts/lib/eslint-main-cache.sh
-  MUSI_ESLINT_MAIN_CACHE_ROOT='node_modules/.cache/eslint-main/' \
-    musi_eslint_main_cache_args "$repo"
-  printf '%s\n' "${MUSI_ESLINT_MAIN_CACHE_ARGS[2]}"
-)"
-case "$cache_location" in
-  *//*) fail "trailing-slash cache root should be normalized: $cache_location" ;;
-esac
-[ -d "$(dirname "$cache_location")" ] \
-  || fail "trailing-slash cache root must not prune the just-created identity dir"
-[ ! -e "$repo/node_modules/.cache/eslint-main/identity-stale" ] \
-  || fail "trailing-slash cache root should still prune stale identity dirs"
-ok "main ESLint cache root tolerates a trailing slash without self-pruning"
+assert_cache_record_rejected uncontained \
+  "a record with no path under the identity directory" \
+  1 shared /tmp/identity-test \
+  3 first-field relative.cache-file third-field
+assert_cache_record_rejected truncated \
+  "a record shorter than its declared argument count" \
+  1 shared /tmp/identity-test \
+  4 first-field /tmp/identity-test/shared.cache-file third-field
+assert_cache_record_rejected trailing \
+  "a record with a field beyond its declared argument count" \
+  1 shared /tmp/identity-test \
+  3 first-field /tmp/identity-test/shared.cache-file third-field extra-field
 
 repo="$(new_repo staged-source-change)"
 printf 'changed\n' > "$repo/packages/server/src/app.ts"
@@ -872,19 +757,29 @@ cp "$LINT_CHANGED" "$repo/scripts/lint-changed.sh"
 cp "$LINT_SHELL" "$repo/scripts/lint-shell.sh"
 cp "$PARALLEL_RUNNER" "$repo/scripts/lib/parallel-runner.sh"
 cp "$ESLINT_MAIN_CACHE" "$repo/scripts/lib/eslint-main-cache.sh"
+cp "$ESLINT_MAIN_CACHE_CORE" "$repo/scripts/lib/eslint-main-cache.ts"
+cp "$PROCESS_ARGV" "$repo/scripts/lib/process-argv.ts"
 cp "$ESLINT_MAIN_PARTITIONS" "$repo/scripts/lib/eslint-main-partitions.sh"
 cp "$ESLINT_MAIN_RUNNER" "$repo/scripts/eslint-main.sh"
 cp "$VERIFY_METADATA" "$repo/scripts/lib/verify-metadata.sh"
+cp "$VERIFY_COMMIT_QUEUE" "$repo/scripts/lib/verify-commit-queue.sh"
+cp "$VERIFY_FAST_COMMIT" "$repo/scripts/lib/verify-fast-commit.sh"
+cp "$VERIFY_MARKERS" "$repo/scripts/lib/verify-markers.sh"
+cp "$VERIFY_PATH_POLICY" "$repo/scripts/lib/verify-path-policy.sh"
+cp "$VERIFY_RUN_META" "$repo/scripts/lib/verify-run-meta.sh"
+cp "$VERIFY_STATE_PATHS" "$repo/scripts/lib/verify-state-paths.sh"
 cp "$CHANGED_BASE" "$repo/scripts/lib/changed-base.sh"
 cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
 cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
 cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
 cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
 cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
 cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
 cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
 cp "$PATH_POLICY_SMOKE_SUBJECTS_DATA" \
   "$repo/scripts/path-policy/path-policy-smoke-subjects-data.ts"
+cp "$SMOKE_TEST_FILES" "$repo/scripts/path-policy/smoke-test-files.ts"
 cp "$HARNESS_PATHS" "$repo/scripts/harness/harness-paths.ts"
 cp "$HARNESS_MANIFEST" "$repo/scripts/harness/harness-manifest.ts"
 # harness-manifest.ts narrows the manifest JSON through the shared record
@@ -898,9 +793,7 @@ mkdir -p "$repo/node_modules/@musi"
 [ -e "$repo/node_modules/@musi/lint-ratchet" ] || ln -s "$REPO_ROOT/tools/lint-ratchet" "$repo/node_modules/@musi/lint-ratchet"
 cp "$CONFIG_SURFACES" "$repo/eslint-config/config-surfaces.js"
 cp "$CONFIG_SURFACE_MANIFEST" "$repo/eslint-config/config-surface-manifest.json"
-cp "$SHARED_POLICY" "$repo/eslint-config/shared-policy.js"
-cp "$REPO_ROOT/eslint-config/max-lines-exceptions-codec.js" "$repo/eslint-config/max-lines-exceptions-codec.js"
-cp "$REPO_ROOT/eslint-config/max-lines-exceptions.baseline.json" "$repo/eslint-config/max-lines-exceptions.baseline.json"
+cp "$PATH_GLOB_POLICY" "$repo/eslint-config/path-glob-policy.js"
 cat > "$repo/scripts/lint-config-sensors.sh" <<'STUB'
 #!/usr/bin/env bash
 {
@@ -924,13 +817,14 @@ cat > "$repo/scripts/lint-import-cycles.sh" <<'STUB'
 exit "${STUB_IMPORT_CYCLES_EXIT:-0}"
 STUB
 touch "$repo/packages/shared/dist/constants.d.ts"
+touch "$repo/packages/shared/dist/logging-policy.d.ts"
 touch "$repo/packages/shared/dist/dice/dice-roller.d.ts"
 touch "$repo/packages/shared/dist/map/drawing.d.ts"
 touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lib/records.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/shared-policy.js eslint-config/max-lines-exceptions-codec.js eslint-config/max-lines-exceptions.baseline.json packages/shared/dist/constants.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-cache.ts scripts/lib/process-argv.ts scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/verify-commit-queue.sh scripts/lib/verify-fast-commit.sh scripts/lib/verify-markers.sh scripts/lib/verify-path-policy.sh scripts/lib/verify-run-meta.sh scripts/lib/verify-state-paths.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/segment-pattern.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/path-policy/smoke-test-files.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lib/records.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/path-glob-policy.js packages/shared/dist/constants.d.ts packages/shared/dist/logging-policy.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

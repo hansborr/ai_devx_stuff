@@ -1,9 +1,23 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
-import { buildTriagePackets } from "./triage-packets.js";
+import { driftItemId } from "./triage-item-id.js";
+import { PATH_AREA_TAXONOMY } from "./triage-packet-group.js";
+import type { TriagePacket } from "./triage-packet-types.js";
+import { buildTriagePackets, renderPacket } from "./triage-packets.js";
 import type { TriageItem, TriageReport } from "./triage-report.js";
+import type { TriageVerdict } from "./triage-verdict-types.js";
 
-function item(id: string, path: string, overrides: Partial<TriageItem> = {}): TriageItem {
+function testItemId(label: string): TriageItem["id"] {
+  return driftItemId({
+    inputPath: "triage-packets.test.ts",
+    check: "fixture",
+    index: 0,
+    file: label,
+  });
+}
+
+function item(label: string, path: string, overrides: Partial<TriageItem> = {}): TriageItem {
+  const id = testItemId(label);
   return {
     id,
     priority: "review",
@@ -96,9 +110,9 @@ describe("buildTriagePackets", () => {
       exclusionCounts: {},
     });
     expect(first.packets.flatMap((packet) => packet.items.map((entry) => entry.id))).toEqual([
-      "first",
-      "second",
-      "third",
+      testItemId("first"),
+      testItemId("second"),
+      testItemId("third"),
     ]);
     expect(first.manifest.packets).toHaveLength(3);
     expect(first.manifest.packets[0]).toMatchObject({
@@ -155,11 +169,12 @@ describe("buildTriagePackets", () => {
 
     expect(bundle.packets).toHaveLength(1);
     expect(bundle.packets[0]).toMatchObject({
-      oversized: false,
       splitPathComponent: false,
-      itemIds: ["a-to-b", "b-to-c"],
+      itemIds: [testItemId("a-to-b"), testItemId("b-to-c")],
     });
-    expect(bundle.manifest.packets[0]).toMatchObject({ itemCount: 2, oversized: false });
+    expect(bundle.manifest.packets[0]).toMatchObject({ itemCount: 2 });
+    expect(bundle.packets[0]).not.toHaveProperty("oversized");
+    expect(bundle.manifest.packets[0]).not.toHaveProperty("oversized");
   });
 
   it("hard-splits a giant path component and discloses shared-path continuation", () => {
@@ -170,8 +185,13 @@ describe("buildTriagePackets", () => {
 
     expect(bundle.packets).toHaveLength(2);
     expect(bundle.packets.map((packet) => packet.items.length)).toEqual([2, 1]);
+    expect(bundle.packets.every((packet) => packet.items.length <= 2)).toBe(true);
     expect(bundle.packets.every((packet) => packet.splitPathComponent)).toBe(true);
     expect(bundle.manifest.packets.every((packet) => packet.splitPathComponent)).toBe(true);
+    expect(
+      bundle.packets.map(renderPacket).every((packetJson) => !packetJson.includes('"oversized"')),
+    ).toBe(true);
+    expect(JSON.stringify(bundle.manifest)).not.toContain('"oversized"');
   });
 
   it("packs different repository areas together when their review lane matches", () => {
@@ -186,6 +206,30 @@ describe("buildTriagePackets", () => {
 
     expect(bundle.packets).toHaveLength(1);
     expect(bundle.packets[0]?.lane.area).toBe("mixed");
+  });
+
+  it("pins the shipped path-area taxonomy data in order", () => {
+    expect(PATH_AREA_TAXONOMY).toEqual([
+      { prefix: "packages/client/", area: "packages/client" },
+      { prefix: "packages/server/", area: "packages/server" },
+      { prefix: "packages/shared/", area: "packages/shared" },
+      { prefix: "scripts/drift-ai/", area: "scripts/drift-ai" },
+      { prefix: "scripts/", area: "scripts" },
+      { prefix: "eslint-rules/", area: "eslint-rules" },
+    ]);
+  });
+
+  it("labels lanes with the longer taxonomy prefix and first-segment fallback", () => {
+    const bundle = buildTriagePackets(
+      report([item("drift-ai", "scripts/drift-ai/check.ts"), item("doc", "docs/notes.md")]),
+      { packetSize: 1 },
+      PROVENANCE,
+    );
+
+    expect(bundle.packets.map((packet) => packet.lane.area).sort()).toEqual([
+      "docs",
+      "scripts/drift-ai",
+    ]);
   });
 
   it("applies explicit filters without hiding excluded-item accounting", () => {
@@ -213,7 +257,7 @@ describe("buildTriagePackets", () => {
       PROVENANCE,
     );
 
-    expect(bundle.packets.flatMap((packet) => packet.itemIds)).toEqual(["security"]);
+    expect(bundle.packets.flatMap((packet) => packet.itemIds)).toEqual([testItemId("security")]);
     expect(bundle.manifest.selection).toEqual({
       totalItems: 3,
       selectedItems: 1,
@@ -233,30 +277,30 @@ describe("buildTriagePackets", () => {
     });
   });
 
+  it("pins the emitted reviewer verdict contract byte-for-byte", () => {
+    const bundle = buildTriagePackets(report([item("one", "scripts/a.ts")]), {}, PROVENANCE);
+
+    expectTypeOf<TriagePacket["verdictContract"]["verdicts"][number]>().toEqualTypeOf<
+      TriageVerdict["verdict"]
+    >();
+    expectTypeOf<TriagePacket["verdictContract"]["severities"][number]>().toEqualTypeOf<
+      TriageVerdict["severity"]
+    >();
+    expectTypeOf<TriagePacket["verdictContract"]["confidences"][number]>().toEqualTypeOf<
+      TriageVerdict["confidence"]
+    >();
+    expectTypeOf<TriagePacket["verdictContract"]["requiredFields"][number]>().toEqualTypeOf<
+      keyof TriageVerdict
+    >();
+    expect(bundle.manifest.provenance).toEqual(PROVENANCE);
+    expect(JSON.stringify(bundle.packets[0]?.verdictContract)).toBe(
+      '{"verdicts":["confirmed","false-positive","accepted-drift","duplicate-of","needs-human"],"severities":["high","medium","low","informational"],"confidences":["high","medium","low"],"requiredFields":["itemId","verdict","severity","confidence","rationale","verifiedLocations","recommendedAction","canonicalItemId"],"duplicateOfRequires":"canonicalItemId"}',
+    );
+  });
+
   it("embeds reproducibility and adjudication instructions in every packet", () => {
     const bundle = buildTriagePackets(report([item("one", "scripts/a.ts")]), {}, PROVENANCE);
 
-    expect(bundle.manifest.provenance).toEqual(PROVENANCE);
-    expect(bundle.packets[0]).toMatchObject({
-      kind: "drift-triage-packet",
-      packetId: "packet-001",
-      verdictContract: {
-        verdicts: ["confirmed", "false-positive", "accepted-drift", "duplicate-of", "needs-human"],
-        severities: ["high", "medium", "low", "informational"],
-        confidences: ["high", "medium", "low"],
-        requiredFields: [
-          "itemId",
-          "verdict",
-          "severity",
-          "confidence",
-          "rationale",
-          "verifiedLocations",
-          "recommendedAction",
-          "canonicalItemId",
-        ],
-        duplicateOfRequires: "canonicalItemId",
-      },
-    });
     expect(bundle.packets[0]?.task).toContain("return one verdict for every item ID");
     expect(bundle.packets[0]?.disclosures.policy).toEqual(report([]).policy);
   });
@@ -288,7 +332,7 @@ describe("buildTriagePackets", () => {
     expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
       {
         inputPath: "semgrep.json",
-        itemIds: ["stale-semgrep"],
+        itemIds: [testItemId("stale-semgrep")],
         scanProvenance: { gitHead: "old-head", gitDirty: false },
         reasons: ["git-head-mismatch"],
         unresolvableLocations: [],
@@ -323,7 +367,7 @@ describe("buildTriagePackets", () => {
     expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
       expect.objectContaining({
         inputPath: "dolos.json",
-        itemIds: ["stale-dolos"],
+        itemIds: [testItemId("stale-dolos")],
         reasons: ["unresolvable-location"],
         unresolvableLocations: ["src/a.ts:1-40"],
         route: "needs-human-regenerate",
@@ -351,7 +395,7 @@ describe("buildTriagePackets", () => {
     expect(bundle.packets[0]?.disclosures.staleAdvisories).toEqual([
       expect.objectContaining({
         inputPath: "semgrep.json",
-        itemIds: ["stale-columns"],
+        itemIds: [testItemId("stale-columns")],
         reasons: ["unresolvable-location"],
         unresolvableLocations: ["src/a.ts:1:500-1:700"],
         route: "needs-human-regenerate",

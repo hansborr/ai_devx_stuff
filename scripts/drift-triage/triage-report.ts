@@ -1,3 +1,5 @@
+import { driftItemId, pairItemId, pairKey, semgrepItemId } from "./triage-item-id.js";
+import { formatItemLocation, parseDisplayLocation, uniqueLocations } from "./triage-location.js";
 import {
   type DolosAdvisoryInput,
   type DolosRowInput,
@@ -9,12 +11,10 @@ import {
 import { summarizeInput } from "./triage-report-summary.js";
 import {
   addReviewItem,
+  CLONE_CHECKS,
   DEFERRED_DESCRIPTIONS,
   driftDeferredReason,
   isTestLocation,
-  mergeUniqueLocations,
-  pairKey,
-  parseDisplayLocation,
 } from "./triage-report-support.js";
 import type {
   BuildState,
@@ -47,8 +47,6 @@ const MAINTENANCE_CHECKS = new Set([
   "orphan-files",
   "unused-exports",
 ]);
-
-const CLONE_CHECKS = new Set(["duplicates", "near-duplicates"]);
 
 export const DEFAULT_MIN_CLONE_FRAGMENT = 20;
 
@@ -128,17 +126,17 @@ function processDriftReport(
       addDeferred(state, deferred);
       return;
     }
-    const locations: string[] = [];
-    mergeUniqueLocations(locations, [finding.file, ...(finding.relatedFiles ?? [])]);
-    const pair = CLONE_CHECKS.has(finding.check) ? pairKey(locations) : null;
-    const key = pair ?? `drift:${inputPath}:${finding.check}:${index}:${finding.file}`;
+    const inputLocations = uniqueLocations([finding.file, ...(finding.relatedFiles ?? [])]);
+    // Pair identity must consume the admitted input spellings before parsing:
+    // asymmetric legacy suffixes cannot all round-trip through TriageLocation.
+    const pair = CLONE_CHECKS.has(finding.check) ? pairKey(inputLocations) : null;
+    const key = pair ?? driftItemId({ inputPath, check: finding.check, index, file: finding.file });
     addReviewItem(state, key, {
       id: key,
       priority: REVIEW_FIRST_CHECKS.has(finding.check) ? "review-first" : "review",
       category: categoryForCheck(finding.check),
       title: finding.message,
-      locations,
-      locationDetails: locations.map(parseDisplayLocation),
+      locationDetails: inputLocations.map(parseDisplayLocation),
       evidence: {
         inputPath,
         source: `drift:${finding.check}`,
@@ -166,19 +164,15 @@ function processSemgrepRow(inputPath: string, row: SemgrepRowInput, state: Build
     addDeferred(state, "test-only-security-example");
     return;
   }
-  const locations = row.ranges.map(
-    (range) => `${row.path}:${String(range.startLine)}-${String(range.endLine)}`,
-  );
   const cwes = [...(row.metadata.cwe ?? [])].sort((left, right) => left.localeCompare(right, "en"));
   const identity = cwes.length > 0 ? cwes.join(",") : row.checkId;
-  const key = `semgrep:${row.path}:${JSON.stringify(row.ranges)}:${identity}`;
+  const key = semgrepItemId({ path: row.path, ranges: row.ranges, identity });
   const label = cwes.length > 0 ? cwes.join(", ") : row.checkId;
   addReviewItem(state, key, {
     id: key,
     priority: semgrepPriority(row),
     category: "security",
     title: row.message ?? `Semgrep ${label} candidate`,
-    locations,
     locationDetails: row.ranges.map((range) => ({
       path: row.path,
       startLine: range.startLine,
@@ -220,32 +214,38 @@ function processDolosRow(
     addDeferred(state, "short-clone-fragment");
     return;
   }
-  const leftLocation = formatDolosRange(row.left);
-  const rightLocation = formatDolosRange(row.right);
-  const locations = [leftLocation, rightLocation];
-  const key = pairKey([leftLocation, rightLocation]);
+  const leftLocation = {
+    path: row.left.filePath,
+    startLine: row.left.startLine,
+    startCol: null,
+    endLine: row.left.endLine,
+    endCol: null,
+  };
+  const rightLocation = {
+    path: row.right.filePath,
+    startLine: row.right.startLine,
+    startCol: null,
+    endLine: row.right.endLine,
+    endCol: null,
+  };
+  const key = pairItemId({
+    locations: [
+      {
+        path: leftLocation.path,
+        range: `${String(leftLocation.startLine)}-${String(leftLocation.endLine)}`,
+      },
+      {
+        path: rightLocation.path,
+        range: `${String(rightLocation.startLine)}-${String(rightLocation.endLine)}`,
+      },
+    ],
+  });
   addReviewItem(state, key, {
     id: key,
     priority: "review",
     category: "clone",
     title: `Dolos clone candidate (${formatPercent(row.score)} similarity)`,
-    locations,
-    locationDetails: [
-      {
-        path: row.left.filePath,
-        startLine: row.left.startLine,
-        startCol: null,
-        endLine: row.left.endLine,
-        endCol: null,
-      },
-      {
-        path: row.right.filePath,
-        startLine: row.right.startLine,
-        startCol: null,
-        endLine: row.right.endLine,
-        endCol: null,
-      },
-    ],
+    locationDetails: [leftLocation, rightLocation],
     evidence: {
       inputPath,
       source: "dolos",
@@ -274,16 +274,15 @@ function categoryForCheck(check: string): TriageCategory {
   return "structure";
 }
 
-function formatDolosRange(range: DolosRowInput["left"]): string {
-  return `${range.filePath}:${String(range.startLine)}-${String(range.endLine)}`;
-}
-
 function formatPercent(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
 }
 
 function toTriageItem(item: MutableItem): TriageItem {
-  return { ...item };
+  return {
+    ...item,
+    locations: uniqueLocations(item.locationDetails.map(formatItemLocation)),
+  };
 }
 
 function compareItems(left: TriageItem, right: TriageItem): number {

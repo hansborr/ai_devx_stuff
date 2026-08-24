@@ -4,15 +4,14 @@
 
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
 import { defaultGitRunner, listStagedPaths, readStagedBlobSize } from "./lib/git.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
 const DEFAULT_WARN_THRESHOLD_KIBIBYTES = 500;
 const DEFAULT_BLOCK_THRESHOLD_MEBIBYTES = 5;
 const BYTES_PER_KIBIBYTE = 1024;
 const BYTES_PER_MEBIBYTE = BYTES_PER_KIBIBYTE * BYTES_PER_KIBIBYTE;
-const PROCESS_ARGV_USER_ARGS_START = 2;
 const HELP_FLAGS = new Set(["--help", "-h"]);
 
 export const DEFAULT_WARN_THRESHOLD_BYTES = DEFAULT_WARN_THRESHOLD_KIBIBYTES * BYTES_PER_KIBIBYTE;
@@ -314,12 +313,7 @@ function compareStrings(left: string, right: string): number {
   return left.localeCompare(right, "en");
 }
 
-function isCliEntrypoint(): boolean {
-  if (!process.argv[1]) return false;
-  return import.meta.url === pathToFileURL(process.argv[1]).href;
-}
-
-if (isCliEntrypoint()) {
+if (isCliEntrypoint(import.meta.url)) {
   const result = runBlobSizeCli({ argv: process.argv.slice(PROCESS_ARGV_USER_ARGS_START) });
   if (result.stdout) console.log(result.stdout);
   if (result.exitCode !== 0) process.exitCode = result.exitCode;

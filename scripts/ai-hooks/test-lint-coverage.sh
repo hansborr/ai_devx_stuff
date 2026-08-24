@@ -63,12 +63,22 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/edited-paths.sh" \
   "$REPO_ROOT/scripts/ai-hooks/throttle-state.sh" \
   "$REPO_ROOT/scripts/ai-hooks/lint-coverage-state.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/edit-check-protocol.sh" \
   "$REPO_ROOT/scripts/ai-hooks/lint-coverage-check.sh" \
   "$LINT_COVERAGE_REPO_TMP/scripts/ai-hooks/"
 mkdir -p "$LINT_COVERAGE_REPO_TMP/scripts/lib"
-# verify-metadata.sh resolves its run-meta codec beside itself, so the fixture
-# gets the TS entrypoint too (keeps the copied chain matching production).
+# verify-metadata.sh sources its leaf libs from its own directory, and the
+# run-meta shims resolve their codec the same way, so the fixture gets the
+# leaves and the TS entrypoint too (keeps the copied chain matching
+# production). Hand-maintained: the fixture-dependency tripwire only scans
+# scripts/tests, so a new leaf lib must be added to this cp list by hand.
 cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" \
+  "$REPO_ROOT/scripts/lib/verify-commit-queue.sh" \
+  "$REPO_ROOT/scripts/lib/verify-fast-commit.sh" \
+  "$REPO_ROOT/scripts/lib/verify-markers.sh" \
+  "$REPO_ROOT/scripts/lib/verify-path-policy.sh" \
+  "$REPO_ROOT/scripts/lib/verify-run-meta.sh" \
+  "$REPO_ROOT/scripts/lib/verify-state-paths.sh" \
   "$REPO_ROOT/scripts/lib/verify-metadata-core.ts" \
   "$LINT_COVERAGE_REPO_TMP/scripts/lib/"
 git -C "$LINT_COVERAGE_REPO_TMP" init -q
@@ -140,6 +150,7 @@ mkdir -p "$LINT_COVERAGE_FAKE_BIN"
 cat > "$LINT_COVERAGE_FAKE_BIN/bun" <<'EOF'
 #!/bin/bash
 set -u
+. "$(git rev-parse --show-toplevel)/scripts/ai-hooks/edit-check-protocol.sh"
 mode=""
 for arg in "$@"; do
   case "$arg" in --edit-ratchet-coverage) mode="coverage" ;; esac
@@ -152,7 +163,7 @@ for arg in "$@"; do
   [ "$emit" = "1" ] || continue
   case "$arg" in
     src/ratcheted/*.test.ts) ;;
-    src/ratcheted/*.ts) printf 'ratchet-covered\t%s\tfixture/rule\n' "$arg" ;;
+    src/ratcheted/*.ts) printf '%s\t%s\t%s\n' "$EDIT_CHECK_RATCHET_COVERED_KIND" "$arg" "fixture/rule" ;;
   esac
 done
 exit 0
@@ -211,9 +222,14 @@ assert_hook_json "$LINT_COVERAGE_OUTPUT"
 LINT_COVERAGE_CONTEXT=$(lint_coverage_context "$LINT_COVERAGE_OUTPUT")
 assert_contains "$LINT_COVERAGE_CONTEXT" "NOT covered by ESLint at all"
 assert_contains "$LINT_COVERAGE_CONTEXT" "  - $LINT_COVERAGE_UNCOVERED_JSONC_REL"
-assert_contains "$LINT_COVERAGE_CONTEXT" "lint-coverage-map.md"
+assert_contains "$LINT_COVERAGE_CONTEXT" "scripts/lint-coverage-map-manifest-<area>.ts"
 assert_contains "$LINT_COVERAGE_CONTEXT" "bun run docs:lint-coverage-map:suggest"
 assert_contains "$LINT_COVERAGE_CONTEXT" $'\nbun run docs:lint-coverage-map:suggest\n'
+# docs/generated/lint-coverage-map.md is pure generator output: the hook must
+# never route an agent into hand-editing it, and --suggest emits manifest
+# entries, not Markdown rows.
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "coverage-map row"
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "docs/generated/lint-coverage-map.md"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_UNCOVERED_JSONC")
 [ "$(cat "$LINT_COVERAGE_PINNED_LOG")" = "$LINT_COVERAGE_EXPECTED_LOG" ] \
   || fail "Claude lint coverage JSONC command log mismatch: $(cat "$LINT_COVERAGE_PINNED_LOG")"
@@ -231,6 +247,9 @@ assert_contains "$LINT_COVERAGE_CONTEXT" "  - $LINT_COVERAGE_RATCHETED_TS_REL (f
 assert_contains "$LINT_COVERAGE_CONTEXT" "accepted floor, not an error"
 assert_contains "$LINT_COVERAGE_CONTEXT" "For the full ratchet picture: bun run lint:ratchet"
 assert_contains "$LINT_COVERAGE_CONTEXT" "For structured selected-rule guidance: bun run lint:agent:local-rules:changed"
+assert_contains "$LINT_COVERAGE_CONTEXT" "scripts/lint-coverage-map-manifest-<area>.ts"
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "add a row in"
+assert_not_contains "$LINT_COVERAGE_CONTEXT" "docs/generated/lint-coverage-map.md"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "For structured per-rule fix guidance"
 assert_not_contains "$LINT_COVERAGE_CONTEXT" "NOT covered by ESLint at all"
 LINT_COVERAGE_EXPECTED_LOG=$(printf 'eslint\t--print-config\t%s' "$LINT_COVERAGE_RATCHETED_TS")

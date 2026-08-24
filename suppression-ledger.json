@@ -5,10 +5,10 @@
   "scanners": "scripts/eslint-disable-register.sh,scripts/suppression-register.sh",
   "regenerate": "bun scripts/suppression-ledger.ts --update",
   "summary": {
-    "count": 111,
+    "count": 119,
     "kinds": {
-      "eslint-disable": 48,
-      "ts-expect-error": 53,
+      "eslint-disable": 47,
+      "ts-expect-error": 62,
       "ts-ignore": 0,
       "ts-nocheck": 0,
       "stryker-disable": 10
@@ -476,16 +476,6 @@
       "reason": "ASI increase is +1 or +2 per D&D rules"
     },
     {
-      "key": "eslint-disable|scripts/drift/locator-usage.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
-      "path": "scripts/drift/locator-usage.ts",
-      "kind": "eslint-disable",
-      "target": "no-magic-numbers",
-      "scope": "next-line",
-      "selectorHash": "sha256:f1813602a64b",
-      "duplicateIndex": 0,
-      "reason": "standard Node argv skips node and script path"
-    },
-    {
       "key": "eslint-disable|tools/lint-ratchet/src/kernel/baseline-constants.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
       "path": "tools/lint-ratchet/src/kernel/baseline-constants.ts",
       "kind": "eslint-disable",
@@ -634,6 +624,16 @@
       "selectorHash": "sha256:4b6202f6c29e",
       "duplicateIndex": 3,
       "reason": "hpMethod is fixed to \"average\", so a rolled HP value would be accepted and then silently dropped"
+    },
+    {
+      "key": "ts-expect-error|eslint-rules/max-lines.js|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "eslint-rules/max-lines.js",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "every local rule carries harness metadata on meta.docs (read by scripts/harness/generate-harness-controls-validation.ts); ESLint's RulesMetaDocs lives in the transitive @eslint/core and does not declare these keys"
     },
     {
       "key": "ts-expect-error|packages/client/src/components/homebrew/entries/entry-dialog.test.tsx|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
@@ -926,6 +926,26 @@
       "reason": "direct updateManyAndReturn is forbidden; use encounter-state-mutations helpers"
     },
     {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/mutation-vocabulary-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/server/src/utils/__type-tests__/mutation-vocabulary-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "unknown event names must not compile; use a MutationEvent"
+    },
+    {
+      "key": "ts-expect-error|packages/server/src/utils/__type-tests__/mutation-vocabulary-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/server/src/utils/__type-tests__/mutation-vocabulary-restrictions.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "unknown reason codes must not compile; use a MutationReason"
+    },
+    {
       "key": "ts-expect-error|packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
       "path": "packages/server/src/utils/__type-tests__/raw-client-widening-restrictions.ts",
       "kind": "ts-expect-error",
@@ -1124,6 +1144,66 @@
       "selectorHash": "sha256:4b6202f6c29e",
       "duplicateIndex": 1,
       "reason": "embedded fixtures must include required nested schema keys"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/ghost-files.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "scripts/drift-ai/ghost-files.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "changed scope must not accept current-only allowed pairs"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/ghost-files.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "scripts/drift-ai/ghost-files.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "changed scope must not accept current-only role markers"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/ghost-files.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "scripts/drift-ai/ghost-files.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "current scope must not accept changed-only directory listing"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/ghost-files.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|3",
+      "path": "scripts/drift-ai/ghost-files.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 3,
+      "reason": "runtime boundary must reject untyped current calls without inventory"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/ghost-files.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|4",
+      "path": "scripts/drift-ai/ghost-files.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 4,
+      "reason": "runtime boundary must reject untyped changed calls without listing"
+    },
+    {
+      "key": "ts-expect-error|scripts/drift-ai/scope.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "scripts/drift-ai/scope.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "changed scopes reject mixed changed/current file records"
     }
   ]
 }

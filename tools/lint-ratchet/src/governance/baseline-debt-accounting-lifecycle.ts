@@ -5,13 +5,8 @@ import {
   collectMetricChangeDiffs,
   type CoverageShrinkDiff,
 } from "../kernel/lifecycle-diff.js";
-import {
-  isAcceptedDebtLogEntry,
-  isCoverageShrinkLogEntry,
-  isMetricMigrationLogEntry,
-  isRetirementLogEntry,
-  type LintRatchetDebtLogEntry,
-} from "./debt-log-schema.js";
+import { assertNever } from "../kernel/runtime-config.js";
+import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
 
 type BaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 
@@ -71,16 +66,21 @@ function accountsForMissingRatchet(
   baseTest: BaselineTest,
   entries: readonly LintRatchetDebtLogEntry[],
 ): boolean {
-  return entries.some(
-    (entry) =>
-      (isRetirementLogEntry(entry) &&
-        entry.ratchetId === failure.testId &&
-        Object.keys(baseTest.items).length === 0) ||
-      (isAcceptedDebtLogEntry(entry) &&
-        entry.orphansRemoved.some((orphan) =>
+  return entries.some((entry) => {
+    switch (entry.kind) {
+      case "retirement":
+        return entry.ratchetId === failure.testId && Object.keys(baseTest.items).length === 0;
+      case "accepted-debt":
+        return entry.orphansRemoved.some((orphan) =>
           orphanMatchesRemovedBaseline(orphan, failure.testId, baseTest),
-        )),
-  );
+        );
+      case "coverage-shrink":
+      case "metric-migration":
+        return false;
+      default:
+        return assertNever(entry);
+    }
+  });
 }
 
 function orphanMatchesRemovedBaseline(
@@ -107,13 +107,22 @@ function accountsForMetricChange(
   failure: MetricChangeAccountingFailure,
   entries: readonly LintRatchetDebtLogEntry[],
 ): boolean {
-  return entries.some(
-    (entry) =>
-      isMetricMigrationLogEntry(entry) &&
-      entry.ratchetId === failure.testId &&
-      entry.fromMetric === failure.previousMetric &&
-      entry.toMetric === failure.currentMetric,
-  );
+  return entries.some((entry) => {
+    switch (entry.kind) {
+      case "metric-migration":
+        return (
+          entry.ratchetId === failure.testId &&
+          entry.fromMetric === failure.previousMetric &&
+          entry.toMetric === failure.currentMetric
+        );
+      case "accepted-debt":
+      case "coverage-shrink":
+      case "retirement":
+        return false;
+      default:
+        return assertNever(entry);
+    }
+  });
 }
 
 // Per-path accounting, not glob-state chain replay: a widening step has no
@@ -128,9 +137,18 @@ function unaccountedCoverageShrink(
   diff: CoverageShrinkDiff,
   entries: readonly LintRatchetDebtLogEntry[],
 ): CoverageShrinkAccountingFailure | undefined {
-  const shrinkEntries = entries
-    .filter(isCoverageShrinkLogEntry)
-    .filter((entry) => entry.ratchetId === diff.testId);
+  const shrinkEntries = entries.flatMap((entry) => {
+    switch (entry.kind) {
+      case "coverage-shrink":
+        return entry.ratchetId === diff.testId ? [entry] : [];
+      case "accepted-debt":
+      case "metric-migration":
+      case "retirement":
+        return [];
+      default:
+        return assertNever(entry);
+    }
+  });
   const recordedPaths = new Set(shrinkEntries.flatMap((entry) => entry.removedPaths));
   const unaccountedPaths = diff.removedPaths.filter((path) => !recordedPaths.has(path));
   if (unaccountedPaths.length === 0) return undefined;

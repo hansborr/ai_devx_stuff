@@ -1,7 +1,7 @@
 // Emits an agent-facing JSON envelope of local/* diagnostics, selected
 // core/plugin steering rules, and parser errors for the PR 3 machine-readable
 // diagnostics contract (see
-// packages/shared/src/schemas/harness-diagnostics.ts).
+// @musi/harness-diagnostics/schema.js).
 //
 // Local rule metadata is re-projected from each rule's meta.docs (PR 1
 // contract); selected non-local rules use the checked overlay registry. The
@@ -10,7 +10,7 @@
 // either metadata source are counted on stderr and emitted as info-severity
 // completeness disclosures under lint/skipped-non-local.
 
-import { spawn, spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 import { emitHarnessDiagnostics } from "./harness/harness-diagnostics-output.js";
@@ -27,56 +27,39 @@ const PROCESS_ARG_OFFSET = 2;
 const DISPLAY_COMMAND = "lint:agent:local-rules";
 const STRUCTURAL_OVERLAY_ENV = "MUSI_LINT_AGENT_STRUCTURAL_OVERLAY";
 
-// Obtain the salted ESLint cache args from the main lane's shared lib rather
-// than reimplementing the fingerprint (which would drift). The lib salts the
+// Obtain the salted ESLint cache args from the main lane's typed owner rather
+// than reimplementing the fingerprint (which would drift). The module salts the
 // cache location by every input that can change diagnostics for otherwise
 // unchanged files (rule sources, config, tsconfig, TS sources, lockfiles) and
 // prunes stale siblings, so the agent envelope can never serve pre-change
 // findings the way the old unsalted `node_modules/.cache/eslint/` could.
 // On any failure, degrade to an uncached run: correctness beats a cache that
 // can lie about rule-development edits.
-function saltedCacheArgs(): readonly string[] {
-  const script =
-    ". scripts/lib/eslint-main-cache.sh" +
-    ' && musi_eslint_main_cache_args "$1"' +
-    " && " +
-    "printf '%s\\n' \"${MUSI_ESLINT_MAIN_CACHE_ARGS[@]}\"";
-  // spawnSync (not execFileSync) so a failing shell-out is an ordinary result
-  // to branch on rather than a thrown error we would have to log-and-swallow.
-  const result = spawnSync("bash", ["-c", script, "bash", lintAgentRepoRoot], {
-    cwd: lintAgentRepoRoot,
-    env: globalThis.process.env,
-    encoding: "utf8",
-  });
-  if (result.error !== undefined || result.status !== 0) {
-    const stderr = result.stderr.trim();
-    const detail =
-      result.error?.message ?? (stderr.length > 0 ? stderr : `exit ${String(result.status)}`);
-    console.error(
-      `${DISPLAY_COMMAND}: could not derive the salted ESLint cache args ` +
-        `(${detail}); running without the ESLint cache.`,
-    );
-    return [];
-  }
-  const args = result.stdout
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
-  if (args[0] !== "--cache") {
-    console.error(
-      `${DISPLAY_COMMAND}: unexpected cache args from eslint-main-cache.sh; ` +
-        `running without the ESLint cache.`,
-    );
-    return [];
-  }
-  return args;
+async function saltedCacheArgs(): Promise<readonly string[]> {
+  return import("./lib/eslint-main-cache.js")
+    .then((cacheModule) => {
+      const plan = cacheModule.prepareEslintCachePlan({
+        repoRoot: lintAgentRepoRoot,
+        cacheRoot: globalThis.process.env.MUSI_ESLINT_MAIN_CACHE_ROOT,
+      });
+      return plan.eslintArguments;
+    })
+    .catch((error: unknown) => {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(
+        `${DISPLAY_COMMAND}: could not derive the salted ESLint cache args ` +
+          `(${detail}); running without the ESLint cache.`,
+      );
+      return [];
+    });
 }
 
 async function runEslint(patterns: readonly string[]): Promise<string> {
+  const cacheArgs = await saltedCacheArgs();
   const args = [
     "--format=json",
     "--no-error-on-unmatched-pattern",
-    ...saltedCacheArgs(),
+    ...cacheArgs,
     ...(patterns.length > 0 ? patterns : ["."]),
   ];
 

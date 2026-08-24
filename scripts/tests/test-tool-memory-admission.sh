@@ -4,10 +4,18 @@
 # smoke-subjects: scripts/lib/tool-memory-admission.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/test-all.sh
 # smoke-subjects: scripts/vitest.sh
 # smoke-subjects: scripts/lint.sh
 # smoke-subjects: scripts/test-scripts.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects.ts
+# smoke-subjects: scripts/path-policy/path-policy-smoke-subjects-data.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/lint-ratchet.sh
 # smoke-subjects: scripts/tests/test-tool-memory-admission.sh
 
@@ -26,6 +34,34 @@ mkdir -p "$SANDBOX/bin"
 
 # shellcheck source=../lib/tool-memory-admission.sh
 . "$SCRIPT_DIR/../lib/tool-memory-admission.sh"
+
+assert_memory_wait_timeout_parses() {
+  local input="$1" expected="$2" parsed
+  parsed="$(musi_memory_wait_timeout_parse "$input" tool-memory-test)" \
+    || fail "memory wait timeout $input should parse"
+  [ "$parsed" = "$expected" ] \
+    || fail "memory wait timeout $input should normalize to $expected, got $parsed"
+}
+
+assert_memory_wait_timeout_rejected() {
+  local input="$1" expected_reason="$2" output rc=0
+  output="$(musi_memory_wait_timeout_parse "$input" tool-memory-test 2>&1)" || rc=$?
+  [ "$rc" -eq 2 ] \
+    || fail "memory wait timeout $input should be rejected with rc=2, got $rc"
+  grep -qF "tool-memory-test: invalid MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=$input; $expected_reason" <<< "$output" \
+    || fail "memory wait timeout $input used the wrong diagnostic: $output"
+}
+
+assert_memory_wait_timeout_parses 00030 30
+assert_memory_wait_timeout_parses 0 0
+assert_memory_wait_timeout_parses 9223372036854775807 9223372036854775807
+assert_memory_wait_timeout_rejected '' 'expected whole seconds'
+assert_memory_wait_timeout_rejected typo 'expected whole seconds'
+assert_memory_wait_timeout_rejected 10000000000000000000 \
+  'value exceeds the supported whole-second range'
+assert_memory_wait_timeout_rejected 9223372036854775808 \
+  'value exceeds the supported whole-second range'
+ok "memory wait timeout parser handles the supported decimal boundaries"
 
 grep -q '"lint:ratchet": "bash scripts/lint-ratchet.sh"' "$REPO_ROOT/package.json" \
   || fail "bun run lint:ratchet must route through the admitted shell entry point"
@@ -124,6 +160,43 @@ make_blocker() {
   printf 'pid=%s\npid_start_time=%s\nmb=3000\nslot=external\n' \
     "$owner_pid" "$owner_start_time" > "$state_root/reservation.blocker"
 }
+
+range_side_effect="$SANDBOX/range-side-effect"
+for invalid_memory_timeout in 10000000000000000000 9223372036854775808; do
+  rm -f "$range_side_effect"
+  range_rc=0
+  range_output=$(
+    MUSI_VERIFY_MEMORY_WAIT_TIMEOUT="$invalid_memory_timeout" \
+      musi_tool_memory_run_admitted test test:range \
+        bash -c 'touch "$1"' _ "$range_side_effect" 2>&1
+  ) || range_rc=$?
+  [ "$range_rc" -eq 2 ] \
+    || fail "direct admission should reject timeout $invalid_memory_timeout with rc=2, got $range_rc: $range_output"
+  grep -qF 'value exceeds the supported whole-second range' <<< "$range_output" \
+    || fail "direct admission should explain timeout $invalid_memory_timeout: $range_output"
+  [ ! -e "$range_side_effect" ] \
+    || fail "direct admission launched after rejecting timeout $invalid_memory_timeout"
+done
+
+normalized_state="$SANDBOX/normalized-timeout-state"
+make_blocker "$normalized_state"
+normalized_side_effect="$SANDBOX/normalized-timeout-side-effect"
+normalized_rc=0
+normalized_output=$(
+  MUSI_VERIFY_MEMORY_STATE_ROOT="$normalized_state" \
+  MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000 \
+  MUSI_VERIFY_MEMORY_SAFETY_MB=1000 \
+  MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=0000 \
+    musi_tool_memory_run_admitted test test:normalized \
+      bash -c 'touch "$1"' _ "$normalized_side_effect" 2>&1
+) || normalized_rc=$?
+[ "$normalized_rc" -eq 3 ] \
+  || fail "direct admission should apply normalized zero timeout, got rc=$normalized_rc: $normalized_output"
+grep -qF 'memory wait timed out after 0s' <<< "$normalized_output" \
+  || fail "direct admission should report the normalized timeout: $normalized_output"
+[ ! -e "$normalized_side_effect" ] \
+  || fail "direct admission launched after a normalized zero timeout"
+ok "direct admission validates and normalizes memory wait timeouts before launch"
 
 expect_full_entry_admission() {
   local label="$1" slot="$2"

@@ -1,0 +1,1140 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-01-harness-core",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L01-001",
+      "title": "The verification lifecycle is implemented as an untyped Bash framework",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts/verify/lib/verify-engine.sh",
+          "line": 162,
+          "endLine": 183,
+          "measurement": null,
+          "note": "Mutable globals carry lifecycle state across helpers."
+        },
+        {
+          "path": "scripts/verify/lib/verify-engine.sh",
+          "line": 329,
+          "endLine": 390,
+          "measurement": null,
+          "note": "Associative arrays act as an implicit evidence-record schema."
+        },
+        {
+          "path": "scripts/verify/lib/verify-engine.sh",
+          "line": 555,
+          "endLine": 653,
+          "measurement": null,
+          "note": "Transactional evidence handling is interleaved with shell control flow."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "991 lines, 30 shell functions, and 112 shell control-flow constructs in scripts/verify/lib/verify-engine.sh at the audit pin",
+          "note": "The primary gate engine has framework-scale complexity."
+        }
+      ],
+      "problem": "The repository's main quality gate depends on ambient shell state, associative-array record conventions, traps, evidence persistence, scheduling, and reporting in one framework-sized script. Contributors cannot follow a slot from declaration through execution and evidence publication without reconstructing undocumented shell invariants.",
+      "proposedDirection": "Move the lifecycle, typed evidence model, scheduling, and reporting into a TypeScript core. Retain a small Bash facade for process-group and signal behavior that genuinely needs shell semantics.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-124",
+        "novelty": "CQ25-124 establishes Bash-facade-over-TypeScript-core as precedent; this finding applies that precedent to the still-991-line verification engine."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-002",
+      "title": "AI hook policy is a 2,121-line shell parsing subsystem",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "high",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts/ai-hooks/common.sh",
+          "line": 97,
+          "endLine": 469,
+          "measurement": null,
+          "note": "Common hook code implements command tokenization and Git-aware parsing."
+        },
+        {
+          "path": "scripts/ai-hooks/policy.sh",
+          "line": 248,
+          "endLine": 557,
+          "measurement": null,
+          "note": "A large awk program parses shell command structure for policy decisions."
+        },
+        {
+          "path": "scripts/ai-hooks/policy.sh",
+          "line": 733,
+          "endLine": 965,
+          "measurement": null,
+          "note": "Additional tokenizers and command classifiers repeat parser responsibilities."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "2,121 lines and 90 functions across scripts/ai-hooks/common.sh and scripts/ai-hooks/policy.sh at the audit pin",
+          "note": "The shared policy layer is compiler-sized."
+        }
+      ],
+      "problem": "Safety policy, command parsing, Git semantics, diagnostics, and adapter behavior are fused into a bespoke shell-language analyzer. A contributor changing one command rule must understand multiple tokenizers and an embedded awk parser, making the public harness difficult to copy or extend safely.",
+      "proposedDirection": "Define a typed command-analysis core with explicit normalized-command and policy-decision records. Keep hook entrypoints as thin adapters and source deny/allow policy from declarative data.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-003",
+      "title": "The external-agent adapter is a 3,503-line monolithic shell program",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": ".claude/skills/agent-cli/scripts/agent-run.sh",
+          "line": 140,
+          "endLine": 235,
+          "measurement": null,
+          "note": "A broad global namespace stores adapter configuration and execution state."
+        },
+        {
+          "path": ".claude/skills/agent-cli/scripts/agent-run.sh",
+          "line": 1146,
+          "endLine": 1926,
+          "measurement": null,
+          "note": "Attempt orchestration, retries, and provider handling occupy one extended control-flow region."
+        },
+        {
+          "path": ".claude/skills/agent-cli/scripts/agent-run.sh",
+          "line": 2381,
+          "endLine": 3331,
+          "measurement": null,
+          "note": "Command builders, process management, and embedded Python remain in the same script."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "3,503 lines and 143 functions in .claude/skills/agent-cli/scripts/agent-run.sh at the audit pin",
+          "note": "One file owns the complete multi-provider adapter lifecycle."
+        }
+      ],
+      "problem": "Provider command construction, retry policy, process supervision, serialization, output shaping, and embedded-language helpers share globals and one file. This makes provider changes high-context and leaves outsiders without reusable seams for adopting only part of the adapter.",
+      "proposedDirection": "Separate a provider-neutral attempt state machine, provider command builders, process supervision, and codecs into independently reviewable modules, leaving one small executable facade.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-127",
+        "novelty": "CQ25-127 declines a generic argv-parser sweep; this finding concerns architectural decomposition of the entire 3,503-line adapter rather than CLI-loop cleanup."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-004",
+      "title": "Harness controls are represented by competing manifest models",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/harness/harness-manifest-schema.ts",
+          "line": 45,
+          "endLine": 118,
+          "measurement": null,
+          "note": "This module presents the canonical typed manifest schema."
+        },
+        {
+          "path": "scripts/harness/generate-harness-controls.ts",
+          "line": 46,
+          "endLine": 129,
+          "measurement": null,
+          "note": "The generator defines a parallel set of raw manifest models."
+        },
+        {
+          "path": "scripts/harness/generate-harness-controls-validation.ts",
+          "line": 30,
+          "endLine": 215,
+          "measurement": null,
+          "note": "Generation validation reimplements shape and semantic checks."
+        },
+        {
+          "path": "scripts/harness/harness-check-validation.ts",
+          "line": 22,
+          "endLine": 224,
+          "measurement": null,
+          "note": "The checker maintains another raw model and validation path."
+        }
+      ],
+      "problem": "The manifest's declared schema is not the single model consumed by generation and checking. Raw interfaces and validators can evolve independently, so a contributor cannot determine which layer defines an accepted control or where a new field must be wired.",
+      "proposedDirection": "Parse once through one strict schema into a canonical typed model, then run generation and semantic checks over that model while adapting structured issues for each caller.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-005",
+      "title": "Gate parity checks fingerprint source text instead of sharing executable contracts",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/harness/registration-preflight-wiring.ts",
+          "line": 44,
+          "endLine": 139,
+          "measurement": null,
+          "note": "Registration is verified using exact strings, regular expressions, and source-order positions."
+        },
+        {
+          "path": "scripts/harness/harness-gate-parity.ts",
+          "line": 117,
+          "endLine": 181,
+          "measurement": null,
+          "note": "Workflow parity relies on a local line-oriented YAML interpretation."
+        },
+        {
+          "path": "scripts/harness/pre-push-scope-pin.ts",
+          "line": 15,
+          "endLine": 80,
+          "measurement": null,
+          "note": "The checker reproduces shell grep patterns to recognize gate wiring."
+        }
+      ],
+      "problem": "Correct wiring is inferred from formatting-sensitive representations of shell and YAML rather than from the same data that creates the wiring. Harmless refactors can break checks, while semantically different text can require extending another private parser.",
+      "proposedDirection": "Generate gate and workflow fragments from structured control data or expose machine-readable executable contracts that parity checks can compare without parsing source formatting.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-130",
+        "novelty": "CQ25-130 refuses an unconditional pre-commit dispatcher split; this finding instead replaces source-text fingerprints shared across preflight, workflow, and pre-push checks."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-006",
+      "title": "The manifest copies verify slot programs across four gate controls",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 635,
+          "endLine": null,
+          "measurement": null,
+          "note": "The full verification gate begins its explicit slot program here."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 796,
+          "endLine": null,
+          "measurement": null,
+          "note": "The parallel verification control repeats the full slot program."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 716,
+          "endLine": null,
+          "measurement": null,
+          "note": "Changed verification carries another explicit program."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "The full and parallel programs contain identical 16-slot arrays; changed and pre-commit repeat the same 15 name/script pairs, with 13 of 15 pairs byte-identical",
+          "note": "Gate composition is copied rather than factored."
+        }
+      ],
+      "problem": "The main verification variants encode nearly the same ordered program independently. Adding, renaming, or retargeting a slot requires synchronized manifest edits, and subtle intentional differences are indistinguishable from drift.",
+      "proposedDirection": "Define one canonical slot catalog and compose named gate profiles through explicit include, exclude, dependency, and override fields.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-007",
+      "title": "Generated-surface dependencies are manually redeclared across manifest facets",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 1489,
+          "endLine": null,
+          "measurement": null,
+          "note": "Generated-surface controls begin declaring trigger and fixture dependencies."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 1617,
+          "endLine": null,
+          "measurement": null,
+          "note": "Output-generation metadata repeats dependency relationships."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 1659,
+          "endLine": null,
+          "measurement": null,
+          "note": "Additional generator facets repeat the same source relationships."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "Across 12 generated-surface controls, 158 trigger references and 123 fixture references were declared; 85 references overlap, and every source is repeated as a trigger",
+          "note": "The same dependency graph is encoded through multiple lists."
+        }
+      ],
+      "problem": "Source dependencies, freshness triggers, and fixtures are copied into several manifest facets rather than derived from one graph. The dense repetition makes generated-boundary changes tedious and obscures which differences carry distinct semantics.",
+      "proposedDirection": "Model producer, source, output, fixture, and freshness edges once, then derive validation triggers and generated-surface projections from that graph.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-67",
+        "novelty": "CQ25-67 proposes optional static import-closure checks; this finding concerns the existing manifest's repeated dependency declarations, including non-import fixtures and triggers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-008",
+      "title": "Hook wiring repeats adapter templates and leaves control provenance ambiguous",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 1420,
+          "endLine": null,
+          "measurement": null,
+          "note": "Hook wiring is registered as a generated surface."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 2243,
+          "endLine": null,
+          "measurement": null,
+          "note": "Adapter-specific hook bindings repeat command and event information."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 2389,
+          "endLine": null,
+          "measurement": null,
+          "note": "Another adapter projection independently declares comparable bindings."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "18 hook controls expand to 32 adapter bindings; seven controls appear in all three harnesses, including six edit-hook controls",
+          "note": "Logical controls and adapter projections are densely repeated."
+        }
+      ],
+      "problem": "Logical policy, adapter event names, generated shims, and command templates are mixed in repeated records. Contributors cannot readily tell whether the manifest control, a template, or an adapter file is authoritative for a binding.",
+      "proposedDirection": "Give each logical hook one provider-neutral identity and policy definition, then generate adapter event mappings and shims from small provider projection tables.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-122",
+        "novelty": "CQ25-122 generated adapter shims from the manifest; the remaining novelty is factoring the repeated adapter bindings and clarifying logical-control provenance."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-009",
+      "title": "The public harness manifest has no versioned or externally consumable schema",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 1,
+          "endLine": 37,
+          "measurement": null,
+          "note": "The root object begins directly with project-specific data and carries no schema URI or format version."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "harness.controls.json is 2,859 lines with 179 controls, 12 control kinds, eight observed control-key signatures, and four root keys",
+          "note": "A large heterogeneous public-reference manifest relies on repository implementation code for its contract."
+        }
+      ],
+      "problem": "External users cannot validate, migrate, or generate tooling for the repository's central harness artifact without reading internal TypeScript validators. Its heterogeneous records can change without an explicit compatibility signal.",
+      "proposedDirection": "Publish a strict generated JSON Schema, add a format version and migration policy, and make the in-repository parser consume the same schema-derived model.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-010",
+      "title": "Parallel verify dependencies are hidden in positional Bash arrays",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/verify/steps.generated.sh",
+          "line": 11,
+          "endLine": 21,
+          "measurement": null,
+          "note": "Generated slot declarations do not encode their dependency relationships."
+        },
+        {
+          "path": "scripts/verify/lib/verify-steps-lib.sh",
+          "line": 205,
+          "endLine": 210,
+          "measurement": null,
+          "note": "The lint-ratchet relationship is hard-coded outside the generated slot data."
+        },
+        {
+          "path": "scripts/verify/lib/verify-steps-lib.sh",
+          "line": 234,
+          "endLine": 256,
+          "measurement": null,
+          "note": "A helper accepts 13 positional parameters as an implicit slot record."
+        },
+        {
+          "path": "scripts/verify/lib/verify-steps-lib.sh",
+          "line": 328,
+          "endLine": 431,
+          "measurement": null,
+          "note": "Parallel vectors and typecheck-producer rules reconstruct scheduling metadata."
+        }
+      ],
+      "problem": "The generated slot list is not the complete execution graph: dependency and producer semantics live in hand-coded Bash and long positional records. A new slot can look registered while still requiring undocumented scheduler edits.",
+      "proposedDirection": "Generate a typed slot graph containing command, dependencies, resources, outputs, and mode eligibility, and have both sequential and parallel runners consume it.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-011",
+      "title": "Suppression policy crosses a Bash/TypeScript wire boundary with duplicated directive parsing",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/suppression-ledger-emission.ts",
+          "line": 1,
+          "endLine": 21,
+          "measurement": null,
+          "note": "TypeScript defines a custom TSV protocol used by Bash scanners."
+        },
+        {
+          "path": "scripts/suppression-ledger-identity.ts",
+          "line": 64,
+          "endLine": 78,
+          "measurement": null,
+          "note": "The TypeScript layer owns another directive-pattern and scope vocabulary."
+        },
+        {
+          "path": "scripts/suppression-ledger-identity.ts",
+          "line": 197,
+          "endLine": 204,
+          "measurement": null,
+          "note": "The implementation explicitly checks for divergence between independently maintained vocabularies."
+        },
+        {
+          "path": "scripts/eslint-disable-register.sh",
+          "line": 128,
+          "endLine": 147,
+          "measurement": null,
+          "note": "The Bash scanner separately recognizes directives and writes the TSV sink."
+        }
+      ],
+      "problem": "One policy decision spans large Bash scanners, a four-column textual protocol, and a second TypeScript interpretation of directive identity. Changing a suppression spelling or scope requires coordinated lexer, encoding, parsing, and ledger changes.",
+      "proposedDirection": "Move scanning and normalized identity production into one typed analytical core and have both registration and ledger checks consume its structured records.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-40",
+        "novelty": "CQ25-40 relocates the flat suppression family; this finding removes the dual-language parser and TSV seam."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-012",
+      "title": "Worktree seed validation implements a private TypeScript module resolver",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "high",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts/worktree-seed-import-closure.ts",
+          "line": 42,
+          "endLine": 138,
+          "measurement": null,
+          "note": "The checker hand-codes extension probing, package aliases, external handling, and containment rules."
+        },
+        {
+          "path": "scripts/worktree-seed-runtime-loader-validation.ts",
+          "line": 17,
+          "endLine": 42,
+          "measurement": null,
+          "note": "A custom binding model recognizes createRequire factories, namespaces, and loader aliases."
+        },
+        {
+          "path": "scripts/worktree-seed-runtime-loaders.ts",
+          "line": 72,
+          "endLine": 142,
+          "measurement": null,
+          "note": "Repeated AST walks infer aliases and runtime import forms."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "893 lines across the five scripts/worktree-seed-*.ts production modules at the audit pin",
+          "note": "Seed validation has compiler-like scale."
+        }
+      ],
+      "problem": "The seed guard maintains its own approximation of TypeScript, Bun, and Node resolution plus runtime-loader data flow. Every new alias, syntax form, or resolution convention expands a private compiler layer that contributors must distinguish from the repository's other code-intelligence tools.",
+      "proposedDirection": "Reduce the check to an explicit seed runtime manifest or build it on one repository-wide resolver service, keeping seed-specific allow and terminal policy separate.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-63",
+        "novelty": "CQ25-63 moves these modules beneath worktree-db; it does not address the 893-line bespoke resolver."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-013",
+      "title": "The lint coverage map reverse-parses generated Markdown as policy input",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/lint-coverage-map-check-patterns.ts",
+          "line": 30,
+          "endLine": 50,
+          "measurement": null,
+          "note": "The checker parses fixed Markdown table column offsets."
+        },
+        {
+          "path": "scripts/lint-coverage-map-check-patterns.ts",
+          "line": 53,
+          "endLine": 99,
+          "measurement": null,
+          "note": "Code-span order creates an implicit stateful base-directory grammar."
+        },
+        {
+          "path": "scripts/lint-coverage-map-check-patterns.ts",
+          "line": 101,
+          "endLine": 150,
+          "measurement": null,
+          "note": "The family implements a local brace/glob-to-regex engine."
+        },
+        {
+          "path": "scripts/lint-coverage-map-gen.ts",
+          "line": 14,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The generator reads its current Markdown output and replaces only one embedded block."
+        }
+      ],
+      "problem": "One generated document is simultaneously presentation, hand-maintained policy source, and partial generator output. Meaning depends on Markdown cell order and a private glob dialect, so ordinary documentation edits require knowledge of parser internals.",
+      "proposedDirection": "Make a typed manifest the sole coverage-map source, reuse the canonical glob matcher, and generate the complete Markdown document from structured data.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-44",
+        "novelty": "CQ25-44 relocates the lint-coverage family; this finding changes its source-of-truth and generated boundary."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-014",
+      "title": "Verify metadata is a second kitchen-sink shell framework",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/verify/lib/verify-metadata.sh",
+          "line": 121,
+          "endLine": 339,
+          "measurement": null,
+          "note": "Identity, path, and queue handling occupy one subsystem."
+        },
+        {
+          "path": "scripts/verify/lib/verify-metadata.sh",
+          "line": 342,
+          "endLine": 475,
+          "measurement": null,
+          "note": "Fast-commit state is added to the same module."
+        },
+        {
+          "path": "scripts/verify/lib/verify-metadata.sh",
+          "line": 477,
+          "endLine": 781,
+          "measurement": null,
+          "note": "Path policy and metadata validation form another large concern."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "1,406 lines and 74 functions in scripts/verify/lib/verify-metadata.sh at the audit pin",
+          "note": "Unrelated metadata concerns accumulate behind one shell namespace."
+        }
+      ],
+      "problem": "Repository identity, queue state, fast-commit behavior, path policy, marker validation, and reporting share a large ambient shell API. Its name understates its responsibilities and makes changes to any gate metadata concern require broad regression reasoning.",
+      "proposedDirection": "Define separate typed modules for repository identity, gate state, path policy, and marker codecs, with a narrow compatibility facade for the current shell engine.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-124",
+        "novelty": "CQ25-124 supplies the shell-facade precedent; this finding identifies the still-conflated 1,406-line metadata subsystem."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-015",
+      "title": "doctor.sh is organized around ambient mutable state and a manual check registry",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/doctor.sh",
+          "line": 61,
+          "endLine": 178,
+          "measurement": null,
+          "note": "Global variables hold diagnostic state, paths, counters, and presentation settings."
+        },
+        {
+          "path": "scripts/doctor.sh",
+          "line": 198,
+          "endLine": 342,
+          "measurement": null,
+          "note": "Several runner variants encode different implicit check protocols."
+        },
+        {
+          "path": "scripts/doctor.sh",
+          "line": 348,
+          "endLine": 424,
+          "measurement": null,
+          "note": "Special-case check execution bypasses the general runner paths."
+        },
+        {
+          "path": "scripts/doctor.sh",
+          "line": 801,
+          "endLine": 866,
+          "measurement": null,
+          "note": "The final check sequence is manually assembled imperatively."
+        }
+      ],
+      "problem": "A contributor adding a diagnostic must choose among runner conventions, manipulate shared state, and place the check correctly in a hand-written execution list. Check definition, execution, aggregation, and rendering lack a common record shape.",
+      "proposedDirection": "Represent checks as typed descriptors with explicit inputs, severity, remediation, and result records, and keep the shell entrypoint limited to environment setup and rendering.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-016",
+      "title": "Migration safety validation embeds multiple parsers in a 653-line Bash script",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/migration-safety.sh",
+          "line": 270,
+          "endLine": 376,
+          "measurement": null,
+          "note": "An awk lexer performs migration-content analysis."
+        },
+        {
+          "path": "scripts/migration-safety.sh",
+          "line": 468,
+          "endLine": 539,
+          "measurement": null,
+          "note": "JSON output construction is implemented in the same Bash program."
+        },
+        {
+          "path": "scripts/migration-safety.sh",
+          "line": 542,
+          "endLine": 651,
+          "measurement": null,
+          "note": "Human reporting and CLI completion remain coupled to parsing."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "653 lines in scripts/migration-safety.sh at the audit pin",
+          "note": "Analysis, serialization, and presentation occupy one shell facade."
+        }
+      ],
+      "problem": "SQL-like lexical analysis, policy evaluation, JSON serialization, and human diagnostics are inseparable in Bash. Extending one migration rule requires editing an embedded lexer and two output paths without typed intermediate results.",
+      "proposedDirection": "Move analysis into a typed core that emits structured findings, then retain a thin command facade with independent JSON and human renderers.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-124",
+        "novelty": "CQ25-124 records the preferred Bash-facade/TypeScript-core architecture; this script remains a 653-line analytical exception."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-017",
+      "title": "Baseline merge metadata is distributed across five registries",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/git/baseline-drivers.sh",
+          "line": 12,
+          "endLine": 26,
+          "measurement": null,
+          "note": "Driver identities and baseline targets are declared here."
+        },
+        {
+          "path": "scripts/git/baseline-merge-cli-table.sh",
+          "line": 22,
+          "endLine": 38,
+          "measurement": null,
+          "note": "CLI presentation maintains a separate table."
+        },
+        {
+          "path": "scripts/git/conflict-recipes.sh",
+          "line": 19,
+          "endLine": 28,
+          "measurement": null,
+          "note": "Conflict recipes repeat driver-family metadata."
+        },
+        {
+          "path": "scripts/git/post-merge-truth-up.sh",
+          "line": 24,
+          "endLine": 45,
+          "measurement": null,
+          "note": "Post-merge handling keeps another registry."
+        }
+      ],
+      "problem": "Adding or renaming a baseline family requires synchronized edits across driver dispatch, CLI display, conflict instructions, merge implementation, and post-merge truth-up. The duplication makes completeness review dependent on repository folklore.",
+      "proposedDirection": "Define one declarative baseline-family registry and generate or query the driver, CLI, recipe, and truth-up projections from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-83",
+        "novelty": "CQ25-83 records that driver dispatch is already parameterized; this finding covers the remaining five-way metadata registry outside that dispatch."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-018",
+      "title": "Post-merge truth-up parses human diagnostics as control data",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/git/post-merge-truth-up.sh",
+          "line": 156,
+          "endLine": 175,
+          "measurement": null,
+          "note": "Lint truth-up derives decisions from command diagnostic text."
+        },
+        {
+          "path": "scripts/git/post-merge-truth-up.sh",
+          "line": 194,
+          "endLine": 217,
+          "measurement": null,
+          "note": "Knip handling implements another text-recognition branch."
+        },
+        {
+          "path": "scripts/git/post-merge-truth-up.sh",
+          "line": 240,
+          "endLine": 259,
+          "measurement": null,
+          "note": "Near-duplicate handling repeats the diagnostic-scraping pattern."
+        }
+      ],
+      "problem": "Merge automation depends on presentation strings from three independent tools. Diagnostic wording changes become hidden API changes, and each new baseline family invites another near-copy of capture, grep, and decision logic.",
+      "proposedDirection": "Give baseline-producing checks a shared machine-readable status envelope and make truth-up consume its status and artifact fields rather than human output.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-124",
+        "novelty": "The landed facade/core precedent does not address post-merge automation's three human-output parsers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L01-019",
+      "title": "Workflows embed substantial reporting and API programs as inline shell",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": ".github/workflows/ci.yml",
+          "line": 83,
+          "endLine": 128,
+          "measurement": null,
+          "note": "The workflow assembles verification reporting through a large inline shell block."
+        },
+        {
+          "path": ".github/workflows/ci.yml",
+          "line": 130,
+          "endLine": 168,
+          "measurement": null,
+          "note": "GitHub API interaction and result handling are implemented inline."
+        },
+        {
+          "path": ".github/workflows/slow-drift.yml",
+          "line": 51,
+          "endLine": 89,
+          "measurement": null,
+          "note": "Slow-drift reporting repeats the inline-program pattern."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "113 lines of inline shell across the three cited workflow regions",
+          "note": "Material behavior is hidden inside YAML rather than exposed as locally runnable commands."
+        }
+      ],
+      "problem": "Reporting, API calls, error handling, and formatting live inside workflow YAML, where they are harder to run locally, review, reuse, or cover independently. CI behavior is therefore split between registered repository commands and opaque inline programs.",
+      "proposedDirection": "Move each coherent reporting/API operation into a versioned repository command with structured inputs and outputs, leaving workflows to declare orchestration.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L01-020",
+      "title": "The Codex agent skill depends on a Claude-owned executable tree",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": ".codex/skills/agent-cli/SKILL.md",
+          "line": 23,
+          "endLine": 48,
+          "measurement": null,
+          "note": "Codex usage instructions invoke scripts located beneath .claude."
+        },
+        {
+          "path": ".codex/skills/agent-cli/SKILL.md",
+          "line": 64,
+          "endLine": 70,
+          "measurement": null,
+          "note": "Operational examples continue to expose the provider-specific physical path."
+        },
+        {
+          "path": ".codex/skills/agent-cli/references/portability.md",
+          "line": 74,
+          "endLine": null,
+          "measurement": null,
+          "note": "Portability guidance retains the same cross-adapter ownership assumption."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "The Codex agent-cli skill contains 12 references to .claude scripts and owns no executable scripts in its own tree",
+          "note": "One provider's namespace acts as the shared implementation location."
+        }
+      ],
+      "problem": "A provider-neutral adapter is physically and conceptually owned by one provider's configuration tree. Copying the Codex skill alone produces a broken unit, and contributors can mistake .claude-specific placement for provider-specific behavior.",
+      "proposedDirection": "Move the executable adapter to a neutral repository-owned location and generate or link each provider skill's thin documentation and entrypoint projection.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Reorganize the flat scripts directory",
+      "ref": "CQ25-4",
+      "reason": "The prior pack already owns the flat-layout problem; only novel architectural seams were retained."
+    },
+    {
+      "title": "Consolidate the shell-smoke framework",
+      "ref": "CQ25-3",
+      "reason": "This is existing prior work and test-shaped ownership belongs to lane 06."
+    },
+    {
+      "title": "Move harness-audit behind its planned facade",
+      "ref": "CQ25-36",
+      "reason": "The relocation is already a scheduled prior-pack slice."
+    },
+    {
+      "title": "Normalize the smokeTest fixture list name",
+      "ref": "CQ25-32",
+      "reason": "The exact naming cleanup is already recorded."
+    },
+    {
+      "title": "Move client-test-isolation internals under an owner directory",
+      "ref": "CQ25-38",
+      "reason": "The exact reorganization is already scheduled and belongs to lane 06."
+    },
+    {
+      "title": "Move backlog-lint flat files behind a facade",
+      "ref": "CQ25-39",
+      "reason": "The exact relocation is already scheduled; no relocation finding was retained."
+    },
+    {
+      "title": "Move suppression-ledger flat files behind a facade",
+      "ref": "CQ25-40",
+      "reason": "The exact relocation is scheduled; L01-011 retains only the distinct cross-language parser seam."
+    },
+    {
+      "title": "Move the knip sensor family",
+      "ref": "CQ25-41",
+      "reason": "The exact flat-family move is already scheduled."
+    },
+    {
+      "title": "Move the near-duplicates sensor family",
+      "ref": "CQ25-42",
+      "reason": "The exact flat-family move is already scheduled."
+    },
+    {
+      "title": "Move the max-lines family",
+      "ref": "CQ25-43",
+      "reason": "The exact flat-family move is already scheduled."
+    },
+    {
+      "title": "Move the lint-coverage-map family",
+      "ref": "CQ25-44",
+      "reason": "The exact relocation is scheduled; L01-013 retains only the source-of-truth problem."
+    },
+    {
+      "title": "Rework worktree shared state handling",
+      "ref": "CQ25-62",
+      "reason": "The state-file concern is already owned by the prior pack."
+    },
+    {
+      "title": "Move worktree seed modules beneath worktree-db",
+      "ref": "CQ25-63",
+      "reason": "The exact relocation is scheduled; L01-012 retains only the bespoke resolver problem."
+    },
+    {
+      "title": "Treat baseline artifacts as a work queue",
+      "ref": "CQ25-79",
+      "reason": "The corpus explicitly rules out reopening this interpretation."
+    },
+    {
+      "title": "Unify intentionally distinct envelope validators",
+      "ref": "CQ25-82",
+      "reason": "The corpus records that the validators protect different trust boundaries."
+    },
+    {
+      "title": "Parameterize baseline merge-driver dispatch",
+      "ref": "CQ25-83",
+      "reason": "That work has landed; L01-017 retains only the remaining distributed registries."
+    },
+    {
+      "title": "Regenerate adapter hook shims from the manifest",
+      "ref": "CQ25-122",
+      "reason": "Shim generation has landed; only remaining manifest factoring was retained."
+    },
+    {
+      "title": "Normalize remaining hand-written argv walkers",
+      "ref": "CQ25-127",
+      "reason": "The corpus says to converge opportunistically on touch, so local parser occurrences were not reopened."
+    },
+    {
+      "title": "Replace the JSONC scanner wholesale",
+      "ref": "CQ25-129",
+      "reason": "The recorded constraint rejects a broad parser rewrite without a concrete unsupported case."
+    },
+    {
+      "title": "Split the pre-commit dispatcher unconditionally",
+      "ref": "CQ25-130",
+      "reason": "The recorded constraint requires stronger evidence than file length alone."
+    },
+    {
+      "title": "Create a centralized environment-variable inventory",
+      "ref": "CQ25-131",
+      "reason": "The corpus declines an inventory-only cleanup without a narrower consumer."
+    },
+    {
+      "title": "Generalize atomic-writer infrastructure",
+      "ref": "CQ25-135",
+      "reason": "The corpus rejects widening the abstraction without a demonstrated failure mode."
+    },
+    {
+      "title": "Expand stop-hook state tests",
+      "ref": "CQ25-139",
+      "reason": "The exact test work is already recorded and belongs to lane 06."
+    },
+    {
+      "title": "Derive layout checking entirely from manifest roles",
+      "ref": "CQ25-144",
+      "reason": "The corpus records an explicit refusal of this broader abstraction."
+    },
+    {
+      "title": "Remove harness diagnostic prefixes",
+      "ref": "CQ25-145",
+      "reason": "The corpus records that the prefixes remain useful provenance."
+    },
+    {
+      "title": "Decompose worktree-db solely because of file size",
+      "ref": "CQ25-126",
+      "reason": "The prior ruling rejects broad decomposition without a concrete seam."
+    },
+    {
+      "title": "Rename EpochWindow",
+      "ref": "CQ25-169",
+      "reason": "The localized naming cleanup was explicitly dropped."
+    },
+    {
+      "title": "Change diagnostics to include fixed header lines",
+      "ref": "CQ25-168",
+      "reason": "The output-contract change was explicitly refused without a consumer need."
+    },
+    {
+      "title": "Remove historical max-lines ratchetExcluded metadata",
+      "ref": "CQ25-215",
+      "reason": "The corpus explicitly preserves this historical field."
+    }
+  ],
+  "featureIdeas": [
+    "Expose a machine-queryable harness provenance graph so contributors can ask which manifest control produces, validates, invokes, or documents any hook, gate, or generated surface."
+  ],
+  "bugsSideList": [
+    {
+      "title": "Hook-wiring validation appears to ignore unknown fields",
+      "paths": [
+        "scripts/harness/hook-wiring-schema.ts:233",
+        "scripts/harness/hook-wiring-schema.ts:332"
+      ],
+      "whySuspectedBug": "Manual object validation checks required fields but appears not to reject misspelled additional fields, allowing configuration mistakes to be silently unused.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Hook generation can leave a partially updated output set",
+      "paths": [
+        "scripts/harness/generate-hook-wiring.ts:276",
+        "scripts/harness/hook-shim-files.ts:93"
+      ],
+      "whySuspectedBug": "Multiple generated files appear to be written sequentially without an atomic batch boundary, so interruption can leave mutually inconsistent projections.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Verify-step generation can leave four outputs mutually inconsistent",
+      "paths": [
+        "scripts/harness/generate-verify-steps.ts:402",
+        "scripts/harness/generate-verify-steps.ts:433"
+      ],
+      "whySuspectedBug": "The generator writes four related artifacts separately and appears able to stop after only a subset has been replaced.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Multiline ESLint suppression rationales may produce empty ledger identities",
+      "paths": [
+        "scripts/suppression-ledger-identity.ts:148",
+        "scripts/suppression-ledger.json:369",
+        "packages/server/src/services/srd/srd-query-helpers.ts:8"
+      ],
+      "whySuspectedBug": "The identity parser and an observed multiline directive shape appear capable of disagreeing about where rationale text begins.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "harness.controls.json — all 2,859 lines at the audit pin",
+      "scripts/harness/**/*.ts production sources — canonical schema, generation, registration, parity, hook wiring, diagnostics, generated-surface, and verify-step families",
+      "scripts/verify*.sh, scripts/verify/**/*.sh, scripts/land.sh, and .husky/* — all production gate, hook, scheduler, and landing paths",
+      "scripts/ai-hooks/** production files and adapter hook/config files under .claude/, .codex/, and sibling adapter trees",
+      ".claude/skills/agent-cli/scripts/{agent-run.sh,agent-wait.sh} and corresponding Codex skill/config projections",
+      ".github/workflows/** and lane-owned root harness configuration files",
+      "scripts/git/** production files",
+      "51 lane-owned flat top-level shell scripts plus scripts/lib/**, scripts/drift/** data/readme surfaces, and lane-owned shell facades",
+      "63 lane-owned direct production TypeScript/ESM files under scripts/ — 10,662 lines, excluding test/spec/test-helper files and separately owned analyzer/lint-policy families"
+    ],
+    "sampled": [
+      "scripts/verify/lib/verify-metadata.sh path-policy internals — full module structure and public functions read; repetitive rule bodies sampled by section",
+      "scripts/harness hook-shim, hook-wiring documentation, skill-projection, and diagnostics support modules — public contracts and generation seams read, repetitive render templates sampled",
+      "Adapter reference documentation under .claude/ and .codex/ — unique blobs read once; byte-identical projections sampled by blob identity",
+      "Low-history flat facades and adapter projections — every file swept, with deep reading concentrated on files owning parsing, mutable state, generation, or orchestration"
+    ],
+    "skipped": [
+      "scripts/tests/**, *.test.*, *.spec.*, and *.test-helper.* — test-shaped findings belong to lane 06",
+      "scripts/fixtures/** — fixture/test substrate belongs to lane 06 under the test-shaped precedence rule",
+      "Lane-02 analyzer implementation trees — assigned to the analyzer lane rather than harness core",
+      "Lane-09 codemod, path-policy, and lint-rule implementation trees — assigned to the policy/tooling lane",
+      "Generated documentation prose — documentation drift belongs to lane 07"
+    ],
+    "pointers": [
+      "Lane 06: inspect synchronization and coverage around generated hook shims, verify artifacts, shell-smoke subjects, worktree seed resolution, and partial-write interruption cases.",
+      "Lane 07: generated-surface and adapter documentation contains source-of-truth wording whose currency should be checked against the current manifest generators.",
+      "Lane 08: db-status imports server test internals and mirrors test/e2e database URL resolution; cross-package ownership should be reviewed.",
+      "Lane 09: the lint coverage map's private glob dialect and JavaScript/ambient-declaration bridges intersect lint-policy ownership."
+    ],
+    "cut": [
+      "Four verify:steps artifacts are rendered and compared through overlapping generation paths.",
+      "Manifest facets use several incompatible manual validation dialects.",
+      "harness:check serially launches generated-surface subprocesses despite already having in-process models.",
+      "Two generated-surface producers claim the same pair of output paths.",
+      "Fifty-one manifest controls omit a principle field without an explicit rationale.",
+      "scriptParity exemptions lack a structured rationale requirement.",
+      "pairedGuide controls have no reciprocal completeness validation.",
+      "verify-async.sh implements another daemon-like key/value lifecycle in shell.",
+      "land.sh coordinates rollback through global flags and overlapping trap cleanup paths.",
+      "Verify portability claims conflict with nameref, GNU-tool, Linux-procfs, and workspace-path assumptions.",
+      "verify-logs.sh duplicates marker validation already present in verify-metadata.sh.",
+      "Memory-budget and timeout parsing are repeated across verify helpers.",
+      "Claude settings maintain an independent 81-entry deny list alongside shared hook policy.",
+      "Edited-path translation and the same extension classifier are repeated across AI hooks.",
+      "Session-state imports stop-hook logic and duplicates summary codecs.",
+      "lint-agent shells back into Bash to obtain an array of cache arguments.",
+      "Ambient TypeScript declarations manually shadow JavaScript policy schemas.",
+      "Reusable sensor engines live beneath drift-ai and rewrite its diagnostic identity.",
+      "sensor-context-budget embeds a vendor-specific Markdown and recursive-import interpreter.",
+      "The max-lines adapter stores duplicate key/path and count/cap fields.",
+      "backlog-lint implements a 1,393-line heuristic note language while calling it front matter.",
+      "typecheck.sh substantially duplicates scripts/lib/parallel-runner.sh.",
+      "The lint facade contains a separate hadolint execution subsystem.",
+      "ESLint cache policy mixes shell sourcing, embedded JavaScript, and textual protocols.",
+      "Git conflict-recipe generation relies on formatting-sensitive Bash parsing.",
+      "Git driver scripts expose a broad ambient global-shell ABI.",
+      "Baseline marker lifecycle handling is implemented three different ways.",
+      "Workflow files pin inconsistent Bun patch versions.",
+      "audit-dependency-licenses combines CLI, traversal, resolution, policy, and rendering in one module.",
+      "Sensor facade/core conventions remain inconsistent across blob-size and context-budget tools."
+    ]
+  }
+}

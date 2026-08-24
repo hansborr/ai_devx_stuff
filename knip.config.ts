@@ -20,6 +20,9 @@ const config = {
     // exported values and types as package API.
     "packages/shared/src/schemas/**": ["exports", "types"],
     "packages/shared/src/rules/**": ["exports", "types"],
+    // The portable diagnostics schema is an exported harness contract, so its
+    // schema values and inferred types remain intentionally public API.
+    "tools/harness-diagnostics/src/**": ["exports", "types"],
     // Map layer schemas mirror the shared contract surface for VTT map data.
     "packages/shared/src/map/**": ["exports", "types"],
     // shadcn convention: ui components expose a reusable component surface,
@@ -39,8 +42,13 @@ const config = {
     // declare local helper types for static analysis but are never imported at
     // runtime, so both their exports and types are intentional.
     "packages/server/src/utils/__type-tests__/**": ["exports", "types"],
+    "packages/server/src/socket/__type-tests__/**": ["exports", "types"],
     // Stryker loads this configuration module by path, so Knip cannot see its required default export.
     "scripts/stryker-scripts.mjs": ["exports"],
+    // The package Git rail imports these adapter exports from configured module
+    // paths at runtime; no static import can make them visible to Knip.
+    "scripts/lint-ratchet/engine-binding.ts": ["exports"],
+    "examples/lint-ratchet-demo/scripts/lint-ratchet/adapter.ts": ["exports"],
     // Playwright loads this by the `globalSetup` path string in playwright.config.ts,
     // not as an ES import, so Knip cannot see its required default export.
     "e2e/global-setup.ts": ["exports"],
@@ -52,12 +60,13 @@ const config = {
         "e2e/**/*.ts",
         "scripts/*.sh",
         "scripts/*.ts",
-        // CLI entry points that live one directory down (e.g.
-        // post-merge-baseline-preflight.ts, path-policy-query.ts); without these
-        // globs they false-positive as orphan files.
+        // CLI and adapter entry points that live one directory down (e.g.
+        // cli.ts, engine-binding.ts, path-policy-query.ts); without these globs
+        // they false-positive as orphan files.
         "scripts/lint-ratchet/*.ts",
         "scripts/path-policy/*.ts",
         "scripts/ai-hooks/*.sh",
+        "scripts/ci/*.sh",
         "scripts/codemods/*.ts",
         ".github/workflows/*.{yml,yaml}",
         ".husky/*",
@@ -75,6 +84,7 @@ const config = {
       paths: {
         "@/*": ["packages/client/src/*"],
         "@musi/shared/constants": ["packages/shared/src/constants.ts"],
+        "@musi/shared/logging-policy": ["packages/shared/src/logging-policy.ts"],
         "@musi/shared/schemas/*.js": ["packages/shared/src/schemas/*.ts"],
         "@musi/shared/rules/*.js": ["packages/shared/src/rules/*.ts"],
         "@musi/shared/dice/*.js": ["packages/shared/src/dice/*.ts"],
@@ -113,6 +123,7 @@ const config = {
         "scripts/pgexec.ts",
         // Compile-only negative type tests; deliberately not runtime imports.
         "src/utils/__type-tests__/*.ts",
+        "src/socket/__type-tests__/*.ts",
         // Manual one-off SRD refresh scripts kept for future SRD regeneration.
         "src/seed/generate-*.ts",
       ],
@@ -148,17 +159,18 @@ const config = {
       // them off knip's unused-dependency scan.
       ignoreDependencies: ["eslint", "typescript-eslint"],
     },
+    "tools/harness-diagnostics": {
+      // The source-mapped schema export and co-located schema tests are the
+      // portable package's reachability roots.
+      entry: ["src/*.ts", "src/**/*.test.ts"],
+      project: ["src/**/*.ts"],
+      typescript: true,
+      vitest: true,
+    },
     "examples/lint-ratchet-demo": {
-      // The adapter entry (the CLI), the git-rail wrappers the installed merge
-      // driver dispatches, and the ESLint config are the reachability roots; the
-      // adapter module and eslint-rules are reached from them.
-      entry: [
-        "scripts/lint-ratchet.ts",
-        "scripts/lint-ratchet/baseline-merge-cli.ts",
-        "scripts/lint-ratchet/post-merge-baseline-preflight.ts",
-        "scripts/git/baseline-info-attributes.ts",
-        "eslint.config.js",
-      ],
+      // The adapter entry (the CLI) and ESLint config are the reachability roots;
+      // the adapter module and eslint-rules are reached from them.
+      entry: ["scripts/lint-ratchet.ts", "eslint.config.js"],
       project: ["scripts/**/*.ts", "src/**/*.ts", "eslint-rules/*.js", "eslint.config.js"],
       typescript: true,
       // Same as the engine package: eslint + typescript-eslint are resolved

@@ -684,7 +684,7 @@ test.describe("Encounter combat lifecycle", () => {
     await dmEncounter.openEncounter(encounterName);
 
     const playerSheet = new CharacterSheetPO(ctx.playerPage);
-    await ctx.playerPage.goto(`/characters/${playerCharacterId}?campaignId=${ctx.campaignId}`);
+    await ctx.playerPage.goto(`/characters/${playerCharacterId}`);
     await playerSheet.expectName(playerCharName);
     await playerSheet.damageHp(2);
 

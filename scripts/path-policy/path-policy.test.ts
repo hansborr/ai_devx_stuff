@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PATH_POLICY, type PathPolicySelector } from "./path-policy.js";
 import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
 import { SCRIPT_SMOKE_SUBJECTS } from "./path-policy-smoke-subjects-data.js";
+import { matchStarOnlySegmentPattern } from "./segment-pattern.js";
 
 const thisDir = dirname(fileURLToPath(import.meta.url));
 
@@ -30,14 +31,6 @@ const readManifestConfigSurfacePaths = (): readonly string[] => {
   });
 };
 
-const matchSegmentGlob = (value: string, pattern: string): boolean => {
-  const escaped = pattern
-    .split("*")
-    .map((part) => part.replace(/[\\^$+?.()|[\]{}]/g, "\\$&"))
-    .join("[^/]*");
-  return new RegExp(`^${escaped}$`).test(value);
-};
-
 const matchesSelector = (path: string, selector: PathPolicySelector): boolean => {
   switch (selector.kind) {
     case "exact":
@@ -45,7 +38,7 @@ const matchesSelector = (path: string, selector: PathPolicySelector): boolean =>
     case "prefix":
       return path.startsWith(selector.prefix);
     case "single-segment-glob":
-      return matchSegmentGlob(path, selector.pattern);
+      return matchStarOnlySegmentPattern(path, selector.pattern);
     case "extension":
       return path.endsWith(selector.extension);
     case "prefix-extension":
@@ -96,7 +89,7 @@ describe("PATH_POLICY full-scan triggers", () => {
     expect(matchesAny("eslint.config.js", lintTriggers)).toBe(true);
     expect(matchesAny("tsconfig.scripts.json", lintTriggers)).toBe(true);
     expect(matchesAny("packages/client/tsconfig.json", lintTriggers)).toBe(true);
-    expect(matchesAny("eslint-config/shared-policy.js", lintTriggers)).toBe(true);
+    expect(matchesAny("eslint-config/path-glob-policy.js", lintTriggers)).toBe(true);
     expect(matchesAny("eslint-rules/no-raw-fetch.ts", lintTriggers)).toBe(true);
     expect(matchesAny(".yamllint.yml", lintTriggers)).toBe(true);
   });
@@ -161,7 +154,7 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(matchesAny(".copilot/hooks/pre-tool-use.sh", selectors)).toBe(true);
     expect(matchesAny(".playwright/cli.config.json", selectors)).toBe(true);
     expect(matchesAny("packages/server/src/index.ts", selectors)).toBe(true);
-    expect(matchesAny("eslint-config/shared-policy.js", selectors)).toBe(true);
+    expect(matchesAny("eslint-config/path-glob-policy.js", selectors)).toBe(true);
     expect(matchesAny("docs/generated/lint-coverage-map.md", selectors)).toBe(true);
     expect(matchesAny("bun.lock", selectors)).toBe(true);
     expect(matchesAny(".prettierignore", selectors)).toBe(true);
@@ -170,6 +163,23 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(
       matchesAny("bun.lock", PATH_POLICY.sourceRelevant.precommitStagedExcludedSelectors),
     ).toBe(true);
+  });
+
+  // The harness control manifest is assembled from two root files:
+  // harness.controls.json owns every non-lint-rule control, and the generated
+  // harness.controls.lint-rules.generated.json owns the `kind: "lint-rule"`
+  // ones. Both halves must be source-relevant, because source-relevance is what
+  // makes the pre-commit / verify:changed staging guard reject an unstaged or
+  // untracked edit. Everything else this repo generates into the manifest's
+  // orbit already lands under a source-relevant prefix (scripts/,
+  // eslint-config/, eslint-rules/); a root-level include is the one shape that
+  // can otherwise regenerate, stay out of the index, and commit silently while
+  // the working-tree-reading freshness check still passes.
+  it("keeps both halves of the assembled harness manifest source-relevant", () => {
+    const selectors = PATH_POLICY.sourceRelevant.selectors;
+
+    expect(matchesAny("harness.controls.json", selectors)).toBe(true);
+    expect(matchesAny("harness.controls.lint-rules.generated.json", selectors)).toBe(true);
   });
 
   it("classifies portable tool package sources as source-relevant", () => {
@@ -222,13 +232,19 @@ describe("PATH_POLICY known path surfaces", () => {
     expect(matchesAny(".codex/hooks/pre-tool-use.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(
       true,
     );
+    expect(matchesAny("scripts/agent-cli/agent-run.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(
+      true,
+    );
+    expect(matchesAny(".devcontainer/setup.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(true);
+
+    // The dispatch executables left the skill tree; no skill ships `.sh` any
+    // more, so the retired `.claude/skills/` shell clause must stay retired.
     expect(
       matchesAny(
         ".claude/skills/agent-cli/scripts/agent-run.sh",
         PATH_POLICY.shellSurfaces.maintained,
       ),
-    ).toBe(true);
-    expect(matchesAny(".devcontainer/setup.sh", PATH_POLICY.shellSurfaces.maintained)).toBe(true);
+    ).toBe(false);
 
     expect(matchesAny(".github/workflows/ci.yml", PATH_POLICY.configSurfaces.workflowYaml)).toBe(
       true,

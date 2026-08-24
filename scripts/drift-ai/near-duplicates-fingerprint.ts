@@ -38,6 +38,7 @@ const EMPTY_EXACT_TOKENS: readonly string[] = [];
 export function extractNearDuplicateFunctions(
   filePath: string,
   source: string,
+  // Standalone callers collect exact tokens when this option is omitted.
   options: { readonly includeExactTokens?: boolean } = {},
 ): NearDuplicateFunction[] {
   const sourceFile = ts.createSourceFile(

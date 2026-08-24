@@ -1,0 +1,680 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-07-docs-dx",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L07-101",
+      "title": "The scripts guide lists only three of twelve registered generated-surface families",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/README.md",
+          "line": 83,
+          "endLine": 116,
+          "measurement": null,
+          "note": "Presents a list containing three generator families as the current checked-in generated surfaces."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "12 controls have a generatedSurface facet at the pin; only 3 of the 12 generator families appear in scripts/README.md, measured by selecting .controls[] entries with .generatedSurface.",
+          "note": "Omissions include the concurrency graph, baseline-conflict recipes, lint coverage map, lint guidance, hook timeouts, config surfaces, skill artifacts, smoke subjects, and restricted-disable rules."
+        },
+        {
+          "path": "scripts/harness/generated-surfaces.ts",
+          "line": 99,
+          "endLine": 150,
+          "measurement": null,
+          "note": "The authoritative loader normalizes every generatedSurface facet into the active registry."
+        },
+        {
+          "path": "scripts/harness/generated-surfaces.ts",
+          "line": 161,
+          "endLine": 201,
+          "measurement": null,
+          "note": "All registered records feed generated-file freshness diagnostics."
+        }
+      ],
+      "problem": "A contributor following the scripts guide can infer that only three generator families require manifest-first maintenance and freshness checks. Nine active families are invisible, while a nongenerated demo is included in the same list.",
+      "proposedDirection": "Treat harness.controls.json and generated-surfaces.ts as authoritative. Generate a compact producer/output/refresh/check catalog, or label the current list as examples and link to a complete inventory.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-34",
+        "novelty": "CQ25-34 schedules other scripts/README layout corrections; it does not cover the nine omitted registered generator families."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-102",
+      "title": "The drift:ai operator guide is an 890-line multi-audience README",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 18,
+          "endLine": 72,
+          "measurement": null,
+          "note": "Defines the external-repository quickstart."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 120,
+          "endLine": 300,
+          "measurement": null,
+          "note": "Repeats the foreign-repository command, tools-checkout model, dependency installation, and canonical invocation."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 302,
+          "endLine": 627,
+          "measurement": null,
+          "note": "Contains more than 300 lines of per-check implementation and calibration rationale."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 812,
+          "endLine": 890,
+          "measurement": null,
+          "note": "Mixes prototype indexing, Musi-only integration, update instructions, known gaps, and archive status."
+        },
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "890 lines, 7,176 words, 33 H2/H3 headings, and four separated external-invocation narratives at lines 18-72, 128-134, 235-300, and 628-685; measured from the pinned blob with wc, heading scans, and full reading.",
+          "note": "One document serves portable onboarding, exhaustive reference, design rationale, Musi integration, and historical status."
+        },
+        {
+          "path": "scripts/drift-ai/readme-config-parity.test.ts",
+          "line": 191,
+          "endLine": 223,
+          "measurement": null,
+          "note": "Parity assertions pin README inventories and links against live registries."
+        }
+      ],
+      "problem": "An external operator must navigate an exhaustive maintainer reference whose supported invocation is restated four times. Registry changes, implementation rationale, Musi-only behavior, and archived status all churn one document and multiply its drift surfaces.",
+      "proposedDirection": "Treat the live registries and parity assertions as authoritative. Keep a short README with one quickstart; move the portable contract, detailed check reference, Musi integration, and historical rationale into audience-specific documents.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-35",
+        "novelty": "CQ25-35 schedules an internal MODULE map; this finding separates public documentation audiences without restructuring the implementation forbidden by CQ25-146."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-103",
+      "title": "The concurrency rulebook mislocates participant policy and misnames its ordering",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/CONCURRENCY.md",
+          "line": 354,
+          "endLine": 370,
+          "measurement": null,
+          "note": "Locates updateParticipant in routers/encounter.ts and describes character and participant lock families as code-point ordered."
+        },
+        {
+          "path": "docs/CONCURRENCY.md",
+          "line": 731,
+          "endLine": 755,
+          "measurement": null,
+          "note": "Says PARTICIPANT_FIELD_KIND lives in routers/encounter.ts."
+        },
+        {
+          "path": "packages/server/src/routers/encounter.ts",
+          "line": 225,
+          "endLine": 228,
+          "measurement": null,
+          "note": "The router procedure is a one-line delegation to the encounter-combat service."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 53,
+          "endLine": 75,
+          "measurement": null,
+          "note": "The service owns the exhaustive PARTICIPANT_FIELD_KIND map."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 284,
+          "endLine": 318,
+          "measurement": null,
+          "note": "The service implements the request-facing updateParticipant writer."
+        },
+        {
+          "path": "packages/server/src/utils/string-order.ts",
+          "line": 9,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The authoritative comparator explicitly implements UTF-16 code-unit order and distinguishes it from code-point order."
+        }
+      ],
+      "problem": "The central guide sends maintainers to a facade for the race-sensitive writer, names the wrong home for its fail-closed field map, and uses technically false terminology inside its lock-order argument.",
+      "proposedDirection": "Treat participant-action.ts and compareCodeUnits as authoritative. Point the writer and policy entries to the service and consistently describe the ordering as UTF-16 code-unit order, noting that current ASCII identifiers make the orders equivalent.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-21",
+        "novelty": "CQ25-21 schedules the same ordering terminology correction for the spell facade and MODULE; this finding adds the separate concurrency guide and its stale writer locations."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-104",
+      "title": "Server contributor maps contradict or omit three important ownership boundaries",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/routers-MODULE.md",
+          "line": 22,
+          "endLine": 25,
+          "measurement": null,
+          "note": "Categorically assigns business logic to services and says routers stay thin."
+        },
+        {
+          "path": "packages/server/src/services/homebrew-import-MODULE.md",
+          "line": 21,
+          "endLine": 31,
+          "measurement": null,
+          "note": "The more specific contract deliberately assigns per-entry validation and fail-fast error construction to the homebrew router."
+        },
+        {
+          "path": "packages/server/src/socket/MODULE.md",
+          "line": 47,
+          "endLine": 53,
+          "measurement": null,
+          "note": "The socket collaborator map omits persistence."
+        },
+        {
+          "path": "packages/server/src/socket/campaign-room-handler.ts",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The room handler directly imports the singleton Prisma client alongside its injected PresenceService."
+        },
+        {
+          "path": "packages/server/src/seed",
+          "line": null,
+          "endLine": null,
+          "measurement": "46 non-test TypeScript files, 18 test files, 21 JSON assets, and no root MODULE.md or README at the pin; measured with git ls-tree.",
+          "note": "The directory mixes runtime seeders, generated outputs, parsers, four generators, two backfills, and vendored data without a local orientation map."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd.ts",
+          "line": 237,
+          "endLine": 252,
+          "measurement": null,
+          "note": "The thirteen-step runtime seed order is encoded only as an imperative call list."
+        }
+      ],
+      "problem": "The server's local orientation system gives incompatible router-layering rules, hides a socket handler's persistence dependency, and provides no map for the large mixed-role seed subsystem. New contributors must reconstruct the actual boundaries from implementation imports and call order.",
+      "proposedDirection": "Split the repair by boundary: define the homebrew validation exception or move it consistently; document campaign-room membership reads; and add a seed map covering runtime order, generated ownership, generators, backfills, and existing operator guides.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-220",
+        "novelty": "CQ25-220 settles seed-pipeline implementation caveats; this finding preserves them and adds contributor orientation plus unrelated homebrew and socket documentation gaps."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-105",
+      "title": "Shared local documentation carries stale test, consumer, and rules-provenance claims",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/MODULE.md",
+          "line": 166,
+          "endLine": 174,
+          "measurement": null,
+          "note": "Lists magic-item-inputs.ts among nine files without colocated tests."
+        },
+        {
+          "path": "packages/shared/src/schemas/magic-item-inputs.test.ts",
+          "line": 5,
+          "endLine": 59,
+          "measurement": null,
+          "note": "The colocated test directly imports and substantively exercises magic-item-inputs.ts."
+        },
+        {
+          "path": "packages/shared/src/map/area-template-MODULE.md",
+          "line": 9,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Names map-canvas-overlays.tsx as a direct consumer and omits map-canvas-store.ts."
+        },
+        {
+          "path": "packages/client/src/stores/map-canvas-store.ts",
+          "line": 1,
+          "endLine": null,
+          "measurement": null,
+          "note": "The store directly imports TemplateShape from the shared area-template module."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-canvas-overlays.tsx",
+          "line": 10,
+          "endLine": null,
+          "measurement": null,
+          "note": "The overlay imports the store-owned map tool and template mapping instead of the shared module."
+        },
+        {
+          "path": "packages/shared/src/rules/xp.ts",
+          "line": 6,
+          "endLine": null,
+          "measurement": null,
+          "note": "Calls the CR-to-XP source 'SRD 5.1 / 2024 revision.'"
+        },
+        {
+          "path": "packages/shared/src/rules/xp.property.test.ts",
+          "line": 121,
+          "endLine": 128,
+          "measurement": null,
+          "note": "The exhaustive independent oracle identifies SRD 5.2.1 as authoritative and checks every production table entry."
+        }
+      ],
+      "problem": "Three contributor-facing claims are contradicted by colocated tests, pinned imports, or an exhaustive rules oracle. The volatile hand-maintained inventories became stale after routine changes.",
+      "proposedDirection": "Treat the colocated test, import graph, and SRD 5.2.1 oracle as authoritative. Correct the three claims and replace volatile exact inventories with checked or less brittle descriptions where practical.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed client cluster centralized the template-tool mapping; this finding identifies the remaining stale shared MODULE edge plus unrelated test and provenance drift."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-106",
+      "title": "Client component MODULE documents misstate composition and feature ownership",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/vtt/MODULE.md",
+          "line": 15,
+          "endLine": 25,
+          "measurement": null,
+          "note": "Claims VttSurface composes the action bar and target-pick overlay."
+        },
+        {
+          "path": "packages/client/src/components/vtt/vtt-surface.tsx",
+          "line": 39,
+          "endLine": 43,
+          "measurement": null,
+          "note": "VttSurface renders only its children and InVttDrawer."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/MODULE.md",
+          "line": 1,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The entire module document is a purpose sentence and three ownership bullets."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters",
+          "line": null,
+          "endLine": null,
+          "measurement": "14 tracked production TypeScript/TSX files totaling 1,888 lines at the pin, excluding tests, helpers, and MODULE.md; measured from the pinned git tree.",
+          "note": "The stateful feature lacks data-flow, entry-point, state-ownership, test-seam, and gotcha guidance required by the module charter."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/MODULE.md",
+          "line": 59,
+          "endLine": 84,
+          "measurement": null,
+          "note": "Advertises RollModeToggle as active UI and says combat owns log paging."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/roll-mode-toggle.tsx",
+          "line": null,
+          "endLine": null,
+          "measurement": "Zero production imports or references outside the defining file at the pin, measured with git grep excluding tests and MODULE.md.",
+          "note": "The documented production consumer does not exist."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/combat-log-panel.tsx",
+          "line": 228,
+          "endLine": 247,
+          "measurement": null,
+          "note": "The panel receives a complete logs array and owns expansion state, not cursor or paging state."
+        }
+      ],
+      "problem": "Three high-change component maps are unreliable in different ways: one attributes composition to the wrong component, one is too thin to orient work, and one advertises production-dead UI plus nonexistent paging ownership.",
+      "proposedDirection": "Refresh each MODULE from the pinned composition and import graph. Preserve the existing VTT directory split, document the encounter data/mutation/state flow, and distinguish combat-log presentation from fetching and paging.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-190",
+        "novelty": "CQ25-190 cites the VTT MODULE wording while refusing a configurable shared shell; this finding corrects the wording without reopening that direction and adds separate encounter/combat documentation drift."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-107",
+      "title": "Client hook and page entry-point maps omit major production surfaces",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/MODULE.md",
+          "line": 36,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The External Entry Points section lists 18 names but omits active provider, invalidation, dashboard, and map-layer exports."
+        },
+        {
+          "path": "packages/client/src/hooks",
+          "line": null,
+          "endLine": null,
+          "measurement": "At least 8 production-consumed runtime exports are absent: AuthProvider, SocketProvider, useRealtimeInvalidationSubscription, useBackgroundImage, useCharacterActions, useMapLayerMutations, getLayerOfType, and SRD_LOOKUP_FALLBACK; measured by fixed-symbol git grep over non-test client production files.",
+          "note": "The omissions span bootstrap, reconnect invalidation, dashboard actions, and map persistence."
+        },
+        {
+          "path": "packages/client/src/pages/MODULE.md",
+          "line": 69,
+          "endLine": 76,
+          "measurement": null,
+          "note": "The External Entry Points section names only two route-page exports and labels a private component external."
+        },
+        {
+          "path": "packages/client/src/pages",
+          "line": null,
+          "endLine": null,
+          "measurement": "13 non-test top-level *-page.tsx files export Page components; 11 of those route-facing exports are absent from MODULE.md, measured from the pinned tree and export declarations.",
+          "note": "Most route pages cannot be discovered through the advertised entry-point index."
+        },
+        {
+          "path": "packages/client/src/pages/campaign-detail-page.tsx",
+          "line": 123,
+          "endLine": 123,
+          "measurement": null,
+          "note": "CampaignTabs is file-private despite being labeled an external entry point."
+        }
+      ],
+      "problem": "The only local maps for a 42-file hook tree and the route-page directory are partial without declaring an inclusion rule. They omit important architectural seams while presenting a private symbol as importable.",
+      "proposedDirection": "Treat production exports and imports as authoritative. Separate complete public/export inventories from internal landmarks and either generate them or document a stable inclusion rule.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-108",
+      "title": "Client source comments preserve three superseded integration contracts",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/hooks/canvas-input/tool-handlers.ts",
+          "line": 30,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Says onFinalize receives a pre-mutation store snapshot although its signature accepts no argument."
+        },
+        {
+          "path": "packages/client/src/hooks/canvas-input/use-canvas-input.ts",
+          "line": 107,
+          "endLine": 112,
+          "measurement": null,
+          "note": "The dispatcher invokes onFinalize with no snapshot."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": 19,
+          "endLine": 39,
+          "measurement": null,
+          "note": "Documents three filters as socket-hook surfaces and constructs them for every caller."
+        },
+        {
+          "path": "packages/client/src/hooks/character-sheet/character-keys.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "characterFilter, spellsFilter, and inventoryFilter each have zero non-test production reads outside their declarations and initializer, measured by fixed-symbol git grep over packages/client/src.",
+          "note": "The socket-use explanation no longer matches the production reference graph."
+        },
+        {
+          "path": "packages/client/src/hooks/use-map-image-upload.ts",
+          "line": 83,
+          "endLine": 88,
+          "measurement": null,
+          "note": "The JSON assertion comment cites nonexistent packages/server/src/routes/uploads.ts."
+        },
+        {
+          "path": "packages/server/src/routes/upload-routes.ts",
+          "line": 56,
+          "endLine": 63,
+          "measurement": null,
+          "note": "The actual upload route declares the cited success response contract."
+        }
+      ],
+      "problem": "The comments describe a removed callback argument, an abandoned socket-filter design, and a nonexistent server file. Each obscures the current boundary precisely where the prose is intended to justify it.",
+      "proposedDirection": "Treat the TypeScript signatures, production reference graph, and upload-routes.ts as authoritative. Correct the comments; route removal of the unused CharacterKeys members to the client implementation lane.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The finished client query-layer cluster did not remove the three now-unread socket-labeled CharacterKeys members; the canvas and upload comments are separate new paths."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-109",
+      "title": "Root and devcontainer Compose bootstrap from ungoverned duplicate SQL",
+      "area": "docs",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docker-compose.yml",
+          "line": 11,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Root Compose mounts the root init-test-db.sql into PostgreSQL initialization."
+        },
+        {
+          "path": ".devcontainer/docker-compose.yml",
+          "line": 57,
+          "endLine": 60,
+          "measurement": null,
+          "note": "Devcontainer Compose independently mounts its local copy at the same container path."
+        },
+        {
+          "path": "init-test-db.sql",
+          "line": 1,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The root asset contains the same comments and two database-creation statements as the devcontainer copy, including a devcontainer-specific post-create reference."
+        },
+        {
+          "path": ".devcontainer/init-test-db.sql",
+          "line": null,
+          "endLine": null,
+          "measurement": "The two 12-line SQL files are the same pinned Git blob, 083577183b7044314d060e11c051ca3c82954c0e; no non-agent-notes source references an equality or generation check.",
+          "note": "Their equality is manual duplication rather than an enforced relationship."
+        }
+      ],
+      "problem": "Two independently mounted bootstrap assets can drift while both remain syntactically valid, producing different test-database availability between root Compose and the devcontainer. The root copy already carries prose specific to the other environment.",
+      "proposedDirection": "Choose one canonical SQL asset where portability permits, or generate/check both copies from one source so the standalone devcontainer remains reusable without creating an unguarded fork.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-110",
+      "title": "Lint-ratchet newcomer docs omit a prerequisite and point to a deleted ruling",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 30,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The Requirements section lists only Bun and a Git-tracked checkout."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 100,
+          "endLine": 103,
+          "measurement": null,
+          "note": "The adoption recipe instructs each clone to run the merge-driver installer."
+        },
+        {
+          "path": "examples/lint-ratchet-demo/scripts/git/install-baseline-merge-driver.sh",
+          "line": 103,
+          "endLine": 109,
+          "measurement": null,
+          "note": "The installer invokes flock before writing Git configuration and attributes."
+        },
+        {
+          "path": "eslint-config/code-quality-configs.js",
+          "line": 29,
+          "endLine": 39,
+          "measurement": null,
+          "note": "A live zone-policy comment cites a deleted leaf and describes moving the engine to tools/lint-ratchet as future work."
+        },
+        {
+          "path": "eslint-config/code-quality-configs.js",
+          "line": 45,
+          "endLine": 51,
+          "measurement": null,
+          "note": "The live policy already covers tools/lint-ratchet/**/*.ts."
+        },
+        {
+          "path": "docs/agent_notes/backlog/lint-arch-review-2026-07/00-index.md",
+          "line": 34,
+          "endLine": 46,
+          "measurement": null,
+          "note": "The retained index says the cited leaf was removed and records the landed zone-cap outcome."
+        }
+      ],
+      "problem": "An external adopter can satisfy every documented requirement yet fail during installation because flock is undeclared. Separately, maintainers reviewing the exceptional lint zone are sent to a deleted file and told an already-completed package move is pending.",
+      "proposedDirection": "Document flock with platform guidance and a preflight. Rewrite the lint-policy comment in present tense and link the retained landed record instead of the deleted leaf.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-168",
+        "novelty": "CQ25-168 refuses a bulk bare-coordinate sweep; this is a targeted broken-link repair plus an unrelated missing runtime prerequisite."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Restructure the drift-ai implementation into subdirectories",
+      "ref": "CQ25-146",
+      "reason": "The flat implementation layout is an explicit recorded decision; L07-102 proposes documentation partitioning only."
+    },
+    {
+      "title": "Qualify historical leaf and task coordinates throughout analyzer and lint comments",
+      "ref": "CQ25-168",
+      "reason": "The prior ruling refuses the bulk coordinate sweep; only the targeted broken link in L07-110 remains reportable."
+    },
+    {
+      "title": "Add a regenerate-and-diff gate for committed seed outputs",
+      "ref": "CQ25-172",
+      "reason": "The prior pack deliberately settled provenance as an attestation rather than a drift gate."
+    },
+    {
+      "title": "Rename or restructure seed generators and generated subclass families",
+      "ref": "CQ25-171",
+      "reason": "Those rewrites are parked pending unavailable upstream inputs; L07-104 proposes orientation only."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [],
+  "coverage": {
+    "readFully": [
+      "Wave-2 shard 1: docs/ai-harness.md; docs/generated/{README.md,lint-coverage-map.md,observed_flaky_tests.md}; generated-surface wording in scripts/README.md; relevant scripts/harness source-of-truth modules.",
+      "Wave-2 shard 2: all 890 lines of scripts/drift-ai/README.md; comment surfaces in all 371 pinned scripts/drift-ai/**/*.ts files; all 35 direct production scripts/code-intel/**/*.ts files.",
+      "Wave-2 shard 3: docs/CONCURRENCY.md; all 14 server MODULE/README files; named homebrew, socket, participant, seed-entry, and seed-order authorities.",
+      "Wave-2 shard 4: all three shared MODULE documents; class-identity.ts, xp.ts, magic-item-inputs.test.ts, and named client/import authorities.",
+      "Wave-2 shard 5: all 26 packages/client/src/components/** MODULE documents; named VTT, encounter, combat, and homebrew authorities.",
+      "Wave-2 shard 6: all 42 non-test production packages/client/src/hooks files; all four hook MODULE documents; pages/MODULE.md; named page, canvas-input, CharacterKeys, and upload authorities.",
+      "Wave-2 shard 7: root and package package.json files; README.md, AGENTS.md, CLAUDE.md; matched tsconfig files and knip.config.ts; .devcontainer, Compose, SQL, worktree scripts, and per-worktree guide surfaces.",
+      "Wave-2 shard 8: lint-ratchet package/demo READMEs and manifests; rule-source import guard; installer/setup scripts; all ESLint and lint-ratchet comment-bearing files matching archive/history/verdict/backlog/ruling/leaf navigation terms.",
+      "The complete wave-1 lane-07 result, all nine wave-1 finding-title inventories, and dedup-corpus records relevant to every shard."
+    ],
+    "sampled": [
+      "harness.controls.json — all 12 generatedSurface records extracted and read; unrelated control bodies sampled.",
+      "scripts/harness/** — all 42 production filenames inventoried; deep reading targeted generated-surface and manifest ownership.",
+      "Non-comment drift-ai bodies — targeted CLI, registry, configuration, report, and command authorities.",
+      "Server seed production files — all 46 paths inventoried and headers/imports/exports inspected; full reads targeted runtime order, loaders, paths, and routed claims.",
+      "Client pages — all 16 production files inventoried for exports; bodies read only where required to establish entry-point claims.",
+      "Root worktree and configuration implementation — targeted command, environment, status, bootstrap, and typecheck contracts.",
+      "tools/lint-ratchet production code — all boundary-keyword hits inspected; unrelated implementation bodies sampled.",
+      "Focused tests were read only as authoritative evidence for documented behavior; no test-shape findings were developed."
+    ],
+    "skipped": [
+      "Substantive bodies of docs/agent_notes packs beyond retained indexes, summaries, the dedup corpus, and banked wave results — explicitly excluded.",
+      "Seed JSON values, generated class/subclass content, generated Prisma source, SRD content correctness, build artifacts, lockfiles, and node_modules — excluded by scope.",
+      "Test-shape evaluation and unrelated test bodies — lane 06 ownership.",
+      "Implementation bodies unrelated to the routed documentation claims — top-up sampling, not a fresh wave-1 sweep.",
+      "Test suite and build execution — explicitly prohibited by the user."
+    ],
+    "pointers": [
+      "Pointer 1: L07-101 reports the partial generated-surface catalog; copy closure, adapter seam, competing authority wording, and hybrid ownership fold into banked L07-001, L07-002, L07-012, and L07-013.",
+      "Pointer 2: reported as L07-102.",
+      "Pointer 3: folded into banked L07-016; its corrected direct-directory count is 35 production files, while 37 includes two top-level entrypoints.",
+      "Pointer 4: investigated and cut by the cap; three prototype comments deny registered production commands.",
+      "Pointer 5: reported within L07-104.",
+      "Pointer 6: reported as L07-103.",
+      "Pointers 7-8: reported within L07-104.",
+      "Pointers 9-10 and 12: reported within L07-105.",
+      "Pointer 11: investigated and cut; class-identity.ts embeds downstream UI semantics and a client test title, but the underlying CQ25-185 fallback decision remains preserved.",
+      "Pointers 13, 16, and 17: reported within L07-106.",
+      "Pointers 14, 15, and 22: reported within L07-108.",
+      "Pointers 18 and 20: reported within L07-107.",
+      "Pointer 19: fully covered by banked L07-014.",
+      "Pointer 21: folded into banked L07-006's command-surface taxonomy; stryker.config.mjs confirms test:mutation is shared-only.",
+      "Pointer 23: fully covered by banked L08-007, with overlapping client evidence in L05-020.",
+      "Pointer 24: investigated and cut; README.md:175 overstates strict TypeScript while tsconfig.eslint-js.json:21 deliberately sets strict:false.",
+      "Pointer 25: reported as L07-109.",
+      "Pointer 26: fully covered by banked L07-002.",
+      "Pointers 27 and 29: reported within L07-110.",
+      "Pointer 28: investigated and cut; rule-source-import-guard.ts:60-61 denies the regex masking implemented directly above it.",
+      "Lane 05: RollModeToggle and three CharacterKeys filter members have no production consumers; L07-106/L07-108 own only their misleading documentation.",
+      "Lane 09: if banked L09-004 replaces the rule-source lexer, absorb the cut regex-comment cleanup.",
+      "Lane 09/code-review: installer behavior when flock is absent is already banked outside this lane; L07-110 owns only the missing prerequisite documentation."
+    ],
+    "cut": [
+      "Prototype milestone comments deny production command surfaces that now exist.",
+      "A shared resolver's JSDoc embeds a downstream client option label and exact test title.",
+      "README.md overstates the repository's strict-TypeScript boundary.",
+      "The import-guard comment denies the regex masking implemented directly above it.",
+      "The lint-ratchet demo says debt can only trend down immediately after demonstrating an accepted increase.",
+      "The harness Current Gaps list still calls the shipped weekly rules-mutation lane missing.",
+      "The active lint coverage map retains closed leaf-era implementation residue.",
+      "The per-worktree guide omits worktree:status --all and --lanes.",
+      "The claimed complete guide inventory omits two of 24 guides.",
+      "The repository lacks a human-focused CONTRIBUTING entrypoint.",
+      "The devcontainer installs an unused second server-start helper."
+    ]
+  }
+}

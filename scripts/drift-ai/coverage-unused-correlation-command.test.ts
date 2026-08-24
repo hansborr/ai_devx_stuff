@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { runDriftAi } from "./runner.js";
 
 const FIXTURE_REPO = path.dirname(fileURLToPath(import.meta.url));
@@ -26,7 +27,7 @@ describe("coverage-unused-exports subcommand", () => {
         "--format",
         "json",
       ],
-      git: gitRoot(FIXTURE_REPO),
+      git: currentRepoGit(FIXTURE_REPO),
     });
     const advisory = JSON.parse(result.stdout) as Record<string, unknown>;
 
@@ -46,7 +47,7 @@ describe("coverage-unused-exports subcommand", () => {
 
     const result = runDriftAi({
       argv: ["coverage-unused-exports", "--config", configPath],
-      git: gitRoot(FIXTURE_REPO),
+      git: currentRepoGit(FIXTURE_REPO),
     });
 
     expect(result.exitCode).toBe(0);
@@ -57,7 +58,7 @@ describe("coverage-unused-exports subcommand", () => {
   it("prints subcommand usage on help", () => {
     const result = runDriftAi({
       argv: ["coverage-unused-exports", "--help"],
-      git: gitRoot(FIXTURE_REPO),
+      git: currentRepoGit(FIXTURE_REPO),
     });
 
     expect(result.exitCode).toBe(0);
@@ -71,8 +72,4 @@ function writeConfig(value: unknown): string {
   const configPath = path.join(dir, "drift-ai.config.json");
   writeFileSync(configPath, JSON.stringify(value), "utf8");
   return configPath;
-}
-
-function gitRoot(repoRoot: string): (args: readonly string[]) => string {
-  return (args) => (args[0] === "rev-parse" ? `${repoRoot}\n` : "");
 }

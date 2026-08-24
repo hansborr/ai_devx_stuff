@@ -77,7 +77,9 @@ export type CheckRunContext<S = unknown> = CheckRunState & {
 };
 
 // A preflight that decides to skip may return a bare human reason, or a reason
-// paired with a machine-readable code (adapter contract §4 — adapters carry one).
+// paired with a machine-readable code. Adapters always carry one (adapter
+// contract §4); native checks do too when consumers branch on the skip (the
+// suppressions check's `changed-scope-only`).
 export type PreflightSkip = { readonly reason: string; readonly code?: SkipReasonCode };
 
 // The runtime-free metadata + config surface a check contributes: its identity,

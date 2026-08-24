@@ -3,12 +3,9 @@
 import simpleImportSort from "eslint-plugin-simple-import-sort";
 import tseslint from "typescript-eslint";
 
-import {
-  codeFiles,
-  eslintConfigJsFiles,
-  maxLinesPolicy,
-  sharedSchemasBarrelRestrictedImportPattern,
-} from "./shared-policy.js";
+import { maxLinesPolicy } from "./max-lines-policy.js";
+import { restrictedImportsRule } from "./package-boundary-policy.js";
+import { codeFiles, eslintConfigJsFiles } from "./path-glob-policy.js";
 import {
   eslintComments,
   eslintCommentsRules,
@@ -32,11 +29,14 @@ export const maxLinesExceptionConfigs = maxLinesPolicy.exceptions.map(
 // floor. That is deliberate zone policy, not tracked debt, so it lives in
 // config (a scoped `local/max-lines` cap over the engine globs) rather than as
 // a few dozen exceptions-baseline entries, which would manufacture false debt
-// and keep the fragmentation pressure the cap exists to relieve. Spread this
-// AFTER createRepoCodeQualityConfigs (so it overrides the 300 floor) and BEFORE
-// maxLinesExceptionConfigs (so genuine >500 outliers keep their per-file entry,
-// which wins last). Carried to `tools/lint-ratchet/**` when the engine moves.
-// Ruling: docs/agent_notes/backlog/lint-arch-review-2026-07/05-engine-file-consolidation.md.
+// and keep the fragmentation pressure the cap exists to relieve. The engine has
+// lived in `tools/lint-ratchet/**` (`@musi/lint-ratchet`) since the package seam
+// landed on 2026-07-18; Musi's adapter and shared adapter support remain under
+// `scripts/lint-ratchet/**` and `scripts/lib/baseline/**`, hence all three globs.
+// Spread this AFTER createRepoCodeQualityConfigs (so it overrides the 300 floor)
+// and BEFORE maxLinesExceptionConfigs (so genuine >500 outliers keep their
+// per-file entry, which wins last). Ruling retained in the landed leaf-05 record:
+// docs/agent_notes/backlog/lint-arch-review-2026-07/00-index.md.
 // Globs are scoped to `.ts` (the engine is all TypeScript): a bare
 // `scripts/lint-ratchet/**` would also match any JSON config placed there, and
 // applying a `local/*` code rule to a JSON file linted by the JSON parser fails
@@ -57,7 +57,7 @@ export const maxLinesEngineZoneConfigs = [
 
 // Generator-owned files carry no per-file cap — the size gate is turned off
 // entirely (the generator is the reviewed surface, not its emitted table). The
-// allowlist and its "must be generator-owned" guard live in shared-policy.js /
+// allowlist and its "must be generator-owned" guard live in max-lines-policy.js /
 // scripts/max-lines-exceptions.ts; here it only wires the `off` override, which
 // must be spread after the base `local/max-lines` rule to win.
 export const maxLinesGeneratedExemptionConfigs = maxLinesPolicy.generatedExemptions.map(
@@ -218,12 +218,7 @@ export function createRepoCodeQualityConfigs(repoRoot, localPlugin) {
         // Forbid the `@musi/shared/schemas` barrel; import from the source
         // file (e.g. `@musi/shared/schemas/spell.js`) so module boundaries stay
         // visible.
-        "@typescript-eslint/no-restricted-imports": [
-          "error",
-          {
-            patterns: [sharedSchemasBarrelRestrictedImportPattern],
-          },
-        ],
+        "@typescript-eslint/no-restricted-imports": restrictedImportsRule([]),
       },
     },
   ];

@@ -194,6 +194,9 @@ describe("no-swallowed-errors", () => {
           code: "try { doWork(); } catch (error) { const report = () => console.error(error); return null; }",
         },
         {
+          code: "try { doWork(); } catch (error) { function report() { console.error(error); } return null; }",
+        },
+        {
           code: "try { doWork(); } catch (error) { console[method](error); throw error; }",
         },
         {

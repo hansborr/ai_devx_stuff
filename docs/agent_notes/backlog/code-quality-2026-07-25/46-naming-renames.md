@@ -1,6 +1,14 @@
 # 46. Identifiers name the wrong thing: one word for two entities, one entity under two words
 
-Status: Proposed — not promoted
+Status: **Scheduled work landed 2026-07-30 on branch
+`feat/cq-server-comments-s14-s16`, merge `a01edb455` — stays open on optional S19
+and S20.** [SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md) slices **S15 and
+S16** delivered the two scheduled items, and the plan shrinks this leaf L→S.
+S15 is the only user-visible behaviour change in the cluster. **Steps 1 and 3
+remain optional** (S19, which also discharges leaf 05 step 3). **Steps 2, 4 and
+5 are dropped permanently**, and **step 8 is replaced by optional S20**, which
+extracts the five inline rect declarations and leaves the persisted `w`/`h`
+spelling alone (a durable ruling in [CONSTRAINTS.md](./CONSTRAINTS.md)).
 Client-cluster transfer: [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md)
 moved leaf 17 step 7 here because this leaf owns pure renames. The
 [server/comments plan](./SERVER-COMMENTS-PLAN.md) accepts ownership but rules

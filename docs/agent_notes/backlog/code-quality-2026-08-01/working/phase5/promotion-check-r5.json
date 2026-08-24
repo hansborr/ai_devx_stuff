@@ -1,0 +1,630 @@
+{
+  "contractVersion": 1,
+  "step": "2b-round-5",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewShaConfirmed": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "consults": [
+    {
+      "chunk": "gate-r5-01",
+      "files": 9
+    },
+    {
+      "chunk": "gate-r5-02",
+      "files": 8
+    }
+  ],
+  "results": [
+    {
+      "file": "163-ratchet-driven-file-boundaries-strand.md",
+      "promotionId": "R5B-L01-001",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 3,
+        "linksChecked": 5,
+        "priorPackRecordsOpened": [
+          "CQ25-41",
+          "CQ25-146"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live 28-PLAN still schedules CQ25-41’s sensor-family move while retaining the public facades and records CQ25-146’s refusal to restructure drift-ai; neither covers caller-neutral Knip diagnostics.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All Evidence citations and the two Proposed-direction test citations match the pin. Every link resolves, named commands exist, and the HEAD~1 augmentation preserves the host argument while adding the required CQ25-41 and leaf-137 coordination boundaries."
+    },
+    {
+      "file": "133-code-intel-daemon-guards-promise-wire-types.md",
+      "promotionId": "R5B-L02-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 15,
+        "commandsChecked": 1,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-11"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The cited source is accurate, but the leaf supplies no reproducible commands for its exact inventories: three overclaiming boundary sites, zero ping/pong declarations in daemon-protocol.ts, seven executable command kinds, six routable kinds, two duplicated response decoders, one result consumption point, one server-CLI parser, and three reachable/parser and usage commands. Re-derivation at the pin returned 3, 0, 7, 6, 2, 1, 1, 3, and 3 respectively.",
+          "correction": {
+            "oldString": "## Evidence\n",
+            "newString": "## Evidence\n\nReproducible inventories used by the counts below:\n\n- Overclaiming boundary sites: `git grep -n -E 'parsed as unknown as ParsedRequestEnvelope|command is ExecutableCliCommand|value is CodeIntelQueryResult' ebf096580b31f604861fadb3d4cbd4079da4f017 -- scripts/code-intel/daemon-server.ts scripts/code-intel/daemon-commands.ts scripts/code-intel/daemon-protocol.ts | wc -l`.\n- Ping/pong declarations in the protocol module: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/code-intel/daemon-protocol.ts | awk '/\"ping\"|pong(Response)?/{count++} END{print count+0}'`.\n- Executable command kinds: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/code-intel/types.ts | sed -n '121,136p' | rg -o 'kind: \"[^\"]+\"' | rg -v '\"help\"' | wc -l`.\n- Routable command kinds: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/code-intel/daemon-commands.ts | sed -n '3,10p' | rg -c '^  \"'`.\n- Response decoders: `git grep -n -E 'function (interpretResponse|parseLifecycleProbe)' ebf096580b31f604861fadb3d4cbd4079da4f017 -- scripts/code-intel/daemon-client.ts scripts/code-intel/lifecycle-probe.ts | wc -l`.\n- Query-result consumption points: `git grep -n 'isDaemonQueryResult(parsed.result' ebf096580b31f604861fadb3d4cbd4079da4f017 -- scripts/code-intel | wc -l`.\n- Server-CLI parsers: `git grep -n 'function parseServerCliCommand' ebf096580b31f604861fadb3d4cbd4079da4f017 -- scripts/code-intel/server-cli.ts | wc -l`.\n- Reachable parser commands: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/code-intel/server-cli.ts | sed -n '104p' | rg -o '\"(status|stop|restart)\"' | sort -u | wc -l`.\n- Usage commands: `git show ebf096580b31f604861fadb3d4cbd4079da4f017:scripts/code-intel/server-cli.ts | sed -n '108,115p' | rg -c 'bun run code:intel:server -- (status|stop|restart)'`.\n"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-11 records H18/H19 as landed and retains the broader result-correlation gap only as an unscheduled future note; it does not cover request decoding, ping/pong, or the unreachable private start arm.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations match the pin. The focused test command exists, all links and fragments resolve, and the augmentation preserves the protocol-version and request-validation constraints without making overview routable."
+    },
+    {
+      "file": "267-require-current-rationale-on-durable-harness.md",
+      "promotionId": "R5B-L02-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-10"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "currentAllowedPairs does contain eight entries at the pin, but the leaf supplies no reproducible command for that count.",
+          "correction": {
+            "oldString": "- `drift-ai.config.json:15-29` — all eight\n  `checks.ghost-files.currentAllowedPairs` entries are positional path pairs\n  with no rationale metadata.",
+            "newString": "- `drift-ai.config.json:15-29` — all eight\n  `checks.ghost-files.currentAllowedPairs` entries are positional path pairs\n  with no rationale metadata. Reproduce the count with\n  `bun -e 'const config = await Bun.file(\"drift-ai.config.json\").json(); console.log(config.checks[\"ghost-files\"].currentAllowedPairs.length)'`."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The later direction scopes the cleanup to two live max-lines exceptions. That count and the named paths are correct, but no reproducible command is present.",
+          "correction": {
+            "oldString": "- `eslint-config/max-lines-exceptions.baseline.json:147-159` — the live reasons\n  for `routers/srd.ts` and `rest-service.ts` append `+1`/`+4` implementation\n  deltas and a named `ux-audit` change to their durable structural\n  justifications.",
+            "newString": "- `eslint-config/max-lines-exceptions.baseline.json:147-159` — the live reasons\n  for `routers/srd.ts` and `rest-service.ts` append `+1`/`+4` implementation\n  deltas and a named `ux-audit` change to their durable structural\n  justifications. Reproduce the two-entry measurement with\n  `bun -e 'const { entries } = await Bun.file(\"eslint-config/max-lines-exceptions.baseline.json\").json(); const stale = entries.filter(({ reason }) => /\\+1|\\+4|ux-audit/u.test(reason)); console.log(stale.length, stale.map(({ path }) => path))'`."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-10 and its superseding 34-PLAN schedule other drift-ai contract work but do not add rationale metadata to ghost-file currentAllowedPairs.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All seven citations and three links are accurate. Both proposed commands were run read-only and returned the stated 8 and 2."
+    },
+    {
+      "file": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+      "promotionId": "R5B-L02-003",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-10",
+          "CQ25-47"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live 34-PLAN confines optional Zod work to report-contract parsers and explicitly excludes triage-verdict-input.ts; it does not cover deletion of the uninhabitable oversized field.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All 12 cited path/range loci within the eight Evidence entries match the pin. The augmentation preserves the predecessor’s verdict-contract claims, retains splitPathComponent, and explicitly documents the schema-version decision."
+    },
+    {
+      "file": "209-remove-the-unused-repository-root-parameter-from.md",
+      "promotionId": "R5B-L02-004",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 1,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The cited range does not show every history row initializing both fields or updating touch dates. newAggregate initializes them only when a path first appears; within each record, only the first occurrence of a path calls updateTouchDates, while every file row increments added.",
+          "correction": {
+            "oldString": "- `scripts/drift-ai/coldspots-aggregate.ts:23-58` — every history row updates\n  touch dates, increments `added`, and initializes both unread fields.",
+            "newString": "- `scripts/drift-ai/coldspots-aggregate.ts:23-58` — aggregation initializes both\n  unread fields; the first occurrence of each path in a record calls\n  `updateTouchDates`, and every file row increments `added`."
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "No coldspot-specific fixture constructs FileAggregate or contains its added or oldestTouchMs fields. Existing test-helper added values belong to live CommitFileChange input used by churn and birth calculations.",
+          "correction": {
+            "oldString": "Also remove `FileAggregate.added` and `FileAggregate.oldestTouchMs` from the\ntype, initializer, per-row aggregation, and coldspot-specific fixtures.",
+            "newString": "Also remove `FileAggregate.added` and `FileAggregate.oldestTouchMs` from the\ntype, initializer, and per-row aggregation."
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "The direction repeats the nonexistent-fixture claim. CommitFileChange.added must remain to preserve the protected birth-burst and churn semantics.",
+          "correction": {
+            "oldString": "coldspot tests to cover age and birth selection across multiple timestamps\nwhile dropping fixtures for the removed fields.",
+            "newString": "coldspot tests to cover age and birth selection across multiple timestamps."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named, and the live prior pack does not cover either the blame-parser root parameter or these coldspot aggregate fields.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The pinned git-grep command returns only the aggregate.added write at coldspots-aggregate.ts:41. The augmentation otherwise preserves the injected runner, blame arguments, stale-marker gate, blobless-clone behavior, age semantics, and birth selection."
+    },
+    {
+      "file": "203-add-previewapply-safety-boundary-srd.md",
+      "promotionId": "R5B-L03-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 4,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-172"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The host correctly says the current runner lacks a pre-write boundary, but the added Problem paragraph calls the preview/apply gate a present boundary. At the pin, backfill-runner.ts:19-22 has no such gate; it exists only in the proposed future state.",
+          "correction": {
+            "oldString": "The real boundaries are",
+            "newString": "After this change, the real boundaries will be"
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No named prior-pack record covers the tautological guards; live CQ25-172 mentions these backfills only as module-relative cwd counterexamples.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations match the pin, all four named package utilities exist, and the leaf-097 link resolves. The augmentation otherwise removes only self-derived membership checks, retains monster sourceType, and forbids a parallel allowlist."
+    },
+    {
+      "file": "205-rename-auth-service-to-reflect-its.md",
+      "promotionId": "R5B-L03-002",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The live prior pack has no record covering either the auth-service naming residual or the duplicated Bearer-header parser.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations match the pin. The rg command returns exactly the two stated README references, the link resolves, and the augmentation adds the required cycle-free shared extractor while preserving REST reply mapping and token verification behavior."
+    },
+    {
+      "file": "009-all-four-seed-generators-can-overwrite.md",
+      "promotionId": "R5B-L03-003",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 11,
+        "commandsChecked": 8,
+        "linksChecked": 4,
+        "priorPackRecordsOpened": [
+          "CQ25-171",
+          "CQ25-172"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-171 parks output-changing generator rewrites and CQ25-172 preserves attestation-not-drift-gate semantics; neither covers Prisma seed shutdown.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The three measurements return 4, 0, and 0 as stated. Every cited range, parser test, package script, focused-test command shape, and link checks out. The Prisma lifecycle augmentation remains a separate sub-scope and preserves both entrypoints’ command-specific work."
+    },
+    {
+      "file": "057-character-sheettesttsx-no-longer-tests.md",
+      "promotionId": "R5B-L05-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 16,
+        "commandsChecked": 5,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-195"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The claims of 11 imports/describes, 235 lines, and an absent character-sheet.tsx subject are correct but lack reproducible commands.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:8-18` — eleven\n  leaf-component imports; nothing in the file's 235 lines renders a composition,\n  and the directory contains no `character-sheet.tsx` subject.",
+            "newString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:8-18` — eleven\n  leaf-component imports; nothing in the file's 235 lines renders a composition,\n  and the directory contains no `character-sheet.tsx` subject. Exact commands\n  `rg -c '^import .* from \"\\./.*\\.js\";$' packages/client/src/components/sheet/character-sheet.test.tsx`,\n  `rg -c '^describe\\(' packages/client/src/components/sheet/character-sheet.test.tsx`,\n  `wc -l packages/client/src/components/sheet/character-sheet.test.tsx`, and\n  `find packages/client/src/components/sheet -maxdepth 1 -name 'character-sheet.tsx' | wc -l`\n  return `11`, `11`, `235`, and `0`, respectively."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The five named duplicate describes are present and have the cited colocated counterparts, but the count lacks a reproducible command.",
+          "correction": {
+            "oldString": "- Five describes duplicate colocated suites: `AbilityScores` (`:58-69`),\n  `SavingThrows` (`:71-85`), `SkillsList` (`:87-97`), `CombatStats` (`:99-120`),\n  `PersonalityPanel` (`:157-172`). Their colocated counterparts:",
+            "newString": "- Five describes duplicate colocated suites: `AbilityScores` (`:58-69`),\n  `SavingThrows` (`:71-85`), `SkillsList` (`:87-97`), `CombatStats` (`:99-120`),\n  `PersonalityPanel` (`:157-172`). Exact command\n  `rg -c '^describe\\(\"(AbilityScores|SavingThrows|SkillsList|CombatStats|PersonalityPanel)\"' packages/client/src/components/sheet/character-sheet.test.tsx`\n  returns `5`. Their colocated counterparts:"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "ability-scores.test.tsx does contain five describes and twenty tests, but neither count has a reproducible command. The all-six wording is another uncommanded count.",
+          "correction": {
+            "oldString": "  - `ability-scores.test.tsx` (5 describes, 20 tests) plus\n    `ability-scores.roll.test.tsx:13-34`, whose read-only rendering describe\n    asserts the same scores/modifiers and all-six presence.",
+            "newString": "  - `ability-scores.test.tsx` (5 describes, 20 tests; exact commands\n    `rg -c '^describe\\(' packages/client/src/components/sheet/ability-scores.test.tsx` and\n    `rg -c '^  it\\(' packages/client/src/components/sheet/ability-scores.test.tsx`\n    return `5` and `20`) plus `ability-scores.roll.test.tsx:13-34`, whose\n    read-only rendering describe asserts the same scores/modifiers and the\n    presence of every ability."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The cited personality-panel assertions are accurate, but the numeric four-string claim lacks a reproducible command.",
+          "correction": {
+            "oldString": "  - `personality-panel.test.tsx:17-21, 42-45` — the four personality strings and\n    the empty-fields render-nothing assertion, verbatim.",
+            "newString": "  - `personality-panel.test.tsx:17-21, 42-45` — the cited personality strings and\n    the empty-fields render-nothing assertion, verbatim."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The five named live components do have sole test-file coverage in the aggregate, but the count and importer measurement lack the exact grep command.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:24-56,135-155,174-235`\n  — five describes are sole coverage for live components: `SheetHeader`,\n  `ConditionsBar`, `CurrencyPanel`, `ProficienciesPanel`, and `FeaturesPanel`.\n  A grep for test-file importers confirms this file is the only test importing\n  those subjects.",
+            "newString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:24-56,135-155,174-235`\n  — five describes are sole coverage for live components: `SheetHeader`,\n  `ConditionsBar`, `CurrencyPanel`, `ProficienciesPanel`, and `FeaturesPanel`.\n  Exact command\n  `for subject in sheet-header conditions-bar currency-panel proficiencies-panel features-panel; do rg -l \"from \\\"\\./${subject}\\.js\\\"\" packages/client/src --glob '**/*.test.*' --glob '**/*.spec.*'; done | sort | uniq -c`\n  returns `5 packages/client/src/components/sheet/character-sheet.test.tsx`,\n  confirming this file is the only test importing those subjects."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The aggregate is the legacy DeathSaves module’s sole external consumer, but that count lacks a reproducible command.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:12,122-133` —\n  the aggregate imports the legacy `DeathSaves` module and is its only external\n  consumer.",
+            "newString": "- `packages/client/src/components/sheet/character-sheet.test.tsx:12,122-133` —\n  the aggregate imports the legacy `DeathSaves` module and is its only external\n  consumer; exact command\n  `rg -l 'from \"\\./death-saves\\.js\"' packages/client/src | wc -l` returns `1`."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The CombatStats base-rendering case is the sole test-file match for the named stat test IDs, but the one-file count lacks a reproducible command.",
+          "correction": {
+            "oldString": "- One test inside a \"duplicate\" describe is itself sole coverage: the\n  `CombatStats` base-rendering test at `character-sheet.test.tsx:100-107`\n  (`stat-ac`, `stat-initiative`, `stat-prof-bonus`, `stat-hit-dice`,\n  `stat-speed`) has no colocated counterpart — `combat-stats.test.tsx` queries\n  only the inspiration/fallback/rest-button surfaces.",
+            "newString": "- One test inside a \"duplicate\" describe is itself sole coverage: the\n  `CombatStats` base-rendering test at `character-sheet.test.tsx:100-107`\n  (`stat-ac`, `stat-initiative`, `stat-prof-bonus`, `stat-hit-dice`,\n  `stat-speed`) has no colocated counterpart — exact command\n  `rg -l 'stat-(ac|initiative|prof-bonus|hit-dice|speed)' packages/client/src --glob '**/*.test.*' --glob '**/*.spec.*' | wc -l`\n  returns `1`, while `combat-stats.test.tsx` queries only the\n  inspiration/fallback/rest-button surfaces."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "sheet-layout.test.tsx is 482 lines at the pin, but the measurement lacks a reproducible command.",
+          "correction": {
+            "oldString": "- The real composition suite:\n  `packages/client/src/pages/character-sheet/sheet-layout.test.tsx:16,85` —\n  imports `CharacterSheetContent` and tests it across 482 lines;\n  `packages/client/src/components/sheet/MODULE.md:19-20` names\n  `pages/character-sheet/sheet-layout.tsx` the composition root.",
+            "newString": "- The real composition suite:\n  `packages/client/src/pages/character-sheet/sheet-layout.test.tsx:16,85` —\n  imports `CharacterSheetContent` and tests it across 482 lines; exact command\n  `wc -l packages/client/src/pages/character-sheet/sheet-layout.test.tsx`\n  returns `482`. `packages/client/src/components/sheet/MODULE.md:19-20` names\n  `pages/character-sheet/sheet-layout.tsx` the composition root."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "There are zero source or documentation references outside this audit pack, but the claim supplies no command and does not state the necessary pack exclusion.",
+          "correction": {
+            "oldString": "4. Rename the file (`sheet-panels.test.tsx` or similar). No source or doc file\n   references the old name, but `lint-ratchet.baseline.json:1260-1262` does;\n   regenerate the baseline as part of the rename (the ignored\n   `packages/client/tsconfig.tsbuildinfo` may also retain the old path).",
+            "newString": "4. Rename the file (`sheet-panels.test.tsx` or similar). No source or doc file\n   outside this audit pack references the old name: exact command\n   `rg -l 'character-sheet\\.test\\.tsx' packages/client/src docs --glob '!docs/agent_notes/backlog/code-quality-2026-08-01/**' | wc -l`\n   returns `0`. `lint-ratchet.baseline.json:1260-1262` does reference it;\n   regenerate the baseline as part of the rename (the ignored\n   `packages/client/tsconfig.tsbuildinfo` may also retain the old path)."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The current pinned directory contains 88 direct files, not 87, because the prior-pack MODULE.md has landed; the count also lacks a reproducible command.",
+          "correction": {
+            "oldString": "- Out of scope: splitting `components/sheet/` (87 files) into subdirectories or",
+            "newString": "- Out of scope: splitting `components/sheet/` (88 files, measured by exact command\n  `find packages/client/src/components/sheet -maxdepth 1 -type f | wc -l`) into subdirectories or"
+          }
+        },
+        {
+          "kind": "link",
+          "severity": "P2",
+          "detail": "The bare prose reference “leaf 48” is ambiguous because both the current and prior packs contain a leaf 48. The intended prior-pack target exists at 48-sheet-module-doc.md.",
+          "correction": {
+            "oldString": "  barred a sheet-directory split from leaf 48 itself, but explicitly says a",
+            "newString": "  barred a sheet-directory split from\n  [prior-pack leaf 48](../code-quality-2026-07-25/48-sheet-module-doc.md), but explicitly says a"
+          }
+        }
+      ],
+      "priorPackStatus": "ruled-out",
+      "priorPackNote": "CQ25-195 rejects the broader features-root reorganization and in-place sheet-directory split but expressly permits a separately argued proposal; it does not cover this prune-and-rename.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All other citations match the pin. The two existing rg measurements return 0 exact production imports and one suffix false positive; all three proposed focused-test commands exist but were not run. The augmentation correctly reduces the survivor count to five, deletes the obsolete DeathSaves path, and preserves DeathSavesInteractive coverage."
+    },
+    {
+      "file": "047-toolhandler-erases-coordinate-domains.md",
+      "promotionId": "R5B-L05-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 13,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "11-canvas-tool-typing.md",
+          "CQ25-188"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The problem says a coordinate mismatch makes shapes land at 1/50th scale. At the pin, DEFAULT_CELL_SIZE_PX is 40 and setCellSizePx permits other values; the actual scale factor is 1 / cellSizePx.",
+          "correction": {
+            "oldString": "as shapes land at 1/50th scale or fog regions snap to pixel coordinates.",
+            "newString": "as shapes land at `1 / cellSizePx` of their intended scale or fog regions snap to pixel coordinates."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The leaf gives a repository count—four use-canvas-input test files—without a reproducible command. The count is currently four, but the gate requires counts to be reproducible from the leaf.",
+          "correction": {
+            "oldString": "  `MODULE.md:80-81` must survive the restructure. The four existing test files\n  (`use-canvas-input*.test.ts`) exercise all of it through the hook and must",
+            "newString": "  `MODULE.md:80-81` must survive the restructure. The existing\n  `use-canvas-input*.test.ts` files exercise all of it through the hook and must"
+          }
+        },
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The packet required updating the predecessor's no-other-leaf claim, but the replacement remains false. Current-pack leaf 105 edits the ToolHandler.onFinalize comment at tool-handlers.ts:30, while leaf 047's descriptor restructure removes that interface comment; landing order or skip coordination is required.",
+          "correction": {
+            "oldString": "- No sequencing edge remains to another current-pack leaf. Within this leaf,\n  land the point-history split with or after the descriptor restructure, not\n  as a concurrent edit to `tool-handlers.ts`; preserve coordinate typing and\n  finalize/cancel ordering across both steps.",
+            "newString": "- **Same-file sequencing:** [105-client-source-comments-preserve-three.md](./105-client-source-comments-preserve-three.md)\n  also edits the current `ToolHandler.onFinalize` comment, which this descriptor\n  restructure removes. Land 105 first, or skip that comment-only step if this\n  leaf has already landed. Within this leaf, land the point-history split with\n  or after the descriptor restructure, not as a concurrent edit to\n  `tool-handlers.ts`; preserve coordinate typing and finalize/cancel ordering\n  across both steps."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live leaf 11 is landed and complementary; CQ25-188 declines broad store decomposition and fireAfterCommit changes but leaves the bounded per-tool history residual uncovered.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All 23 path/range occurrences in the 13 evidence bullets and all 9 additional inline line anchors were opened at the pin. The augmentation otherwise preserves the predecessor and settled direction."
+    },
+    {
+      "file": "268-type-dice-roll-metadata-as-rollresult-at-the.md",
+      "promotionId": "R5B-L05-021",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-179"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf repeatedly measures four metadata assertions across two hooks, but provides no reproducible command for that count. The cited ranges are accurate, and a pin-qualified re-measurement returns exactly four matches across use-ability-roll.ts and use-weapon-roll.ts.",
+          "correction": {
+            "oldString": "- `packages/client/src/hooks/use-weapon-roll.ts:39-60,67-87` — the weapon hook\n  repeats three metadata assertions: damage toast, attack toast, and the\n  attack-success callback that decides whether to double damage dice.",
+            "newString": "- `packages/client/src/hooks/use-weapon-roll.ts:39-60,67-87` — the weapon hook\n  repeats three metadata assertions: damage toast, attack toast, and the\n  attack-success callback that decides whether to double damage dice. Pin\n  re-measurement:\n  `git grep -n 'metadata as RollResult | undefined' ebf096580b31f604861fadb3d4cbd4079da4f017 -- 'packages/client/src/hooks/use-*-roll.ts'`\n  returns four matches across exactly these two hooks."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-179 preserves the persisted RollResult/DiceGroupResult shapes, including rolls: [] for flat terms and optional notation; it does not cover procedure-specific dice.roll response typing.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All seven cited source ranges match the audit pin. Both links resolve, and the settled response-schema/safeParse direction and both author constraints are present."
+    },
+    {
+      "file": "269-reset-createmapdialog-state-on-every-close-path.md",
+      "promotionId": "R5B-L05C-002",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-216",
+          "66-sheet-owner-capability-gate.md",
+          "72-sheet-capability-callback-source.md"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-216/leaf 66 declines dialog lifecycle work only as over-scope of the sheet owner-capability delivery; open leaf 72 explicitly excludes dialog lifecycle, and neither record covers CreateMapDialog.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All evidence, links, packet fields, settled direction, and constraints are accurate."
+    },
+    {
+      "file": "248-preserve-registered-route-typing-through.md",
+      "promotionId": "R5B-L05D-001",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named, and the packet declares no prior-pack residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All 10 evidence bullets and 12 distinct path/line citations match the pin. The augmentation preserves the predecessor, adopts the four-page exact-path direction, retains the protected host header, and carries both author constraints."
+    },
+    {
+      "file": "270-add-a-local-orientation-contract-for-the-client.md",
+      "promotionId": "R5C-002",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 3,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record covers the missing client wizard orientation contract.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Measurements reproduced: 21 production files and no MODULE.md. All citations, commands, links, packet fields, settled direction, and constraints are accurate."
+    },
+    {
+      "file": "094-two-documents-both-claim-be-authoritative.md",
+      "promotionId": "R5C-003",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 15,
+        "commandsChecked": 4,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-78"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-78 only forbids recombining the four audience-partitioned lint-ratchet guides; it does not cover their omission from the guide table, freshness table-membership semantics, authority wording, or structured-logging metadata.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The exact guide measurement returns only lint-ratchet-merges.md and lint-ratchet-reference.md. The augmentation preserves the host authority split while adding both completeness fixes and the folded-in structured-logging fix."
+    },
+    {
+      "file": "152-path-policy-query-core-closed-over-musis.md",
+      "promotionId": "R5C-006",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 14,
+        "commandsChecked": 10,
+        "linksChecked": 6,
+        "priorPackRecordsOpened": [
+          "CQ25-64",
+          "CQ25-119"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The augmentation deleted the predecessor's explicit boundary that smoke-test-files.ts must remain the extracted engine's only local runtime dependency. The neutral parser and matcher do not require weakening that boundary: the engine consumes the matcher there, while the moved structural type can remain a type-only dependency.",
+          "correction": {
+            "oldString": "   with smoke dependencies supplied as lazy providers. Its query-facing policy\n   and structural smoke-subject types must not require a Musi module. Document\n   the copy contract plainly: bring a `PathPolicy` value and smoke providers;\n   the engine has zero Musi imports.",
+            "newString": "   with smoke dependencies supplied as lazy providers. Its only local runtime\n   dependency should be the pure predicates in `smoke-test-files.ts`; its\n   query-facing policy and structural smoke-subject types must not require a\n   Musi module. Document the copy contract plainly: bring a `PathPolicy` value\n   and smoke providers; the engine has zero Musi imports."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The leaf repeatedly measures 22 query names/handlers and says two consume smoke data, but supplies no reproducible command for either count. Re-derivation at the pin returns 22 and 2.",
+          "correction": {
+            "oldString": "- `scripts/path-policy/path-policy-query-core.ts:5-28` declares 22 query names.\n  Only `script-smoke-test-names` and `script-smoke-tests` consume smoke-registry\n  or discovery data; `deletion-class:script-smoke-sensitive` is smoke-related\n  but uses only policy selectors.",
+            "newString": "- `scripts/path-policy/path-policy-query-core.ts:5-28` declares 22 query names.\n  The exact commands\n  `sed -n '5,28p' scripts/path-policy/path-policy-query-core.ts | rg -c '^  \"'`\n  and\n  `rg -c '^  (\"script-smoke-test-names\"|\"script-smoke-tests\"):' scripts/path-policy/path-policy-query-core.ts`\n  return 22 query names and 2 smoke-data-consuming handlers, respectively.\n  `deletion-class:script-smoke-sensitive` is smoke-related but uses only policy\n  selectors."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The evidence calls the CLI import list five public exports without a reproducible counting command. The cited lines visibly enumerate the exports, so the minimal correction removes the unnecessary numerical measurement.",
+          "correction": {
+            "oldString": "`scripts/path-policy/path-policy-query.ts:3-9` imports the core's five public\n  exports",
+            "newString": "`scripts/path-policy/path-policy-query.ts:3-9` imports the core's public\n  exports"
+          }
+        }
+      ],
+      "priorPackStatus": "partially-landed",
+      "priorPackNote": "CQ25-119 landed H14's smoke-file predicates and path normalization, not smoke-subject parsing or matching; H15/CQ25-64 remains open and blocked on 27.3, so the residual is not covered.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All three explicit packet constraints are present. All other citations match the pin; the stated commands return 913 lines and 53 entries, all named commands/scripts exist, and all links resolve."
+    },
+    {
+      "file": "149-generic-codemod-infrastructure-hidden-behind.md",
+      "promotionId": "R5C-007",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 15,
+        "commandsChecked": 3,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": [
+          "CQ25-81"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "packet-fidelity",
+          "severity": "P2",
+          "detail": "The packet adjudicates the added material at Confidence: medium. The augment exception preserves only the host Theme/Area/Severity/Size header; the leaf's Source line still says Confidence: high.",
+          "correction": {
+            "oldString": "Source: codebase quality audit 2026-08-01 · Confidence: high",
+            "newString": "Source: codebase quality audit 2026-08-01 · Confidence: medium"
+          }
+        },
+        {
+          "kind": "prior-pack",
+          "severity": "P2",
+          "detail": "The leaf says no 2026-07-25 ruling applies, but live prior-pack record CQ25-81 in CONSTRAINTS.md:16 establishes the standing boundary not to merge the codemod input/output candidate finders. The leaf already honors that boundary, so this does not cover or kill the extraction.",
+          "correction": {
+            "oldString": "- No 2026-07-25 leaf establishes a ruling or dependency for this extraction.",
+            "newString": "- Prior-pack record CQ25-81 in [CONSTRAINTS.md](../code-quality-2026-07-25/CONSTRAINTS.md) establishes one boundary for this extraction: do not merge the codemod input/output candidate finders; no other prior-pack dependency applies."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-81 constrains candidate-finder merging but does not cover the neutral extraction or the import-normalization ownership residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited ranges match the pin; exact measurements re-derived as 21 direct imports, 13 unrelated-family imports, and five smoke headers. The augmentation otherwise preserves the predecessor and settled direction."
+    }
+  ],
+  "orchestratorRulings": [
+    {
+      "subject": "augmented host leaf Confidence (leaf 149)",
+      "ruling": "skipped — host keeps its own Confidence",
+      "detail": "The gate proposed downgrading leaf 149's Source line from Confidence: high to medium because round 5's addition was adjudicated at medium. This is the same ruling as the header dispute, one field further along: the packet grades the addition, not the host, and a high-confidence leaf does not become medium because a medium-confidence claim landed inside it — that would misrepresent every claim the leaf already made. The gate read the written exception correctly (it named only Theme/Area/Severity/Size), so the exception text is what was too narrow. A future augment packet should say header AND Source line."
+    },
+    {
+      "subject": "the other three packet-fidelity defects",
+      "ruling": "applied — genuine",
+      "detail": "Unlike the header/Confidence class, 047 and 152 were real dropped or falsified predecessor claims (a no-other-leaf claim that stayed false, and a deleted boundary requiring smoke-test-files.ts to remain the extracted engine's only local runtime dependency). Not every packet-fidelity defect is the augment-header question."
+    }
+  ],
+  "corrections": {
+    "proposed": 27,
+    "applied": 26,
+    "skipped": 1,
+    "skippedDetail": [
+      "149 packet-fidelity/P2 — host keeps its own Confidence (see orchestratorRulings)"
+    ]
+  },
+  "summary": {
+    "filesChecked": 17,
+    "clean": 8,
+    "needsFix": 9,
+    "kill": 0,
+    "defectsByKind": {
+      "evidence": 19,
+      "command": 0,
+      "link": 1,
+      "priorPack": 1,
+      "packetFidelity": 3,
+      "coherence": 3
+    },
+    "notes": [
+      "Every proposed oldString was verified to occur exactly once.",
+      "No tests or builds were run, and no files were modified."
+    ]
+  }
+}

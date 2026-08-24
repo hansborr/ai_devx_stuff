@@ -36,7 +36,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd) \
   || warn_and_exit "could not resolve the installer directory"
 # The lib path is per-metric; point ShellCheck at one representative lib so it
 # can resolve the variables and render fn every lib defines.
-# shellcheck source=scripts/git/lint-ratchet-merge-driver-lib.sh
+# shellcheck source=scripts/git/knip-unused-exports-merge-driver-lib.sh
 . "$script_dir/$MERGE_DRIVER_LIB_BASENAME" \
   || warn_and_exit "missing $script_dir/$MERGE_DRIVER_LIB_BASENAME"
 
@@ -103,6 +103,8 @@ fi
 attributes_lock="$installed_driver_dir/baseline-merge-driver-attributes.lock"
 mkdir -p "$installed_driver_dir" \
   || warn_and_exit "could not create merge driver lock directory: $installed_driver_dir"
+command -v flock >/dev/null 2>&1 \
+  || warn_and_exit "flock is required; install util-linux on Linux or run brew install flock on macOS."
 exec {attributes_lock_fd}>"$attributes_lock" \
   || warn_and_exit "could not open merge driver attributes lock: $attributes_lock"
 flock "$attributes_lock_fd" \

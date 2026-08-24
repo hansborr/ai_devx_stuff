@@ -1,42 +1,18 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 
+import { harnessDiagnosticsSchema } from "@musi/harness-diagnostics/schema.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { harnessDiagnosticsSchema } from "../packages/shared/src/schemas/harness-diagnostics.js";
-import {
-  ALL_CHECKS,
-  buildInventoryByDir,
-  buildReport,
-  buildSourceExtensions,
-  type ChangedFile,
-  CHECK_PLUGINS,
-  DEFAULT_BASE,
-  DEFAULT_CHECKS,
-  DEFAULT_CHUNK_SIZE,
-  type DetectorScope,
-  discoverChangedFiles,
-  DRIFT_SCHEMA_VERSION,
-  DriftAiError,
-  filterScope,
-  formatJson,
-  formatText,
-  type GitRunner,
-  isIgnoredPath,
-  parseArgs,
-  parseNameStatus,
-  resolveBaseRef,
-  resolveMergeBase,
-  resolveRepoRoot,
-  runDriftAi,
-  toChangedScopeFile,
-  toCurrentScopeFile,
-} from "./drift-ai.js";
+import { ALL_CHECKS, DEFAULT_CHECKS } from "./drift-ai/check-metadata.js";
 import type { CheckOverrides, CheckRunInput } from "./drift-ai/check-plugin.js";
+import { CHECK_PLUGINS } from "./drift-ai/check-registry.js";
+import { CLI_OPTIONS, cliOptionsSchema, DriftAiHelp, parseArgs } from "./drift-ai/cli-args.js";
 import type { FileReader } from "./drift-ai/comments.js";
 import { parseDriftAiConfig } from "./drift-ai/config.js";
 import type { StatRunner } from "./drift-ai/current-inventory.js";
 import type { JscpdRunner } from "./drift-ai/duplicates-runner.js";
+import { DriftAiError } from "./drift-ai/errors.js";
 import {
   DEFAULT_DEPENDENTS_HINT,
   DEFAULT_GHOST_FILE_ENTRY_POINT_STEMS,
@@ -46,10 +22,21 @@ import {
   GHOST_FILES_REPAIR_HINT_PREFIX,
 } from "./drift-ai/ghost-files.js";
 import {
+  discoverChangedFiles,
+  filterScope,
+  type GitRunner,
+  isIgnoredPath,
+  parseNameStatus,
+  resolveBaseRef,
+  resolveMergeBase,
+  resolveRepoRoot,
+} from "./drift-ai/git-changed-scope.js";
+import {
   currentRepoGit as makeCurrentGit,
   makeStubGit,
 } from "./drift-ai/git-runner.test-helper.js";
 import type { ModuleGraphRunner } from "./drift-ai/import-cycles-graph.js";
+import { buildInventoryByDir } from "./drift-ai/inventory-by-dir.js";
 import {
   clearKnipRunCache,
   KNIP_FILE_SYMBOL_INCLUDE_CATEGORIES,
@@ -65,7 +52,22 @@ import {
   NEAR_DUPLICATE_TOOL,
 } from "./drift-ai/near-duplicates.js";
 import { nearDuplicatesCheck } from "./drift-ai/near-duplicates-check.js";
+import { buildReport } from "./drift-ai/report-builder.js";
+import { formatJson, formatText } from "./drift-ai/report-format.js";
+import { runDriftAi } from "./drift-ai/runner.js";
+import {
+  buildSourceExtensions,
+  type DetectorScope,
+  toChangedScopeFile,
+  toCurrentScopeFile,
+} from "./drift-ai/scope.js";
 import type { SuppressionsGitRunner } from "./drift-ai/suppressions.js";
+import {
+  type ChangedFile,
+  DEFAULT_BASE,
+  DEFAULT_CHUNK_SIZE,
+  DRIFT_SCHEMA_VERSION,
+} from "./drift-ai/types.js";
 import { HARNESS_DIAGNOSTICS_OUTPUT_ENV } from "./harness/harness-diagnostics-output.js";
 import { registerTempRootCleanup } from "./test-support/tmp-repo.test-helper.js";
 
@@ -313,6 +315,19 @@ function thrownMessage(run: () => unknown): string {
 }
 
 describe("parseArgs", () => {
+  it("declares the same option names in the parseCli array and the Zod schema", () => {
+    const optionNames = CLI_OPTIONS.map((option) => option.name);
+    expect(new Set(optionNames).size).toBe(optionNames.length);
+    expect([...optionNames].sort()).toEqual([...Object.keys(cliOptionsSchema.shape)].sort());
+  });
+
+  it("mentions every declared option in the usage text", () => {
+    const usage = new DriftAiHelp().message;
+    for (const option of CLI_OPTIONS) {
+      expect(usage).toContain(option.name);
+    }
+  });
+
   it("defaults to base main, default checks, text format", () => {
     const options = parseArgs([]);
     expect(options.scopeMode).toBe("changed");
@@ -516,8 +531,21 @@ describe("parseDriftAiConfig", () => {
           entryPointStems: ["Mod", "mod", "index.server"],
           roleMarkerTokens: ["Kind", "kind", "type"],
           currentAllowedPairs: [
-            ["./src/foo-helper.ts", "src/foo.ts"],
-            ["src/b.ts", "src/a.ts"],
+            {
+              files: ["./src/foo-helper.ts", "src/foo.ts"],
+              rationale:
+                "The helper remains the pure seam for foo; remove when that seam is folded into foo.",
+            },
+            {
+              files: ["src/b.ts", "src/a.ts"],
+              rationale:
+                "These modules own distinct runtime roles; remove when their responsibilities converge.",
+            },
+            {
+              files: ["src/foo.ts", "src/foo-helper.ts"],
+              rationale:
+                "The normalized duplicate retains its metadata; remove when foo no longer imports the helper seam.",
+            },
           ],
         },
       },
@@ -536,8 +564,16 @@ describe("parseDriftAiConfig", () => {
     expect(config.checks["ghost-files"].entryPointStems).toEqual(["index.server", "mod"]);
     expect(config.checks["ghost-files"].roleMarkerTokens).toEqual(["kind", "type"]);
     expect(config.checks["ghost-files"].currentAllowedPairs).toEqual([
-      { files: ["src/a.ts", "src/b.ts"] },
-      { files: ["src/foo-helper.ts", "src/foo.ts"] },
+      {
+        files: ["src/a.ts", "src/b.ts"],
+        rationale:
+          "These modules own distinct runtime roles; remove when their responsibilities converge.",
+      },
+      {
+        files: ["src/foo-helper.ts", "src/foo.ts"],
+        rationale:
+          "The normalized duplicate retains its metadata; remove when foo no longer imports the helper seam.",
+      },
     ]);
   });
 
@@ -621,14 +657,25 @@ describe("parseDriftAiConfig", () => {
     expect(() =>
       parseDriftAiConfig({
         checks: {
-          "ghost-files": { currentAllowedPairs: [["src/foo.ts"]] },
+          "ghost-files": {
+            currentAllowedPairs: [
+              { files: ["src/foo.ts"], rationale: "One path cannot define a pair." },
+            ],
+          },
         },
       }),
     ).toThrow(/two-path array/u);
     expect(() =>
       parseDriftAiConfig({
         checks: {
-          "ghost-files": { currentAllowedPairs: [["src/foo.ts", "../outside.ts"]] },
+          "ghost-files": {
+            currentAllowedPairs: [
+              {
+                files: ["src/foo.ts", "../outside.ts"],
+                rationale: "The files remain separate until the outside module is retired.",
+              },
+            ],
+          },
         },
       }),
     ).toThrow(/must stay inside the repo/u);
@@ -667,6 +714,39 @@ describe("parseDriftAiConfig", () => {
         },
       }),
     ).toThrow(/must be one filename stem/u);
+  });
+
+  it("requires a nonblank rationale on every current ghost-file allowed pair", () => {
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: [{ files: ["src/foo-helper.ts", "src/foo.ts"] }],
+          },
+        },
+      }),
+    ).toThrow(/currentAllowedPairs\[0\]\.rationale.*non-empty string/u);
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: [{ files: ["src/foo-helper.ts", "src/foo.ts"], rationale: "   " }],
+          },
+        },
+      }),
+    ).toThrow(/currentAllowedPairs\[0\]\.rationale.*non-empty string/u);
+  });
+
+  it("rejects the legacy positional currentAllowedPairs shape with migration guidance", () => {
+    expect(() =>
+      parseDriftAiConfig({
+        checks: {
+          "ghost-files": {
+            currentAllowedPairs: [["src/foo-helper.ts", "src/foo.ts"]],
+          },
+        },
+      }),
+    ).toThrow(/must be an object with \{ files: \[left, right\], rationale \}/u);
   });
 });
 
@@ -1133,7 +1213,11 @@ describe("buildReport / formatText / formatJson", () => {
 
     expect(report.enabledChecks).toEqual([]);
     expect(report.skippedChecks).toEqual([
-      { check: "suppressions", reason: "only available in changed scope" },
+      {
+        check: "suppressions",
+        reason: "only available in changed scope",
+        code: "changed-scope-only",
+      },
     ]);
     const text = formatText(report);
     expect(text).toContain("skipped: suppressions — only available in changed scope");
@@ -1141,6 +1225,19 @@ describe("buildReport / formatText / formatJson", () => {
       "drift:ai: suppressions is only available in changed scope; nothing to run.",
     );
     expect(text).not.toContain("drift:ai: no implemented checks selected.");
+
+    // The special branch dispatches on skip.check + skip.code, so rewording the
+    // human reason changes only the rendered prose, never which branch runs.
+    const reworded = formatText({
+      ...report,
+      skippedChecks: [
+        { check: "suppressions", reason: "needs a changed-file diff", code: "changed-scope-only" },
+      ],
+    });
+    expect(reworded).toContain(
+      "drift:ai: suppressions is needs a changed-file diff; nothing to run.",
+    );
+    expect(reworded).not.toContain("was skipped:");
   });
 
   it("uses explicit no-op runners from the supplied context", () => {
@@ -1162,12 +1259,12 @@ describe("buildReport / formatText / formatJson", () => {
     expect(report.findings[0]?.relatedFiles).toEqual(["src/foo-helper.ts", "src/foo.ts"]);
   });
 
-  it("renders a clear placeholder when no checks are enabled (in-flight leaf state)", () => {
-    // Reachable when an in-flight leaf adds a new id to ALL_CHECKS before
-    // wiring it into IMPLEMENTED_CHECKS. The branch keeps the CLI
-    // self-describing during that handoff window. Using "comments" here is
-    // arbitrary — formatText only branches on enabledChecks being empty.
-    const skipped = [{ check: "comments" as const, reason: "check is not implemented" }];
+  it("renders a clear placeholder when no checks were selected at all", () => {
+    // A report with nothing enabled AND nothing skipped means no check was
+    // dispatched. Unreachable through parseArgs (an empty --check list falls
+    // back to DEFAULT_CHECKS), but formatText is a pure function over
+    // DriftReport, so the placeholder keeps a hand-built or degenerate report
+    // self-describing instead of rendering an empty string.
     const text = formatText({
       schemaVersion: DRIFT_SCHEMA_VERSION,
       scopeMode: "changed",
@@ -1176,7 +1273,7 @@ describe("buildReport / formatText / formatJson", () => {
       roots: [],
       configPath: null,
       enabledChecks: [],
-      skippedChecks: skipped,
+      skippedChecks: [],
       summary: { total: 0, byCheck: {} },
       scopeCount: 0,
       scope: [],
@@ -1310,6 +1407,7 @@ describe("runDriftAi", () => {
     const prime = (): void => {
       const runner = memoizingDefaultKnipRunner({
         analyzedRepoRoot: "/repo/target",
+        commandLabel: "drift:ai",
         knipBin: "/bin/knip",
         underlyingRunner: counting,
       });
@@ -1423,6 +1521,28 @@ describe("runDriftAi", () => {
 
   it("drives --scope current --check layer-direction through the module graph", () => {
     const repoRoot = makeTempDir();
+    // The built-in default is zero layer-direction rules (layering policy is
+    // repo policy), so the target repo supplies its rule via auto-discovered
+    // config — the same path a real adopter uses.
+    writeFileSync(
+      path.join(repoRoot, "drift-ai.config.json"),
+      JSON.stringify({
+        checks: {
+          "layer-direction": {
+            rules: [
+              {
+                id: "utils-must-not-import-services",
+                sourceLayer: "utils",
+                sourcePrefix: "packages/server/src/utils/",
+                targetLayer: "services",
+                targetPrefix: "packages/server/src/services/",
+                hint: "move the dependency down: keep utils independent of services.",
+              },
+            ],
+          },
+        },
+      }),
+    );
     const files = [
       "packages/server/src/utils/character-mapping.ts",
       "packages/server/src/services/character-create.ts",
@@ -1681,7 +1801,13 @@ describe("runDriftAi", () => {
       JSON.stringify({
         checks: {
           "ghost-files": {
-            currentAllowedPairs: [["src/foo/bar-helper.ts", "src/foo/bar.ts"]],
+            currentAllowedPairs: [
+              {
+                files: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
+                rationale:
+                  "The helper and module remain separate implementation seams; remove when they are consolidated.",
+              },
+            ],
           },
         },
       }),
@@ -2761,5 +2887,16 @@ describe("runDriftAi HARNESS_DIAGNOSTICS_OUTPUT sidecar", () => {
 
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("HARNESS_DIAGNOSTICS_OUTPUT sidecar");
+  });
+});
+
+describe("drift:ai root entrypoint", () => {
+  it("keeps scripts/drift-ai.ts a pure executable with zero export statements", () => {
+    const entrypoint = readFileSync(path.join(process.cwd(), "scripts/drift-ai.ts"), "utf8");
+    // Mirrors the code-intel pin in scripts/code-intel/cli-main.test.ts: the
+    // library facade was deleted by CQ-142 and must not come back. Read the
+    // file as text instead of importing it — importing the root now runs the
+    // CLI.
+    expect(entrypoint).not.toMatch(/^export /mu);
   });
 });

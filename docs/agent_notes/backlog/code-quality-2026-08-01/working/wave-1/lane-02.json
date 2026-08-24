@@ -1,0 +1,1188 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-02-analyzers",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L02-001",
+      "title": "Musi repository policy is embedded throughout ostensibly reusable analyzer cores",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "high",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/layer-direction-check-config.ts",
+          "line": 4,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The check exposes empty configuration although its behavior depends on repository-specific layers and exceptions."
+        },
+        {
+          "path": "scripts/drift-ai/layer-direction.ts",
+          "line": 33,
+          "endLine": 63,
+          "measurement": null,
+          "note": "Musi server roots, layer prefixes, rules, and allowed edges are hard-coded in the implementation."
+        },
+        {
+          "path": "scripts/code-intel/overview-call-targets.ts",
+          "line": 93,
+          "endLine": 180,
+          "measurement": null,
+          "note": "Service and broadcast detection depends on Musi path fragments, helper names, and io/to/emit spellings."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-group.ts",
+          "line": 120,
+          "endLine": 152,
+          "measurement": null,
+          "note": "Packet grouping embeds a closed evidence-source switch and Musi's package and drift-ai path taxonomy."
+        }
+      ],
+      "problem": "Portable traversal and analysis machinery is interleaved with Musi-specific repository policy in all three analyzer families. An outside adopter must rewrite internals, while a Musi rename or new package requires finding multiple private switchboards; silent heuristic misses can look like authoritative empty results.",
+      "proposedDirection": "Define explicit repository-policy adapters or typed configuration for layer rules, package topology, overview heuristics, evidence families, and grouping. Keep generic traversal and analysis kernels independent from Musi defaults.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L02-002",
+      "title": "Drift check registration has three manually synchronized authorities",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/check-metadata.ts",
+          "line": 27,
+          "endLine": 46,
+          "measurement": null,
+          "note": "The metadata registry manually lists 16 checks and says the runtime registry must mirror its order."
+        },
+        {
+          "path": "scripts/drift-ai/check-registry.ts",
+          "line": 19,
+          "endLine": 40,
+          "measurement": null,
+          "note": "A second 16-entry list independently repeats runtime membership and order."
+        },
+        {
+          "path": "scripts/drift-ai/config.ts",
+          "line": 144,
+          "endLine": 184,
+          "measurement": null,
+          "note": "The configuration map is a third hand-maintained inventory of the same identities."
+        },
+        {
+          "path": "scripts/drift-ai/check-metadata.ts",
+          "line": 59,
+          "endLine": 62,
+          "measurement": null,
+          "note": "Registry/config correlation is lost by Object.fromEntries and restored through an assertion."
+        }
+      ],
+      "problem": "Adding or renaming a check requires coordinated edits to metadata order, runtime order, and the central configuration map. The compiler cannot verify the claimed authority relationship, so extension remains a convention-policed workflow.",
+      "proposedDirection": "Keep the lightweight-import boundary, but make one typed check-id/config declaration authoritative and build runtime order from an exhaustive plugin-by-id record keyed by that declaration.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "This concrete three-authority registration contract is outside the scheduled type-only, triage-set, Knip-cache, and triage-input slices."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-003",
+      "title": "Code-intel daemon guards promise wire types they do not validate",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/code-intel/daemon-server.ts",
+          "line": 145,
+          "endLine": 199,
+          "measurement": null,
+          "note": "The request decoder checks only envelope fields and command.kind before returning a cast command union."
+        },
+        {
+          "path": "scripts/code-intel/daemon-commands.ts",
+          "line": 18,
+          "endLine": 42,
+          "measurement": null,
+          "note": "String membership narrows an object to ExecutableCliCommand without validating required per-command fields."
+        },
+        {
+          "path": "scripts/code-intel/daemon-protocol.ts",
+          "line": 48,
+          "endLine": 64,
+          "measurement": null,
+          "note": "The response guard checks discriminators and array presence while promising complete query-result payloads."
+        },
+        {
+          "path": "scripts/code-intel/daemon-server.ts",
+          "line": 130,
+          "endLine": 217,
+          "measurement": null,
+          "note": "Lifecycle ping/pong is outside the declared protocol and is represented as a fabricated ordinary results response."
+        }
+      ],
+      "problem": "The IPC boundary looks type-safe but depends on client/server lockstep and deep downstream failures after shallow checks. Ping/pong already demonstrates a real protocol arm carried entirely by convention.",
+      "proposedDirection": "Define one runtime discriminated codec for query and lifecycle request/response arms, derive wire types from it, and represent ping/pong explicitly.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-11",
+        "novelty": "Prior work narrowed internal query result arms; it did not cover the unvalidated IPC boundary or unmodelled lifecycle arm."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-004",
+      "title": "CLI option models remain parallel registries despite shared parser layers",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/subcommand-args.ts",
+          "line": 34,
+          "endLine": 50,
+          "measurement": null,
+          "note": "Subcommand-specific options are untyped callback records with no connection to the parsed result."
+        },
+        {
+          "path": "scripts/drift-ai/semgrep-candidates-args.ts",
+          "line": 49,
+          "endLine": 108,
+          "measurement": null,
+          "note": "A representative parser separately maintains mutable accumulators, callbacks, a result interface, and result assembly."
+        },
+        {
+          "path": "scripts/drift-ai/bounded-history-options.ts",
+          "line": 9,
+          "endLine": 20,
+          "measurement": null,
+          "note": "A shared five-field bounded-history contract exists only after parsing."
+        },
+        {
+          "path": "scripts/drift-triage/drift-triage-options.ts",
+          "line": 46,
+          "endLine": 158,
+          "measurement": null,
+          "note": "Triage packet options are repeated in help text, a Zod schema, parseCli specifications, a dependency list, and a raw argv rescan."
+        }
+      ],
+      "problem": "Option spellings, defaults, validation, presence, dependencies, and result fields have no single typed owner. Both CLI stacks require synchronized edits across several parallel representations, and omissions remain invisible to their shared parsers.",
+      "proposedDirection": "Introduce typed declarative option descriptors carrying parse kind, default, validation, help metadata, presence, and group dependencies; derive parser specifications and parsed result assembly incrementally.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "This is a concrete argument-parser contract spanning previously unread subcommands and triage packet options, not one of the prior plan's surviving slices."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-005",
+      "title": "CliOptions is an accreted cross-layer dependency bag",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/types.ts",
+          "line": 148,
+          "endLine": 179,
+          "measurement": null,
+          "note": "CliOptions combines scope, output, chunking, adapter overrides, gates, and formatting."
+        },
+        {
+          "path": "scripts/drift-ai/check-plugin.ts",
+          "line": 38,
+          "endLine": 50,
+          "measurement": null,
+          "note": "Every plugin service resolver receives the entire CLI representation."
+        },
+        {
+          "path": "scripts/drift-ai/prototype-command.ts",
+          "line": 56,
+          "endLine": 68,
+          "measurement": null,
+          "note": "Prototype commands manufacture irrelevant defaults for checks, gates, and report fields to reuse preparation code."
+        },
+        {
+          "path": "scripts/drift-ai/duplicates-check.ts",
+          "line": 112,
+          "endLine": 129,
+          "measurement": null,
+          "note": "A plugin needing one jscpd override is coupled to the whole entrypoint structure through env.cli."
+        }
+      ],
+      "problem": "Entrypoint parsing, report output, scope preparation, and adapter configuration share one growth-prone contract. Plugin dependencies are hidden inside arbitrary bag reads, while non-report commands fabricate unrelated state.",
+      "proposedDirection": "Split parsed CLI state into narrow scope, report/gate, and adapter-override contracts; make plugins declare or receive only their service-resolution inputs.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "This cross-layer dependency bag was not part of the prior plan's concrete retained typing work."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-006",
+      "title": "Drift-ai and code-intel independently encode TypeScript import-edge semantics",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/import-cycles-graph.ts",
+          "line": 233,
+          "endLine": 297,
+          "measurement": null,
+          "note": "Drift-ai traverses import, export, and dynamic-import syntax and classifies type-only versus runtime edges."
+        },
+        {
+          "path": "scripts/code-intel/import-graph.ts",
+          "line": 39,
+          "endLine": 110,
+          "measurement": null,
+          "note": "Code-intel independently implements the same three syntax families and type/value classification."
+        },
+        {
+          "path": "scripts/drift-ai/import-cycles-graph.ts",
+          "line": 176,
+          "endLine": 230,
+          "measurement": null,
+          "note": "Drift-ai attaches its own per-tsconfig resolution policy."
+        },
+        {
+          "path": "scripts/code-intel/workspace-resolver.ts",
+          "line": 58,
+          "endLine": 71,
+          "measurement": null,
+          "note": "Code-intel attaches a different Musi workspace resolution policy."
+        }
+      ],
+      "problem": "Two analyzer stacks have separate definitions of an import edge, so TypeScript syntax fixes must be made twice and graph consumers can disagree about the same source.",
+      "proposedDirection": "Extract a repository-agnostic syntax-edge kernel and shared types with injected resolution/filter policy; preserve drift-ai's portable tsconfig resolver and code-intel's workspace resolver as adapters.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-11",
+        "novelty": "The prior code-intel slices concern context and cache structure, not cross-analyzer import semantics."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-007",
+      "title": "Analyzer families maintain divergent source and test path taxonomies",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/test-orphaning-mapping.ts",
+          "line": 9,
+          "endLine": 34,
+          "measurement": null,
+          "note": "Test-orphaning privately owns source extensions, declaration suffixes, test directories, and a basename regex."
+        },
+        {
+          "path": "scripts/drift-ai/scope.ts",
+          "line": 24,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The main analyzer has a different source-extension model and supports configured additions."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots-thrash.ts",
+          "line": 158,
+          "endLine": 174,
+          "measurement": null,
+          "note": "A history lens uses a broader test classifier."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report-support.ts",
+          "line": 30,
+          "endLine": 110,
+          "measurement": null,
+          "note": "Triage defines another broad test-path regex and policy."
+        },
+        {
+          "path": "scripts/code-intel/test-files.ts",
+          "line": 1,
+          "endLine": 6,
+          "measurement": null,
+          "note": "Code-intel's much narrower classifier recognizes only .test.ts and .test.tsx."
+        }
+      ],
+      "problem": "The analyzers can disagree about whether the same path is source or test code. Extensions and naming conventions require unrelated edits, configured extensions do not flow consistently, and results from different analyzers are difficult to compare.",
+      "proposedDirection": "Create one configurable source/test classification service with explicit policies for declaration files, helpers, directories, and strict versus broad matching.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "H9 removed one duplicate source-extension set, but newer analyzer families reintroduced divergent source and test classifiers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-008",
+      "title": "Hotspot lenses are registered through parallel multi-file switchboards",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/hotspots-args.ts",
+          "line": 10,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Lens identifiers, all-selection fan-out, and accepted parse values begin as separate declarations."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots-format.ts",
+          "line": 17,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The requested lens union repeats the identity set."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots-format-sections.ts",
+          "line": 14,
+          "endLine": 36,
+          "measurement": null,
+          "note": "Rendering adds another per-lens dispatch."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots.ts",
+          "line": 205,
+          "endLine": 239,
+          "measurement": null,
+          "note": "Reduction is dispatched through a separate switchboard."
+        },
+        {
+          "path": "scripts/drift-ai/hotspots-actionability.ts",
+          "line": 178,
+          "endLine": 289,
+          "measurement": null,
+          "note": "Row identity and baseline tagging repeat per-lens handling again."
+        }
+      ],
+      "problem": "Adding or renaming a lens requires edits across parsing, unions, reduction, rendering, row identity, and baseline behavior. Some omissions can compile because the relationships are not represented as one exhaustive contract.",
+      "proposedDirection": "Introduce a typed concrete-lens registry or visitor owning identity, reduction, row-key/baseline policy, and renderer dispatch; derive accepted values and all-selection from it.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "This is a distinct parallel-registry contract across the previously unread hotspot advisory family."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-009",
+      "title": "Environment-provider metadata has four independent sources of truth",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/env-define-types.ts",
+          "line": 8,
+          "endLine": 18,
+          "measurement": null,
+          "note": "The matrix shape and read-kind union separately enumerate supported providers."
+        },
+        {
+          "path": "scripts/drift-ai/env-define-matrix-config.ts",
+          "line": 15,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The parser repeats provider keys in a table, mutable matrix type, and hand-written assignments."
+        },
+        {
+          "path": "scripts/drift-ai/env-branches-advisory.ts",
+          "line": 257,
+          "endLine": 266,
+          "measurement": null,
+          "note": "Advisory code repeats all five matrix properties when finding configured tables."
+        },
+        {
+          "path": "scripts/drift-ai/env-define-reads.ts",
+          "line": 209,
+          "endLine": 223,
+          "measurement": null,
+          "note": "Read resolution independently maps provider read kinds to tables and fallback precedence."
+        }
+      ],
+      "problem": "Adding or renaming a provider requires synchronized type, parser, advisory, and resolution edits. Nothing makes those edits exhaustive as one unit.",
+      "proposedDirection": "Define one typed provider descriptor table containing config key, read kind, and fallback policy; derive parsing, enumeration, and lookup from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L02-010",
+      "title": "Every Knip check reparses the same cached report independently",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/knip-duplicates.ts",
+          "line": 31,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The duplicates adapter performs complete JSON and issues-envelope parsing."
+        },
+        {
+          "path": "scripts/drift-ai/knip-orphan-files.ts",
+          "line": 88,
+          "endLine": 107,
+          "measurement": null,
+          "note": "The orphan-files adapter independently repeats the envelope path."
+        },
+        {
+          "path": "scripts/drift-ai/knip-unused-exports.ts",
+          "line": 60,
+          "endLine": 76,
+          "measurement": null,
+          "note": "The unused-exports adapter parses the same report a third time."
+        },
+        {
+          "path": "scripts/drift-ai/knip-pass-through-check.ts",
+          "line": 140,
+          "endLine": 159,
+          "measurement": null,
+          "note": "A parser runs per selected check even though the underlying Knip subprocess report is shared."
+        }
+      ],
+      "problem": "Schema handling and malformed-report policy can drift by category, and a check-all run parses the same potentially large report three times.",
+      "proposedDirection": "Parse once into a typed generic Knip issue-row and location model cached in report scope; let category adapters project the normalized report.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-46",
+        "novelty": "CQ25-46 relocates the raw Knip run cache; it does not normalize the report once or deduplicate category parsers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-011",
+      "title": "Semgrep rule-source types and runtime schema evolve independently",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/semgrep-rule-sources.ts",
+          "line": 16,
+          "endLine": 41,
+          "measurement": null,
+          "note": "The local and registry source arms are declared as TypeScript types."
+        },
+        {
+          "path": "scripts/drift-ai/semgrep-rule-manifest.ts",
+          "line": 22,
+          "endLine": 32,
+          "measurement": null,
+          "note": "Strict allowed-key arrays independently repeat the same fields."
+        },
+        {
+          "path": "scripts/drift-ai/semgrep-rule-manifest.ts",
+          "line": 74,
+          "endLine": 129,
+          "measurement": null,
+          "note": "The parser reassembles both union arms manually."
+        },
+        {
+          "path": "scripts/drift-ai/semgrep-rule-manifest.ts",
+          "line": 175,
+          "endLine": 227,
+          "measurement": null,
+          "note": "A bespoke strict-object validation layer maintains runtime behavior separately from static types."
+        }
+      ],
+      "problem": "A field change must stay synchronized across source types, key arrays, object builders, and validators. TypeScript cannot prove that the runtime parser accepts exactly the declared union.",
+      "proposedDirection": "Make a strict runtime schema authoritative and derive the source type, or at minimum type key lists against keyof and centralize arm builders.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-47",
+        "novelty": "CQ25-47 is explicitly limited to drift-triage report inputs; this is a separate Semgrep configuration contract."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-012",
+      "title": "Semgrep command wiring embeds a second recursive repository walker",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/semgrep-candidates-command.ts",
+          "line": 211,
+          "endLine": 321,
+          "measurement": null,
+          "note": "Command wiring owns root expansion, recursion, cycle tracking, exclusion pruning, safe reads, and directory policy for ignore discovery."
+        },
+        {
+          "path": "scripts/drift-ai/source-walk.ts",
+          "line": 35,
+          "endLine": 84,
+          "measurement": null,
+          "note": "The subsystem already has a recursive walk layer with safe readdir, normalization, ignore handling, and a seen set."
+        }
+      ],
+      "problem": "Command orchestration owns 111 lines of repository traversal beside an existing walking abstraction. The two walkers can drift on normalization, skipped directories, cycle behavior, and failure handling.",
+      "proposedDirection": "Move Semgrep scope probing into a focused scanner built on a reusable repository-walk primitive; retain Semgrep-specific ancestor semantics as scanner policy.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L02-013",
+      "title": "Triage merge keys leak directly into the public verdict protocol",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-report.ts",
+          "line": 130,
+          "endLine": 148,
+          "measurement": null,
+          "note": "Drift item keys embed input path, check, index, and file in an undocumented delimiter format and are published as IDs."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report.ts",
+          "line": 167,
+          "endLine": 193,
+          "measurement": null,
+          "note": "The Semgrep adapter creates a different grammar containing JSON-serialized ranges and also publishes it."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report-support.ts",
+          "line": 115,
+          "endLine": 134,
+          "measurement": null,
+          "note": "The same opaque string serves as mutable build-state map identity."
+        },
+        {
+          "path": "scripts/drift-triage/triage-verdict-types.ts",
+          "line": 11,
+          "endLine": 20,
+          "measurement": null,
+          "note": "Verdict item IDs remain unbranded strings with no codec or identity version."
+        }
+      ],
+      "problem": "Adapter-specific implementation details become externally copied packet identifiers. Refactoring ordering, provenance paths, range serialization, or merging therefore changes a user-facing protocol without an explicit identity decision.",
+      "proposedDirection": "Separate internal typed merge keys from serialized IDs; generate public IDs centrally and version their codec or brand their type.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "The prior typing work did not cover adapter merge keys doubling as packet and verdict protocol IDs."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-014",
+      "title": "Triage locations have two independently maintained representations",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-report-types.ts",
+          "line": 30,
+          "endLine": 38,
+          "measurement": null,
+          "note": "Every item stores display-string locations and structured locationDetails."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report-support.ts",
+          "line": 115,
+          "endLine": 134,
+          "measurement": null,
+          "note": "Merge logic deduplicates and mutates the arrays separately."
+        },
+        {
+          "path": "scripts/drift-triage/triage-report.ts",
+          "line": 162,
+          "endLine": 193,
+          "measurement": null,
+          "note": "Semgrep production separately builds line-only strings and column-aware details from the same ranges."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-staleness.ts",
+          "line": 173,
+          "endLine": 181,
+          "measurement": null,
+          "note": "Another formatter derives display locations from structured locations, demonstrating that one representation can be authoritative."
+        }
+      ],
+      "problem": "Every producer and merge path must keep two arrays synchronized while their parsing, formatting, and deduplication rules are scattered.",
+      "proposedDirection": "Make structured locations authoritative behind one parse/format/dedup module and derive display strings at serialization or text-output boundaries.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-10",
+        "novelty": "The parallel location model and its independent merge paths were not included in prior typing slices."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-015",
+      "title": "Logs-audit business-event taxonomy is duplicated and implicit",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/logs-audit/logs-audit-event-fields.ts",
+          "line": 169,
+          "endLine": 189,
+          "measurement": null,
+          "note": "Event-field auditing classifies authz, one socket event, and an implicit mutation fallback."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-request-ids.ts",
+          "line": 42,
+          "endLine": 47,
+          "measurement": null,
+          "note": "Request-id auditing separately defines business events as every non-script event."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-event-fields.ts",
+          "line": 192,
+          "endLine": 207,
+          "measurement": null,
+          "note": "The public pass repeats script exclusion before entering the independent family classifier."
+        }
+      ],
+      "problem": "Adding an event family requires contributors to discover multiple string tests, and unrecognized families inherit mutation outcome and actor rules without an explicit policy decision.",
+      "proposedDirection": "Introduce one typed event classifier or policy table owning exclusion, family, allowed outcomes, actor requirements, and reason requirements.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "Landed logs-audit work fixed type ownership but did not centralize this event taxonomy."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-016",
+      "title": "Analyzer presentation logic uses English prose as machine discriminants",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/logs-audit/logs-audit-format.ts",
+          "line": 14,
+          "endLine": 24,
+          "measurement": null,
+          "note": "Redaction remediation is selected by testing whether the finding message starts with a particular English phrase."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-redaction.ts",
+          "line": 103,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The URL producer constructs that exact phrase without a typed subtype."
+        },
+        {
+          "path": "scripts/drift-ai/suppressions-check.ts",
+          "line": 26,
+          "endLine": 27,
+          "measurement": null,
+          "note": "Scope availability is exposed only as the prose reason 'only available in changed scope'."
+        },
+        {
+          "path": "scripts/drift-ai/report-format.ts",
+          "line": 68,
+          "endLine": 82,
+          "measurement": null,
+          "note": "The formatter changes behavior by matching the exact check and reason string."
+        }
+      ],
+      "problem": "Copy edits can silently change remediation or report formatting while TypeScript accepts both modules. Presentation text is carrying semantic subtype information that belongs in the contract.",
+      "proposedDirection": "Add bounded reason/subtype discriminants for redaction and skip outcomes; keep human messages presentation-only.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "Centralized logs-audit types still omit the semantic redaction subtype, and drift-ai contains a second newly identified prose-dispatch contract."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-017",
+      "title": "Latest-log discovery mirrors the verify state-path protocol",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/logs-audit/logs-audit-latest.ts",
+          "line": 30,
+          "endLine": 74,
+          "measurement": null,
+          "note": "Local helpers reconstruct repository identity hashing, state-root normalization, and standard state paths."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-latest.ts",
+          "line": 68,
+          "endLine": 73,
+          "measurement": null,
+          "note": "The source explicitly requires synchronization with scripts/lib/verify-metadata.sh."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-latest.ts",
+          "line": 92,
+          "endLine": 108,
+          "measurement": null,
+          "note": "Default resolution mixes wrapper-provided directories with the locally reconstructed fallback."
+        }
+      ],
+      "problem": "A consumer owns a second implementation of another subsystem's naming and hashing protocol. State-layout changes require coordinated edits across language and module boundaries.",
+      "proposedDirection": "Give state-path derivation one machine-readable or TypeScript owner consumed by both the shell facade and logs-audit while retaining direct-CLI fallback behavior.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-124",
+        "novelty": "The prior record establishes the Bash-facade-over-TypeScript-core precedent; this specific duplicated state-path calculation remains outside that core."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L02-018",
+      "title": "The code-intel entrypoint maintains an unused pseudo-library facade",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/code-intel.ts",
+          "line": 4,
+          "endLine": 50,
+          "measurement": null,
+          "note": "Nine namespace type imports and a conditionally assigned exported class make the executable double as an API."
+        },
+        {
+          "path": "scripts/code-intel.ts",
+          "line": 52,
+          "endLine": 86,
+          "measurement": null,
+          "note": "Eleven forwarding functions proxy through a conditionally loaded module record."
+        },
+        {
+          "path": "scripts/code-intel.ts",
+          "line": 92,
+          "endLine": 131,
+          "measurement": null,
+          "note": "A nine-module Promise.all loader and runtime availability guard support the facade."
+        },
+        {
+          "path": "scripts/code-intel.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 tracked TypeScript import sites for the root scripts/code-intel.ts module at the audit pin",
+          "note": "Within the repository this file is used as an executable and smoke subject, not as a programmatic API."
+        }
+      ],
+      "problem": "Roughly one hundred lines maintain a lazy mutable API surface with no repository consumer. It obscures the real CLI lifecycle and makes simple command changes require reasoning about top-level await and conditional exports.",
+      "proposedDirection": "Make the root file a tiny executable. If a supported API is intentional, provide direct side-effect-free exports from a separate code-intel/api.ts module; otherwise delete the forwarding surface.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L02-019",
+      "title": "Test-orphaning indexes history, then rescans it once per source",
+      "area": "harness",
+      "category": "idiom",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/test-orphaning-analysis.ts",
+          "line": 30,
+          "endLine": 44,
+          "measurement": null,
+          "note": "The analysis builds touchesByPath with each source's commit indexes."
+        },
+        {
+          "path": "scripts/drift-ai/test-orphaning-analysis.ts",
+          "line": 64,
+          "endLine": 103,
+          "measurement": null,
+          "note": "Each row nevertheless passes the full records array to recentSubjects, which searches record.files again."
+        },
+        {
+          "path": "scripts/drift-ai/bounded-full-history.ts",
+          "line": 28,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Advertised defaults admit 5,000 commits and 20,000 files."
+        },
+        {
+          "path": "scripts/drift-ai/test-orphaning-analysis.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "Default caps permit roughly 100 million per-source CommitRecord iterations before inner file searches",
+          "note": "The existing touch index already contains the record indexes needed for recent subjects."
+        }
+      ],
+      "problem": "The expensive history walk is indexed once, but the advisory recreates a path-to-record search for every source. Near the advertised caps this becomes quadratic and hides that the required data is already indexed.",
+      "proposedDirection": "Derive recent subjects directly from sourceTouches indexes or enrich the per-path index with the small actionability payload required by rows.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L02-020",
+      "title": "Ratchet-driven file boundaries strand generic I/O behind sensor-specific modules",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/harness-freshness-io.ts",
+          "line": 1,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The file states that it exists to keep another module below a line ratchet and mixes generic repository I/O with path helpers."
+        },
+        {
+          "path": "scripts/drift-ai/module-doc-paths.ts",
+          "line": 20,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Module-doc analysis reaches through that sensor-specific module for generic git-ignore behavior and redeclares I/O types."
+        },
+        {
+          "path": "scripts/drift-ai/harness-freshness-io.ts",
+          "line": 38,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The shared behavior hard-codes harness-freshness failure vocabulary even when used by another analyzer."
+        },
+        {
+          "path": "scripts/drift-ai/repo-io.ts",
+          "line": 4,
+          "endLine": 6,
+          "measurement": null,
+          "note": "A neutral I/O module already owns structurally identical reader and path-probe contracts."
+        }
+      ],
+      "problem": "Metric appeasement, rather than cohesion, decides the module boundary. Generic behavior has a misleading sensor-specific owner, duplicated contracts, and caller-inappropriate diagnostics.",
+      "proposedDirection": "Move generic git-ignore and I/O behavior to a neutral repository adapter with caller-supplied diagnostic context; keep sensor modules focused on their domain.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Add the missing drift-ai module map",
+      "ref": "CQ25-35",
+      "reason": "A drift-ai MODULE.md explaining prefix families and layering is already scheduled."
+    },
+    {
+      "title": "Name the type-only-cycle detail key and type triage check sets",
+      "ref": "CQ25-45",
+      "reason": "The exact predicate, key, caller repoints, and ReadonlySet annotations are already scheduled."
+    },
+    {
+      "title": "Move the Knip memo into reportCache",
+      "ref": "CQ25-46",
+      "reason": "The module-global cache relocation and reset deletion are already scheduled."
+    },
+    {
+      "title": "Replace triage report-input guards with Zod",
+      "ref": "CQ25-47",
+      "reason": "The exact two-file contracts-family narrowing is already an optional prior slice."
+    },
+    {
+      "title": "Extract normalized changed-path Set construction",
+      "ref": "CQ25-72",
+      "reason": "The seven drift-ai copies are already recorded as an optional follow-up."
+    },
+    {
+      "title": "Reshape the seven-optional CodeIntelContext bag",
+      "ref": "CQ25-65",
+      "reason": "The exact context reshape remains an explicit optional prior slice."
+    },
+    {
+      "title": "Extract ManifestGatedCache from code-intel caches",
+      "ref": "CQ25-66",
+      "reason": "The structural cache-plumbing extraction is already an explicit optional prior slice."
+    },
+    {
+      "title": "Add direct defaultProcessIdentityProbe coverage",
+      "ref": "CQ25-73",
+      "reason": "The exact gap is already recorded and is test-shaped."
+    },
+    {
+      "title": "Reorganize the flat drift-ai directory",
+      "ref": "CQ25-146",
+      "reason": "The flat layout is a recorded decision; MODULE.md is the scheduled response."
+    },
+    {
+      "title": "Extract a bounded-subprocess kernel across analyzer adapters",
+      "ref": "CQ25-155",
+      "reason": "This direction was permanently dropped because adapter policies materially differ."
+    },
+    {
+      "title": "Pass existing report objects through chunks APIs",
+      "ref": "CQ25-155",
+      "reason": "The positional-signature cleanup was permanently dropped."
+    },
+    {
+      "title": "Split the root drift-ai barrel test",
+      "ref": "CQ25-155",
+      "reason": "The test split was permanently dropped."
+    },
+    {
+      "title": "Fix or generalize the Knip signal classifier",
+      "ref": "CQ25-156",
+      "reason": "The mismatch is recorded as non-live and explicitly unscheduled."
+    },
+    {
+      "title": "Merge GraphCache and ProjectCache payloads",
+      "ref": "CQ25-132",
+      "reason": "The direction was dropped pending an unmade alternating-workload measurement."
+    },
+    {
+      "title": "Re-widened command/result correlation in code-intel",
+      "ref": "CQ25-11",
+      "reason": "The prior leaf records this exact residual; no new direction was established."
+    },
+    {
+      "title": "Inventory or enforce analyzer environment-variable prefixes",
+      "ref": "CQ25-131",
+      "reason": "The prior plan explicitly dropped env-prefix inventory and enforcement."
+    },
+    {
+      "title": "Remove historical plan coordinates from drift-ai comments",
+      "ref": "CQ25-168",
+      "reason": "The prior pack explicitly refused the drift-ai coordinate-qualification sweep."
+    }
+  ],
+  "featureIdeas": [
+    "Consider narrowing comments.excludePrefixes so the comment analyzer can inspect maintainability-heavy script code instead of excluding all of scripts/."
+  ],
+  "bugsSideList": [
+    {
+      "title": "Invalid duplicates mode throws an unexpected generic error",
+      "paths": [
+        "scripts/drift-ai/duplicates-check-config.ts:59",
+        "scripts/drift-ai/runner.ts:106"
+      ],
+      "whySuspectedBug": "Malformed checks.duplicates.mode bypasses the DriftAiError path used for normal configuration failures and may crash instead of returning the documented config-error result.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Malformed Dolos rows can silently become an empty or weakened report",
+      "paths": [
+        "scripts/drift-ai/dolos-output.ts:113",
+        "scripts/drift-ai/dolos-output.ts:119",
+        "scripts/drift-ai/dolos-output.ts:120"
+      ],
+      "whySuspectedBug": "Rows missing expected columns are discarded and missing overlap metrics become zero without a malformed-row diagnostic, so schema drift can resemble a clean scan.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Import-cycle detection ignores self-cycles",
+      "paths": [
+        "scripts/drift-ai/import-cycles.ts:151",
+        "scripts/drift-ai/import-cycles-graph.ts:169"
+      ],
+      "whySuspectedBug": "The graph retains same-file edges, but cycle acceptance requires an SCC with at least two nodes.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Malformed Knip envelopes can be reported as clean",
+      "paths": [
+        "scripts/drift-ai/knip-duplicates.ts:41",
+        "scripts/drift-ai/knip-orphan-files.ts:100",
+        "scripts/drift-ai/knip-unused-exports.ts:72"
+      ],
+      "whySuspectedBug": "Each parser treats a missing or non-array issues field as successful empty findings.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "MinHash pair keys can collide on separator-bearing document IDs",
+      "paths": [
+        "scripts/drift-ai/minhash-lsh.ts:77",
+        "scripts/drift-ai/minhash-lsh.ts:261"
+      ],
+      "whySuspectedBug": "Two unrestricted IDs are concatenated with an unescaped pipe before insertion into a candidate Map.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Line scanning does not re-enter code inside template interpolations",
+      "paths": [
+        "scripts/drift-ai/line-scanner.ts:41",
+        "scripts/drift-ai/line-scanner.ts:59"
+      ],
+      "whySuspectedBug": "Backtick strings are scanned only for escapes and the closing backtick, so ${...} content is not visited as code.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Similarity-ts nonzero exits are accepted when any pair was parsed",
+      "paths": [
+        "scripts/drift-ai/near-duplicates-runner.ts:156"
+      ],
+      "whySuspectedBug": "Partial stdout from a failed subprocess can be returned as a successful candidate report.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Ownership analysis silently suppresses all check-mailmap failures",
+      "paths": [
+        "scripts/drift-ai/ownership-command.ts:97"
+      ],
+      "whySuspectedBug": "Every resolution failure is cached as the unresolved identity with no degraded-state disclosure.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Latest-log filesystem failures are indistinguishable from empty directories",
+      "paths": [
+        "scripts/logs-audit/logs-audit-latest.ts:111",
+        "scripts/logs-audit/logs-audit-latest.ts:122"
+      ],
+      "whySuspectedBug": "Directory-read and stat failures collapse to empty candidate lists, so unreadable configured roots can be reported as having no compatible logs.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Code-intel does not classify test-helper modules as tests",
+      "paths": [
+        "scripts/code-intel/test-files.ts:1",
+        "scripts/code-intel/graph-queries.ts:159"
+      ],
+      "whySuspectedBug": "The classifier recognizes only .test.ts/.test.tsx despite 10 tracked .test-helper.ts(x) modules, so exclude-tests and direct test discovery can retain test-only helpers.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Injected global or sticky sibling-marker regexes make classification stateful",
+      "paths": [
+        "scripts/drift-ai/sibling-naming.ts:51",
+        "scripts/drift-ai/sibling-naming.ts:132"
+      ],
+      "whySuspectedBug": "RegExp.test is called without resetting lastIndex, so /g or /y overrides can alternate results for identical tokens.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Suppression parsing loses lexical context at diff-hunk boundaries",
+      "paths": [
+        "scripts/drift-ai/suppressions.ts:129",
+        "scripts/drift-ai/suppressions.ts:148"
+      ],
+      "whySuspectedBug": "The comment scanner resets at every hunk, so additions inside pre-existing multiline comments or strings can be misclassified.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Git-quoted suppression paths are only partially decoded",
+      "paths": [
+        "scripts/drift-ai/suppressions.ts:199",
+        "scripts/drift-ai/suppressions.ts:205"
+      ],
+      "whySuspectedBug": "The decoder handles quotes and backslashes but not other Git C/octal escapes, so quoted paths may not match changedPaths.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Verdict staleness ignores dirty-state and fingerprint drift",
+      "paths": [
+        "scripts/drift-triage/triage-verdict-collect.ts:201",
+        "scripts/drift-triage/triage-verdict-types.ts:86"
+      ],
+      "whySuspectedBug": "The source-state comparison computes stale only from HEAD even though provenance includes dirty state and a state fingerprint.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "scripts/drift-ai/[a-c]*.ts excluding test/spec/test-helper variants — 76 production modules, 10,618 lines",
+      "scripts/drift-ai/[d-g]*.ts excluding test/spec/test-helper variants — 55 production modules, 6,808 lines",
+      "scripts/drift-ai/[h-k]*.ts excluding test/spec/test-helper variants — 35 production modules, 4,873 lines",
+      "scripts/drift-ai/[l-o]*.ts excluding test/spec/test-helper variants — 26 production modules, 3,271 lines",
+      "scripts/drift-ai/[p-s]*.ts excluding test/spec/test-helper variants — 33 production modules, 4,934 lines",
+      "scripts/drift-ai/[t-z]*.ts excluding test/spec/test-helper variants — 12 production modules, 1,165 lines",
+      "scripts/drift-triage/**/*.ts excluding test/spec/test-helper variants — 21 production modules, 3,098 lines",
+      "scripts/code-intel/**/*.ts excluding test/spec/test-helper variants plus scripts/code-intel.ts and scripts/code-intel-server.ts — 37 production modules, 5,027 lines",
+      "scripts/logs-audit/**/*.ts excluding test/spec/test-helper variants — 8 production modules, 866 lines",
+      "drift-ai.config.json and drift-ai.config.example.json — 2 files, 90 lines",
+      "scripts/drift-ai/README.md, scripts/drift-ai/docs/**, and scripts/drift-triage/MODULE.md — 5 files, 1,700 lines",
+      "51 small fixture files across every drift-ai and logs-audit fixture family, all 4 test-helper files, and focused small tests from every analyzer family"
+    ],
+    "sampled": [
+      "All 127 in-directory test files were inventoried by import and describe/it outline; bodies were stratified across parser/config/plugin, duplicate/ghost/near-duplicate, Knip, Semgrep, coverage, Dolos, history, code-intel CLI/cache/query, triage collect/packet/verdict, and logs-audit families",
+      "Large test files were sampled at head, middle, tail, and feature-specific ranges rather than treated as fully read",
+      "scripts/drift-ai/fixtures/semgrep/scan-output.logged-out.json — sampled head, scan-inventory bands, and tail"
+    ],
+    "skipped": [
+      "No in-scope production module was skipped",
+      "scripts/drift-ai.test.ts and scripts/logs-audit.ts — flat top-level files outside lane-02's owned production globs; the former is test-shaped and belongs to lane 06",
+      "Test and build execution — prohibited by the dispatch"
+    ],
+    "pointers": [
+      "Lane 06: scripts/logs-audit/logs-audit.test.ts is 1,389 lines; two policy-matrix cases span lines 492-717 and 719-1000.",
+      "Lane 06: scripts/drift-triage/triage-report.test.ts is 1,144 lines of repeated inline contract envelopes; MODULE.md:105 documents the inline-data convention.",
+      "Lane 06: scripts/code-intel/overview-query.test.ts:13-58 duplicates fixture infrastructure from test-fixtures.test-helper.ts:9-94.",
+      "Lane 06: duplicates.test.ts, ghost-files.test.ts, near-duplicates.test.ts, and daemon-query.test.ts each exceed 800 lines and combine multiple concern layers.",
+      "Lane 07: scripts/drift-ai/README.md is an 890-line mixture of external guide, contract, implementation rationale, Musi internals, and archive status.",
+      "Lane 07: scripts/code-intel has 37 production files and no MODULE.md at the pin; its graph/project routing and generic/Musi boundary lack a local newcomer map.",
+      "Lane 07: clone-candidates.ts:7-10, class-construction.ts:5-6, and config.ts:116-121 contain comments contradicted by registered production commands.",
+      "Lane 08: logs-audit redaction policy is duplicated against the server logger surface; assess one shared cross-package redaction contract."
+    ],
+    "cut": [
+      "Ghost-files scope requirements and positional pair state remain convention-only",
+      "Coldspot amplifier evidence is a free-form numeric property bag",
+      "Current-inventory duplicates the canonical ignore predicate",
+      "Sibling comment sensors duplicate detector-scope selection",
+      "Duplicate-shape check configuration is maintained as templates",
+      "Prototype commands redeclare identical result and forwarding shells",
+      "History reducers rely on unexpressed newest-first ordering",
+      "Tool-version parsing assumes regex-safe tool names",
+      "Near-duplicate extractor and runner assign opposite defaults to includeExactTokens",
+      "Similarity-ts stdout is an unversioned text protocol",
+      "Ownership metric names describe different contributors ambiguously",
+      "Ownership family modules import inward through their facade",
+      "Code-intel query modules import presentation formatting",
+      "ServerCliCommand contains an unreachable start arm",
+      "Ghost-file allowlist pairs carry no rationale metadata",
+      "triage-report-support is a five-concern junction",
+      "The advertised verdict contract duplicates canonical verdict constants",
+      "Packet oversized is an always-false serialized field",
+      "Input completeness is stored as both a boolean and enum",
+      "Coldspot aggregation retains unused accumulator state",
+      "Blame parsing threads an unused repoRoot dependency",
+      "Hotspot baseline logic is hidden in the actionability module",
+      "Prototype and main CLI paths duplicate error/output lifecycle policy"
+    ]
+  }
+}

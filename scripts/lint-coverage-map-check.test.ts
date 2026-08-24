@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
@@ -7,125 +7,59 @@ import { describe, expect, it, vi } from "vitest";
 
 import { parseCliArgs, runLintCoverageMapCheck } from "./lint-coverage-map-check.js";
 import { loadTrackedFiles } from "./lint-coverage-map-check-io.js";
+import type { CoverageEntry } from "./lint-coverage-map-manifest-schema.js";
 
-const FIXTURE_MAP = `# Fixture
-
-## Scripts
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`src/**/*.ts\` | 1 .ts | yes | \`ratchet/known\` | ESLint | none | linted + ratcheted | — |
-| \`docs/stale.md\` | 1 .md | no | none | — | none | not-code | — |
-| \`scripts/tool.ts\` | 1 .ts | no | \`ratchet/missing\` | ESLint | none | proposed | — |
-| \`config.json\` | 1 .json | yes | none | JSON | none | maybe-linted | — |
-`;
-
-const MAP_PATH = "docs/generated/lint-coverage-map.md";
 const SAFETY_ACKNOWLEDGED_PATH = "packages/server/prisma/migrations/.safety-acknowledged";
-const CLEAN_MAP = `# Fixture
 
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`src/**/*.ts\` | 1 .ts | yes | none | ESLint | none | linted | — |
-| \`${MAP_PATH}\` | 1 .md | no | none | Markdown | none | not-code | — |
-`;
-const METADATA_ONLY_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`${MAP_PATH}\` | 1 .md | no | none | Markdown | none | not-code | — |
-`;
-const STAGED_DRIFTY_MAP = CLEAN_MAP.replace("`src/**/*.ts`", "`missing/**/*.ts`");
-const ESLINT_REACH_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`scripts/codemods/tsconfig.json\` | 1 .json | yes | none | ESLint JSON | none | linted | — |
-`;
-
-// A single linted row carrying TWO independent path patterns. Both spans are
-// rooted full paths (tools/ and packages/ are repository roots), so neither
-// establishes a base dir that would prefix the other. Exactly one tracked file
-// (tools/reach/managed-a.ts) satisfies all three filter conjuncts in
-// collectEslintReachFindings (in-scope && uses-eslint && matches a row pattern):
-// - packages/reach/dist/scope-b.ts matches a pattern and uses ESLint but is
-//   out-of-scope (generated `dist/` dir), so trackedFileIsInScope is false for it.
-// - tools/reach/notes.md matches a pattern and is in-scope but is not an
-//   ESLint-managed extension, so trackedFileUsesEslint is false for it.
-// Each tracked file matches only ONE of the two patterns, so `.some` and `.every`
-// over rowPatterns are distinguishable.
-const ESLINT_REACH_FILTER_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/reach/*\` \`packages/reach/dist/*\` | 3 | yes | none | ESLint | none | linted | — |
-`;
-
-// Two rows that pin status parsing: line 5 has a multi-part status with
-// whitespace around the `+` separator (must still be gated as `linted`), and
-// line 6 is `ratcheted`-only (must be skipped by the line-70 `continue`).
-const ESLINT_REACH_STATUS_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/multipart/*.ts\` | 1 | yes | none | ESLint | none | linted + ratcheted | — |
-| \`tools/ratchetonly/*.ts\` | 1 | no | none | ESLint | none | ratcheted | — |
-`;
-// A4: the `Normal lint` column must agree with the status token. Line 5 claims
-// `yes` but its status omits `linted`; line 6 claims `no` but its status asserts
-// `linted`. Line 7 is internally consistent (`yes` ⇔ `linted`) and must stay silent.
-const STATUS_CONSISTENCY_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/lintyes/*.ts\` | 1 | yes | none | ESLint | none | ratcheted | — |
-| \`tools/lintno/*.md\` | 1 | no | none | Markdown | none | linted | — |
-| \`tools/lintok/*.ts\` | 1 | yes (project service) | none | ESLint | none | linted + ratcheted | — |
-`;
-// A5: a row may claim `ratchet/<id>` only when at least one tracked file it
-// matches is a member of that ratchet's glob. Line 5 matches a member; line 6
-// matches only a non-member (prose rot); line 7 matches both a member and a
-// non-member, so the partial overlap keeps it silent.
-const RATCHET_MEMBERSHIP_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`src/covered/a.ts\` | 1 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
-| \`src/orphan/b.ts\` | 1 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
-| \`src/mixed/*.ts\` | 2 .ts | yes | \`ratchet/scoped\` | ESLint | none | linted + ratcheted | — |
-`;
-const CONFLICTING_COVERAGE_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/conflict/*.ts\` | 1 | no | none | — | none | excluded | — |
-| \`tools/conflict/example.ts\` | 1 | yes | none | ESLint | none | linted | — |
-| \`tools/compatible/*.ts\` | 1 | yes | \`ratchet/known\` | ESLint | none | linted + ratcheted | — |
-| \`tools/compatible/example.ts\` | 1 | yes | none | ESLint | none | linted | — |
-`;
-const CONFIG_SURFACE_MISMATCH_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/config/example.config.ts\` | 1 | no | none | — | none | excluded | — |
-`;
-const CONFIG_SURFACE_OMITTED_FROM_MANIFEST_MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`tools/config/example.config.ts\` | 1 | yes | none | ESLint | none | linted | — |
-`;
-
-function git(cwd: string, args: readonly string[]): void {
-  execFileSync("git", args, { cwd, stdio: "ignore" });
+/**
+ * Coverage entries are plain typed data now, so fixtures are built directly
+ * instead of round-tripping through a Markdown table. Defaults keep each test's
+ * literal to the fields it actually exercises.
+ */
+function entry(
+  overrides: Partial<CoverageEntry> & Pick<CoverageEntry, "id" | "globs">,
+): CoverageEntry {
+  return {
+    files: "1 .ts",
+    normalLint: { covered: true },
+    ratchets: "none",
+    parser: "ESLint",
+    proposed: "none",
+    status: ["linted"],
+    followUp: "—",
+    ...overrides,
+  };
 }
+
+const FIXTURE_ENTRIES: readonly CoverageEntry[] = [
+  entry({
+    id: "src-ts",
+    globs: ["src/**/*.ts"],
+    ratchets: "`ratchet/known`",
+    status: ["linted", "ratcheted"],
+  }),
+  entry({
+    id: "docs-stale-md",
+    globs: ["docs/stale.md"],
+    normalLint: { covered: false },
+    status: ["not-code"],
+  }),
+  entry({
+    id: "scripts-tool-ts",
+    globs: ["scripts/tool.ts"],
+    normalLint: { covered: false },
+    ratchets: "`ratchet/missing`",
+    status: ["proposed"],
+  }),
+];
 
 // Characterization tests (arch-plans-2026-07 leaf 02, S0): pin the CURRENT
 // CLI parser contract before any migration onto parseCli(spec). Pinned quirks:
 // bare `--` tokens are filtered out (allowed anywhere), there is no --help
-// handling (help flags are unknown arguments), any unknown token collapses to
-// `undefined` after writing the usage line to stderr (the entrypoint exits 2),
-// and --check-eslint-reach is silently disabled when --staged is present.
+// handling (help flags are unknown arguments), and any unknown token collapses
+// to `undefined` after writing the usage line to stderr (the entrypoint exits
+// 2). The `--staged` quirk this list used to pin (it silently disabled
+// --check-eslint-reach) went away with the flag itself.
 describe("parseCliArgs (lint-coverage-map-check CLI)", () => {
   function withStderrCapture<T>(run: () => T): { result: T; stderr: string } {
     const writes: string[] = [];
@@ -141,41 +75,37 @@ describe("parseCliArgs (lint-coverage-map-check CLI)", () => {
   }
 
   it("parses an empty argv to all-off options", () => {
-    expect(parseCliArgs([])).toEqual({ staged: false, checkEslintReach: false, suggest: false });
+    expect(parseCliArgs([])).toEqual({ checkEslintReach: false, suggest: false });
   });
 
-  it("recognizes the three flags and filters bare -- tokens", () => {
+  it("recognizes both flags and filters bare -- tokens", () => {
     expect(parseCliArgs(["--", "--check-eslint-reach", "--suggest", "--"])).toEqual({
-      staged: false,
       checkEslintReach: true,
       suggest: true,
     });
   });
 
-  it("silently disables --check-eslint-reach when --staged is present", () => {
-    expect(parseCliArgs(["--staged", "--check-eslint-reach"])).toEqual({
-      staged: true,
-      checkEslintReach: false,
-      suggest: false,
-    });
-  });
-
   it("rejects unknown tokens, inline values, positionals, and help flags via stderr", () => {
-    for (const argv of [["--nope"], ["--staged=x"], ["positional"], ["--help"], [""]]) {
+    for (const argv of [
+      ["--nope"],
+      ["--staged"],
+      ["--suggest=x"],
+      ["positional"],
+      ["--help"],
+      [""],
+    ]) {
       const { result, stderr } = withStderrCapture(() => parseCliArgs(argv));
       expect(result).toBeUndefined();
-      expect(stderr).toBe(
-        "usage: lint-coverage-map-check.ts [--check-eslint-reach] [--staged] [--suggest]\n",
-      );
+      expect(stderr).toBe("usage: lint-coverage-map-check.ts [--check-eslint-reach] [--suggest]\n");
     }
   });
 });
 
 describe("runLintCoverageMapCheck", () => {
-  it("reports stale paths, unknown ratchets, invalid statuses, and unaccounted files", async () => {
+  it("reports stale globs, unknown ratchets, and unaccounted files, keyed by entry id", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: FIXTURE_MAP,
-      trackedFiles: ["src/index.ts", "scripts/tool.ts", "config.json", "extra/missing.ts"],
+      entries: FIXTURE_ENTRIES,
+      trackedFiles: ["src/index.ts", "scripts/tool.ts", "extra/missing.ts"],
       ratchetIds: new Set(["ratchet/known"]),
     });
 
@@ -183,52 +113,24 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.findings.map((finding) => finding.kind)).toEqual([
       "stale-path",
       "unknown-ratchet",
-      "invalid-status",
       "unaccounted-file",
     ]);
-    expect(result.stderr).toContain("`docs/stale.md`");
-    expect(result.stderr).toContain("ratchet/missing");
-    expect(result.stderr).toContain("maybe-linted");
+    expect(result.stderr).toContain("entry `docs-stale-md`");
+    expect(result.stderr).toContain("`docs/stale.md` matched 0 tracked files");
+    expect(result.stderr).toContain("entry `scripts-tool-ts`: ratchet/missing");
     expect(result.stderr).toContain("- extra:");
     expect(result.stderr).toContain("extra/missing.ts");
-  });
-
-  it("reports rows whose `Normal lint` column disagrees with the status token", async () => {
-    const result = await runLintCoverageMapCheck({
-      mapText: STATUS_CONSISTENCY_MAP,
-      trackedFiles: ["tools/lintyes/a.ts", "tools/lintno/a.md", "tools/lintok/a.ts"],
-      ratchetIds: new Set(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    const consistency = result.findings.filter(
-      (finding) => finding.kind === "status-consistency-mismatch",
-    );
-    expect(consistency.map((finding) => finding.line)).toEqual([5, 6]);
-    expect(result.stderr).toContain("Normal-lint / status inconsistencies:");
-    expect(result.stderr).toContain("line 5:");
-    expect(result.stderr).toContain("line 6:");
-    // The consistent `yes` ⇔ `linted` row must not be reported.
-    expect(result.stderr).not.toContain("line 7:");
-  });
-
-  it("runs the Normal-lint consistency check in staged mode", async () => {
-    const result = await runLintCoverageMapCheck({
-      mapText: STATUS_CONSISTENCY_MAP,
-      staged: true,
-      trackedFiles: ["tools/lintyes/a.ts", "tools/lintno/a.md", "tools/lintok/a.ts"],
-      ratchetIds: new Set(),
-    });
-
-    expect(result.exitCode).toBe(1);
-    expect(
-      result.findings.filter((finding) => finding.kind === "status-consistency-mismatch"),
-    ).toHaveLength(2);
+    // Findings never carry a Markdown line number any more.
+    expect(result.stderr).not.toMatch(/^- line \d/mu);
   });
 
   it("reports rows claiming a ratchet that covers none of their tracked files", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: RATCHET_MEMBERSHIP_MAP,
+      entries: [
+        entry({ id: "covered", globs: ["src/covered/a.ts"], ratchets: "`ratchet/scoped`" }),
+        entry({ id: "orphan", globs: ["src/orphan/b.ts"], ratchets: "`ratchet/scoped`" }),
+        entry({ id: "mixed", globs: ["src/mixed/*.ts"], ratchets: "`ratchet/scoped`" }),
+      ],
       trackedFiles: [
         "src/covered/a.ts",
         "src/orphan/b.ts",
@@ -246,29 +148,25 @@ describe("runLintCoverageMapCheck", () => {
     const membership = result.findings.filter(
       (finding) => finding.kind === "ratchet-membership-mismatch",
     );
-    // Only the orphan row (line 6) is flagged: line 5 matches a member, and
-    // line 7's partial overlap (member + non-member) keeps it silent.
-    expect(membership.map((finding) => finding.line)).toEqual([6]);
+    // Only the orphan entry is flagged: `covered` matches a member, and `mixed`'s
+    // partial overlap (member + non-member) keeps it silent.
+    expect(membership.map((finding) => finding.entry)).toEqual(["orphan"]);
     expect(membership[0]?.value).toContain("ratchet/scoped");
     expect(membership[0]?.value).toContain("src/orphan/b.ts");
     expect(result.stderr).toContain("Ratchet membership mismatches:");
   });
 
-  it("runs the ratchet membership check in staged mode", async () => {
+  // `:check` is the commit-gate mode and must stay reach-free; only `:audit`
+  // (--check-eslint-reach) may pay for ESLint config resolution.
+  it("never probes ESLint reach unless --check-eslint-reach asks for it", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: RATCHET_MEMBERSHIP_MAP,
-      staged: true,
-      trackedFiles: [
-        "src/covered/a.ts",
-        "src/orphan/b.ts",
-        "src/mixed/member.ts",
-        "src/mixed/x.ts",
-      ],
+      entries: [entry({ id: "orphan", globs: ["src/orphan/b.ts"], ratchets: "`ratchet/scoped`" })],
+      trackedFiles: ["src/orphan/b.ts"],
       ratchetIds: new Set(["ratchet/scoped"]),
-      ratchetMembership: (id) =>
-        id === "ratchet/scoped"
-          ? (file) => file === "src/covered/a.ts" || file === "src/mixed/member.ts"
-          : undefined,
+      ratchetMembership: (id) => (id === "ratchet/scoped" ? () => false : undefined),
+      eslintReachChecker: () => {
+        throw new Error("ESLint reach must not be probed without --check-eslint-reach");
+      },
     });
 
     expect(result.exitCode).toBe(1);
@@ -279,7 +177,22 @@ describe("runLintCoverageMapCheck", () => {
 
   it("reports tracked files claimed by incompatible coverage statuses", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: CONFLICTING_COVERAGE_MAP,
+      entries: [
+        entry({
+          id: "conflict-glob",
+          globs: ["tools/conflict/*.ts"],
+          normalLint: { covered: false },
+          status: ["excluded"],
+        }),
+        entry({ id: "conflict-file", globs: ["tools/conflict/example.ts"] }),
+        entry({
+          id: "compatible-glob",
+          globs: ["tools/compatible/*.ts"],
+          ratchets: "`ratchet/known`",
+          status: ["linted", "ratcheted"],
+        }),
+        entry({ id: "compatible-file", globs: ["tools/compatible/example.ts"] }),
+      ],
       trackedFiles: ["tools/conflict/example.ts", "tools/compatible/example.ts"],
       ratchetIds: new Set(["ratchet/known"]),
     });
@@ -289,26 +202,26 @@ describe("runLintCoverageMapCheck", () => {
       {
         kind: "conflicting-coverage",
         value:
-          "`tools/conflict/example.ts` matched incompatible statuses: line 5 `excluded`; line 6 `linted`",
+          "`tools/conflict/example.ts` matched incompatible statuses: entry `conflict-glob` `excluded`; entry `conflict-file` `linted`",
       },
     ]);
     expect(result.stderr).toContain("Conflicting coverage rows:");
-    expect(result.stderr).toContain("tools/conflict/example.ts");
-    expect(result.stderr).toContain("line 5 `excluded`; line 6 `linted`");
     expect(result.stderr).not.toContain("tools/compatible/example.ts");
   });
 
-  it("reports manifest-listed config surfaces whose coverage-map status drifted", async () => {
+  it("reports manifest-listed config surfaces whose coverage status drifted", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: CONFIG_SURFACE_MISMATCH_MAP,
+      entries: [
+        entry({
+          id: "example-config",
+          globs: ["tools/config/example.config.ts"],
+          normalLint: { covered: false },
+          status: ["excluded"],
+        }),
+      ],
       trackedFiles: ["tools/config/example.config.ts"],
       ratchetIds: new Set(),
-      configSurfaceEntries: [
-        {
-          path: "tools/config/example.config.ts",
-          coverageStatus: "linted",
-        },
-      ],
+      configSurfaceEntries: [{ path: "tools/config/example.config.ts", coverageStatus: "linted" }],
     });
 
     expect(result.exitCode).toBe(1);
@@ -316,16 +229,15 @@ describe("runLintCoverageMapCheck", () => {
       {
         kind: "config-surface-coverage-mismatch",
         value:
-          "`tools/config/example.config.ts` expected coverage status `linted` from config-surface manifest; matched statuses: line 5 `excluded`",
+          "`tools/config/example.config.ts` expected coverage status `linted` from config-surface manifest; matched statuses: entry `example-config` `excluded`",
       },
     ]);
     expect(result.stderr).toContain("Config surface coverage mismatches:");
-    expect(result.stderr).toContain("tools/config/example.config.ts");
   });
 
   it("reports linted config-surface files that are missing from the manifest", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: CONFIG_SURFACE_OMITTED_FROM_MANIFEST_MAP,
+      entries: [entry({ id: "example-config", globs: ["tools/config/example.config.ts"] })],
       trackedFiles: ["tools/config/example.config.ts"],
       ratchetIds: new Set(),
       configSurfaceEntries: [],
@@ -336,30 +248,29 @@ describe("runLintCoverageMapCheck", () => {
       {
         kind: "config-surface-coverage-mismatch",
         value:
-          "`tools/config/example.config.ts` is linted as a config surface in the coverage map but is missing from config-surface manifest; matched statuses: line 5 `linted`",
+          "`tools/config/example.config.ts` is linted as a config surface in the coverage map but is missing from config-surface manifest; matched statuses: entry `example-config` `linted`",
       },
     ]);
-    expect(result.stderr).toContain("Config surface coverage mismatches:");
   });
 
-  it("names the map path and the base-dir convention in the unaccounted section", async () => {
+  it("points the unaccounted section at the manifest modules, not the Markdown document", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: FIXTURE_MAP,
-      trackedFiles: ["src/index.ts", "scripts/tool.ts", "config.json", "extra/missing.ts"],
+      entries: FIXTURE_ENTRIES,
+      trackedFiles: ["src/index.ts", "scripts/tool.ts", "extra/missing.ts"],
       ratchetIds: new Set(["ratchet/known"]),
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("docs/generated/lint-coverage-map.md");
-    expect(result.stderr.toLowerCase()).toContain("base dir");
+    expect(result.stderr).toContain("scripts/lint-coverage-map-manifest-<area>.ts");
     expect(result.stderr).toContain("`bun run docs:lint-coverage-map:suggest`");
-    expect(result.stderr).not.toContain("scripts/lint-coverage-map-check.ts --suggest");
+    // The base-dir convention is gone with the private glob dialect.
+    expect(result.stderr.toLowerCase()).not.toContain("base dir");
   });
 
-  it("reports migration safety metadata when its claimed map row is removed", async () => {
+  it("reports migration safety metadata when its claimed entry is removed", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: METADATA_ONLY_MAP,
-      trackedFiles: [MAP_PATH, SAFETY_ACKNOWLEDGED_PATH],
+      entries: [entry({ id: "src-ts", globs: ["src/**/*.ts"] })],
+      trackedFiles: ["src/index.ts", SAFETY_ACKNOWLEDGED_PATH],
       ratchetIds: new Set(),
     });
 
@@ -369,27 +280,26 @@ describe("runLintCoverageMapCheck", () => {
       value: SAFETY_ACKNOWLEDGED_PATH,
     });
     expect(result.stderr).toContain("- packages/server/prisma/migrations:");
-    expect(result.stderr).toContain(SAFETY_ACKNOWLEDGED_PATH);
   });
 
-  it("emits ready-to-paste suggestions for unaccounted files under --suggest", async () => {
+  it("emits ready-to-paste manifest entries for unaccounted files under --suggest", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: FIXTURE_MAP,
-      trackedFiles: ["src/index.ts", "scripts/tool.ts", "config.json", "extra/missing.ts"],
+      entries: FIXTURE_ENTRIES,
+      trackedFiles: ["src/index.ts", "scripts/tool.ts", "extra/missing.ts"],
       ratchetIds: new Set(["ratchet/known"]),
       suggest: true,
       eslintReachChecker: () => true,
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain("Suggested coverage-map edits");
-    expect(result.stderr).toContain("`extra/missing.ts`");
+    expect(result.stderr).toContain("Suggested coverage-manifest edits");
+    expect(result.stderr).toContain('globs: ["extra/missing.ts"]');
   });
 
-  it("hints to `git add` when a mapped non-glob path exists in the worktree but is untracked", async () => {
+  it("hints to `git add` when a literal glob exists in the worktree but is untracked", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: CLEAN_MAP.replace("`src/**/*.ts`", "`src/new-file.ts`"),
-      trackedFiles: [MAP_PATH],
+      entries: [entry({ id: "src-new-file", globs: ["src/new-file.ts"] })],
+      trackedFiles: [],
       worktreeExists: (relPath) => relPath === "src/new-file.ts",
       ratchetIds: new Set(),
     });
@@ -398,13 +308,12 @@ describe("runLintCoverageMapCheck", () => {
     const stale = result.findings.filter((finding) => finding.kind === "stale-path");
     expect(stale).toHaveLength(1);
     expect(stale[0]?.value).toContain("did you forget to `git add` it?");
-    expect(result.stderr).toContain("did you forget to `git add` it?");
   });
 
   it("does not add the git-add hint for glob patterns or genuinely-missing paths", async () => {
     const result = await runLintCoverageMapCheck({
-      mapText: STAGED_DRIFTY_MAP,
-      trackedFiles: [MAP_PATH],
+      entries: [entry({ id: "missing-tree", globs: ["missing/**/*.ts"] })],
+      trackedFiles: [],
       worktreeExists: () => false,
       ratchetIds: new Set(),
     });
@@ -418,43 +327,17 @@ describe("runLintCoverageMapCheck", () => {
   it("emits the git-add hint in the integration path when a mapped file is untracked", async () => {
     const cwd = mkdtempSync(join(tmpdir(), "musi-coverage-map-check-"));
     try {
-      const mapPath = join(cwd, MAP_PATH);
-      mkdirSync(join(cwd, "src"), { recursive: true });
-      mkdirSync(join(cwd, "docs/generated"), { recursive: true });
-      // A new file added to the map row by exact name, but never `git add`-ed.
-      const mapWithNewFile = CLEAN_MAP.replace("`src/**/*.ts`", "`src/added.ts`");
-      writeFileSync(join(cwd, "src/added.ts"), "export const added = 1;\n");
-      writeFileSync(mapPath, mapWithNewFile);
+      // A new file named by an entry but never `git add`-ed: the real
+      // `existsSync` probe rooted at `cwd` must fire and produce the hint.
+      writeFileSync(join(cwd, "added.ts"), "export const added = 1;\n");
       git(cwd, ["init", "-q", "-b", "main"]);
-      git(cwd, ["add", MAP_PATH]); // stage only the map, not src/added.ts
 
-      const stagedResult = await runLintCoverageMapCheck({ cwd, mapPath, staged: true });
-      expect(stagedResult.exitCode).toBe(1);
-      // The real worktree-exists probe must fire and produce the actionable hint.
-      expect(stagedResult.stderr).toContain("did you forget to `git add` it?");
-    } finally {
-      rmSync(cwd, { recursive: true, force: true });
-    }
-  });
-
-  it("can check the staged coverage map instead of the clean worktree map", async () => {
-    const cwd = mkdtempSync(join(tmpdir(), "musi-coverage-map-check-"));
-    try {
-      const mapPath = join(cwd, MAP_PATH);
-      mkdirSync(join(cwd, "src"), { recursive: true });
-      mkdirSync(join(cwd, "docs/generated"), { recursive: true });
-      writeFileSync(join(cwd, "src/index.ts"), "export const value = 1;\n");
-      writeFileSync(mapPath, STAGED_DRIFTY_MAP);
-      git(cwd, ["init", "-q", "-b", "main"]);
-      git(cwd, ["add", "."]);
-      writeFileSync(mapPath, CLEAN_MAP);
-
-      const stagedResult = await runLintCoverageMapCheck({ cwd, mapPath, staged: true });
-      expect(stagedResult.exitCode).toBe(1);
-      expect(stagedResult.stderr).toContain("`missing/**/*.ts`");
-
-      const worktreeResult = await runLintCoverageMapCheck({ cwd, mapPath });
-      expect(worktreeResult.exitCode).toBe(0);
+      const result = await runLintCoverageMapCheck({
+        cwd,
+        entries: [entry({ id: "added-ts", globs: ["added.ts"] })],
+      });
+      expect(result.exitCode).toBe(1);
+      expect(result.stderr).toContain("did you forget to `git add` it?");
     } finally {
       rmSync(cwd, { recursive: true, force: true });
     }
@@ -464,7 +347,7 @@ describe("runLintCoverageMapCheck", () => {
     const result = await runLintCoverageMapCheck({
       checkEslintReach: true,
       eslintReachChecker: (file) => file !== "scripts/codemods/tsconfig.json",
-      mapText: ESLINT_REACH_MAP,
+      entries: [entry({ id: "codemods-tsconfig", globs: ["scripts/codemods/tsconfig.json"] })],
       trackedFiles: ["scripts/codemods/tsconfig.json"],
       ratchetIds: new Set(),
     });
@@ -472,16 +355,29 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.exitCode).toBe(1);
     expect(result.findings.map((finding) => finding.kind)).toEqual(["eslint-reach-missing"]);
     expect(result.stderr).toContain("ESLint reach gaps:");
-    expect(result.stderr).toContain("line 5: 1 of 1 ESLint-managed file(s) have no ESLint config");
-    expect(result.stderr).toContain("scripts/codemods/tsconfig.json");
+    expect(result.stderr).toContain(
+      "entry `codemods-tsconfig`: 1 of 1 ESLint-managed file(s) resolve no ESLint rules",
+    );
   });
 
-  it("only counts in-scope, ESLint-managed files matching a row pattern in the reach gate", async () => {
+  it("only counts in-scope, ESLint-managed files matching an entry glob in the reach gate", async () => {
+    // One entry carrying TWO independent globs. Exactly one tracked file
+    // satisfies all three filter conjuncts (in-scope && uses-eslint && matches):
+    // - packages/reach/dist/scope-b.ts matches and uses ESLint but is out of
+    //   scope (generated `dist/` dir).
+    // - tools/reach/notes.md matches and is in scope but is not an
+    //   ESLint-managed extension.
     const result = await runLintCoverageMapCheck({
       checkEslintReach: true,
-      // No file resolves an ESLint config, so every file the filter admits is "missing".
+      // No file resolves an ESLint config, so every admitted file is "missing".
       eslintReachChecker: () => false,
-      mapText: ESLINT_REACH_FILTER_MAP,
+      entries: [
+        entry({
+          id: "reach-filter",
+          globs: ["tools/reach/*", "packages/reach/dist/*"],
+          files: "3",
+        }),
+      ],
       trackedFiles: [
         "tools/reach/managed-a.ts",
         "packages/reach/dist/scope-b.ts",
@@ -492,15 +388,9 @@ describe("runLintCoverageMapCheck", () => {
 
     expect(result.exitCode).toBe(1);
     expect(result.findings.map((finding) => finding.kind)).toEqual(["eslint-reach-missing"]);
-    // Exactly ONE of the three tracked files satisfies all three filter conjuncts,
-    // so the row's total (the `M` in `N of M`) is 1, and it names that file.
-    // - packages/reach/dist/scope-b.ts excluded by trackedFileIsInScope (out-of-scope dir)
-    // - tools/reach/notes.md excluded by trackedFileUsesEslint (.md is not ESLint-managed)
     expect(result.stderr).toContain(
-      "line 5: 1 of 1 ESLint-managed file(s) have no ESLint config (e.g. `tools/reach/managed-a.ts`)",
+      "entry `reach-filter`: 1 of 1 ESLint-managed file(s) resolve no ESLint rules (e.g. `tools/reach/managed-a.ts`)",
     );
-    expect(result.stderr).not.toContain("packages/reach/dist/scope-b.ts");
-    expect(result.stderr).not.toContain("tools/reach/notes.md");
     // 2 of 2 / 3 of 3 would mean a conjunct flipped to constant-true or `&&`→`||`
     // admitted the out-of-scope or non-ESLint file.
     expect(result.stderr).not.toContain("of 2 ESLint-managed");
@@ -511,33 +401,121 @@ describe("runLintCoverageMapCheck", () => {
     const result = await runLintCoverageMapCheck({
       checkEslintReach: true,
       eslintReachChecker: () => false,
-      mapText: ESLINT_REACH_STATUS_MAP,
+      entries: [
+        entry({
+          id: "multipart",
+          globs: ["tools/multipart/*.ts"],
+          status: ["linted", "ratcheted"],
+        }),
+        entry({
+          id: "ratchet-only",
+          globs: ["tools/ratchetonly/*.ts"],
+          normalLint: { covered: false },
+          status: ["ratcheted"],
+        }),
+      ],
       trackedFiles: ["tools/multipart/a.ts", "tools/ratchetonly/b.ts"],
       ratchetIds: new Set(),
     });
 
     expect(result.exitCode).toBe(1);
-    // Only the `linted + ratcheted` row (line 5) is gated; the `ratcheted`-only
-    // row (line 6) is skipped, so there is exactly one reach finding for line 5.
     const reach = result.findings.filter((finding) => finding.kind === "eslint-reach-missing");
     expect(reach).toHaveLength(1);
-    expect(reach[0]?.line).toBe(5);
-    // The whitespace-padded `linted + ratcheted` part is trimmed before the
-    // `linted` membership check, so the row is still processed and names its file.
-    expect(result.stderr).toContain(
-      "line 5: 1 of 1 ESLint-managed file(s) have no ESLint config (e.g. `tools/multipart/a.ts`)",
-    );
+    expect(reach[0]?.entry).toBe("multipart");
     // The `ratcheted`-only row must not emit a reach finding; its file is never reported.
-    expect(result.stderr).not.toContain("line 6:");
     expect(result.stderr).not.toContain("tools/ratchetonly/b.ts");
   });
 
-  it("skips the ESLint reach gate in staged mode", async () => {
+  it("reports a row whose asserted Files count is not the number of files it matches", async () => {
+    const result = await runLintCoverageMapCheck({
+      entries: [entry({ id: "stale-count", globs: ["src/*.ts"], files: "1 .ts" })],
+      trackedFiles: ["src/a.ts", "src/b.ts"],
+      ratchetIds: new Set(),
+    });
+
+    const counts = result.findings.filter((finding) => finding.kind === "files-count-stale");
+    expect(counts).toHaveLength(1);
+    expect(counts[0]?.entry).toBe("stale-count");
+    expect(counts[0]?.value).toContain("asserts 1");
+    expect(counts[0]?.value).toContain("match 2 tracked file(s)");
+    expect(result.exitCode).toBe(1);
+  });
+
+  it("sums a multi-extension Files breakdown before comparing", async () => {
+    const result = await runLintCoverageMapCheck({
+      entries: [
+        entry({
+          id: "breakdown",
+          globs: ["fixtures/*"],
+          files: "2 .ts + 1 .json (labeled corpus)",
+        }),
+      ],
+      trackedFiles: ["fixtures/a.ts", "fixtures/b.ts", "fixtures/meta.json"],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.findings.filter((finding) => finding.kind === "files-count-stale")).toEqual([]);
+    // The trailing parenthetical is prose: its digits must not join the sum.
+    expect(result.exitCode).toBe(0);
+  });
+
+  it("exempts a row that declares why its Files count is not derivable", async () => {
+    const result = await runLintCoverageMapCheck({
+      entries: [
+        entry({
+          id: "subset",
+          globs: ["packages/**/*.ts"],
+          files: "1 .ts",
+          filesCountNote:
+            "production only; the sibling test row owns the rest and rows carry no ignores",
+        }),
+        entry({
+          id: "prose",
+          globs: ["packages/**/*.ts"],
+          files: "root guidance docs plus per-package MODULE docs",
+          filesCountNote: "narrative breakdown, not a total",
+        }),
+      ],
+      trackedFiles: ["packages/a.ts", "packages/b.ts"],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.findings.filter((finding) => finding.kind === "files-count-stale")).toEqual([]);
+  });
+
+  it("reports a non-linted row whose files normal lint actually reaches", async () => {
     const result = await runLintCoverageMapCheck({
       checkEslintReach: true,
+      // Every file resolves lint rules; only the row that does not claim
+      // `linted` is a misclassification.
+      eslintReachChecker: () => true,
+      entries: [
+        entry({ id: "linted-row", globs: ["tools/linted/*.ts"], status: ["linted"] }),
+        entry({
+          id: "excluded-row",
+          globs: ["tools/excluded/*.ts"],
+          normalLint: { covered: false },
+          status: ["excluded"],
+        }),
+      ],
+      trackedFiles: ["tools/linted/a.ts", "tools/excluded/b.ts"],
+      ratchetIds: new Set(),
+    });
+
+    expect(result.exitCode).toBe(1);
+    const unexpected = result.findings.filter(
+      (finding) => finding.kind === "eslint-reach-unexpected",
+    );
+    expect(unexpected).toHaveLength(1);
+    expect(unexpected[0]?.entry).toBe("excluded-row");
+    expect(unexpected[0]?.value).toContain("tools/excluded/b.ts");
+    expect(result.stderr).toContain("Rows normal lint reaches but that do not claim `linted`:");
+  });
+
+  it("skips the ESLint reach gate unless --check-eslint-reach asks for it", async () => {
+    const result = await runLintCoverageMapCheck({
       eslintReachChecker: () => false,
-      mapText: ESLINT_REACH_MAP,
-      staged: true,
+      entries: [entry({ id: "codemods-tsconfig", globs: ["scripts/codemods/tsconfig.json"] })],
       trackedFiles: ["scripts/codemods/tsconfig.json"],
       ratchetIds: new Set(),
     });
@@ -546,6 +524,10 @@ describe("runLintCoverageMapCheck", () => {
     expect(result.findings).toEqual([]);
   });
 });
+
+function git(cwd: string, args: readonly string[]): void {
+  execFileSync("git", args, { cwd, stdio: "ignore" });
+}
 
 describe("loadTrackedFiles", () => {
   it("returns tracked files sorted, dropping untracked ones", () => {

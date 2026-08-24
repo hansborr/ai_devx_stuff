@@ -46,11 +46,11 @@ are current):
 | `details` production readers | **2** — `runner.ts` (`--fail-on-runtime-cycles`) and `triage-report-support.ts`. All other `details?.[…]` hits under `scripts/` are test assertions. |
 | `details` writers | **14** (leaf said 13) |
 | `isTimeoutResult` / `hasErrorCode` copies | **4 each**, in `duplicates-runner.ts`, `knip-runner.ts`, `semgrep-runner.ts`, `dolos-runner.ts` |
-| `CLONE_CHECKS` duplicated | Yes — identical `Set`s in `triage-report.ts` and `triage-report-support.ts` |
+| `CLONE_CHECKS` ownership | **One after H10** — `triage-report-support.ts` owns the set and `triage-report.ts` imports it |
 | Guard layer | 305 + 160 + 141 = **606** lines; `triage-report-contracts.ts` = **112** |
 | `scripts/drift-ai/` inventory | **344** direct-child `.ts` = 240 production + 104 tests; no `MODULE.md` |
 | Barrel test | `scripts/drift-ai.test.ts` = **2,765** lines; the three `runDriftAi*` describes start at `:1262`, `:2555`, `:2688`; no `runner.test.ts`, no `cli-args.test.ts` |
-| `isRecord` importers from `config-readers.ts` | **6** |
+| `isRecord` importers from `config-readers.ts` | **7 at the measured SHA; 0 after H6** — the original count of 6 omitted `config-parsing.ts`; all seven now import the shared guard directly, while `UnknownRecord` remains exported from `config-readers.ts` |
 | Direction law | Forward five-module list in `scripts/drift-triage/MODULE.md` matches live imports; reverse is ESLint-enforced by `driftDirectionLawConfigs` in `eslint-config/script-configs.js` |
 
 These are greppable facts, so "sampled coverage" does not undermine them.
@@ -113,7 +113,7 @@ These are greppable facts, so "sampled coverage" does not undermine them.
 |---|---|---|
 | 1. `typeOnly` key + structural predicate | **Keep**, merged into slice 34.1 | A bare string spans an ESLint-enforced direction boundary, gates a CLI exit code, and is written on two different checks (correction 4). Cheap and correct as specified. |
 | 2. Knip memo → `env.reportCache` | **Keep** as slice 34.2 | Both consults kept it. A module-global whose stated justification is refuted by `resolveKnipRunner` having `env` in scope, plus a production module forced to call a test-shaped reset. |
-| 3. Type + dedup the triage classification sets | **Keep**, merged into slice 34.1 | One deleted duplicate `Set` and a literal-checked annotation. Too small to schedule alone; free alongside step 1 in the same directory. |
+| 3. Type + dedup the triage classification sets | **Keep the remaining typing**, merged into slice 34.1 | H10 already deleted the duplicate `Set` and established `triage-report-support.ts` as its sole owner. The literal-checked annotations remain small enough to pair with step 1. |
 | 4. Pass the objects that already exist | **Drop** | Both consults dropped it. No type information is lost; `groupFindingsForChunks`/`buildChunkManifest` are exported API in `scripts/drift-ai/chunks.ts`, so it would churn a public signature for arity cosmetics. Six parameters are explicitly permitted for this family by `eslint-config/script-configs.js`. |
 | 5. Bounded-subprocess kernel | **Drop** | Both consults dropped it, on the same verified ground: the four adapters differ on signal gate, kill signal, buffer, exit-code meaning (knip's non-zero exit is success) and tool-unavailable policy. What is genuinely shared reduces to `hasErrorCode` plus a spawn-options literal — not a kernel. Highest hazard, lowest residue. |
 | 6. Split the barrel test | **Drop** | Both consults dropped it. Moving 1,658 lines adds no coverage, removes incidental barrel-re-export verification, and its premise is false (correction 2). It also changes the generated coverage-map count — see Operational risks. |
@@ -151,7 +151,7 @@ Two slices, no dependency between them. Each is one agent session.
 
 | # | Scope | Done criteria | Verification |
 |---|---|---|---|
-| **34.1** | **Name the type-only-cycle fact and check the triage sets.** In `scripts/drift-ai/types.ts` (a leaf module, inside the five-module forward contract, already imported at runtime by triage) export `TYPE_ONLY_CYCLE_DETAIL_KEY = "typeOnly"` and `isTypeOnlyCycleFinding(finding: { readonly check: string; readonly details?: Readonly<Record<string, unknown>> }): boolean` with body `finding.check === "import-cycles" && finding.details?.[KEY] === true`. Have `import-cycles.ts:cycleFinding` write the constant. Repoint `runner.ts` (negating) and `triage-report-support.ts`. **Do not** fold either caller's surrounding policy into the predicate. Then delete the duplicate `CLONE_CHECKS` from `triage-report.ts` (import the `triage-report-support.ts` one) and annotate all three sets as `const X: ReadonlySet<string> = new Set<DriftCheckId>([…])` — the literal catches a typo'd id, the widened annotation keeps `.has(finding.check)` compiling. Refresh `scripts/drift-triage/MODULE.md` per `docs/guides/add-module-doc.md`. | The predicate signature accepts both `DriftFinding` and `DriftFindingInput` without a cast; no bare `"typeOnly"` string literal remains in `runner.ts` or `triage-report-support.ts`; exactly one `CLONE_CHECKS` exists; `DriftFinding.details` and its `types.ts` open-extension comment are unchanged; no new drift-ai module is imported by triage | `bun run test:scripts:file -- scripts/drift-ai.test.ts scripts/drift-ai/import-cycles.test.ts scripts/drift-triage/triage-report.test.ts` then `bun run lint` (the direction law is an ESLint rule) |
+| **34.1** | **Name the type-only-cycle fact and check the triage sets.** In `scripts/drift-ai/types.ts` (a leaf module, inside the five-module forward contract, already imported at runtime by triage) export `TYPE_ONLY_CYCLE_DETAIL_KEY = "typeOnly"` and `isTypeOnlyCycleFinding(finding: { readonly check: string; readonly details?: Readonly<Record<string, unknown>> }): boolean` with body `finding.check === "import-cycles" && finding.details?.[KEY] === true`. Have `import-cycles.ts:cycleFinding` write the constant. Repoint `runner.ts` (negating) and `triage-report-support.ts`. **Do not** fold either caller's surrounding policy into the predicate. H10 already established `triage-report-support.ts` as the sole `CLONE_CHECKS` owner; keep that ownership and annotate all three sets as `const X: ReadonlySet<string> = new Set<DriftCheckId>([…])` — the literal catches a typo'd id, the widened annotation keeps `.has(finding.check)` compiling. Refresh `scripts/drift-triage/MODULE.md` per `docs/guides/add-module-doc.md`. | The predicate signature accepts both `DriftFinding` and `DriftFindingInput` without a cast; no bare `"typeOnly"` string literal remains in `runner.ts` or `triage-report-support.ts`; exactly one `CLONE_CHECKS` exists; `DriftFinding.details` and its `types.ts` open-extension comment are unchanged; no new drift-ai module is imported by triage | `bun run test:scripts:file -- scripts/drift-ai.test.ts scripts/drift-ai/import-cycles.test.ts scripts/drift-triage/triage-report.test.ts` then `bun run lint` (the direction law is an ESLint rule) |
 | **34.2** | **Move the knip memo into `env.reportCache`.** Read `docs/agent_notes/finished_work/drift-ai-knip-cache-report-boundary.md` first — it records why the clear lives in `buildReport` and names the fake `node_modules/.bin/knip` test that proves both halves of the invariant. Pass `env.reportCache` into `memoizingDefaultKnipRunner` from `knip-pass-through-check.ts:resolveKnipRunner`; key the memo off that map instead of the module-level `Map`; mirror `scripts/drift-ai/parsed-source-cache.ts:parsedSourceFileCacheForReport`. Delete `clearKnipRunCache`, its forced call in `report-builder.ts:buildReport` and the now-stale comment above it — **and rewrite its 15+ test call sites across `scripts/drift-ai.test.ts`, `knip-runner.test.ts` and `knip-unused-exports.test.ts`**, which is most of this slice's work. Keep every cache-key dimension (`analyzedRepoRoot`, `knipBin`, `configPath`, `includeCategories`, `timeoutMs`) and the injected-runner bypass. | `grep -rn "clearKnipRunCache" scripts/` returns nothing; the fake-knip test still proves selected knip checks share one spawn within a report and that separate report builds re-spawn | `FORCE_VERIFY=1 bun run test -- scripts/drift-ai.test.ts scripts/drift-ai/knip-runner.test.ts scripts/drift-ai/knip-unused-exports.test.ts` (the exact command the finished-work doc used to validate the original change) |
 
 ### Dependency edges
@@ -200,17 +200,21 @@ Two slices, no dependency between them. Each is one agent session.
   knip treats a non-zero exit as its normal success case; jscpd, semgrep and dolos
   do not, and only semgrep/dolos classify `ENOENT` as tool-unavailable. Absorbing
   those into a kernel silently flips finding-vs-skip.
-- **`config-readers.ts:isRecord` stays as-is.** It is a second copy of
-  `scripts/lib/records.ts:isRecord` with 6 production importers. Collapsing it
-  (by re-exporting, never by deleting the export — `UnknownRecord` travels with
-  it) is a separate one-line item and is not in scope here. With step 5 dropped,
-  the two runners keep using it.
+- **H6 removed the `config-readers.ts:isRecord` export after this plan was
+  written.** Its seven production consumers now import the generic guard directly
+  from `scripts/lib/records.ts`, making that ownership visible instead of keeping
+  a forwarding export. The constraint behind the original ruling was honoured:
+  `UnknownRecord` travelled with the guard change and remains exported from
+  `config-readers.ts`; `semgrep-output.ts` and `semgrep-rule-manifest.ts` split
+  their value and type imports accordingly. The separate one-line collapse this
+  plan anticipated therefore no longer exists, and the two runners retained by
+  the dropped step 5 use the shared guard directly.
 
 ## Rejected alternatives — why
 
 | Rejected | Why |
 |---|---|
-| **Scheduling leaf 34 as an XL** | Both consults independently said no. What survives review is one predicate, one deleted duplicate `Set`, three annotations and one cache relocation. |
+| **Scheduling leaf 34 as an XL** | Both consults independently said no. What survives review is one predicate, three `Set` annotations and one cache relocation. |
 | **Dropping the leaf entirely (cursor's position)** | Over-corrects. The `typeOnly` key crosses an architecture-enforced boundary, gates an exit code in the commit path, and is written on two different checks — that is a real contract, not cosmetics. And the knip module-global is a production module forced to call a reset named for tests. |
 | **Turning `DriftFinding` into a per-check discriminated union** | The leaf's own caveat is right and both consults agreed: 2 production reads against 14 writers, threading through the generic `TExtra` merge in `duplicate-shapes.ts`, contradicting the deliberate open-extension contract documented in `types.ts`. |
 | **Bounded-subprocess kernel (step 5)** | The premise — "near-verbatim copies" — does not survive reading the four bodies (correction 3). Extracting them requires either parameterizing the differences (a kernel with four policy hooks) or normalizing them (a silent behaviour change in commit-gating tools). |

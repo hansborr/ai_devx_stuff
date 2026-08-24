@@ -8,7 +8,8 @@ import {
   normalizedTokens,
   strongTokens,
 } from "./ghost-files-tokens.js";
-import { isSourceLike, SOURCE_LIKE_EXTS, uniqSorted } from "./path-util.js";
+import { isSourceLike, uniqSorted } from "./path-util.js";
+import { BUILT_IN_SOURCE_EXTENSIONS } from "./scope.js";
 
 type GhostFileMatchKind = "identical-normalized" | "weak-suffix-variant" | "near-edit-distance";
 
@@ -120,7 +121,7 @@ function prepareGhostCandidate(
 export function findGhostMatches(
   newPath: string,
   peerPaths: readonly string[],
-  sourceExtensions: ReadonlySet<string> = SOURCE_LIKE_EXTS,
+  sourceExtensions: ReadonlySet<string> = BUILT_IN_SOURCE_EXTENSIONS,
   options: GhostFileMatchOptions = {},
 ): GhostFileMatch[] {
   const resolvedOptions = resolveMatchOptions(options);

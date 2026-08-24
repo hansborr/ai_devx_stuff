@@ -11,19 +11,15 @@
 // nothing and is marked incomplete, so copies through it are reported as
 // unmodelled rather than silently resolved from a sibling loop's list.
 
-import {
-  capture,
-  expandLiteralGlob,
-  normalizePath,
-  stripQuotes,
-} from "./fixture-copy-expressions.js";
+import { capture, expandLiteralGlob, stripQuotes } from "./fixture-copy-expressions.js";
 import { fixtureGroupKey } from "./fixture-helper-calls.js";
 import type { ScopedShellLine } from "./fixture-shell-scope.js";
+import { hasShellGlobSyntax } from "./segment-pattern.js";
+import { normalizePath } from "./smoke-test-files.js";
 
 const loopHeaderPattern = /^for\s+([A-Za-z_]\w*)\s+in\s+(\S.*)$/u;
 const loopListTailPattern = /(?:;\s*do|\s+do)\s*$/u;
 const loopListCaptureIndex = 2;
-const globCharacterPattern = /[*?[]/u;
 const wholeVariablePattern = /^\$\{?([A-Za-z_]\w*)\}?$/u;
 
 /** The bare variable name of a whole-variable operand, or "" when it is not one. */
@@ -52,7 +48,7 @@ function loopListPaths(repoRoot: string, rawList: string): readonly string[] | u
       paths.push(...expanded);
       continue;
     }
-    if (globCharacterPattern.test(value)) return undefined;
+    if (hasShellGlobSyntax(value)) return undefined;
     paths.push(value);
   }
   return paths;

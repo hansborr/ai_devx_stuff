@@ -10,7 +10,6 @@ import type {
   DefinitionNearMatch,
   DefinitionNearMatchHint,
   DefinitionResult,
-  IntelResult,
   NamedDeclaration,
   SourceLocation,
 } from "./types.js";
@@ -21,7 +20,7 @@ export function queryDefinition(
   project: Project,
   resolver: WorkspaceResolver,
   location: SourceLocation,
-): IntelResult[] {
+): DefinitionResult[] {
   const sourceFile = getProjectSourceFile(project, resolver.mapFileToSource(location.file));
   const position = positionFromLineColumn(sourceFile, location);
   const node = sourceFile.getDescendantAtPos(position);

@@ -1,16 +1,19 @@
 // Renders the per-baseline merge-conflict recovery recipes into the merge
-// runbook from a single source: the driver's own `print_conflict_recovery`
-// case blocks in scripts/git/baseline-merge-driver.sh. Git invokes that driver
-// standalone, so its recovery text is the authoritative recipe; this generator
-// projects it into docs/guides/lint-ratchet-merges.md between per-baseline
-// markers instead of the doc re-wording each recipe by hand. `--check` fails on
-// drift between the driver text and the committed markdown blocks.
+// runbook from their live authorities: the package renderer for lint-ratchet,
+// and the `print_conflict_recovery` case blocks in
+// scripts/git/baseline-merge-driver.sh for Musi's other three families. This
+// generator projects them into docs/guides/lint-ratchet-merges.md between
+// per-baseline markers instead of the doc re-wording each recipe by hand.
+// `--check` fails on drift from either implementation authority.
 
 import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { renderLintRatchetConflictRecovery } from "@musi/lint-ratchet/git-rail/conflict-recovery.js";
+
 import { runDocGenerator } from "./lib/doc-generator.js";
+import { musiLintRatchetWorkflowVocabulary } from "./lint-ratchet/workflow-vocabulary.js";
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const driverPath = join(repoRoot, "scripts/git/baseline-merge-driver.sh");
@@ -20,7 +23,7 @@ const outputPath = join(repoRoot, "docs/guides/lint-ratchet-merges.md");
 // driver would print via its `$path` placeholder. This map is the single place
 // the doc/driver pairing is declared; adding a baseline driver means adding one
 // entry here plus its marker pair in the runbook.
-const BASELINE_PATH_BY_DRIVER_KEY: Readonly<Record<string, string>> = {
+export const BASELINE_PATH_BY_DRIVER_KEY: Readonly<Record<string, string>> = {
   "lint-ratchet": "lint-ratchet.baseline.json",
   "knip-unused-exports": "sensor-knip-unused-exports.baseline.json",
   "near-duplicates": "sensor-near-duplicates.baseline.json",
@@ -130,7 +133,10 @@ function escapeForRegExp(value: string): string {
 export function spliceRecipeBlocks(currentDoc: string, driverSource: string): string {
   let rendered = currentDoc;
   for (const [driverKey, baselinePath] of Object.entries(BASELINE_PATH_BY_DRIVER_KEY)) {
-    const recipe = extractDriverRecipe(driverSource, driverKey).replaceAll("$path", baselinePath);
+    const recipe =
+      driverKey === "lint-ratchet"
+        ? renderLintRatchetConflictRecovery(baselinePath, musiLintRatchetWorkflowVocabulary)
+        : extractDriverRecipe(driverSource, driverKey).replaceAll("$path", baselinePath);
     const block = renderRecipeBlock(driverKey, recipe);
     const startMarker = `<!-- ${driverKey}-baseline-conflict-recipe:start -->`;
     const endMarker = `<!-- ${driverKey}-baseline-conflict-recipe:end -->`;

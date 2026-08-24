@@ -1,13 +1,13 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-
 import {
   HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
   type HarnessDiagnostics,
   harnessDiagnosticsSchema,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   emitHarnessDiagnostics,

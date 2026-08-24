@@ -10,11 +10,14 @@ import {
   buildLintRatchetBaseline,
   formatLintRatchetBaseline,
 } from "@musi/lint-ratchet/kernel/baseline.js";
-import { LINT_RATCHET_BASELINE_REGENERATE } from "@musi/lint-ratchet/kernel/baseline-constants.js";
 import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
 import type * as CollectorModule from "@musi/lint-ratchet/kernel/current-collector.js";
 import { createLintRatchetEngineContext } from "@musi/lint-ratchet/kernel/engine-context.js";
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { fixtureWorkflowVocabulary } from "./fixture-workflow-vocabulary.js";
+
+const LINT_RATCHET_BASELINE_REGENERATE = fixtureWorkflowVocabulary.updateCommand;
 
 // The gate's parse-FIRST ordering: a missing or unparseable committed baseline
 // must abort before the operation spends an ESLint sweep. The plain fail-loud
@@ -46,7 +49,10 @@ function makeFixtureRepo(): string {
   cleanups.push(() => {
     rmSync(repoRoot, { recursive: true, force: true });
   });
-  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "dir");
+  // "junction" is ignored on POSIX and avoids the Windows Developer-Mode
+  // privilege a "dir" symlink needs; junction targets must be absolute, and
+  // realRepoRoot is.
+  symlinkSync(join(realRepoRoot, "node_modules"), join(repoRoot, "node_modules"), "junction");
   mkdirSync(join(repoRoot, "src"), { recursive: true });
   writeFileSync(
     join(repoRoot, "package.json"),
@@ -66,7 +72,6 @@ const parseFirstRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Parse-first fixture: keep debugger statements out of the fixture source.",
 } satisfies LintRatchetConfig;
 const registry: readonly LintRatchetConfig[] = [parseFirstRatchet];
@@ -81,7 +86,10 @@ async function rejectionOf(promise: Promise<unknown>): Promise<unknown> {
 describe("gate parse-first ordering (collector must not run)", () => {
   it("aborts on a missing committed baseline before any collection", async () => {
     const repoRoot = makeFixtureRepo();
-    const context = createLintRatchetEngineContext({ repoRoot });
+    const context = createLintRatchetEngineContext({
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      repoRoot,
+    });
     const binding = { repoRoot, thirdPartyPluginAllowlist: [] };
 
     const failure = await rejectionOf(runLintRatchetGate({ context, binding, registry }));
@@ -91,13 +99,19 @@ describe("gate parse-first ordering (collector must not run)", () => {
 
   it("aborts on an unparseable baseline, surfacing warnings alongside failures, before any collection", async () => {
     const repoRoot = makeFixtureRepo();
-    const context = createLintRatchetEngineContext({ repoRoot });
+    const context = createLintRatchetEngineContext({
+      workflowVocabulary: fixtureWorkflowVocabulary,
+      repoRoot,
+    });
     const binding = { repoRoot, thirdPartyPluginAllowlist: [] };
     // A post-bad-merge shape that yields BOTH: structurally valid JSON whose
     // registry validation fails (the committed tests are missing this
     // registry's ratchet) AND a non-blocking stale-regenerate warning.
     const emptyRegistryBaseline = formatLintRatchetBaseline(
-      buildLintRatchetBaseline([], new Map(), new Map()),
+      buildLintRatchetBaseline([], new Map(), new Map(), {
+        workflowVocabulary: fixtureWorkflowVocabulary,
+      }),
+      fixtureWorkflowVocabulary,
     );
     writeFileSync(
       context.baselinePath,

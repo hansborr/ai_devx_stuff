@@ -10,6 +10,7 @@ import {
   writeHookWiringOutputs,
 } from "./generate-hook-wiring.js";
 import { parseHarnessManifest } from "./harness-manifest-schema.js";
+import type { HookWiring } from "./hook-wiring-schema.js";
 
 interface ControlFixture {
   readonly controls: readonly Record<string, unknown>[];
@@ -44,6 +45,34 @@ function renderHookWiringOutputsFromManifest(
   );
 }
 
+const BASE_HOOK_WIRING = {
+  event: "Stop",
+  body: "scripts/ai-hooks/fixture.sh",
+  order: 10,
+  harnesses: {
+    claude: { command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/fixture.sh" },
+  },
+  notes: {
+    codex: "Fixture only.",
+    copilot: "Fixture only.",
+  },
+} as const satisfies HookWiring;
+
+interface HookControlFixture {
+  readonly [key: string]: unknown;
+  readonly id: string;
+  readonly kind: "hook";
+  readonly hookWiring: HookWiring;
+}
+
+function hookControl(id: string, wiringOverrides: Partial<HookWiring> = {}): HookControlFixture {
+  return {
+    id,
+    kind: "hook",
+    hookWiring: { ...BASE_HOOK_WIRING, ...wiringOverrides },
+  };
+}
+
 const BASE_SETTINGS = `{
   "env": {
     "KEEP": "yes"
@@ -66,22 +95,16 @@ describe("hook wiring generator", () => {
     try {
       const manifest = {
         controls: [
-          {
-            id: "hook/shim-fixture",
-            kind: "hook",
-            hookWiring: {
-              event: "PostToolUse",
-              body: "scripts/ai-hooks/fixture.sh",
-              order: 10,
-              harnesses: {
-                claude: {
-                  matcher: "Edit|Write",
-                  command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/fixture.sh",
-                },
+          hookControl("hook/shim-fixture", {
+            event: "PostToolUse",
+            surface: "edit",
+            harnesses: {
+              claude: {
+                matcher: "Edit|Write",
+                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/fixture.sh",
               },
-              notes: { codex: "Fixture only.", copilot: "Fixture only." },
             },
-          },
+          }),
         ],
       };
       const outputs = renderHookWiringOutputsFromManifest(manifest, BASE_SETTINGS);
@@ -109,100 +132,80 @@ describe("hook wiring generator", () => {
   it("renders Claude, Codex, and Copilot hook wiring from manifest order metadata", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/codex-aggregator",
-          kind: "hook",
-          hookWiring: {
-            event: "PostToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 90,
-            harnesses: {
-              codex: {
-                matcher: "Bash",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"',
-                statusMessage: "Summarizing repository Bash output",
-                timeout: 60,
-              },
-            },
-            notes: {
-              claude: "Claude has no Codex Bash aggregation hook.",
-              copilot: "Copilot has its own Bash aggregation hook.",
+        hookControl("hook/codex-aggregator", {
+          event: "PostToolUse",
+          order: 90,
+          harnesses: {
+            codex: {
+              matcher: "Bash",
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"',
+              statusMessage: "Summarizing repository Bash output",
+              timeout: 60,
             },
           },
-        },
-        {
-          id: "hook/prisma",
-          kind: "hook",
-          hookWiring: {
-            event: "PostToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                matcher: "Edit|Write",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh",
-                timeout: 120,
-              },
-              codex: {
-                matcher: "apply_patch",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"',
-                statusMessage: "Regenerating Prisma client",
-                timeout: 120,
-              },
-              copilot: {
-                matcher: "create|edit",
-                command:
-                  'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"',
-                timeout: 120,
-              },
+          notes: {
+            claude: "Claude has no Codex Bash aggregation hook.",
+            copilot: "Copilot has its own Bash aggregation hook.",
+          },
+        }),
+        hookControl("hook/prisma", {
+          event: "PostToolUse",
+          body: "scripts/ai-hooks/prisma-generate.sh",
+          surface: "edit",
+          harnesses: {
+            claude: {
+              matcher: "Edit|Write",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh",
+              timeout: 120,
+            },
+            codex: {
+              matcher: "apply_patch",
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"',
+              statusMessage: "Regenerating Prisma client",
+              timeout: 120,
+            },
+            copilot: {
+              matcher: "create|edit",
+              command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"',
+              timeout: 120,
             },
           },
-        },
-        {
-          id: "hook/doc-length",
-          kind: "hook",
-          hookWiring: {
-            event: "PostToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 20,
-            harnesses: {
-              claude: {
-                matcher: "Edit|Write",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh",
-              },
-              codex: {
-                matcher: "apply_patch",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh"',
-                statusMessage: "Checking edited doc length",
-                timeout: 15,
-              },
-              copilot: {
-                matcher: "create|edit",
-                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"',
-              },
+        }),
+        hookControl("hook/doc-length", {
+          event: "PostToolUse",
+          body: "scripts/ai-hooks/doc-length.sh",
+          order: 20,
+          surface: "edit",
+          harnesses: {
+            claude: {
+              matcher: "Edit|Write",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh",
+            },
+            codex: {
+              matcher: "apply_patch",
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh"',
+              statusMessage: "Checking edited doc length",
+              timeout: 15,
+            },
+            copilot: {
+              matcher: "create|edit",
+              command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"',
             },
           },
-        },
-        {
-          id: "hook/stop",
-          kind: "hook",
-          hookWiring: {
-            event: "Stop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["systemMessage"],
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
-                timeout: 30,
-              },
-            },
-            notes: {
-              codex: "Codex Stop has no verified user-only output channel.",
-              copilot: "Copilot agentStop has no verified user-only output channel.",
+        }),
+        hookControl("hook/stop", {
+          outputs: ["systemMessage"],
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+              timeout: 30,
             },
           },
-        },
+          notes: {
+            codex: "Codex Stop has no verified user-only output channel.",
+            copilot: "Copilot agentStop has no verified user-only output channel.",
+          },
+        }),
       ],
     };
 
@@ -302,26 +305,17 @@ describe("hook wiring generator", () => {
   it("rejects status messages on Copilot hook commands", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/copilot-status",
-          kind: "hook",
-          hookWiring: {
-            event: "PreToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              copilot: {
-                matcher: "bash",
-                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
-                statusMessage: "Checking Copilot Bash input",
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              codex: "Fixture only.",
+        hookControl("hook/copilot-status", {
+          event: "PreToolUse",
+          harnesses: {
+            copilot: {
+              matcher: "bash",
+              command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
+              statusMessage: "Checking Copilot Bash input",
             },
           },
-        },
+          notes: { claude: "Fixture only.", codex: "Fixture only." },
+        }),
       ],
     };
 
@@ -333,24 +327,15 @@ describe("hook wiring generator", () => {
   it("requires matchers on Copilot tool-use hook commands", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/copilot-no-matcher",
-          kind: "hook",
-          hookWiring: {
-            event: "PreToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              copilot: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              codex: "Fixture only.",
+        hookControl("hook/copilot-no-matcher", {
+          event: "PreToolUse",
+          harnesses: {
+            copilot: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"',
             },
           },
-        },
+          notes: { claude: "Fixture only.", codex: "Fixture only." },
+        }),
       ],
     };
 
@@ -362,94 +347,70 @@ describe("hook wiring generator", () => {
   it("renders lifecycle events with event-specific matcher policy", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/post-compact",
-          kind: "hook",
-          hookWiring: {
-            event: "PostCompact",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
-                timeout: 15,
-              },
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/session-state.sh"',
-                statusMessage: "Refreshing repository session state",
-                timeout: 15,
-              },
+        hookControl("hook/post-compact", {
+          event: "PostCompact",
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
+              timeout: 15,
             },
-            notes: {
-              copilot: "Copilot has no PostCompact hook event.",
+            codex: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/session-state.sh"',
+              statusMessage: "Refreshing repository session state",
+              timeout: 15,
             },
           },
-        },
-        {
-          id: "hook/subagent-start",
-          kind: "hook",
-          hookWiring: {
-            event: "SubagentStart",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                matcher: "Explore|Plan",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-start.sh",
-                timeout: 30,
-              },
-              codex: {
-                matcher: "Explore|Plan",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-start.sh"',
-                statusMessage: "Checking subagent start conditions",
-                timeout: 30,
-              },
+          notes: {
+            copilot: "Copilot has no PostCompact hook event.",
+          },
+        }),
+        hookControl("hook/subagent-start", {
+          event: "SubagentStart",
+          harnesses: {
+            claude: {
+              matcher: "Explore|Plan",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-start.sh",
+              timeout: 30,
             },
-            notes: {
-              copilot: "Copilot has no SubagentStart hook event.",
+            codex: {
+              matcher: "Explore|Plan",
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-start.sh"',
+              statusMessage: "Checking subagent start conditions",
+              timeout: 30,
             },
           },
-        },
-        {
-          id: "hook/failure-guidance",
-          kind: "hook",
-          hookWiring: {
-            event: "PostToolUseFailure",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                matcher: "Bash",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
-              },
-            },
-            notes: {
-              codex: "Codex does not support PostToolUseFailure hooks.",
-              copilot: "Copilot has no PostToolUseFailure hook event.",
+          notes: {
+            copilot: "Copilot has no SubagentStart hook event.",
+          },
+        }),
+        hookControl("hook/failure-guidance", {
+          event: "PostToolUseFailure",
+          harnesses: {
+            claude: {
+              matcher: "Bash",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh",
             },
           },
-        },
-        {
-          id: "hook/user-prompt-submit",
-          kind: "hook",
-          hookWiring: {
-            event: "UserPromptSubmit",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
-              },
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prompt-context.sh"',
-                statusMessage: "Checking submitted prompt",
-              },
+          notes: {
+            codex: "Codex does not support PostToolUseFailure hooks.",
+            copilot: "Copilot has no PostToolUseFailure hook event.",
+          },
+        }),
+        hookControl("hook/user-prompt-submit", {
+          event: "UserPromptSubmit",
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
             },
-            notes: {
-              copilot: "Copilot has no UserPromptSubmit hook event.",
+            codex: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/prompt-context.sh"',
+              statusMessage: "Checking submitted prompt",
             },
           },
-        },
+          notes: {
+            copilot: "Copilot has no UserPromptSubmit hook event.",
+          },
+        }),
       ],
     };
 
@@ -555,25 +516,15 @@ describe("hook wiring generator", () => {
   it("rejects matchers on events that do not support them", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/prompt-matcher",
-          kind: "hook",
-          hookWiring: {
-            event: "UserPromptSubmit",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                matcher: "Bash",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
-              },
-            },
-            notes: {
-              codex: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/prompt-matcher", {
+          event: "UserPromptSubmit",
+          harnesses: {
+            claude: {
+              matcher: "Bash",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/prompt-context.sh",
             },
           },
-        },
+        }),
       ],
     };
 
@@ -585,26 +536,17 @@ describe("hook wiring generator", () => {
   it("rejects Codex wiring for unsupported hook events", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/codex-failure-guidance",
-          kind: "hook",
-          hookWiring: {
-            event: "PostToolUseFailure",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              codex: {
-                matcher: "Bash",
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/failure-guidance.sh"',
-                statusMessage: "Explaining failed Bash output",
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/codex-failure-guidance", {
+          event: "PostToolUseFailure",
+          harnesses: {
+            codex: {
+              matcher: "Bash",
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/failure-guidance.sh"',
+              statusMessage: "Explaining failed Bash output",
             },
           },
-        },
+          notes: { claude: "Fixture only.", copilot: "Fixture only." },
+        }),
       ],
     };
 
@@ -616,25 +558,15 @@ describe("hook wiring generator", () => {
   it("rejects Claude additionalContext output on events that cannot inject it", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/post-compact-context",
-          kind: "hook",
-          hookWiring: {
-            event: "PostCompact",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["additionalContext"],
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
-              },
-            },
-            notes: {
-              codex: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/post-compact-context", {
+          event: "PostCompact",
+          outputs: ["additionalContext"],
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/session-state.sh",
             },
           },
-        },
+        }),
       ],
     };
 
@@ -646,26 +578,17 @@ describe("hook wiring generator", () => {
   it("rejects Codex additionalContext output on SubagentStop", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/codex-subagent-context",
-          kind: "hook",
-          hookWiring: {
-            event: "SubagentStop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["additionalContext"],
-            harnesses: {
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-context.sh"',
-                statusMessage: "Checking subagent stop conditions",
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/codex-subagent-context", {
+          event: "SubagentStop",
+          outputs: ["additionalContext"],
+          harnesses: {
+            codex: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/subagent-context.sh"',
+              statusMessage: "Checking subagent stop conditions",
             },
           },
-        },
+          notes: { claude: "Fixture only.", copilot: "Fixture only." },
+        }),
       ],
     };
 
@@ -677,25 +600,14 @@ describe("hook wiring generator", () => {
   it("accepts Claude Stop systemMessage output", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/claude-stop-user-warning",
-          kind: "hook",
-          hookWiring: {
-            event: "Stop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["systemMessage"],
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
-              },
-            },
-            notes: {
-              codex: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/claude-stop-user-warning", {
+          outputs: ["systemMessage"],
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
             },
           },
-        },
+        }),
       ],
     };
 
@@ -705,25 +617,15 @@ describe("hook wiring generator", () => {
   it("accepts Claude SubagentStop systemMessage output", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/claude-subagent-stop-user-warning",
-          kind: "hook",
-          hookWiring: {
-            event: "SubagentStop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["systemMessage"],
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
-              },
-            },
-            notes: {
-              codex: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/claude-subagent-stop-user-warning", {
+          event: "SubagentStop",
+          outputs: ["systemMessage"],
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/subagent-stop-reminder.sh",
             },
           },
-        },
+        }),
       ],
     };
 
@@ -733,26 +635,16 @@ describe("hook wiring generator", () => {
   it("rejects Codex Stop systemMessage output", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/codex-stop-user-warning",
-          kind: "hook",
-          hookWiring: {
-            event: "Stop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["systemMessage"],
-            harnesses: {
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
-                statusMessage: "Checking repository stop conditions",
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              copilot: "Fixture only.",
+        hookControl("hook/codex-stop-user-warning", {
+          outputs: ["systemMessage"],
+          harnesses: {
+            codex: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
+              statusMessage: "Checking repository stop conditions",
             },
           },
-        },
+          notes: { claude: "Fixture only.", copilot: "Fixture only." },
+        }),
       ],
     };
 
@@ -764,27 +656,18 @@ describe("hook wiring generator", () => {
   it("accepts Copilot PreToolUse decisionBlock output", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/copilot-pre-deny",
-          kind: "hook",
-          hookWiring: {
-            event: "PreToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            outputs: ["decisionBlock"],
-            harnesses: {
-              copilot: {
-                matcher: "create|edit",
-                command:
-                  'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/protected-files.sh"',
-              },
-            },
-            notes: {
-              claude: "Fixture only.",
-              codex: "Fixture only.",
+        hookControl("hook/copilot-pre-deny", {
+          event: "PreToolUse",
+          outputs: ["decisionBlock"],
+          surface: "edit",
+          harnesses: {
+            copilot: {
+              matcher: "create|edit",
+              command: 'bash "$(git rev-parse --show-toplevel)/.copilot/hooks/fixture.sh"',
             },
           },
-        },
+          notes: { claude: "Fixture only.", codex: "Fixture only." },
+        }),
       ],
     };
 
@@ -794,24 +677,18 @@ describe("hook wiring generator", () => {
   it("requires a deliberate note for an omitted Copilot target", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/no-copilot",
-          kind: "hook",
-          hookWiring: {
-            event: "Stop",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
-              },
-              codex: {
-                command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
-                statusMessage: "Checking repository stop conditions",
-              },
+        hookControl("hook/no-copilot", {
+          harnesses: {
+            claude: {
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/stop-reminder.sh",
+            },
+            codex: {
+              command: 'bash "$(git rev-parse --show-toplevel)/.codex/hooks/stop-reminder.sh"',
+              statusMessage: "Checking repository stop conditions",
             },
           },
-        },
+          notes: {},
+        }),
       ],
     };
 
@@ -948,21 +825,16 @@ describe("hook wiring generator", () => {
   it("requires a deliberate note for omitted harness targets", () => {
     const manifest = {
       controls: [
-        {
-          id: "hook/claude-only",
-          kind: "hook",
-          hookWiring: {
-            event: "PreToolUse",
-            body: "scripts/ai-hooks/fixture.sh",
-            order: 10,
-            harnesses: {
-              claude: {
-                matcher: "Bash",
-                command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh",
-              },
+        hookControl("hook/claude-only", {
+          event: "PreToolUse",
+          harnesses: {
+            claude: {
+              matcher: "Bash",
+              command: "bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh",
             },
           },
-        },
+          notes: {},
+        }),
       ],
     };
 

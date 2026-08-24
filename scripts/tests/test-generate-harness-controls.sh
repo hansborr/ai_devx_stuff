@@ -1,12 +1,16 @@
 #!/usr/bin/env bash
 # smoke-order: 310
 # smoke-subjects: scripts/harness/control-field-validation.ts
+# smoke-subjects: scripts/harness/command-policy-schema.ts
 # smoke-subjects: scripts/harness/generate-harness-controls.ts
 # smoke-subjects: scripts/harness/generate-harness-controls-validation.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
 # smoke-subjects: scripts/harness/harness-manifest-schema.ts
 # smoke-subjects: scripts/harness/harness-paths.ts
+# smoke-subjects: scripts/harness/hook-wiring-doc.ts
 # smoke-subjects: scripts/harness/hook-wiring-schema.ts
+# smoke-subjects: scripts/harness/verify-step-programs.ts
+# smoke-subjects: scripts/harness/verify-step-artifacts.ts
 # smoke-subjects: scripts/harness/verify-step-schema.ts
 # smoke-subjects: scripts/lib/codepoint-compare.ts
 # smoke-subjects: scripts/lib/lint-rule-docs.ts
@@ -49,12 +53,15 @@ copy_generator() {
   local fixture_dir=$1
   mkdir -p "$fixture_dir/scripts/harness" "$fixture_dir/scripts/lib" "$fixture_dir/scripts/lint-ratchet"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
+  cp scripts/harness/command-policy-schema.ts "$fixture_dir/scripts/harness/command-policy-schema.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"
   cp scripts/harness/harness-manifest.ts "$fixture_dir/scripts/harness/harness-manifest.ts"
   cp scripts/harness/harness-manifest-schema.ts "$fixture_dir/scripts/harness/harness-manifest-schema.ts"
+  cp scripts/harness/hook-wiring-doc.ts "$fixture_dir/scripts/harness/hook-wiring-doc.ts"
   cp scripts/harness/hook-wiring-schema.ts "$fixture_dir/scripts/harness/hook-wiring-schema.ts"
+  cp scripts/harness/verify-step-programs.ts "$fixture_dir/scripts/harness/verify-step-programs.ts"
   cp scripts/lib/lint-rule-docs.ts "$fixture_dir/scripts/lib/lint-rule-docs.ts"
   cp scripts/lib/doc-generator.ts "$fixture_dir/scripts/lib/doc-generator.ts"
   # The generator, the manifest reader, and both schemas narrow untyped JSON
@@ -62,6 +69,7 @@ copy_generator() {
   # closure needs that leaf too.
   cp scripts/lib/records.ts "$fixture_dir/scripts/lib/records.ts"
   cp scripts/harness/verify-step-schema.ts "$fixture_dir/scripts/harness/verify-step-schema.ts"
+  cp scripts/harness/verify-step-artifacts.ts "$fixture_dir/scripts/harness/verify-step-artifacts.ts"
   # The generator and verify-step-schema sort via compareByCodepoint from the
   # scripts/lib/codepoint-compare shim, which re-exports the
   # @musi/lint-ratchet kernel comparator; the fixture copies the shim and the
@@ -150,18 +158,35 @@ write_source_files() {
   done
 }
 
-write_valid_manifest() {
+# Lint-rule controls are owned exclusively by the generated include, never by
+# the root manifest (scripts/harness/harness-manifest.ts). The fixture mirrors
+# that ownership split so the golden render only reproduces when the generator
+# reads through readHarnessManifest: a regression back to a raw readFileSync of
+# harness.controls.json would drop this control and fail the diff.
+write_lint_rule_include() {
   local fixture_dir=$1
-  cat >"$fixture_dir/harness.controls.json" <<'JSON'
-{
-  "controls": [
-    {
+  local entry=${2-'    {
       "id": "lint/local/fixture-rule",
       "kind": "lint-rule",
       "ruleName": "local/fixture-rule",
       "source": "eslint-rules/fixture-rule.js",
       "invocation": "bun run lint"
-    },
+    }'}
+  cat >"$fixture_dir/harness.controls.lint-rules.generated.json" <<JSON
+{
+  "\$comment": "Fixture stand-in for the generated lint-rule control include.",
+  "controls": [
+$entry
+  ]
+}
+JSON
+}
+
+write_valid_manifest() {
+  local fixture_dir=$1
+  cat >"$fixture_dir/harness.controls.json" <<'JSON'
+{
+  "controls": [
     {
       "id": "ratchet/fixture",
       "kind": "ratchet",
@@ -274,18 +299,26 @@ write_valid_fixture() {
   write_eslint_plugin "$fixture_dir"
   write_source_files "$fixture_dir"
   write_valid_manifest "$fixture_dir"
+  write_lint_rule_include "$fixture_dir"
 }
 
-# Writes a fixture with a single manifest entry replaced by $manifest_entry
-# (the rest of the valid fixture is preserved). Useful for failure cases that
-# only mutate one control.
+# Writes a fixture whose only control is $manifest_entry. $owner picks which
+# half of the manifest owns it: "root" for every non-lint kind, "include" for
+# kind=lint-rule, which the root file may not own. Useful for failure cases
+# that only need one control.
 write_single_entry_failure_fixture() {
   local fixture_dir=$1
   local manifest_entry=$2
+  local owner=${3-root}
   copy_generator "$fixture_dir"
   write_paired_guide "$fixture_dir"
   write_eslint_plugin "$fixture_dir"
   write_source_files "$fixture_dir"
+  if [[ "$owner" == "include" ]]; then
+    printf '{\n  "controls": []\n}\n' >"$fixture_dir/harness.controls.json"
+    write_lint_rule_include "$fixture_dir" "$manifest_entry"
+    return
+  fi
   cat >"$fixture_dir/harness.controls.json" <<JSON
 {
   "controls": [
@@ -301,6 +334,17 @@ run_fixture_render_check() {
 
   (cd "$fixture_dir" && bun run scripts/harness/generate-harness-controls.ts >"$TMP_ROOT/render.out" 2>"$TMP_ROOT/render.err")
   local actual="$fixture_dir/docs/generated/harness-controls.md"
+
+  # The golden below only proves the include seam while the root manifest owns
+  # no lint-rule control of its own; assert that rather than trusting it.
+  if grep -q '"kind": "lint-rule"' "$fixture_dir/harness.controls.json"; then
+    echo "FAIL: fixture root manifest owns a lint-rule control; the include seam is untested"
+    exit 1
+  fi
+  if ! grep -q "lint/local/fixture-rule" "$actual"; then
+    echo "FAIL: generated doc lost the lint-rule control the include owns"
+    exit 1
+  fi
 
   if [[ ! -f "$GOLDEN" ]]; then
     mkdir -p "$(dirname "$GOLDEN")"
@@ -319,10 +363,11 @@ run_failure_case() {
   local name=$1
   local keyword=$2
   local manifest_entry=$3
+  local owner=${4-root}
   local fixture_dir="$TMP_ROOT/failure-$name"
   local stderr_path="$TMP_ROOT/failure-$name.err"
 
-  write_single_entry_failure_fixture "$fixture_dir" "$manifest_entry"
+  write_single_entry_failure_fixture "$fixture_dir" "$manifest_entry" "$owner"
 
   if (cd "$fixture_dir" && bun run scripts/harness/generate-harness-controls.ts >"$TMP_ROOT/failure-$name.out" 2>"$stderr_path"); then
     echo "FAIL: invalid fixture $name unexpectedly passed"
@@ -383,6 +428,10 @@ JSON
 }
 
 run_failure_checks() {
+  # The three lint-rule cases author their entry in the generated include, the
+  # only owner of kind=lint-rule — which also proves per-entry validation reaches
+  # included controls, not just the hand-authored ones.
+
   # lint-rule entry restates a re-projected field — rejected.
   run_failure_case "lint-restates-category" "must not restate category" '    {
       "id": "lint/local/fixture-rule",
@@ -391,7 +440,7 @@ run_failure_checks() {
       "category": "behavior",
       "source": "eslint-rules/fixture-rule.js",
       "invocation": "bun run lint"
-    }'
+    }' include
 
   # lint-rule entry referencing a rule that does not exist.
   run_failure_case "lint-unknown-rule" "no parseable meta.docs" '    {
@@ -400,7 +449,7 @@ run_failure_checks() {
       "ruleName": "local/missing",
       "source": "eslint-rules/fixture-rule.js",
       "invocation": "bun run lint"
-    }'
+    }' include
 
   # lint-rule entry with non-existent source.
   run_failure_case "lint-missing-source" "source does not resolve" '    {
@@ -409,7 +458,7 @@ run_failure_checks() {
       "ruleName": "local/fixture-rule",
       "source": "eslint-rules/missing.js",
       "invocation": "bun run lint"
-    }'
+    }' include
 
   # Non-lint entry missing principle.
   run_failure_case "missing-principle" "principle" '    {
@@ -549,9 +598,82 @@ run_manifest_shape_cases() {
   run_manifest_shape_case "no-controls-array" "controls array" '{"controls":"not an array"}'
 }
 
+run_profile_resolution_failure_case() {
+  local fixture_dir="$TMP_ROOT/failure-profile-resolution"
+  local stderr_path="$TMP_ROOT/failure-profile-resolution.err"
+  copy_generator "$fixture_dir"
+  write_paired_guide "$fixture_dir"
+  write_eslint_plugin "$fixture_dir"
+  write_source_files "$fixture_dir"
+  cat >"$fixture_dir/harness.controls.json" <<'JSON'
+{
+  "unexpectedRootField": true,
+  "scriptParityExemptions": [],
+  "ciGateControlIds": [],
+  "verifySlotCatalog": [
+    {
+      "name": "lint",
+      "full": { "script": "lint" },
+      "changed": { "kind": "inherit" }
+    }
+  ],
+  "controls": [
+    {
+      "id": "verify-wrapper/verify",
+      "kind": "verify-wrapper",
+      "category": "maintainability",
+      "principle": "Verify wrapper fixture principle.",
+      "pairedGuide": "none",
+      "repairKind": "manual",
+      "source": "scripts/fixture-verify.sh",
+      "invocation": "bun run verify:fixture",
+      "slotProfile": { "mode": "full" }
+    }
+  ]
+}
+JSON
+
+  if (cd "$fixture_dir" && bun run scripts/harness/generate-harness-controls.ts >"$TMP_ROOT/failure-profile-resolution.out" 2>"$stderr_path"); then
+    echo "FAIL: unresolved-profile fixture unexpectedly passed"
+    exit 1
+  fi
+
+  if ! grep -q "unexpectedRootField" "$stderr_path"; then
+    echo "FAIL: unresolved-profile fixture stderr did not surface the blocking parse failure"
+    cat "$stderr_path"
+    exit 1
+  fi
+  if [[ -e "$fixture_dir/docs/generated/harness-controls.md" ]]; then
+    echo "FAIL: unresolved-profile fixture emitted a slot-less harness-controls document"
+    exit 1
+  fi
+}
+
 run_real_tree_drift_check() {
+  local rule_id disposition rule_cell rule_row
   bun run docs:harness-controls >"$TMP_ROOT/real-gen.out" 2>&1
   test -s "$GENERATED"
+  grep -Fq "## Command policy reference" "$GENERATED"
+  while IFS=$'\t' read -r rule_id disposition; do
+    printf -v rule_cell '| `%s` |' "$rule_id"
+    rule_row=$(grep -m1 -F -- "$rule_cell" "$GENERATED") \
+      || { echo "FAIL: generated policy reference omitted $rule_id"; exit 1; }
+    grep -qF -- "$disposition" <<< "$rule_row" \
+      || { echo "FAIL: generated policy reference omitted $rule_id projection disposition"; exit 1; }
+  done < <(
+    jq -r '.commandPolicy[] | .id as $id | (if .nativePermissions.projected then .nativePermissions.matchers[] else .nativePermissions.reason end) as $disposition | [$id, $disposition] | @tsv' \
+      harness.controls.json
+  )
+  while IFS=$'\t' read -r rule_id disposition; do
+    printf -v rule_cell '| `%s` |' "$rule_id"
+    rule_row=$(grep -m1 -F -- "$rule_cell" "$GENERATED") \
+      || { echo "FAIL: generated policy reference omitted $rule_id"; exit 1; }
+    grep -qF -- "$disposition" <<< "$rule_row" \
+      || { echo "FAIL: generated policy reference omitted $rule_id partial-projection reason"; exit 1; }
+  done < <(
+    jq -r '.commandPolicy[] | select(.nativePermissions.partialReason != null) | [.id, .nativePermissions.partialReason] | @tsv' \
+      harness.controls.json
+  )
 
   bun run docs:harness-controls:check >"$TMP_ROOT/real-check-clean.out" 2>&1
   grep -q "up to date" "$TMP_ROOT/real-check-clean.out"
@@ -572,6 +694,7 @@ run_real_tree_drift_check() {
 
 run_fixture_render_check
 run_failure_checks
+run_profile_resolution_failure_case
 run_real_tree_drift_check
 
 echo "PASS: generate-harness-controls smoke"

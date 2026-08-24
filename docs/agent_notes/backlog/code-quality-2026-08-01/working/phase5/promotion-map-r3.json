@@ -1,0 +1,82 @@
+{
+  "step": "2a-r3",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "numberingBase": 246,
+  "entries": [
+    {
+      "promotionId": "R3B-002",
+      "ruling": "new-leaf",
+      "leafFile": "246-replace-the-eslint-cache-shell-to-typescript-text.md",
+      "leafNumber": "246",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3B-003",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "184-human-readable-server-messages-act-client.md",
+      "leafNumber": "184",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3B-004",
+      "ruling": "new-leaf",
+      "leafFile": "247-unify-character-create-choice-chips-around.md",
+      "leafNumber": "247",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3B-005",
+      "ruling": "new-leaf",
+      "leafFile": "248-preserve-registered-route-typing-through.md",
+      "leafNumber": "248",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3B-007",
+      "ruling": "new-leaf",
+      "leafFile": "249-keep-charactertab-on-the-inferred-campaign-output.md",
+      "leafNumber": "249",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3C-001",
+      "ruling": "new-leaf",
+      "leafFile": "250-correct-two-shared-assertion-boundary-categories.md",
+      "leafNumber": "250",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3C-101",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "053-filterselect-erases-schema-derived-option.md",
+      "leafNumber": "053",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3C-271",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+      "leafNumber": "090",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3C-272",
+      "ruling": "new-leaf",
+      "leafFile": "251-remove-closed-implementation-residue-from-the-active.md",
+      "leafNumber": "251",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R3C-301",
+      "ruling": "new-leaf",
+      "leafFile": "252-expose-persisted-notification-history-beyond-the.md",
+      "leafNumber": "252",
+      "mergedPromotionIds": []
+    }
+  ],
+  "rejected": [
+    "R3B-001",
+    "R3B-006",
+    "R3C-401"
+  ]
+}

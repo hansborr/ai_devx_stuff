@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import { errorMessage } from "../lib/error-message.js";
 import { makeDefaultDriftAiConfig, parseDriftAiConfig } from "./config-parsing.js";
 import type { EnvDefineMatrix } from "./env-define-types.js";
 export {
@@ -110,13 +111,37 @@ export type DriftAiDuplicateConstantsConfig = {
 
 export type GhostFileAllowedPair = {
   readonly files: readonly [string, string];
+  readonly rationale: string;
+};
+
+// layer-direction: one directional layering ban. Layer labels are free strings
+// (they feed the finding message and `details`, they are not an enum), and the
+// prefixes are repo-relative path prefixes compared against resolved module-graph
+// paths (`sourcePrefix` file importing a `targetPrefix` file is a finding).
+export type DriftAiLayerDirectionRule = {
+  readonly id: string;
+  readonly sourceLayer: string;
+  readonly sourcePrefix: string;
+  readonly targetLayer: string;
+  readonly targetPrefix: string;
+  readonly hint: string;
+};
+
+// layer-direction: layering rules plus explicit directional [source, target]
+// file-pair exceptions. The built-in default is zero rules: repository layering
+// policy always comes from the target's config, never from drift-ai itself
+// (Musi's own rules live in the committed drift-ai.config.json).
+export type DriftAiLayerDirectionConfig = {
+  readonly rules: readonly DriftAiLayerDirectionRule[];
+  readonly allowedEdges: readonly (readonly [string, string])[];
 };
 
 // coverage: opt-in artifact-source declarations for the coverage evidence layer
 // (tasks 42a-42c). Each artifact is a path to a coverage report (resolved
 // relative to the repo root) plus a free-text label such as unit/e2e/smoke/prod.
-// Task 42a only parses these into structured evidence; no check, subcommand, or
-// advisory output reads them yet. This is top-level config, not a `checks` entry,
+// Task 42a parses these into structured evidence. The registered
+// `coverage-evidence` and `coverage-unused-exports` prototype commands consume
+// them for advisory output. This is top-level config, not a `checks` entry,
 // because coverage is an evidence source rather than a finding-producing check.
 export type DriftAiCoverageArtifactConfig = {
   readonly path: string;
@@ -162,10 +187,11 @@ export type DriftAiChecksConfig = {
   // target's path aliases for resolution), but cycles are verdict-free, so the
   // drift-side check takes no options.
   readonly "import-cycles": Record<string, never>;
-  // Opt-in advisory server layer-direction sensor over the same resolved module
-  // graph. It starts with two Musi server rules and carries drift-baseline
-  // provenance, so the drift-side check takes no options.
-  readonly "layer-direction": Record<string, never>;
+  // Opt-in advisory layer-direction sensor over the same resolved module graph.
+  // Rules and allowed-edge exceptions are repo policy supplied via config; the
+  // built-in default is zero rules so a foreign target never inherits Musi's
+  // server topology (README "Config discovery" contract).
+  readonly "layer-direction": DriftAiLayerDirectionConfig;
   // Measurement-ish adapter over drift:ai-authored function-similarity
   // thresholds. Findings carry `drift-baseline` provenance.
   readonly "near-duplicates": DriftAiNearDuplicatesConfig;
@@ -221,7 +247,7 @@ export function loadDriftAiConfig(options: LoadDriftAiConfigOptions): LoadedDrif
   try {
     text = readFileSync(target, "utf8");
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     throw new DriftAiError(`drift:ai config '${displayPath}' could not be read: ${message}`);
   }
 
@@ -229,7 +255,7 @@ export function loadDriftAiConfig(options: LoadDriftAiConfigOptions): LoadedDrif
   try {
     raw = JSON.parse(text);
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     throw new DriftAiError(`drift:ai config '${displayPath}' is not valid JSON: ${message}`);
   }
 

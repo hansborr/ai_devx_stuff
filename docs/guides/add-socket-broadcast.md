@@ -8,8 +8,14 @@ The enforced post-commit registry boundary is ADR-0003:
 
 1. Add or reuse a shared socket event schema in `packages/shared/src/schemas/`.
 2. Register the event in `packages/server/src/socket/broadcast-registry.ts`.
-   The registry entry owns the shared schema, room policy, low-cardinality log
-   fields, and the literal typed emit.
+   The registry is split by delivery policy: `ROOM_BROADCAST_REGISTRY` for
+   events delivered to a whole room, `USER_TARGETED_BROADCAST_REGISTRY` for
+   events delivered to a filtered recipient set. An event that needs both is
+   registered in both, as `chat:newMessage` is. Every entry owns the shared
+   schema and the low-cardinality log fields; a room entry adds the room policy
+   and the literal typed emit, a user-targeted entry adds the `emitToUsers`
+   fan-out. The keying is what makes `broadcast(io, "notification:new", …)` and
+   `broadcastToUsers(io, "campaign:updated", …)` compile errors.
 3. Add or adjust the narrow family helper in `packages/server/src/socket/`,
    for example `encounter-broadcast.ts`, `character-broadcast.ts`, or
    `map-broadcast.ts`. Call `broadcast(...)` or `broadcastToUsers(...)` from

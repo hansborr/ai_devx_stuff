@@ -1,0 +1,2919 @@
+{
+ "perLeaf": [
+  {
+   "chunk": "ch01",
+   "file": "001-chat-persistence-delivery-policy.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`SERVER-COMMENTS-PLAN.md` has landed its scheduled work, while its rejected-alternatives row at `:1203` explicitly deferred the `utils/combat-chat.ts` placement/orchestration question to its own leaf; no chat-message coordination service landed.",
+   "evidenceDefects": [
+    "`createRestChatMessage` is not exclusively inside a Serializable transaction: short rest calls it inside the default-isolation transaction ending at `rest-service.ts:310`; only long rest sets Serializable isolation at `:426`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "002-request-socket-boundaries-capture-production.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`02-fastify-io-augmentation.md` has Status Done and landed socket collaborator typing/injection only. `04-socket-broadcast-surface.md` also has Status Done, but its Scope explicitly called the campaign-room global Prisma import a genuine seam and excluded it from that work. None of this leaf's database injection work landed.",
+   "evidenceDefects": [
+    "The prose says there are three remaining module-load captures, but the leaf's reproduced inventory correctly finds four capture sites outside `app.ts`: `upload-routes.ts`, `trpc/context.ts`, `campaign-room-handler.ts`, and `socket/index.ts`. These form three dependency boundaries."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "003-seed-json-boundaries-alternate-between.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`06-seed-pipeline-and-generators.md` has Status Done as far as schedulable; its landed slices covered generator execution, provenance, scripts, and shared helpers, while its parked steps concern generated-output rewrites. It did not establish seed-consumer validation policy, and this leaf correctly avoids the parked work.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "004-character-creation-large-pseudo-module-loose.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`05-router-and-service-boundaries.md` has Status Done and its plan rejected promotion only for rest and `services/character-spells/`, based on those services' own shapes. No prior leaf or plan rules on promoting the four-file character-creation cluster.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "005-spell-participant-loading-discards-prisma.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`07-PLAN.md` has Status Planned; slice 07.2 remains untouched and overlaps `load-participants.ts` and `resolve-character-spell.ts`, but it does not tighten `CasterRaw` or remove `narrowCasterRaw`. The plan's dropped Step 8 rejects relocating these types, exactly as this leaf records.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "006-server-mappers-maintain-parallel-handwritten.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`01-prisma-boundary-type-erosion.md` has Status Done and landed enum narrowing plus the `map-types.ts` result-type derivations, while deliberately retaining the handwritten row interfaces and the optional `ParticipantRow` relations. This leaf is already narrowed to that live residual.",
+   "evidenceDefects": [
+    "`packages/server/src/utils/encounter-query.test.ts` contains 9 textual occurrences of `ParticipantRow`, not 29."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "007-cascade-deleters-duplicate-load-bearing-turn.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "ruled-out",
+   "priorPackNote": "`45-comments-compensating-for-code.md` has Status Landed, but its status line says Steps 2 and 4 were dropped permanently. `SERVER-COMMENTS-PLAN.md`, “Ruling: leaf 45 step 4 — the three copies are three altitudes. Drop it,” explicitly refuses replacing the shape-4 header with a pointer. Only that documentation-trimming constraint is ruled out; the executable coordinator proposed here remains live.",
+   "evidenceDefects": [
+    "The prior-pack reconciliation is backwards: leaf 45 did not single-source or trim the mutation-header prose. `SERVER-COMMENTS-PLAN.md` explicitly dropped leaf 45 Step 4 and ruled that the cross-cutting concurrency doc, numbered helper-selection header, and per-helper JSDoc are three distinct documentation altitudes that must be preserved."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "008-chat-broadcast-facade-bypasses-registry.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`04-socket-broadcast-surface.md` has Status Done and landed the split registries plus single-sourced `CHAT_MESSAGE_CONTRACT`. Its direction explicitly says that removing chat's caller-supplied room should be done by resolving `campaignRoom(payload.campaignId)` in the entry. The chat-facade/caller migration did not land, and this leaf correctly limits itself to that residual.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "009-all-four-seed-generators-can-overwrite.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`06-seed-pipeline-and-generators.md` has Status Done as far as schedulable. Its landed S10 work added the four real package scripts, regeneration documentation, and provenance attestation; its parked steps and the explicit no-`:check` ruling do not implement fail-closed generator error handling. This leaf correctly preserves those rulings.",
+   "evidenceDefects": [
+    "Only the spell and glossary generators perform a single output-file write. `generate-subclasses.ts` performs three writes after collection, at lines 158 and 187; the valid commonality is a post-collection write phase, not that three generators are single-write."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch01",
+   "file": "010-trpc-error-sanitization-depends-unstable.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`05-router-and-service-boundaries.md` has Status Done and touched `trpc/trpc.ts` only to export `mergeRouters`; `59-character-spell-add-unique-race.md` also has Status Done and mentions the formatter only as evidence that no global Prisma-error remapper exists. Neither covers sanitizer type ownership or the unstable import.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "011-encounter-map-behavior-duplicated-across-two.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "40-PLAN.md remains Status: Planned; optional slice 40.3 owns only the OriginColumns/CLEARED_ORIGIN/readOrigin promotion, which this leaf correctly excludes.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "012-server-utilities-lack-orientation-contract.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md line 38 permanently refuses trimming utils/*-mutations.ts headers, and 45-comments-compensating-for-code.md is landed; the leaf preserves that ruling.",
+   "evidenceDefects": [
+    "There are 13 *MODULE.md files under packages/server/src outside utils, not 10: routers, routes, socket, test, and nine service module docs."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "013-spell-eligibility-bypasses-module-facade.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "07-PLAN.md is Planned and slice 07.2 schedules the redundant eligibility-check cleanup. No facade-relocation work has landed, so this leaf's move survives in full, but it must sequence with 07.2 and retarget or preserve that slice's revised logic.",
+   "evidenceDefects": [
+    "resolveCombatEligibility spans lines 18-55, or 38 lines including its declaration and closing brace; the containing file is 55 lines.",
+    "The prior leaf remains marked Proposed, but live 07-PLAN.md is Status: Planned and slice 07.2 now schedules an edit to combat-eligibility.ts:32-39. The hypothetical 'if ever promoted' wording is stale."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "014-map-layer-responses-mapped-twice-divergent.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "01-prisma-boundary-type-erosion.md is Done and introduced MapLayerResult typing without consolidating the mappers. Prior leaves 22 and 60 cover different socket/write-boundary work.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "015-participant-create-data-helpers-erase-their.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "01-prisma-boundary-type-erosion.md is Done and explicitly left participant-action.ts:229 and buildAddParticipantData out of scope; this leaf is a valid residual follow-up.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "016-two-narrow-operations-receive-unrestricted.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "The live CONSTRAINTS.md retains the BroadcastHost narrow-port ruling and the mandatory guarded-client-factory/no-bypass ruling. Leaves 50 and 60 are Done and did not narrow these two consumer signatures.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "017-participant-mutation-comments-misstate.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md line 38 and SERVER-COMMENTS-PLAN.md retain the mutation-header prose while refusing only trimming. The proposed factual corrections do not reopen that ruling.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "Leaf 007 also edits participant-stats-mutations.ts, but it already records the non-overlapping paragraph ownership and says either order works."
+  },
+  {
+   "chunk": "ch02",
+   "file": "018-legacy-invite-suite-duplicates-newer-split.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "campaign-inputs.test.ts:293-326 does not cover both cited seams: URL-transform tests span 291-323 and direct extractInviteCode tests span 329-358. The supporting combined range is 291-358."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "019-utility-broadcast-tests-seed-through.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "character-create.test.ts is not the only other test-side importer: services/level-up/level-up-test-helper.ts:5 imports the pair and uses it at lines 45-46.",
+    "The proposed importer cleanup is incomplete because the level-up test helper contradicts the stated policy of reserving these internals for character-create tests.",
+    "The no-sequencing-edges claim is false. Leaf 004 rewires all three suite imports plus level-up-test-helper.ts; leaf 006 may edit seed-read-normalization.test.ts; leaf 109 migrates the exact character-mapping.test.ts to character-create.ts allowlisted edge that this work makes obsolete."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch02",
+   "file": "020-opposite-spell-slot-operations-duplicate.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 5,
+   "proposed": 5,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "05-router-and-service-boundaries.md is Done and permanently drops the assertTurnLock branch merge; CONSTRAINTS.md also preserves mutation headers. This leaf correctly distinguishes its identical table-local WHERE clause and preserves the header.",
+   "evidenceDefects": [
+    "Each complete function spans 30 lines, 43-72 and 79-108. Calling them 29-line bodies while counting the function-name line among the four differences is internally inconsistent.",
+    "The recovery integration tests at spell-slot.test.ts:132-170 do not pin recovery error messages: they assert success data, BAD_REQUEST status, and NOT_FOUND authorization status. They do not exercise a missing slot or assert the 'already full' text.",
+    "character-live-state/MODULE.md:33 names the request-facing service export recoverSpellSlot, not the aliased utility helper. Renaming only the utility helper would not require changing that MODULE line."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "021-shared-production-builds-expose-colocated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "Prior leaf 21-shared-constants-single-source.md is Status: Done — landed 2026-07-26; SHARED-CLUSTER-PLAN.md is Finished. Neither covered production test emission, so the leaf correctly treats that work as context only.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "022-saving-throw-phases-exchange-oversized.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "023-five-summary-projections-hand-copy-canonical.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "23-schema-layout-and-naming.md is Status: Done 2026-07-27; SHARED-CLUSTER-PLAN.md slice S3 landed the characterSummarySchema derivation. This leaf correctly excludes that work and applies its idiom to the residual projections.",
+   "evidenceDefects": [
+    "The 33 copied fields come from five canonical entity schemas—characterSchema, campaignSchema, magicItemSchema, monsterSchema, and encounterSchema—not four."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "024-encounter-inputs-monolith-spanning-three.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "23-schema-layout-and-naming.md is Done and SHARED-CLUSTER-PLAN.md slice S1 landed the schema-layout documentation work. 40-PLAN.md remains Status: Planned and its encounter-inputs.test.ts caveat concerns payload-factory conversion, not splitting that test alongside a production-module partition. The leaf reconciles both correctly.",
+   "evidenceDefects": [
+    "Repo-wide source grep finds 18 files containing `encounter-inputs`, not 17. Ten are production importers; the other eight are six tests plus references in schemas/encounter.ts and schemas/MODULE.md."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "025-spellcastingts-contains-five-independently.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "SHARED-CLUSTER-PLAN.md is Status: Finished. Its I2, R1, R2, K1, and E1 slices landed focused typing, provenance, bound, and dead-alias work in spellcasting.ts, but no slice performed or ruled out this module split.",
+   "evidenceDefects": [
+    "The cross-area dependency inventory omits getLevel1SpellSelection calling getCantripsKnown at spellcasting.ts:379.",
+    "The direction first requires all consumer repoints atomically, then instructs three commits that delete spellcasting.ts before server and client repoints. Without a compatibility barrel, the first two commits would leave broken imports and fail the normal commit gate.",
+    "The prior pack did not explicitly rule that the five-area module boundary should remain; it simply did not address that boundary."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "026-monster-provenance-invariants-disappear.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "027-condition-damage-modules-mix-contracts.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "23-schema-layout-and-naming.md is Status: Done 2026-07-27; SHARED-CLUSTER-PLAN.md slice S2 landed only the srdConditionSchema-to-conditionNameSchema rename and preserved the two lookup mechanisms. It did not decide vocabulary ownership or dependency direction, so the residual scope is valid.",
+   "evidenceDefects": [
+    "There are 10 non-test client .tsx ConditionEntry consumers, not nine.",
+    "The proposed encounter.ts compatibility re-export conflicts directly with packages/shared/src/schemas/MODULE.md:196-199, which requires consumers to move to the defining file and forbids compatibility re-exports."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "028-map-inputs-tests-obscure-mutations-inside.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "40-PLAN.md is Status: Planned and slice 40.2 schedules a file-local buildMonsterPayload helper for homebrew.test.ts. It is not landed and is file-disjoint from map-inputs.test.ts, exactly as this leaf states.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "029-one-metamagic-constant-controls-two.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch03",
+   "file": "030-attack-spell-contracts-duplicate-behavior.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "21-shared-constants-single-source.md is Status: Done — landed 2026-07-26. Its shared-constant work did not consolidate combatNameField, damageDiceField, or these -10/99 action-contract bounds, so the leaf correctly treats it as neighboring context.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`19-weapon-and-armor-catalog.md` says `Status: Done — landed 2026-07-26`; SHARED-CLUSTER-PLAN slices W1/W2/A1 landed the catalog and adapter work but did not address the spell-helper placement. The leaf correctly preserves its do-not-reopen rulings.",
+   "evidenceDefects": [
+    "The same-file count is four, not three: leaf 027 also edits `attack-damage.ts` to repoint its damage-type import."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "`resolve-character-spell.ts` also overlaps August leaves 005, 013, and 022 and prior-pack open slice 07.2; `sheet-helpers.ts` overlaps leaf 041. These are import-line-level collisions, not semantic blockers."
+  },
+  {
+   "chunk": "ch04",
+   "file": "032-encounter-calculators-re-declare-participant.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`21-shared-constants-single-source.md` says `Status: Done — landed 2026-07-26` in K1-K3, and `CONSTRAINTS.md` retains the whole-tree straggler-search requirement. Neither landed work changed these calculator unions.",
+   "evidenceDefects": [
+    "There are three hand-authored TypeScript declarations, but not only three production declarations: `packages/server/prisma/schema.prisma:123-128` is a fourth hand-authored source declaration, with parity guarded at `packages/server/src/test/enum-sync.test.ts:122-124`.",
+    "`difficulty-indicator.tsx:19` passes its typed `participants` prop, not `encounter.participants`; only the other two cited call sites pass `encounter.participants` directly."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "033-attunement-game-rule-lives-request-schema.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`21-shared-constants-single-source.md` says `Status: Done — landed 2026-07-26`; its constants/rules placement direction supports this residual, but the prior pack contains no `MAX_ATTUNED_ITEMS` or attunement work.",
+   "evidenceDefects": [
+    "All three production consumers already import request input types from `inventory-inputs.ts`: the service imports Create/List/Update, `inventory-panel.tsx` imports Create/Update, and `inventory-tab.tsx` imports Update. Moving the constant fixes ownership and navigation but does not remove their existing transport-contract dependency.",
+    "The no-overlap claim is false: leaf 027 edits `inventory-service.ts`, leaf 041 edits `inventory-tab.tsx`, and leaf 044 edits `inventory-inputs.ts`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "034-campaign-homebrew-procedure-contracts-split.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`23-schema-layout-and-naming.md` says `Status: Done 2026-07-27` in SHARED-CLUSTER-PLAN slices S1-S3. Those slices landed the documented request-side output-placement convention while leaving `homebrew-campaign.ts` intact, so this leaf is a valid residual rather than a reopen.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`19-weapon-and-armor-catalog.md` says `Status: Done — landed 2026-07-26`; SHARED-CLUSTER-PLAN W2 narrowed `WeaponData.damageType` to `DamageTypeName` but left `WeaponAttackResult`, `CATEGORY_PROFICIENCY_MAP`, and `isWeaponProficient` unchanged. The leaf is already narrowed to that live residual.",
+   "evidenceDefects": [
+    "The same-file count is four, not three: leaf 027 also edits `attack-damage.ts` to repoint `damage-types.js`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "036-combat-result-schemas-make-always-produced.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`21-shared-constants-single-source.md` says `Status: Done — landed 2026-07-26`; SHARED-CLUSTER-PLAN K2 explicitly declined routing concentration saves through `resolveD20Roll`. This leaf correctly preserves that ruling and addresses different live-result schemas.",
+   "evidenceDefects": [
+    "The measured `all five producer call sites` count does not reproduce. There are four direct production `resolveAttackRoll` calls—two in `resolve-attack.ts`, one in `resolve-character-spell.ts`, and one in `resolve-spell.ts`—plus saving-throw production through two service flows; `resolve-character-spell.ts` itself has separate single-target and multi-target save branches."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "Coordinate implementation with leaf 030, which edits both result-schema files, and leaf 189, which moves `rollModeSchema` out of `attack-roll-inputs.ts`."
+  },
+  {
+   "chunk": "ch04",
+   "file": "037-static-rules-tables-expose-inconsistent.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`20-rules-tables-to-formulas.md` says `Status: Done 2026-07-27` in SHARED-CLUSTER-PLAN R1-R3. R2 closed the skill key vocabulary and accepted the current `Object.keys` derivation, but did not adjudicate readonly container types; the cited prior-pack distinction is correct.",
+   "evidenceDefects": [
+    "Leaf 035 does not edit `srd-weapons.ts`; it only imports `WeaponCategory` from it into `attack-damage.ts`. Leaf 027 is the actual other leaf that edits `srd-weapons.ts`, by repointing its damage-type import."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "038-dice-grammar-semantics-depend-positional.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`25-dice-model.md` says `Status: Done — landed 2026-07-26` in D1/D2. SHARED-CLUSTER-PLAN preserves the output-model constraints cited here, while positional regex decoding was untouched.",
+   "evidenceDefects": [
+    "The prior-ruling citation has drifted: the conditional spreads are now at `packages/shared/src/dice/dice-roller.ts:45-46`, not line 43."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "039-responsive-character-sheets-keep-two.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`48-sheet-module-doc.md` says `Status: Done 2026-07-27` in CLIENT-CLUSTER-PLAN C1. C1 changed documentation only and explicitly recorded code problems separately; it did not rule that the dual mount should remain.",
+   "evidenceDefects": [
+    "The test-query interpretation is overstated. Duplicate-tolerant `getAllBy` calls do not prove every control exists in both trees: only panels in the active mobile Stats tab overlap the desktop tree by default, while controls in inactive mobile tabs—such as Short Rest at line 130—have only the desktop instance.",
+    "The no-overlap claim is false: leaf 192 proposes edits to `SheetBody`, `desktop-sheet-layout.tsx`, and `mobile-sheet-tabs.tsx` to add level-history presentation."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch04",
+   "file": "040-vtt-actions-tab-duplicates-two-dedicated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "Leaf 200 also edits `features-tab.tsx` and `actions-tab.tsx` while renaming the SRD lookup bundle; coordinate those file changes, although leaf 040 makes no contrary exclusivity claim."
+  },
+  {
+   "chunk": "ch05",
+   "file": "041-character-hooks-expose-second-identity.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 6,
+   "proposed": 6,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CLIENT-CLUSTER-PLAN.md is fully landed and its binding design-panel ruling at lines 663-687 rejects branding for presence, socket, roll, and DM-stat identities. This leaf's injection approach does not reopen that ruling.",
+   "evidenceDefects": [
+    "The nine-module count reproduces, but not every action input carries `characterId`: personality uses `id`; inventory create uses `characterId`, while update/delete use item `id`.",
+    "The inventory-tab citation at line 42 only instantiates `useInventory`; its updates pass item IDs at lines 220, 231, and 244, not `characterId`.",
+    "The proposed blanket `Omit<TInput, \"characterId\">` migration is invalid for personality and inventory update/delete."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The core finding survives after narrowing its success criterion to redundant character-scope identity."
+  },
+  {
+   "chunk": "ch05",
+   "file": "042-flat-character-creation-contract-forces.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "16-client-query-layer.md is landed through CLIENT-CLUSTER-PLAN.md slice Q2, which extracted and tested `buildCreateInput`. Other prior creation slices changed spell-selection and language ownership, but none addressed draft-state ownership.",
+   "evidenceDefects": [
+    "Personality has six text fields plus visibility, not seven text fields.",
+    "PersonalityStep has no local `useState` mirror or bidirectional converter; it reads reducer state and reconstructs the seven-field action. Only ability scores and background exhibit the full mirror/paired-write/converter pattern.",
+    "The prior pack did more character-creation work than only extracting `buildCreateInput`; Q2 is merely the directly overlapping slice."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch05",
+   "file": "043-encounter-detail-behavior-fragmented-across.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch05",
+   "file": "044-optimistic-writers-spread-transport.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "A broad `campaignId` grep under `components/sheet` does not find only `campaignMember.campaignId`; it finds numerous unrelated homebrew and prop uses. The narrower claim that no inventory row's `campaignId` is read does reproduce.",
+    "`use-rest` and `use-weapon-masteries` are fire-and-invalidate hooks, not optimistic writers, and build no positive cache patches."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch05",
+   "file": "045-character-creation-ability-rules-have-four.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "The proposed client-local `formatModifier` would duplicate the already-exported canonical `formatModifier` at `packages/shared/src/rules/character-rules.ts:143-145`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch05",
+   "file": "046-generic-map-canvas-performs-combat-domain.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CLIENT-CLUSTER-PLAN.md is fully landed; its line-588 ruling dropped `<MapCanvasFrame>` and panel primitives. That ruling concerns shell extraction and does not cover moving combat-state derivation out of MapCanvas.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch05",
+   "file": "047-toolhandler-erases-coordinate-domains.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "11-canvas-tool-typing.md has status Done, landed 2026-07-26. It narrowed MapTool registry seams and deliberately left draw-eraser handler-less; it did not decide coordinate-domain or capability descriptor typing.",
+   "evidenceDefects": [
+    "The proposed `PixelPoint` and `CellPoint` aliases remain structurally identical if both are `{ x: number; y: number }`; combined with unchanged structurally compatible store actions, the compiler still accepts a pixel/cell handler misclassification. An exhaustive switch centralizes the runtime choice but does not create the claimed type enforcement."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "Without the wrapper-style correction, the proposed refactor fixes capability shape and registry ownership but not the title's coordinate-domain defect."
+  },
+  {
+   "chunk": "ch05",
+   "file": "048-monsteradddata-erases-mutually-exclusive.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "15-client-discriminated-state.md has status Landed through CLIENT-CLUSTER-PLAN.md slice N1; it narrowed `NpcFormData` and submit inputs. That work does not cover MonsterAddData or monster provenance.",
+   "evidenceDefects": [
+    "The shared schema rejects both origins and unpaired homebrew fields, but it does not require either origin.",
+    "Origin-free monster participants are explicitly supported: `encounter-participants-add.test.ts:67-76` adds one successfully, and `encounter-participant-helpers.test.ts:79-94` expects `monsterId` to become null.",
+    "The prior-pack reference `CQ25-117` does not exist in the live pack, and the landed draft/submit work covered the NPC editor, not a homebrew editor."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The client-only discriminated carrier remains useful, but it must be described as narrower than the intentionally broader wire contract."
+  },
+  {
+   "chunk": "ch05",
+   "file": "049-player-monster-attack-hooks-duplicate-target.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 5,
+   "proposed": 5,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "17-client-hook-naming.md is landed through CLIENT-CLUSTER-PLAN.md slice X1 for type/verb renames and the useMonsterAttack MODULE entry. 15-client-discriminated-state.md says drawer steps 5-9 were dropped permanently. Neither covers lifecycle extraction.",
+   "evidenceDefects": [
+    "The claimed restore-capture semantic difference does not exist: both target-pick callbacks close over values from the render/apply invocation that installed them. Later renders do not mutate the callbacks stored in the canvas store.",
+    "The proposed unified `canAttack` based on non-null guards is not behaviorally identical: the weapon hook currently requires non-empty encounter/map IDs, while the monster hook only directly checks `mapId !== null` plus eligibility.",
+    "The prior pack landed naming/doc work for these hooks, but its drawer-state modeling was explicitly dropped permanently rather than applied."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The duplicated lifecycle finding remains valid after removing the nonexistent closure-semantics drift."
+  },
+  {
+   "chunk": "ch05",
+   "file": "050-optimistic-character-sheet-mutations-omit.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "051-flat-route-tree-makes-authentication-eleven.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "052-campaign-tabs-manually-synchronized-across.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "12-campaign-context-prop-drilling.md is Status: Done 2026-07-27 through CLIENT-CLUSTER-PLAN.md slices V1/V2. It landed campaign viewer identity and scope, but did not alter the trigger/content tab registries; the leaf's reconciliation is correct.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "053-filterselect-erases-schema-derived-option.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "08-form-field-primitive-and-placement.md is Status: Landed 2026-07-27, with steps 6 and 7 dropped permanently by CLIENT-CLUSTER-PLAN.md. That ruling concerns the broad Label/Input sweep and does not cover FilterSelect's typed API.",
+   "evidenceDefects": [
+    "`is/toPreparedFilter` is not a source symbol. spell-filter-bar.tsx defines `isPreparedFilter` at line 53 and `toPreparedFilter` at line 57; the claimed six call-site adapters count the latter `to*Filter` function."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "054-tokencontextmenu-option-bag-two-different.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "13-client-shell-duplication.md is Status: Done 2026-07-27. CLIENT-CLUSTER-PLAN.md slice O1 landed only the option-free useTokenContextMenu state protocol; configurable shell extraction was dropped permanently. The unsafe existing props contract remains and this leaf is correctly narrowed to it.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "055-token-placement-mirrors-store-state-dialog.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "10-client-effect-misuse.md is Status: Done 2026-07-27 through CLIENT-CLUSTER-PLAN.md slices C3/C4. C3/C4 covered surface-reset and direct inline-setter effects, while leaf 16 Q3 completed the ratchet drain. The callback-hidden usePlacementSlice effect was not covered.",
+   "evidenceDefects": [
+    "The prior-pack attribution is too narrow: leaf 10 slice C4 removed one of the two `local/no-effect-misuse` findings, leaf 16 slice Q3 removed the other, and the completed client cluster then promoted the rule to normal-lint error. Leaf 10 alone did not drain and promote the entire floor."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "056-wizard-contexttesttsx-stale-duplicate-wizard.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "057-character-sheettesttsx-no-longer-tests.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "48-sheet-module-doc.md is Status: Done 2026-07-27 through CLIENT-CLUSTER-PLAN.md slice C1. The module doc landed without subdirectories. The plan rejects a feature-first package root, while a future sheet split is expressly left open as a separate proposal.",
+   "evidenceDefects": [
+    "The old filename is also present in the tracked `lint-ratchet.baseline.json:1260-1262`, with two findings. Renaming the test requires regenerating that baseline; `tsconfig.tsbuildinfo` is not the only reference.",
+    "The prior-pack ruling is overstated. CLIENT-CLUSTER-PLAN.md rejected a `features/` package root, but its sheet-directory ruling only forbids splitting as part of leaf 48 and explicitly says a future split may be argued separately; 48-sheet-module-doc.md says the same."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "058-vtt-spell-tests-copy-full.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "40-PLAN.md is Status: Planned. Slice 40.1 edits six of the same drawer suites to remove CharacterDetail and stats casts, but does not touch any CharacterSpellWithDetails payload. The leaf correctly preserves all 24 spell-fixture blocks as the residual.",
+   "evidenceDefects": [
+    "Exactly nine test suites import `src/test/fixtures-spell.ts`, not ten: six component/sheet suites, two hook suites, and pages/character-sheet/sheet-layout.test.tsx."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "059-fog-overlay-component-tests-assert-only.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch06",
+   "file": "060-participant-presentation-duplicated-between.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "061-rollmodetoggle-complete-production-orphan.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "062-character-key-hook-constructs-three-filter.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CLIENT-CLUSTER-PLAN.md has status “All 15 slices landed”; Q1 changed lib/query-invalidation.ts but neither it nor landed leaf 16 touched the unread CharacterKeys filter members.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "063-worktree-shell-suite-four-suites-hidden-one.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md is “In progress” and rows H11/H12 remain Open; 27-PLAN.md remains Planned. None has landed this worktree-suite split, and the leaf correctly coordinates the still-open assertion-library and worktree decomposition slices.",
+   "evidenceDefects": [
+    "scripts/tests/test-worktree-db.sh contains 15 EXIT trap installations, not 16; there are 16 total trap statements only when the separate TERM/INT trap at line 971 is included.",
+    "The EXIT trap at line 1703 enumerates six temporary directories spanning all four bands, not three: empty_dir, stub_dir, three drop/GC directories, and init_lock_gc_dir."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "064-pagination-suites-systematically-avoid-tie.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "065-server-service-suites-redundantly-wipe.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "39-server-test-lifecycle.md has status “Done — landed 2026-07-26”; it covered app lifecycle preambles, helper signatures, and fixtures, but did not schedule removal of service-local cleanDb hooks.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "066-three-mutation-test-lanes-can-strand-live.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "43-stryker-config-duplication.md has status “Done — landed 2026-07-26” via the .mjs route. It centralized Stryker configuration construction while preserving per-lane inPlace behavior; it did not add interruption recovery.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "68-lint-ratchet-fixture-copy-closure.md has status “Done 2026-07-31”; its standing CQ25-113 ruling forbids rebuilding shared fixture/manifest infrastructure, not replacing duplicated emitted types with imports from the existing public module.",
+   "evidenceDefects": [
+    "Four of the five copies are emitted by shell heredocs, not two: the four writers in scripts/tests/test-lint-ratchet.sh all use heredocs.",
+    "Three copies omit LintRatchetCoreSource, not one: write_third_party_config, write_max_lines_config, and write_type_assertion_config.",
+    "Three shell writers use unquoted <<TS heredocs, not two: write_third_party_config at line 3508, write_core_config at line 3600, and write_type_assertion_config at line 3778. Only write_max_lines_config uses a quoted heredoc."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "27-PLAN.md has status “Planned”; slice 27.8+ schedules splitting the separate scripts/tests/test-lint-ratchet.sh shell suite and does not touch this Vitest acceptance file.",
+   "evidenceDefects": [
+    "scripts/tests/test-lint-ratchet.sh is currently 5,059 physical lines, not 5,029."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "069-eslint-configuration-suites-repeat-real.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "38-eslint-rule-helpers.md has status “Done 2026-07-31” and records that the separate eslint-config Vitest project was removed after review. This leaf correctly retains every suite in eslint-rules and proposes only shared plumbing.",
+   "evidenceDefects": [
+    "eslint-rules/eslint-config-resolution-timeout.js ends at line 20; its exported timeout is at line 20, not line 21."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch07",
+   "file": "070-server-mutation-vitest-config-re-declares.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "43-stryker-config-duplication.md has status “Done — landed 2026-07-26” and owns shared Stryker config construction only; it did not reconcile the regular and mutation Vitest projects.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "071-paired-shared-schema-suites-split-request.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "40-PLAN.md remains Planned and repeats the ruling that encounter-inputs.test.ts payload literals must not be replaced with builders. This leaf proposes only relocating request-schema tests, so the live residual survives.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "072-collector-scheduler-tests-coordinate-through.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "fixtureRatchets contains exactly one type-aware ratchet at current-collector.test.ts:50, so maxTypeAwareInFlight === 1 is vacuous and does not pin the claimed single-flight cap. The proposed rewrite must add a second type-aware fixture ratchet."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "This is a substantive test-vacuity defect, not line drift."
+  },
+  {
+   "chunk": "ch08",
+   "file": "073-portable-lint-ratchet-tests-depend.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "68-lint-ratchet-fixture-copy-closure.md is Status: Done 2026-07-31 and covers static import-closure assertions for two sandboxes, not Windows symlink privileges. CQ25-113 does not consume this residual.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "074-coverage-gates-count-490-lines-test.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "075-live-message-identity-golden-stale-machine.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "16-client-query-layer.md is Status: Landed 2026-07-27; CLIENT-CLUSTER-PLAN.md slice Q3 records deletion of use-debounced-cursor-list.ts. That explains the historical fixture path but does not address fixture labeling or machine-specific roots.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "076-schema-tests-retain-opaque-audit-numbers.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "44-comment-archaeology.md is Status: Landed 2026-07-30 and permanently drops steps 6-9. SERVER-COMMENTS-PLAN.md names the refused coordinate inventory, which excludes packages/shared, so this four-file schema-test residual is not landed or ruled out.",
+   "evidenceDefects": [
+    "The prior-pack scope characterization is inaccurate: leaf 44's refused 60-plus-coordinate inventory was not confined to scripts/, tools/, and packages/server/; it also included docs/generated and eslint-config locations. The relevant accurate statement is that the inventory did not include packages/shared/."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "077-eleven-non-encounter-e2e-suites-present.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "42-e2e-encounter-narrative.md remains Proposed — not promoted, while 42-PLAN.md is Planned and drops the four-way extraction while retaining encounter-combat serial mode as a standing constraint. This leaf correctly excludes encounter-combat.",
+   "evidenceDefects": [
+    "e2e/campaign-collab.spec.ts:19-37 has 15 describe-scoped let bindings, not 14: five DM bindings, five player bindings, and five campaign/character/invite bindings."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "078-axe-allowlists-can-outlive-accessibility.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "e2e/a11y.spec.ts is 140 physical lines, not 141."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "079-e2e-specs-bypass-page-objects-through-raw.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md:12 and 42-PLAN.md retain encounter-combat's serial lifecycle and reject its speculative split. This leaf correctly leaves that file and its six raw getBy calls out of scope.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch08",
+   "file": "080-public-harness-copy-recipes-not-closed-over.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "68-lint-ratchet-fixture-copy-closure.md is Status: Done 2026-07-31 and explicitly closes internal lint-ratchet sandbox copy lists with focused closure assertions. It does not cover the public adoption recipes in docs/ai-harness.md, as this leaf states.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "081-lint-ratchet-adoption-docs-mix-packaged.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`36-lint-ratchet-vocabulary.md` says its scheduled H22/H23 work landed, with steps 3-4 dropped. It is relevant implementation context, but the package seam itself belongs to the earlier lint-arch leaf 02.",
+   "evidenceDefects": [
+    "The contradictory Tier-1 statements are not four lines apart: the envelope claim is at lines 65-68 and the corrective adapter row is at line 78.",
+    "`tools/lint-ratchet/README.md:35-44` contains the supported-entry-point introduction, but the actual exports inventory continues through line 104.",
+    "CQ25 leaf 36 landed H22/H23 kernel-vocabulary cleanup; it did not land the package seam, which landed earlier under `lint-arch-review-2026-07/02-package-seam-replaces-copy-manifest.md`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "082-devcontainer-quick-start-depends.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "`localhost/claude-devcontainer:latest` is not intrinsically unpullable: `localhost/` names a registry on the contributor's host. The real defect is that a fresh checkout provides neither a local image, a reachable local registry, nor an in-repo build source."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "083-sole-progress-queue-mostly-stale-view.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "084-backlog-simultaneously-action-queue-evidence.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 5,
+   "proposed": 5,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "At `ebf096580`, the repository's own `extractMetadata` plus `terminalStatus` logic returns 96 Status values containing `Done` and 144 terminal files, not 95 and 143. The harness-research index has a genuine Status header whose value says `largely landed ... Done`, so header parsing alone does not exclude it.",
+    "The semantic `Done outright` total can remain 95 only if the mixed `largely landed` status is interpreted manually; the leaf currently attributes that exclusion to header-versus-prose parsing."
+   ],
+   "commandDefects": [],
+   "linkDefects": [
+    "The link to leaf 083 resolves, but its description is wrong: leaf 083 covers `in_progress/codex-drain-queue-2026-06-21.md`, not staleness of `backlog/ready-2026-07/00-index.md`."
+   ],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "085-specialist-package-script-surface-has-no.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-scripts-layout-families.md` remains Proposed and `28-PLAN.md` is Planned. Slice 28.4 covers direct-child `scripts/` layout inventory, not package-script purpose metadata; the leaf's disjointness statement is accurate.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "086-driftai-operator-guide-890-line-multi.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-PLAN.md` is Planned, and unlanded slice 28.2 adds an internal `scripts/drift-ai/MODULE.md`; it does not split the operator README. The leaf correctly preserves that boundary.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "087-server-contributor-maps-contradict-omit.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`06-seed-pipeline-and-generators.md` is Done 2026-07-29 and supplies the settled seed constraints cited here. Separately, Done leaf `04-socket-broadcast-surface.md` already observed the direct Prisma seam but left changing it out of scope; it did not add the missing MODULE collaborator entry, so all proposed documentation work survives.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "088-client-component-module-documents-misstate.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`13-client-shell-duplication.md` is Done 2026-07-27 and permanently drops configurable-shell work while retaining `VttSurface` as the shell. This leaf correctly limits itself to fixing inaccurate composition documentation.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "089-client-hook-page-entry-point-maps-omit-major.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "Hooks and pages are not the two biggest production directories under `packages/client/src`: components has 284 production TS/TSX files, hooks 42, lib 22, and pages 18.",
+    "The charter does say what broadly belongs in External Entry Points: `docs/module-docs.md:43-44` specifies public or externally used hooks, facades, components, router calls, and imports. The missing rule is completeness and mechanical derivation, not inclusion or non-private scope altogether.",
+    "`docs/guides/add-module-doc.md:30-32` also says to avoid private helper files, so the claim that neither document states any non-private requirement is too strong."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch09",
+   "file": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`44-comment-archaeology.md` is Landed 2026-07-30, with steps 6-9—the bulk bare-coordinate sweep—dropped permanently. That ruling constrains but does not cover this targeted broken-path and stale-tense repair; no prior-pack work covers the flock prerequisite.",
+   "evidenceDefects": [
+    "When `flock` is absent, Bash emits a `flock: command not found` diagnostic before executing the `|| warn_and_exit` branch. The installer still exits successfully and its own warning is misleading, but the missing binary does not surface only through that warning."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "091-e2e-guide-permits-raw-locators-mandatory.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "092-concurrency-rulebook-claims-three-exhaustive.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "093-harness-manifest-guide-undercounts-omits.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": "The cited `HARNESS-CLUSTER-PLAN.md` is a live but unrelated cluster; this manifest-guide drift is not prior-pack residual work.",
+   "evidenceDefects": [
+    "The CQ25-119 attribution is unsupported: `HARNESS-CLUSTER-PLAN.md` has status `In progress — 18 of 23 slices landed`, and none of its 23 slices covers the typed manifest-read seam or the direct-reader inventory."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "094-two-documents-both-claim-be-authoritative.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "095-homebrew-module-index-sends-contributors.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`CLIENT-CLUSTER-PLAN.md` has status `All 15 slices landed`; landed slices F1/F2 added and documented shared homebrew helpers. The stale parent inventory and registry pointer remain genuine residual documentation work.",
+   "evidenceDefects": [
+    "The leaf overstates `entry-editor-registry.ts` as the only place that knows every entity type and calls `entries/MODULE.md` fully correct. `entry-dialog.tsx:31-41` and `collection-detail-page.tsx:23-36` also enumerate the types, and leaf 180 correctly records that the child document's “one place” and “Nothing else changes” claims are false. Only the editor-binding portion of that child recipe is correct."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "Coordinate wording with leaf 180 so this leaf does not reassert the child document's known-false exhaustive checklist."
+  },
+  {
+   "chunk": "ch10",
+   "file": "096-per-worktree-guide-omits-mandatory.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "097-two-database-writing-srd-backfill-commands.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "The zero references to either command name reproduces, but the claimed inventory of generic `backfill` substring hits does not. Excluding `docs/agent_notes/`, there are five hits: `docs/CONCURRENCY.md:140,582` and `docs/guides/add-prisma-migration.md:14,48,53`, not two."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "098-scripts-guide-lists-only-three-twelve.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-PLAN.md` has status `Planned`; slice 28.1 schedules different `scripts/README.md` corrections—three missing directory rows and two harness spellings—not the generated-surfaces list. The leaf's residual and non-overlap statement is accurate.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "099-concurrency-rulebook-mislocates-participant.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`07-PLAN.md` says slice 07.1 is partially delivered: `compareCodeUnits` and its spell-casting adoption landed, while the spell-casting `MODULE.md` terminology correction remains scheduled. That slice does not touch `docs/CONCURRENCY.md`; this leaf is already correctly narrowed to the surviving document and writer-location fixes.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch10",
+   "file": "100-shared-local-documentation-carries-stale.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`SHARED-CLUSTER-PLAN.md` slice S1 is Landed and its outcome records the then-correct nine-file untested inventory; `CLIENT-CLUSTER-PLAN.md` Q3 is Landed and subsequently added shared schema coverage. Separately, prior leaf `11-canvas-tool-typing.md` is Done and owns the template mapping centralization. The leaf's three documentation residuals survive, but the ownership sentence must name the correct prior work.",
+   "evidenceDefects": [
+    "The prior-pack attribution is partly wrong. CQ25-117's landed Q3 follow-up added the `magic-item-inputs.test.ts` coverage that made the nine-file schema inventory stale, but it did not centralize the template-tool mapping. That mapping was centralized by `11-canvas-tool-typing.md`, whose status is `Done — landed 2026-07-26`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "101-mutation-docs-promise-sandbox-isolation.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "43-stryker-config-duplication.md says `Status: Done — landed 2026-07-26`; it owns the shared `.mjs` config construction and does not cover interruption recovery or operator documentation.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "102-generated-doc-ownership-table-misclassifies.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "44-comment-archaeology.md and SERVER-COMMENTS-PLAN.md slice S12 cover lint-coverage-map metadata strings, not the ownership row in `docs/generated/README.md`; the leaf's no-overlap statement is correct.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "103-primary-onboarding-omits-bashunix-runtime.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "104-scripts-readme-gives-non-root-recovery.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "105-client-source-comments-preserve-three.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "16-client-query-layer.md says `Status: Landed 2026-07-27` through CLIENT-CLUSTER-PLAN Q1-Q3; that work did not remove the three CharacterKeys filters or touch the canvas and upload comments.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "106-root-devcontainer-compose-bootstrap.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "107-PLAN.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 6,
+   "proposed": 6,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "The live prior pack's 27-PLAN.md says `Status: Planned` and slices 27.4–27.7 already schedule the same `scripts/ai-hooks/test.sh` family extraction. S3 must drop that duplicate work; the production-module decomposition and remaining `common.sh` shrink survive.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "The live prior pack's 27-PLAN.md says `Status: Planned`; slices 27.4–27.7 already own splitting `test.sh` into the command-policy, backlog-note-lint, commit/worktree/queue, and failure-guidance/output-filter families. Cut that part from Slice B. Prior leaves 37 and 29 are otherwise reconciled correctly.",
+   "evidenceDefects": [
+    "At the audit pin, `git log --follow --since=2026-06-01 -- scripts/ai-hooks/policy.sh` yields 61 commits, not 63."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "108-PLAN.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md says `Status: In progress` and its H12 row is `Open`, moving the family to `scripts/worktree-db/`; 108-PLAN correctly makes superseding H12 its first slice and removes the H11/28.1 dependency from this move.",
+   "evidenceDefects": [
+    "The claim to hand-edit every reference surface omits `scripts/worktree-db.sh:52`, `scripts/worktree-seed-runtime-loaders.test.ts:151`, `scripts/tests/test-worktree-db.sh:389,404`, and `scripts/tests/test-harness-check.sh:154`.",
+    "`scripts/README.md` has no existing `scripts/import-closure/` directory-table row; slice 108.3 must add one, not update one."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch11",
+   "file": "108-worktree-seed-validation-implements-private.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md says `Status: In progress`; H12 is `Open`, blocked on 28-PLAN slice 28.1 and H11, and schedules only a move into `scripts/worktree-db/`. This leaf correctly identifies and explicitly supersedes that scheduled overlap while retaining the novel contract and parity-test work.",
+   "evidenceDefects": [
+    "The claimed full reference surface omits the spawned-checker path at `scripts/worktree-seed-runtime-loaders.test.ts:151`, the read-set comment at `scripts/worktree-db.sh:52`, the checker fixture/expectation at `scripts/tests/test-worktree-db.sh:389,404`, and the copied-walker comment at `scripts/tests/test-harness-check.sh:154`.",
+    "The exhaustive generated-surface list omits `scripts/tests/harness-check-fixture-manifest.generated.txt:99-103`, which is rendered by `bun run verify:steps` from the updated `generatedSurface.fixturePaths`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "109-PLAN.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` remains in progress; H20 and H21 are explicitly `Open (optional)` and concern the code-intel context bag and cache, distinct from this plan.",
+   "evidenceDefects": [
+    "`ghost-files-check-config.ts:19-33` shows the default and metadata registration, but not the imported validation helpers or parser implementation; the complete supporting ranges are `:4-12,19-84`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "109-musi-repository-policy-embedded-throughout.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`36-lint-ratchet-vocabulary.md` says its scheduled work landed and covers only lint-ratchet; `HARNESS-CLUSTER-PLAN.md` keeps code-intel H20/H21 open and distinct; `28-PLAN.md` remains `Status: Planned` and its slice 28.2 is the CQ25-35 drift-ai MODULE.md work cited here.",
+   "evidenceDefects": [
+    "`scripts/drift-ai/ghost-files-check-config.ts:19-33` does not contain the validating parser implementation or its `config-readers.js` imports; those are at `:4-12,35-84`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "110-parallel-verify-dependencies-hidden.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`32-git-hook-shims.md` says its scheduled work landed with no scheduled slice remaining, while `HARNESS-CLUSTER-PLAN.md:402` explicitly rejects the pre-commit dispatcher split. This leaf preserves that ruling and addresses distinct generated slot metadata.",
+   "evidenceDefects": [
+    "`steps-lib.sh:46-48` prints `verify:steps:check`, `harness:wiring:check`, and `verify:steps`; it does not print `harness:check` as the leaf claims."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "111-lint-coverage-map-reverse-parses-generated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-PLAN.md` remains `Status: Planned`; slice 28.11 schedules only relocation of the 13-file family and explicitly preserves the facades, so it neither lands nor rules out this source-of-truth migration.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "112-public-lint-ratchet-demo-asks-adopters.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`CONSTRAINTS.md` is `Status: Reference` and line 18 rules out re-parameterizing the already-parameterized installer family. It does not cover ownership or distribution of the operational rail.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "113-baseline-updates-serialize-stale-local.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "114-harness-controls-represented-competing.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "115-gate-parity-checks-fingerprint-source-text.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md:402` records the dispatcher split as rejected, and its registration-admission ruling forbids adding checks to the five-second admission path. This leaf explicitly preserves both decisions.",
+   "evidenceDefects": [
+    "The generated-surface freshness fragment is assigned and checked at `.husky/pre-commit:254-256`, but the actual source statement is line 257; the citation must extend through `:257`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "116-generated-surface-dependencies-manually.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` labels the H15 smoke-subject closure sensor a separate, unsettled follow-up. `CONSTRAINTS.md:48` applies specifically to two lint-ratchet sandbox copy sets, not these generated-surface facets.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch12",
+   "file": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`29-bash-to-ts-cores.md` is `Status: Partially landed`; its analytical TypeScript-core work landed, while lines 173-175 explicitly exclude decomposition of `verify-metadata.sh`. The proposed Bash module split therefore remains open.",
+   "evidenceDefects": [
+    "There are 22 unique sourcer files total, not `22+`: 21 source a literal path and `test-verify-metadata.sh:36` sources through `VERIFY_METADATA`.",
+    "`scripts/lib/verify-engine.sh` does not source `verify-metadata.sh`; its header requires the consumer to source it. The omitted literal sourcer is `scripts/ai-hooks/commit-output.sh`."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "118-doctorsh-organized-around-ambient-mutable.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md is Status: In progress; H8 is landed in e7462ee51 and owns only shared finding emission. Its rejected-alternatives table rules out a TypeScript rewrite of doctor.sh, while leaving this Bash registration/ambient-state residual untouched.",
+   "evidenceDefects": [
+    "The enumerated conventions total six runner shapes: three subprocess runners, two special-case bypasses, and one inline-check style.",
+    "Prose mode is not pure Bash: it invokes Bun-backed checks beginning with db:status at scripts/doctor.sh:433-436 and several later runners. It remains a bootstrap path because Bun failures are captured rather than being an eager prerequisite."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "119-migration-safety-validation-embeds-multiple.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "29-bash-to-ts-cores.md is Status: Partially landed and scopes worktree-db.sh/stop-policy.sh only. HARNESS-CLUSTER-PLAN.md H8 is landed and owns the already-adopted finding emitter; neither it nor the landed verify-metadata precedent covers migration-safety scanner decomposition.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "120-cli-option-models-remain-parallel-registries.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "30-cli-arg-substrate.md is Status: Scheduled work landed, with H3-H5 landed and no scheduled slice remaining. 34-PLAN.md is Status: Planned and covers unrelated typing/cache/Zod work. Neither owns these option registries.",
+   "evidenceDefects": [
+    "Sixteen non-test files contain parseSubcommandArgs; the reproducible residual is fourteen consumer files after excluding subcommand-args.ts itself and the drift-ai.ts barrel re-export.",
+    "The cited ownership-args.ts:51-56 and birth-size-delta-args.ts:58-63 ranges show only two of the five bounded-history callbacks. The complete ranges are ownership-args.ts:51-65 and birth-size-delta-args.ts:58-80.",
+    "The live 34-PLAN does not name slices CQ25-45..47. Its status is Planned and it defines slices 34.1 and 34.2 plus a separately scoped step-7 carve-out."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "121-drift-ai-code-intel-independently-encode.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "35-code-intel-internals.md is Status: Scheduled work landed — H18/H19 landed and optional H20/H21 remain unstarted. Those slices concern result narrowing, type placement, context shape, and cache structure, not cross-analyzer import-edge classification.",
+   "evidenceDefects": [
+    "The metadata says Size L while the binding scope explicitly resolves the work to one M-sized leaf.",
+    "35-code-intel-internals.md is not simply open: its status says H18/H19 landed and H20/H21 remain optional and unstarted."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "122-portable-lint-ratchet-package-hard-codes.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 5,
+   "proposed": 5,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "36-lint-ratchet-vocabulary.md is Status: Scheduled work landed — H22/H23 landed, while steps 3 and 4 were dropped. Those slices removed repairKind and scripts-tsconfig inference; they did not address host command vocabulary or the hard-coded baseline filename.",
+   "evidenceDefects": [
+    "There are 17 matching literals across 11 non-test modules, not 16 across 10. The omitted site is tools/lint-ratchet/src/kernel/baseline-validation.ts:58.",
+    "The kernel/governance split is 11 literals across 5 kernel files and 6 across 6 governance files."
+   ],
+   "commandDefects": [
+    "The displayed grep command does not actually exclude tests. Add --exclude=\"*.test.ts\" and --exclude=\"*.spec.ts\" to reproduce the corrected non-test count."
+   ],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "123-concurrency-policy-fragmented-across.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md is Status: Reference and preserves the generated relation-subgraph authority established by the landed nested-write runtime-guard work. This leaf complies with that ruling by extending the artifact with adjacent repair metadata rather than reintroducing hand-listed relation structure.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "124-ratchet-cli-has-no-authoritative-command.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "30-cli-arg-substrate.md is Status: Scheduled work landed — H3-H5 landed with no scheduled slice remaining. H3 established option-descriptor ownership for code-intel only and does not cover the lint-ratchet mode catalog.",
+   "evidenceDefects": [
+    "scripts/lint-ratchet/modes.ts contains 16 `args.mode ===` comparisons, not 15: 8 in runUnvalidatedMode, 5 in runValidatedMode, and 3 in the preflight classifier."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "125-manifest-copies-verify-slot-programs-across.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "AUDIT-SUMMARY.md explicitly places harness.controls.json internals out of the 2026-07-25 pack's scope as generator input. No prior slice owns slot-program composition.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "arch-plans-2026-07/03-harness-hook-shim-generation.md is Status: Done — landed 2026-07-19 in 3e9b28df. It owns generated shims; HARNESS-CLUSTER-PLAN.md records the jsonc-parser rewrite as rejected. Neither covers canonical matcher/command projection enforcement.",
+   "evidenceDefects": [
+    "All 32 bindings author command strings, but only 30 author matchers. Of those matchers, 29 are standard adapter syntax, one is the lifecycle-policy matcher, and two bindings are matcher-less.",
+    "The current shim generator already validates the two recognized command grammars and the harness-specific shim directory at hook-shims.ts:68-90. The residual gap is exact canonical projection, including body-basename agreement and matcher provenance.",
+    "The metadata says Size M while the binding sizing ruling says the validate-mode residual is one effective S-sized leaf."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch13",
+   "file": "127-public-harness-manifest-has-no-versioned.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "The proposed generatedSurface triggerPaths omit the new generator source itself. The live import-closure check requires every generator closure file, including the entry module, to be covered by triggerPaths."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "128-baseline-merge-metadata-distributed-across.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md has Status: Reference and line 18 rules out further parameterization of the already-parameterized baseline merge-driver family; this leaf correctly preserves that ruling and limits itself to a parity gate.",
+   "evidenceDefects": [
+    "The metadata still says Size M, but the reviewed direction explicitly recalibrates the work to Size S."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "129-post-merge-truth-up-parses-human-diagnostics.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "29-bash-to-ts-cores.md is Status: Partially landed, with H1/H2 landed and H11/H12 blocked; neither it nor the live harness plan schedules truth-up diagnostic parsing. The cited bash-facade precedent is distinct from this residual.",
+   "evidenceDefects": [
+    "The metadata still says Size M, while the proposed direction explicitly says the dedicated-exit-code approach shrinks the work to Size S."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "130-workflows-embed-substantial-reporting-api.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "32-git-hook-shims.md is Status: Scheduled work landed with no scheduled slice remaining, but covers git hooks rather than workflow reporting. 28-PLAN.md is Status: Planned and rejects role-derived workflow parsing, a different proposal. No prior slice owns these inline reporting programs.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "131-codex-agent-skill-depends-claude-owned.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "27-PLAN.md is Status: Planned; slice 27.9 explicitly says “No shell relocation in this slice,” and 27.10 only splits the wrapper smoke. HARNESS-CLUSTER-PLAN.md preserves the rejection of a Bun/TS rewrite, not a neutral-home relocation. The residual relocation remains novel.",
+   "evidenceDefects": [
+    "docs/ai-harness.md:68-80 states an adapter rule specifically for hook policy and the per-provider hooks trees; it does not directly mandate that skill executables live in a neutral directory. It is a precedent to extend, not an existing rule this layout literally violates.",
+    "The Codex projection has 14 references to the current script home, not 12 overall: 12 in SKILL.md plus one each in references/portability.md and references/trailer-contract.md.",
+    "The proposed work hand-edits eight existing content files, not roughly six: three canonical skill documents, the wrapper smoke, the path-policy test, path-policy.ts, harness.controls.json, and docs/ai-harness.md."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "132-drift-check-registration-has-three-manually.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "34-PLAN.md is Status: Planned and supersedes leaf 34 with slices 34.1 and 34.2, neither of which covers check registration. 28-PLAN.md is Status: Planned; slice 28.2 schedules only the drift-ai MODULE.md and its two-registry layering prose. The leaf correctly preserves that separation and states the residual.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "133-code-intel-daemon-guards-promise-wire-types.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "35-code-intel-internals.md says Scheduled work landed 2026-08-01: H18/H19 landed in merge 57ef569e5, while H20/H21 remain optional. H18 delivered result-arm narrowing and the shallow-boundary comment; its Future note leaves broader correlation unscheduled. This leaf correctly preserves that ruling and addresses the residual IPC boundary.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "134-analyzer-families-maintain-divergent-source.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "31-harness-shared-helpers.md is Status: Partially landed, and HARNESS-CLUSTER-PLAN.md marks H9 Landed in bdc120756. H9 deleted SOURCE_LIKE_EXTS in favor of BUILT_IN_SOURCE_EXTENSIONS but did not touch the seven residual classifier families. This leaf is correctly narrowed to those residuals.",
+   "evidenceDefects": [
+    "The class-construction bullet incorrectly says no sibling classifier recognizes fixtures; drift-triage explicitly includes fixtures in TEST_DIRECTORY at triage-report-support.ts:31."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "135-hotspot-lenses-registered-through-parallel.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "34-drift-ai-typing.md is Status: Proposed — not promoted, and 34-PLAN.md is Status: Planned; neither document contains a hotspot or lens mention. The cited prior-pack non-overlap is correct.",
+   "evidenceDefects": [
+    "The title says two surfaces are not compile-checked, but the leaf itself correctly identifies three compile-silent points: CONCRETE_LENSES/derived prose, PATH_KEYED_LENSES, and the suppression-scan gate."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch14",
+   "file": "136-environment-provider-metadata-has-four.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "ruled-out",
+   "priorPackNote": "44-comment-archaeology.md is Status: Landed through SERVER-COMMENTS-PLAN.md slices S12/S13, but its steps 6-9 were dropped permanently. SERVER-COMMENTS-PLAN.md explicitly refused the 60-plus bare-coordinate sweep that included env-define-matrix-config.ts. Only that incidental comment cleanup was ruled out; the provider-descriptor work survives.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The prior ruling affects only the adjacent comment cleanup, not the descriptor-table proposal."
+  },
+  {
+   "chunk": "ch14",
+   "file": "137-knip-check-reparses-same-cached-report.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 5,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "34-PLAN.md is Status: Planned; slice 34.2 schedules moving the raw Knip-run memo into env.reportCache. It remains unlanded, as the module-level knipRunCache and clearKnipRunCache still exist. The leaf correctly preserves 34.2, sequences its parsed-envelope cache after it, and identifies parser extraction as novel.",
+   "evidenceDefects": [
+    "The repository is pinned to Knip 6.26.0 at package.json:206 and bun.lock:42, not 6.14.1. The three adapter comments and this leaf carry a stale version claim.",
+    "The cited parser-test ranges cover empty output and invalid JSON, but none of the three suites tests a non-object envelope or non-array issues value. The claim that all four malformed-input cases are already pinned does not reproduce."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The version drift also exists in the three source-file contract comments, so implementation should refresh those comments while extracting the shared envelope."
+  },
+  {
+   "chunk": "ch15",
+   "file": "138-triage-merge-keys-leak-directly-public.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`34-PLAN.md` is Planned and supersedes leaf 34 with slices 34.1/34.2 plus a Zod carve-out; none addresses triage item identity. The leaf's reconciliation is accurate.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "139-triage-locations-have-two-independently.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`31-harness-shared-helpers.md` is Partially landed and explicitly excluded the adjacent `locationDetails` merge path at line 97. `34-PLAN.md` covers unrelated typing and input narrowing. The residual is correctly stated.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "140-analyzer-presentation-logic-uses-english.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` is In progress with H18/H19 landed. H18 removed CodeIntel header sniffing and H19 centralized logs-audit types; neither introduced these discriminants.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "141-latest-log-discovery-mirrors-verify-state.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`33-env-var-prefixes.md` says Scheduled work landed with H17 and no scheduled slice remaining; H17 documented naming but did not rename these variables. `29-bash-to-ts-cores.md` is Partially landed and its delivered run-meta codec does not own state-path derivation.",
+   "evidenceDefects": [
+    "The Bash owner does not treat an empty `MUSI_VERIFY_STATE_ROOT` as `/`: `${MUSI_VERIFY_STATE_ROOT:-/tmp}` maps unset or empty to `/tmp`, and `${state_root%/}` removes one trailing slash.",
+    "The TypeScript reconstruction already differs from Bash: outside a Git repository Bash falls back directly to `/workspace` while TypeScript uses `cwd()`, and TypeScript maps an empty state root to `/` and strips all trailing slashes."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The central duplication finding remains valid and is strengthened by the existing divergence."
+  },
+  {
+   "chunk": "ch15",
+   "file": "142-code-intelts-maintains-unused-pseudo-library.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`35-code-intel-internals.md` has H18/H19 landed, but that work targeted modules inside `scripts/code-intel/`. The facade-retention rulings in `28-PLAN.md` concern preserving entry paths during directory moves, not retaining unused API exports.",
+   "evidenceDefects": [
+    "`scripts/lib/process-argv.ts` has 19 production TypeScript importers including `scripts/code-intel.ts`; 18 other production files would still use it, not three."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "143-two-command-test-filenames-substantially.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`30-cli-arg-substrate.md` says Scheduled work landed with H3-H5 and no scheduled slice remaining. `HARNESS-CLUSTER-PLAN.md` H4 landed a binding converge-on-touch rule while deliberately leaving remaining local offsets for future edits. No test-contract scope is cut; add the one-line offset migration while editing the benchmark entrypoint.",
+   "evidenceDefects": [
+    "The license suite does exercise exported classification and `licenseValue` behavior; what it misses is the traversal, dependency-closure, flagging, and exit-code behavior.",
+    "Live prior-pack H4 requires files edited for any reason to converge local argv-offset constants. Slice 2 edits `benchmark-near-duplicates.ts`, whose local `USER_ARGUMENT_START` remains at line 31."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "144-logs-audit-policy-tests-encode-50-scenarios.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 5,
+   "proposed": 5,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`35-code-intel-internals.md` says H18/H19 landed while optional H20/H21 remain unstarted. H19 created `logs-audit-types.ts`; the leaf correctly treats that as available substrate rather than duplicate work.",
+   "evidenceDefects": [
+    "The policy families are not each pinned by exactly one test: the exhaustive exact-diagnostics matrices are each concentrated in one test, while the compact cross-record test at lines 419-490 also pins both policies.",
+    "The two line-7 findings are the first and sixth expected objects, hence five positions apart, not six.",
+    "Five production files import from `logs-audit-types.js`, not four.",
+    "There are 24 scripts `*.test.ts` files using `it.each` or `describe.each`, not 26."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "145-daemon-querytestts-combines-daemon.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` is In progress and H21/CQ25-66 remains optional and unstarted. It is a production cache extraction and does not land or rule out this test-only relocation.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "146-duplicates-suite-umbrella-four-production.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`34-PLAN.md` is Planned and permanently drops splitting the separate 2,765-line root `scripts/drift-ai.test.ts`. The leaf correctly distinguishes this subject-ownership split from that ruling.",
+   "evidenceDefects": [
+    "`changedDetectorScope` is used only by the moved `runDuplicatesCheck` block, while `currentDetectorScope` is shared by the moved runner block and plugin-wiring block. The retained core tests consume neither helper."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch15",
+   "file": "147-major-harness-implementation-directories.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` is In progress with H13/H14 landed and H21 optional/unstarted. H13 added only the path-policy module document; both `scripts/harness/` and `scripts/code-intel/` still lack local `MODULE.md` files. The leaf correctly absorbs only H21's documentation request, not its production extraction.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "148-rule-source-hashing-depends-home-grown.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "`sourceFile.parseDiagnostics` is not part of the public `SourceFile` API declared by the pinned TypeScript 6.0.3 dependency. The plan needs a supported diagnostic path and must continue treating imported JSON as an opaque hashed closure leaf."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "149-generic-codemod-infrastructure-hidden-behind.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 3,
+   "proposed": 3,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "`getSourceFileAtPath`, `removeUnusedNamedImport`, `isReferenceIdentifier`, `referencedIdentifiers`, `ImportBinding`, and `TargetIdentifiers` have no non-tRPC consumers at the pin. Moving them into the neutral core conflicts with the leaf's caveat to extract only helpers used outside the tRPC family and their actual dependencies."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "150-engine-context-leaves-local-rule-cache.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "151-fixture-copies-parsed-grouped-two.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`49-path-policy-fixture-analyzer.md` is `Status: Partially landed 2026-08-01` with H13 and H14 landed, H15 still blocked, and the test split dropped. The leaf correctly cites the landed orientation/shared-vocabulary work and does not revive the dropped split.",
+   "evidenceDefects": [
+    "`FixtureSandbox.copiedFiles` does not retain each copy's destination. It includes sources copied anywhere under an attributed sandbox root, whereas the current shell-closure pass accepts only copies whose destination resolves under the sandbox's `scripts/` tree. Filtering that set to `.sh` cannot preserve current behavior."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "152-path-policy-query-core-closed-over-musis.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 4,
+   "proposed": 4,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` is `Status: In progress`; H15 is `Open` and owns lazy smoke discovery but remains blocked on unlanded 27-PLAN slice 27.3. Both `31-harness-shared-helpers.md` and `49-path-policy-fixture-analyzer.md` are `Status: Partially landed` with H15 outstanding. Cut the directory-parameterized discovery rewrite; the pure query engine, removal of the registry from `PathPolicy`, and lazy provider injection survive.",
+   "evidenceDefects": [
+    "The claim that only two query names concern smoke tests is too broad: `deletion-class:script-smoke-sensitive` is a third smoke-related query. Exactly two queries consume smoke registry/discovery data.",
+    "The proposal duplicates and supersedes the still-live H15 lazy-discovery work. The prior pack assigns that work to H15, which is Open and blocked on unlanded 27-PLAN slice 27.3; this leaf must consume H15's eventual provider and retain only the engine/data decoupling residual."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "153-global-restricted-import-policy-survives.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "The scope claim that there is no cross-leaf sequencing requirement is false. Leaf 157 deletes `shared-policy.js` and moves the canonical restricted-import pattern into a focused package-boundary module, directly changing the proposed home of this leaf's composer."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "154-concurrency-guard-compresses-two-analyzers.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`71-nested-write-walker-parity.md` is `Status: Open — follow-up only; do not re-open leaf 60's production guard.` This leaf correctly preserves the 45-case floor and requires its extraction to land before, or be folded into, leaf 71.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "155-transaction-callback-tracking-duplicated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`70-eslint-helper-collision-coverage.md` is `Status: Done 2026-07-31`. Its completed dynamic helper/rule classification ruling is cited accurately, and a dedicated named-export transaction tracker is consistent with it.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "156-hook-edit-check-protocol-maintained-manually.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch16",
+   "file": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-PLAN.md` is `Status: Planned`; slice 28.10 moves max-lines command internals and explicitly says `Do not edit eslint-config/`. This leaf correctly keeps the work sequential and lets 28.10 consume the stable focused max-lines policy module afterward.",
+   "evidenceDefects": [
+    "The leaf omits a required intra-pack coordination edge with leaf 153. Leaf 153 adds a restricted-import composer to `shared-policy.js`, while this leaf deletes that file and relocates the canonical pattern."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "158-typescript-consumers-depend-hand-written.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "159-path-policy-gives-single-segment-glob-two.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "49-path-policy-fixture-analyzer.md is Status: Partially landed; HARNESS-CLUSTER-PLAN.md slices H13 and H14 landed the MODULE.md and vocabulary work, while the broad test split was explicitly dropped. The leaf reconciles this correctly and preserves only the new dialect-focused work.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "160-debt-log-union-uses-absence-discriminator.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "36-lint-ratchet-vocabulary.md records its scheduled work as landed, while HARNESS-CLUSTER-PLAN.md drops the testId-to-ratchetId step to a separate future leaf. The citation correctly treats that rename as separate from the discriminator work.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "161-drift-ai-executable-exposes-incoherent-23.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "34-PLAN.md is Status: Planned and permanently drops its test-splitting step; this leaf correctly limits its changes in scripts/drift-ai.test.ts to imports. 28-PLAN.md separately preserves the flat scripts/drift-ai layout, which this leaf also honors.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "162-test-orphaning-indexes-history-then-rescans.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "The citation `scripts/drift-ai/test-orphaning-analysis.ts:97-99,135-140` is one line too broad: line 97 calls `newestDate(input.sourceTouches)` and does not resolve through `records[index]`; the supporting row-field lookups are lines 98-99 and 135-140."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "163-ratchet-driven-file-boundaries-strand.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "28-PLAN.md is Status: Planned and slice 28.2 is scheduled to add scripts/drift-ai/MODULE.md. The flat-directory ruling is cited correctly, but the claim that this relocation has no module-document update rider must be conditional on slice 28.2 not having landed first.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [
+    "`[the lint-ratchet guide](../../guides/lint-ratchet.md)` resolves under `docs/agent_notes/guides/`, which does not exist; the correct relative target is `../../../guides/lint-ratchet.md`."
+   ],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "164-drift-ai-suites-leave-dozens-temporary.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "165-eight-drift-command-fakes-bypass-strict-git.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "166-triage-report-tests-bury-scenarios-repeated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch17",
+   "file": "167-codemod-fixtures-duplicate-identical-before.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "168-harness-generator-scenarios-repeat-53-inline.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 2,
+   "proposed": 2,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`40-PLAN.md` is Status: Planned and supersedes `40-test-payload-factories.md`; its fixture slices remain limited to client, server/shared, and lint-ratchet tests, not these harness-generator suites.",
+   "evidenceDefects": [
+    "The literal control `id:` property count is 105, not 53: 24 in `generate-hook-wiring.test.ts` and 81 in `generate-verify-steps.test.ts`. The reported 22/31 counts omit compact single-line control objects."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": "The verify suite also has a shorthand `id` property at line 191; it is not included because the leaf specifically measures literal `id:` properties."
+  },
+  {
+   "chunk": "ch18",
+   "file": "169-suppression-allowlists-cannot-ratchet.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`65-vacuous-scanning-guards.md` has Status: Done 2026-07-30. It establishes non-vacuous discovery checks but does not implement reverse matching for unused suppression permission rows.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "170-semgrep-rule-source-types-runtime-schema.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": "`34-PLAN.md` has Status: Planned; its Step 7 ruling concerns drift-triage input narrowing, and the live prior pack contains no scheduled Semgrep manifest-key exhaustiveness work.",
+   "evidenceDefects": [
+    "`34-PLAN.md` Step 7 is explicitly a carve-out for porting the drift-triage contracts-family parser to Zod. It does not require the Semgrep manifest parser to preserve the manifest-specific behaviors listed in this leaf; it can only serve as a separate-scoping precedent."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "171-logs-audit-business-event-taxonomy.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`HARNESS-CLUSTER-PLAN.md` H19 is Landed (`57ef569e5`, implementation `f687b65e4`). It moved logs-audit core types and established the checks barrel but did not centralize event-family classification, exactly as the leaf states.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "172-two-drift-advisories-duplicate-complete.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "173-near-duplicate-sensor-gate-tests-buried.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`28-PLAN.md` has Status: Planned, and unlanded slice 28.9 schedules the `sensor-near-duplicates` owner-directory move while retaining the sensor and merge-CLI facades. This leaf correctly presents itself as an addendum to that slice.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "174-overview-suite-forks-code-intels-canonical.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "175-metric-strategy-registry-does-not-make.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "176-lint-message-evaluation-records-source.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch18",
+   "file": "177-logs-audit-leaves-ingestion-core-flat.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "`35-code-intel-internals.md` records H19 as landed in merge `57ef569e5` with implementation `f687b65e4`; H19 moved core types, removed production type back-edges, established the checks barrel, and inlined `parseJsonLine`. This leaf is already narrowed to the remaining ingestion and orchestration kernel.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "178-local-lint-rules-lack-one-canonical.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "38-eslint-rule-helpers.md is Status: Done 2026-07-31. It owns registry ordering and filesystem completeness, while leaf 178 correctly preserves those guarantees and limits its residual to generated registration and manifest ownership.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "179-turn-disabled-stat-block-placeholder-party.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "180-homebrew-entry-type-vocabulary-enumerated.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "24-homebrew-registry-typing.md is Status: Done — landed 2026-07-26 (`c36c9a17`). It made HOMEBREW_DATA_SCHEMAS exhaustive; leaf 180 correctly leaves shared validation and editor typing intact and limits the residual to client presentation metadata.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "181-harness-diagnostics-live-application.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md is In progress, with diagnostics-related H8 marked Landed (`e7462ee51`). That work standardized shell finding production but no live slice relocates the diagnostics schema out of packages/shared, so the package-ownership residual survives.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "182-logging-producers-their-auditor-separately.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md H19 is Landed (`57ef569e5`) and moved logs-audit core types out of its executable; SERVER-COMMENTS-PLAN.md S14 is Landed (`a01edb455`) and moved Pino vocabulary documentation beside request-logger types. Neither slice establishes shared producer/auditor policy data, matching leaf 182's stated residual.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "183-database-url-selection-duplicated-across.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "CONSTRAINTS.md has a standing ruling that destructive DROP guards must retain independent alphabets and bounds. Leaf 183 respects that ruling explicitly and centralizes only URL selection, provenance, and producer-side database-name resolution.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "184-human-readable-server-messages-act-client.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "185-repository-path-containment-has-several.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "HARNESS-CLUSTER-PLAN.md H14 is Landed (`64a7fac64`; implementation `9ced30028`) and unifies only scripts/path-policy vocabulary and normalization. The cited 31-harness-shared-helpers.md and 49-path-policy-fixture-analyzer.md reconciliation is accurate; their landed work does not provide the cross-tree lexical and hardened containment contracts proposed here.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "186-authentication-redirects-depend-undocumented.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch19",
+   "file": "187-add-campaign-ownership-transfer-account.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "12-campaign-context-prop-drilling.md is Status: Done 2026-07-27 through CLIENT-CLUSTER-PLAN.md V1/V2. It deliberately landed one viewer provider carrying separate isOwner and isDm values. Cut only leaf 187's proposed duplicate owner derivation; the ownership-transfer schema, authorization, mutation, concurrency, broadcast, and UI work survives.",
+   "evidenceDefects": [
+    "Proposed step 5 bypasses the canonical client viewer/owner seam: CampaignViewer.isOwner already exists at packages/client/src/lib/campaign-viewer.ts:7-12,37-42 and is available to campaign-detail descendants through useCampaignViewerScope. A new useAuth plus campaign.ownerId comparison would reintroduce the ownership derivation eliminated by the live prior pack."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "188-let-lint-ratchet-proposal-previews-evaluate.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "189-downstream-packages-keep-semantic-copies.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "partially-landed",
+   "priorPackNote": "Prior leaf 21 has status “Done — landed 2026-07-26” and SHARED-CLUSTER-PLAN.md slice K1 landed the client MAX_SPELL_LEVEL consolidation, but the live server SPELL_LEVEL_COUNT copy survived. This leaf is already narrowed to that residual plus four distinct authorities, so nothing should be cut. Its CONSTRAINTS.md whole-tree-straggler citation and leaf 20 CR distinction are correct.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "190-make-combat-history-navigable-through-one.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "191-let-players-choose-strength-dexterity.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "192-expose-level-up-history-already-returned.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "SHARED-CLUSTER-PLAN.md has status “Finished — 21 of 22 slices landed”; slice U2 and the line-715 ruling landed defensive handling for malformed CharacterLevelChoice.choiceData. The leaf correctly treats that as load-bearing prior work and limits itself to the still-missing client presentation surface.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "193-shared-weapon-rules-helpers-demand-full.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "SHARED-CLUSTER-PLAN.md has status “Finished — 21 of 22 slices landed”; slices W1/W2 landed the weapon representation and adapter decisions cited by the leaf. The proposed structural input narrowing is a distinct live residual and correctly preserves those rulings.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "194-generic-mutation-acknowledgment-hidden-under.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "SHARED-CLUSTER-PLAN.md has status “Finished — 21 of 22 slices landed”; slice S1 explicitly says not to move successResponseSchema. The leaf correctly follows that ruling and scopes only convergence of the three weaker schemas.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "195-validate-concrete-homebrew-entry-data-before.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "24-homebrew-registry-typing.md has status “Done — landed 2026-07-26.” It preserved the opaque wire envelope while fixing registry typing; this leaf cites that decision correctly and addresses the distinct remaining client pre-submit validation gap.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "196-make-notifications-navigate-campaign-context.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "SHARED-CLUSTER-PLAN.md has status “Finished — 21 of 22 slices landed”; slice U1 landed the additive Notification.data shape, while the discriminated-schema proposal was closed-declined. The leaf correctly consumes the landed shape without reopening the declined work.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch20",
+   "file": "197-shared-runtime-neutrality-enforcement.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "198-worktree-provisioning-hard-wired.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`29-bash-to-ts-cores.md` is partially landed: H1/H2 landed, while `HARNESS-CLUSTER-PLAN.md` H11/H12 remain open and cover only the state seam and worktree-seed file move. That plan drops TypeScript-core extraction and broad decomposition. Its scope does not cover credential resolution.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "199-magic-item-seed-validation-shadows-shared.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "No prior leaf or plan landed this seed-schema import, but `CONSTRAINTS.md` requires every single-sourcing slice to perform a whole-tree identifier and literal/semantic-role straggler search. The leaf omits that mandatory acceptance criterion.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "200-generic-srd-getall-contract-client-specific.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "confirmed",
+   "priorPackNote": "`SERVER-COMMENTS-PLAN.md` under “Rejected alternatives — why” rejects only splitting `routers/srd.ts` by content family. It neither rejects nor lands the lookup-bundle contract rename, so the cited boundary is correct.",
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "201-let-users-rename-homebrew-collection-while.md",
+   "verdict": "needs-fix",
+   "appliedCorrections": 1,
+   "proposed": 1,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [
+    "`import-collection-dialog.tsx` has no existing dialog-close file/error reset: line 93 forwards `onOpenChange` directly and lines 128-130 merely close on Cancel. `setFile(null)` and `setLocalError(null)` occur only after successful import at lines 50-51. The proposed direction must explicitly add close-time cleanup for all four state values."
+   ],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "202-enable-existing-comment-density-sensor.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  },
+  {
+   "chunk": "ch21",
+   "file": "203-add-previewapply-safety-boundary-srd.md",
+   "verdict": "clean",
+   "appliedCorrections": 0,
+   "proposed": 0,
+   "priorPackStatus": "none",
+   "priorPackNote": null,
+   "evidenceDefects": [],
+   "commandDefects": [],
+   "linkDefects": [],
+   "notes": null
+  }
+ ],
+ "skipped": [
+  {
+   "chunk": "ch14",
+   "file": "137-knip-check-reparses-same-cached-report.md",
+   "occurrences": 0,
+   "why": "Use the current pinned version in the proposed preserved contract.",
+   "old": "against knip\n  6.14.1 —"
+  }
+ ]
+}

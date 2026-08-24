@@ -82,6 +82,9 @@ describe("references-query", () => {
     expect(textOutput).toContain("packages/server/src/renamed.ts:1:18 import");
     expect(textOutput).toContain("packages/server/src/renamed.ts:2:27 value");
     expect(textOutput).not.toContain("packages/shared/src/rules/core.ts:1:14");
+    // refs is file-anchored and guarded at input, so it carries no scope
+    // statement; only discovery-mode (def --name) output does.
+    expect(textOutput).not.toContain("Scope:");
 
     const snapped = runCodeIntel(["refs", "packages/shared/src/rules/core.ts:1:13"], context);
     expect(snapped).toBe(textOutput);

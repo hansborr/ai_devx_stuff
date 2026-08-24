@@ -19,7 +19,7 @@
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 
-import { WALKABLE_SOURCE_PATTERN } from "./generated-surfaces.js";
+import { WALKABLE_SOURCE_PATTERN } from "./generated-surface-dependencies.js";
 
 /** Why an allowlisted file is permitted to read the manifest directly. */
 type DirectReaderCategory =
@@ -116,14 +116,12 @@ export const MANIFEST_DIRECT_READERS: ReadonlyMap<string, DirectReaderCategory> 
   // additionally runs the granular per-control live-tree validation.
   ["scripts/harness/registration-check.ts", "sanctioned-reader"],
   // Owns the one-pass granular registration report (resolveControl +
-  // formatValidationFailures), so it must keep reading PAST schema-level
-  // defects rather than throwing on the first one. It does go through the
-  // typed parser, at the granularity that allows: the loose
-  // categorizedControlFieldsSchema, in generate-harness-controls-validation.ts.
-  // Routing it through the throwing whole-manifest parser would replace its
-  // deliberately-worded, smoke-pinned diagnostics ("must not restate
-  // category", "must be an object", "must declare a controls array") with
-  // generic Zod text and abort before the per-control report.
+  // formatValidationFailures). It uses the whole-manifest parser to
+  // materialize authored slot profiles and fails closed on any schema defect
+  // in those trees; when no profile needs resolution, its raw fallback keeps
+  // deliberately-worded, smoke-pinned per-control diagnostics. That fallback
+  // narrows successful records through categorizedControlFieldsSchema in
+  // generate-harness-controls-validation.ts.
   ["scripts/harness/generate-harness-controls.ts", "sanctioned-reader"],
   // Projects skill artifacts through skill-inventory-schema.ts.
   ["scripts/harness/generate-skill-artifacts.ts", "sanctioned-reader"],
@@ -141,6 +139,11 @@ export const MANIFEST_DIRECT_READERS: ReadonlyMap<string, DirectReaderCategory> 
 
 const SKIPPED_DIRECTORY_NAMES = new Set(["fixtures", "node_modules", "tests"]);
 // Test files across all walkable extensions (probe.test.ts, probe.test.mjs, …).
+// Deliberately local rather than a scripts/lib/path-taxonomy.ts policy (leaf
+// 134): this pattern is extension-agnostic by construction because the
+// scanned extension universe is WALKABLE_SOURCE_PATTERN — a generated harness
+// surface — not the taxonomy's code-extension set; coupling the two would
+// silently narrow or widen this scan when either side moves.
 const TEST_FILE_PATTERN = /\.test\.[^.]+$/u;
 
 function isScannedSourceFile(name: string): boolean {

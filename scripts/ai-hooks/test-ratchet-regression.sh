@@ -39,12 +39,22 @@ cp "$REPO_ROOT/scripts/ai-hooks/common.sh" \
   "$REPO_ROOT/scripts/ai-hooks/cache.sh" \
   "$REPO_ROOT/scripts/ai-hooks/output-filter.sh" \
   "$REPO_ROOT/scripts/ai-hooks/throttle-state.sh" \
+  "$REPO_ROOT/scripts/ai-hooks/edit-check-protocol.sh" \
   "$REPO_ROOT/scripts/ai-hooks/ratchet-regression-check.sh" \
   "$RR_REPO/scripts/ai-hooks/"
 mkdir -p "$RR_REPO/scripts/lib"
-# verify-metadata.sh resolves its run-meta codec beside itself, so the fixture
-# gets the TS entrypoint too (keeps the copied chain matching production).
+# verify-metadata.sh sources its leaf libs from its own directory, and the
+# run-meta shims resolve their codec the same way, so the fixture gets the
+# leaves and the TS entrypoint too (keeps the copied chain matching
+# production). Hand-maintained: the fixture-dependency tripwire only scans
+# scripts/tests, so a new leaf lib must be added to this cp list by hand.
 cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" \
+  "$REPO_ROOT/scripts/lib/verify-commit-queue.sh" \
+  "$REPO_ROOT/scripts/lib/verify-fast-commit.sh" \
+  "$REPO_ROOT/scripts/lib/verify-markers.sh" \
+  "$REPO_ROOT/scripts/lib/verify-path-policy.sh" \
+  "$REPO_ROOT/scripts/lib/verify-run-meta.sh" \
+  "$REPO_ROOT/scripts/lib/verify-state-paths.sh" \
   "$REPO_ROOT/scripts/lib/verify-metadata-core.ts" \
   "$RR_REPO/scripts/lib/"
 git -C "$RR_REPO" init -q
@@ -52,6 +62,7 @@ git -C "$RR_REPO" init -q
 cat > "$RR_FAKE_BIN/bun" <<'EOF'
 #!/bin/bash
 set -u
+. "$(git rev-parse --show-toplevel)/scripts/ai-hooks/edit-check-protocol.sh"
 {
   printf 'bun'
   for arg in "$@"; do printf '\t%s' "$arg"; done
@@ -80,11 +91,11 @@ if [ "$mode" = "targets" ]; then
     if [ "$multi" -gt 0 ] 2>/dev/null; then
       i=0
       while [ "$i" -lt "$multi" ]; do
-        printf 'target\t%s\tratchet/multi-%s\tlocal/multi-%s\t%s:%s\n' "$arg" "$i" "$i" "$cache_identity" "$i"
+        printf '%s\t%s\t%s\t%s\t%s\n' "$EDIT_CHECK_TARGET_KIND" "$arg" "ratchet/multi-$i" "local/multi-$i" "$cache_identity:$i"
         i=$((i + 1))
       done
     else
-      printf 'target\t%s\tratchet/local-type-assertion-boundary\tlocal/type-assertion-boundary\t%s\n' "$arg" "$cache_identity"
+      printf '%s\t%s\t%s\t%s\t%s\n' "$EDIT_CHECK_TARGET_KIND" "$arg" "ratchet/local-type-assertion-boundary" "local/type-assertion-boundary" "$cache_identity"
     fi
   done
   exit 0
@@ -99,18 +110,24 @@ if [ "$mode" = "check" ]; then
     prev="$arg"
   done
   [ -n "$tf" ] && [ -f "$tf" ] || exit 0
-  while IFS=$'\t' read -r kind rel test rule _; do
-    [ "$kind" = "target" ] || continue
-    printf 'checked\t%s\n' "$rel"
+  while IFS= read -r row; do
+    edit_check_read_target_row "$row"
+    [ "$EDIT_CHECK_TARGET_ROW_KIND" = "$EDIT_CHECK_TARGET_KIND" ] || continue
+    rel="$EDIT_CHECK_TARGET_ROW_PATH"
+    test="$EDIT_CHECK_TARGET_ROW_TEST_ID"
+    rule="$EDIT_CHECK_TARGET_ROW_RULE_ID"
+    printf '%s\t%s\n' "$EDIT_CHECK_CHECKED_KIND" "$rel"
     [ "${RR_BUN_NO_REGRESSION:-0}" = "1" ] && continue
     line_col="1"
     [ "${RR_BUN_EMPTY_LINE:-0}" = "1" ] && line_col=""
     # RR_BUN_REPAIR emits the 9-column row shape (trailing repair command);
     # default stays 8 columns so the hook's tolerance of older rows is pinned.
     if [ -n "${RR_BUN_REPAIR:-}" ]; then
-      printf 'regression\t%s\t%s\t%s\tnew-path\t%s\t0\t1\t%s\n' "$rel" "$test" "$rule" "$line_col" "$RR_BUN_REPAIR"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$EDIT_CHECK_REGRESSION_KIND" \
+        "$rel" "$test" "$rule" "new-path" "$line_col" "0" "1" "$RR_BUN_REPAIR"
     else
-      printf 'regression\t%s\t%s\t%s\tnew-path\t%s\t0\t1\n' "$rel" "$test" "$rule" "$line_col"
+      printf '%s\t%s\t%s\t%s\t%s\t%s\t%s\t%s\n' "$EDIT_CHECK_REGRESSION_KIND" \
+        "$rel" "$test" "$rule" "new-path" "$line_col" "0" "1"
     fi
   done < "$tf"
   exit 0

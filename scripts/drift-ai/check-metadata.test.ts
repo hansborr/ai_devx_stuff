@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, expectTypeOf, it } from "vitest";
 
 import {
   ALL_CHECKS,
@@ -11,10 +11,23 @@ import {
   DEFAULT_CHECKS,
 } from "./check-metadata.js";
 import { CHECK_PLUGINS } from "./check-registry.js";
+import type { DriftAiChecksConfig } from "./config.js";
+import type { DriftCheckId } from "./types.js";
 
 describe("check metadata registry", () => {
   it("enumerates checks in the same canonical order as the runtime registry", () => {
     expect(CHECK_METADATA.map((meta) => meta.id)).toEqual(CHECK_PLUGINS.map((plugin) => plugin.id));
+  });
+
+  it("covers every DriftCheckId exactly once", () => {
+    // Typecheck-gate assertions (runtime no-ops): a `DriftCheckId` member with
+    // no `CHECK_METADATA` entry, or a checks-config key that drifts from the
+    // union, stops compilation here instead of failing a runtime parity test.
+    expectTypeOf<(typeof CHECK_METADATA)[number]["id"]>().toEqualTypeOf<DriftCheckId>();
+    expectTypeOf<keyof DriftAiChecksConfig>().toEqualTypeOf<DriftCheckId>();
+    // The compile-time coverage cannot see a double registration (the id union
+    // is a set), so uniqueness stays a runtime pin.
+    expect(new Set(ALL_CHECKS).size).toBe(ALL_CHECKS.length);
   });
 
   it("is the single source of per-check default config", () => {

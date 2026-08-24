@@ -1,0 +1,484 @@
+{
+  "contractVersion": 1,
+  "consult": "D-05",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-36",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan's slice 28.3 moves the report module and harness-audit test into the owner directory while retaining scripts/harness-audit.ts as the facade.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-38",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.5 expressly moves client-test-isolation internals and tests beneath an owner directory while retaining the runner and public facade.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-39",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.6 applies the owner-directory move and explicitly retains scripts/backlog-lint.ts as the facade.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-40",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.7 moves the suppression-ledger family behind its retained scripts/suppression-ledger.ts entrypoint.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-41",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.8 schedules the sensor-knip-unused-exports owner-directory move and preserves both sensor and merge-CLI facades.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-42",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.9 schedules the sensor-near-duplicates family move, retains its facades, and requires pre-push-visible paths to remain stable.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-43",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.10 schedules the max-lines script-family move while retaining the command and merge-CLI facades.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-44",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.11 schedules the lint-coverage-map family move with both facades retained and all trigger, fixture, generated-document, and subject paths updated atomically.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[23]",
+      "ref": "CQ25-144",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan explicitly rejects deriving semantic roles from package scripts, hooks, workflows, and shell text, replacing it with a closed-world declarative inventory.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[24]",
+      "ref": "CQ25-145",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan drops the scripts/harness harness- de-prefix rename because its import and generated-path churn outweighs its navigation benefit, documenting both spellings instead.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-35",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.2 schedules scripts/drift-ai/MODULE.md with the prefix-family map and two-registry layering law.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-146",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan explicitly decides that scripts/drift-ai remains flat and rejects restructuring its 344 files because the flat relative-import convention supports both registries.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-146",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The recorded no-restructure decision applies to the whole drift-ai directory, including its tests; navigation is assigned to MODULE.md instead.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-34",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan identifies the missing data, lint-message-eval, and test-support owner-directory rows and schedules all three README additions in slice 28.1.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-35",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.2 expressly adds scripts/drift-ai/MODULE.md and defines its required family and layering content.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-146",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live decision is explicit that drift-ai remains flat and that restructuring would break the relative-import convention used by its registries.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-34",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "partial",
+      "reason": "CQ25-34/28.1 records only the written move, exception, and defer dispositions; the physical reorganization is separately scheduled by slices 28.5-28.11/CQ25-38 through CQ25-44.",
+      "promotionIds": [
+        "D-05-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-43",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "partial",
+      "reason": "Slice 28.10 covers moving the max-lines command family but expressly forbids eslint-config edits, leaving the import-time max-lines loader in eslint-config/shared-policy.js outside the slice.",
+      "promotionIds": [
+        "D-05-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-44",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "Slice 28.11 explicitly requires exact triggerPaths, fixture paths, shell fixture copies, generated coverage documentation, and subjects to change atomically with the family move.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-01-micro.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-34",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan specifically identifies scripts/data as an omitted owner-directory row and schedules its README addition in slice 28.1.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-146",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan records that drift-ai implementation files stay flat and assigns the actual navigation defect to the MODULE.md slice.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-72",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/31-harness-shared-helpers.md",
+      "coverage": "full",
+      "reason": "The live leaf's Proposed direction explicitly records the same normalized changed-path Set construction across the same seven drift-ai modules as an unscheduled review follow-up.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-73",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/31-harness-shared-helpers.md",
+      "coverage": "full",
+      "reason": "The live leaf explicitly records that defaultProcessIdentityProbe's verified path lacks direct coverage, cites the surviving hasMatchingProcessIdentity mutation, and calls for focused coverage separately.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[4]",
+      "ref": "CQ25-73",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/31-harness-shared-helpers.md",
+      "coverage": "full",
+      "reason": "The live leaf explicitly records the missing direct defaultProcessIdentityProbe test and prescribes the same focused coverage as a separate follow-up.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-72",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/31-harness-shared-helpers.md",
+      "coverage": "full",
+      "reason": "The live leaf identifies the same seven repeated normalized changed-path Set constructions and proposes the same small scope-path helper extraction.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[35]",
+      "ref": "CQ25-204",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/50-nested-relation-concurrency-gate.md",
+      "coverage": "full",
+      "reason": "The live Leaf 50 status explicitly says the type-closure alternative remains refused, and Scope / caveats explains that rewriting generated Prisma nested-input types was judged not worth its repeated schema-coupled cost.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[33]",
+      "ref": "CQ25-58",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/53-PLAN.md",
+      "coverage": "full",
+      "reason": "The live document remains Planned, and slice T3 exactly schedules PARTICIPANT_ORDER on both findMany calls, an initiative-only activation sort, and both comment rewrites.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-56",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/53-PLAN.md",
+      "coverage": "partial",
+      "reason": "The live document's T1/CQ25-56 schedules the rename, replacement helpers, provenance comment, and policy tests, but the persisted DM-facing workflow is separately owned by T2-T6 rather than by this record.",
+      "promotionIds": [
+        "D-05-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-163",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/53-PLAN.md",
+      "coverage": "none",
+      "reason": "CQ25-163 is the live plan's refusal of mid-combat resolution; it does not cover automatic secondary ordering or player-facing ordering, which the plan addresses under the owner ruling and question d through CQ25-18 and CQ25-164.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-61",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/53-PLAN.md",
+      "coverage": "full",
+      "reason": "The live document remains Planned, and T6 exactly schedules the sibling panel, pending-tie Start Combat disablement and tooltip, badge, mount point, and non-DM read-only state.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-05-001",
+      "title": "Move the seven flat root script families into owner directories",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "XL",
+      "evidence": [
+        {
+          "path": "scripts",
+          "line": null,
+          "endLine": null,
+          "measurement": "`for p in client-test-isolation backlog-lint suppression-ledger sensor-knip-unused-exports sensor-near-duplicates max-lines lint-coverage-map; do printf '%s ' \"$p\"; rg --files scripts | rg \"^scripts/${p}([.-]|\\\\.ts$)\" | wc -l; done` returns 6, 12, 10, 6, 9, 6, and 13 respectively, totaling 62 top-level TypeScript files.",
+          "note": "The written disposition has not reorganized the families; their implementation and test files remain flat under scripts/."
+        }
+      ],
+      "problem": "CQ25-34 records which flat families should move, but it performs no physical reorganization. Sixty-two related implementation and test files therefore remain spread across the scripts root, preserving the navigation and ownership ambiguity that the plan identified.",
+      "proposedDirection": "Execute the seven owner-directory moves as separately reviewable slices, retaining each public command or merge-CLI facade and updating path-sensitive harness surfaces atomically.",
+      "leafability": "needs-split",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-05",
+          "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[6]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Reorganize flat root scripts families",
+          "rejectionReason": "The scripts layout family is already owned by the recorded move, exception, and defer plan."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-34",
+          "residual": "The written position is covered, but CQ25-34 does not execute any family move."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-38",
+          "residual": "The client-test-isolation physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-39",
+          "residual": "The backlog-lint physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-40",
+          "residual": "The suppression-ledger physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-41",
+          "residual": "The sensor-knip-unused-exports physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-42",
+          "residual": "The sensor-near-duplicates physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-43",
+          "residual": "The max-lines physical move remains separately scheduled."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-44",
+          "residual": "The lint-coverage-map physical move remains separately scheduled."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "D-05-002",
+      "title": "Separate the max-lines baseline loader from shared lint policy",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 186,
+          "endLine": 243,
+          "measurement": null,
+          "note": "The generic shared-policy module resolves, reads, parses, and validates the max-lines baseline during module evaluation, including max-lines-specific conflict and recovery diagnostics."
+        },
+        {
+          "path": "eslint-config/shared-policy.js",
+          "line": 265,
+          "endLine": 270,
+          "measurement": null,
+          "note": "The same broad module assembles and exports the complete maxLinesPolicy after loading the baseline."
+        }
+      ],
+      "problem": "The prior slice relocates only scripts/max-lines-* internals and deliberately avoids eslint-config, so the stateful max-lines baseline loader remains embedded in a high-fan-in shared policy module. Consumers of unrelated glob or package policy therefore inherit max-lines file I/O and failure modes.",
+      "proposedDirection": "Extract the baseline read, validation, generated exemptions, and maxLinesPolicy assembly into a focused eslint-config max-lines policy module, then retarget consumers without changing policy behavior.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-05",
+          "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[4]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "Move the max-lines command family and its loader",
+          "rejectionReason": "The scheduled slice already owns that move; only residual config cohesion was retained."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-43",
+          "residual": "CQ25-43 moves scripts/max-lines-* internals but explicitly excludes eslint-config edits, leaving the shared-policy.js max-lines loader untouched."
+        }
+      ],
+      "existingLeafHints": [
+        "Looks directly covered by authored leaf 157, \"Split shared-policy.js so unrelated lint domains no longer share an import-time I/O boundary\" — hint only."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "D-05-003",
+      "title": "Build the persisted DM-facing initiative tie-resolution workflow",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/initiative.ts",
+          "line": 17,
+          "endLine": 33,
+          "measurement": null,
+          "note": "The current shared rule says SRD assigns tie resolution to people, but Musi still substitutes automatic modifier and caller-order policy and exposes no choice."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/activate-encounter.ts",
+          "line": 34,
+          "endLine": 53,
+          "measurement": null,
+          "note": "Activation checks only participant presence and non-null initiative, then automatically sorts and persists the order; there is no pending-tie gate or explicit DM confirmation."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter.ts",
+          "line": 179,
+          "endLine": 183,
+          "measurement": null,
+          "note": "EncounterDetail exposes participants, optional logs, and activeTurnOrigin only, so clients receive no authoritative tie-group or pending-resolution read model."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-header-actions.tsx",
+          "line": 27,
+          "endLine": 61,
+          "measurement": null,
+          "note": "Start Combat is enabled solely from participant presence, rolled initiative, and mutation pending state; there is no tie-aware disabling or explanation."
+        }
+      ],
+      "problem": "CQ25-56 removes the misleading shared helper name and defines tie-group semantics, but does not deliver the persisted workflow named by the dropped claimant. At the audit pin, equal initiatives can still be finalized automatically during activation, with no authoritative pending state, DM confirmation mutation, or tie-aware Start Combat affordance, so the documented people-decide policy remains unenforced.",
+      "proposedDirection": "Carry the residual specified by 53-PLAN T2-T6: persist and project resolution state, preserve resolved order through the two ordered reads and initiative-only activation sort, gate activation on pending groups, add the setup-only DM resolution mutation, and mount the client panel with a tie-aware disabled Start Combat explanation.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-05",
+          "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[1]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Rename sortByInitiative and add the DM-facing tie workflow",
+          "rejectionReason": "The initiative rename, replacement helpers, policy rewrite, and workflow are already scheduled."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-56",
+          "residual": "T1 covers the shared rename, helpers, and provenance only; the persisted workflow remains outside this cited record."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-57",
+          "residual": "Scheduled T2 owns the participant resolution flag, backfill, lifecycle writes, and wire exposure."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-58",
+          "residual": "Scheduled T3 owns the ordered reads and initiative-only activation sort needed to preserve a confirmed order."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-59",
+          "residual": "Scheduled T4 owns the derived read contract and pre-transaction and in-transaction activation gates."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-60",
+          "residual": "Scheduled T5 owns the DM-only setup-time resolution mutation and its concurrency validation."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-61",
+          "residual": "Scheduled T6 owns the panel, Start Combat state and tooltip, badge, and non-DM presentation."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent d05_doc28: docs/agent_notes/backlog/code-quality-2026-07-25/28-PLAN.md (21 claimants)",
+      "subagent d05_doc31: docs/agent_notes/backlog/code-quality-2026-07-25/31-harness-shared-helpers.md (4 claimants)",
+      "subagent d05_doc50: docs/agent_notes/backlog/code-quality-2026-07-25/50-nested-relation-concurrency-gate.md (1 claimant)",
+      "subagent d05_doc53: docs/agent_notes/backlog/code-quality-2026-07-25/53-PLAN.md (4 claimants)"
+    ],
+    "notes": [
+      "Disposition totals are 26 full, 3 partial, and 1 none.",
+      "CQ25-163 receives no promotion despite coverage none: automatic secondary ordering is already refused by CQ25-18's owner ruling and player-facing ordering is explicitly closed-declined by CQ25-164; the repository supplies no new product evidence that could justify overturning either ruling, so the rejection is upheld under the no-evidence rule.",
+      "D-05-001 and D-05-003 are returned despite their residuals being scheduled by other prior-pack records; those overlaps are for step 1c to adjudicate.",
+      "D-05-002 looks directly covered by authored leaf 157; this is recorded only as an existing-leaf hint for step 1c.",
+      "The review was read-only: no files were modified and no tests or builds were run."
+    ]
+  }
+}

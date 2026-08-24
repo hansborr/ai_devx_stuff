@@ -12,25 +12,26 @@ Status: Active
 Domain: build
 
 ### Context
-The recursive `grep` policy is advisory guidance ("use rg") rather than a
-dangerous command block. Claude should receive that guidance without treating
-the command like a hard safety denial.
+The command-policy manifest reserves a `soft` class for advisory guidance that
+should replace a command without treating it like a hard safety denial. No
+active rule currently uses that class; recursive `grep` is allowed.
 
 Older Claude Code releases had a parallel sibling-cancellation bug that made
 this distinction more urgent. That upstream bug was fixed in Claude Code
 2.1.161, and the repo-specific cancellation addendum/hook has been removed.
 
 ### Decision
-Keep policy classification agent-neutral in `scripts/ai-hooks/policy.sh` via
-`ai_policy_is_soft_guidance`. Claude's Bash adapter routes soft guidance through
-`ai_claude_result_command`, replacing the original command with successful
-stdout guidance. Dangerous policies keep using the shared hard-block shape.
-Codex's adapter currently keeps recursive `grep` as a hard block; changing that
-is a separate policy decision.
+Keep policy classification agent-neutral in `scripts/ai-hooks/policy-eval.sh`:
+`ai_policy_decision` maps the manifest's `soft` class to the `advise` verdict in
+its `{verdict, ruleId, message}` record. Claude's Bash adapter routes that
+verdict through `ai_claude_result_command`, replacing the original command with
+successful stdout guidance. Dangerous policies keep using the shared hard-block
+shape. Codex's adapter currently maps `advise` to its existing hard block;
+changing that is a separate policy decision.
 
 ### Consequences
 - Only commands that should be replaced, not merely warned about, belong in the
-  soft-guidance list.
+  manifest's `soft` class.
 - Do not change shared `ai_emit_block` to Claude-specific
   `permissionDecision:"deny"` output; Codex and other hook paths rely on the
   legacy root block shape.
@@ -41,6 +42,7 @@ is a separate policy decision.
 - `.claude/hooks/no-direct-db.sh`
 - `.codex/hooks/pre-tool-use.sh`
 - `scripts/ai-hooks/common.sh`
+- `scripts/ai-hooks/policy-eval.sh`
 - `scripts/ai-hooks/policy.sh`
 - `scripts/ai-hooks/test.sh`
 

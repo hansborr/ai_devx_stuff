@@ -62,7 +62,8 @@ const CLEAN_REPORT: DriftReport = {
 // A current-scope run exercising every optional carrier: a plain finding, a
 // `details`-only finding (number/boolean/string[] values), a `details` + drift
 // baseline `provenance` finding (no configPath), a target-config `provenance`
-// finding (with configPath), skips with and without a machine-readable `code`, and
+// finding (with configPath), skips with an adapter `code`, with the native
+// suppressions `changed-scope-only` code (v5), and with a bare reason only, and
 // the additive v4 timing block.
 const FINDINGS_REPORT: DriftReport = {
   schemaVersion: DRIFT_SCHEMA_VERSION,
@@ -74,7 +75,12 @@ const FINDINGS_REPORT: DriftReport = {
   enabledChecks: ["duplicates", "import-cycles", "near-duplicates", "orphan-files"],
   skippedChecks: [
     { check: "unused-exports", reason: "no knip config found in target", code: "no-target-config" },
-    { check: "suppressions", reason: "only available in changed scope" },
+    {
+      check: "suppressions",
+      reason: "only available in changed scope",
+      code: "changed-scope-only",
+    },
+    { check: "layer-direction", reason: "no layer-direction rules configured" },
   ],
   summary: {
     total: 4,

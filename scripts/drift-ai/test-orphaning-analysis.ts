@@ -5,7 +5,7 @@
 // commits behind each lead so the reader judges.
 
 import { buildCommitIntentOverlay } from "./commit-intent.js";
-import { recentSubjects, shellQuoteArg } from "./hotspots-actionability.js";
+import { shellQuoteArg, subjectsAtIndexes } from "./hotspots-actionability.js";
 import type { CommitRecord } from "./hotspots-history.js";
 import {
   expandMappingPatterns,
@@ -82,9 +82,7 @@ function rowForSource(input: {
     lastCoChangeIndex === null
       ? sourceChurn
       : input.sourceTouches.filter((touch) => touch.index < lastCoChangeIndex).length;
-  const touchesSource = (record: CommitRecord): boolean =>
-    record.files.some((file) => file.path === input.path);
-  const subjects = recentSubjects(input.records, touchesSource);
+  const subjects = subjectsAtIndexes(input.records, touchIndexes(input.sourceTouches));
   return {
     path: input.path,
     relation: relatedTests.length === 0 ? "no-test-inferred" : "test-inferred",
@@ -102,6 +100,12 @@ function rowForSource(input: {
     commitIntent: buildCommitIntentOverlay(subjects),
     inspectCommand: inspectCommand(input.path, relatedTests),
   };
+}
+
+// Project touch indexes lazily so subjectsAtIndexes consumes only its shared-limit
+// prefix instead of allocating an index for every historical source touch.
+function* touchIndexes(touches: readonly FileTouch[]): IterableIterator<number> {
+  for (const touch of touches) yield touch.index;
 }
 
 function relatedTestEvidence(

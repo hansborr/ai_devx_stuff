@@ -11,7 +11,7 @@ import {
   serverTestAndHelperSourceFiles,
   sharedSourceFiles,
   sharedTestAndHelperSourceFiles,
-} from "./shared-policy.js";
+} from "./path-glob-policy.js";
 
 export function createPackageDependencyConfigs(repoRoot) {
   const sharedDir = path.resolve(repoRoot, "packages/shared");

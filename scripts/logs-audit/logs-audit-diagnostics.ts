@@ -11,17 +11,19 @@ import {
   buildHarnessDiagnostics,
   type HarnessDiagnostics,
   type HarnessFinding,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+
 import {
   HARNESS_DIAGNOSTICS_OUTPUT_ENV,
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,
 } from "../harness/harness-diagnostics-output.js";
 import { errorMessage } from "../lib/error-message.js";
-// Type-only imports: erased at runtime, so logs-audit.ts (which imports the
-// sidecar writer below) keeps a clean one-directional runtime dependency on this
-// module. The back-edge exists only in the type graph.
-import type { LogsAuditFinding, LogsAuditFindingCheck, LogsAuditReport } from "../logs-audit.js";
+import type {
+  LogsAuditFinding,
+  LogsAuditFindingCheck,
+  LogsAuditReport,
+} from "./logs-audit-types.js";
 
 // The harness.controls.json control id each logs:audit finding check attributes
 // to. Every logs:audit check already has a dedicated `logs-audit/*` control in

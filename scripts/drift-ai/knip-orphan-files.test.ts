@@ -113,6 +113,17 @@ describe("parseKnipOrphanFiles", () => {
     expect(parseKnipOrphanFiles('{"issues":[]}')).toEqual({ ok: true, files: [] });
   });
 
+  it("rejects a non-object report envelope", () => {
+    expect(parseKnipOrphanFiles("[]")).toEqual({
+      ok: false,
+      error: "expected a JSON object with an 'issues' array",
+    });
+  });
+
+  it("treats a non-array issues field as a successful report with no rows", () => {
+    expect(parseKnipOrphanFiles('{"issues":{}}')).toEqual({ ok: true, files: [] });
+  });
+
   it("ignores rows whose files array is empty (other categories present)", () => {
     const json = '{"issues":[{"file":"src/a.ts","files":[]},{"file":"src/b.ts","exports":[{}]}]}';
     expect(parseKnipOrphanFiles(json)).toEqual({ ok: true, files: [] });

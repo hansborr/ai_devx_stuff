@@ -43,13 +43,16 @@
 #   .devcontainer/.env       — admin DATABASE_URL (host/user/pass)
 #   .worktreeinclude         — newline list of paths to copy from primary
 #   packages/server/prisma/schema.prisma
+#   packages/server/prisma.config.ts
 #   packages/server/prisma/migrations/
 #   packages/server/prisma/seed-template.ts
+#   packages/server/bunfig.toml (when present)
 #   packages/server/src/seed/
 #   packages/server/src/generated/prisma/
-#   packages/server/src/utils/{prisma-json,script-logger}.ts
+#   repository-local runtime imports reachable from seed-template.ts
 #   packages/shared/src/, package.json, tsconfig.json
-#   scripts/worktree-seed-import-closure.ts
+#   scripts/import-closure/closure-walk.ts
+#   bun.lock, package.json
 #   tsconfig.base.json
 #
 # Writes (to current worktree, not primary):
@@ -81,6 +84,11 @@
 
 set -euo pipefail
 
+WORKTREE_DB_SCRIPT_DIR="$(
+  CDPATH='' cd -- "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd -P
+)"
+readonly WORKTREE_DB_SCRIPT_DIR
+
 # ============================================================================
 # Constants
 # ============================================================================
@@ -93,10 +101,20 @@ readonly SEED_BLANKET_HASHED_ROOTS=(
   "packages/server/src/generated/prisma"
   "packages/shared/src"
 )
-readonly SEED_SERVER_RUNTIME_INPUTS=(
-  "packages/server/src/utils/prisma-json.ts"
-  "packages/server/src/utils/script-logger.ts"
+readonly SEED_DATA_HASHED_ROOT="packages/server/src/seed/data"
+readonly SEED_ENTRY_DIRECTORY="packages/server/prisma"
+readonly SEED_RUNTIME_BUNFIGS=(
+  # The template seed runs with packages/server as its cwd, so Bun's default
+  # local runtime config path is this file (when present).
+  "packages/server/bunfig.toml"
 )
+# The static import closure cannot discover arbitrary filesystem reads. These
+# blanket roots cover the seed's plausible source/data locations without a
+# per-file manifest: the data root is hashed with every extension (including
+# Markdown), while developer docs and tests elsewhere are excluded. Direct
+# siblings of seed-template.ts are also hashed. A runtime read outside these
+# locations will not invalidate the template and must first extend a blanket
+# root or move the input under the seed data/entry directories.
 
 # Postgres identifier limit is 63 bytes. The longest worktree DB name is
 # `musi_wt_<49-byte slug>_test`; worker DBs use `musi_wt_<slug>_w<key>` so they
@@ -415,11 +433,47 @@ worktree_redis_url() {
 # Template fingerprint
 # ============================================================================
 
+reject_fingerprint_symlinks() {
+  local root="$1" link=""
+
+  if [[ -L "$root" ]]; then
+    link="$root"
+  elif [[ -d "$root" ]]; then
+    link="$(find "$root" -type l -print -quit)" || return 1
+  fi
+  [[ -z "$link" ]] \
+    || die "$link is a symlink — the template fingerprint cannot follow symlinks; replace it with a checked-in file or directory"
+}
+
+validate_migration_fingerprint_config() {
+  local config="$1" assignments
+
+  # The config file itself is hashed into the fingerprint, so this only has to
+  # catch the one contract the hashed input list depends on: a grep is enough.
+  # Every config here is Prettier-formatted, so the check reads formatted code
+  # only. It counts line-leading `path:` assignments whatever their value — one
+  # canonical-looking line elsewhere cannot vouch for a different active one —
+  # and then demands that the single assignment be the literal path opening the
+  # `migrations: {` block. Odd-but-valid formatting fails closed here; write the
+  # canonical shape or update the fingerprint contract first.
+  assignments="$(grep -cE '^[[:space:]]*path:' "$config")" || assignments=0
+  [[ "$assignments" == 1 ]] \
+    || die "$config must declare exactly one \`path:\` assignment on its own line (found $assignments) — the template fingerprint hashes only packages/server/prisma/migrations; keep that single literal path or update the fingerprint contract first"
+  grep -A 1 -E '^[[:space:]]*migrations:[[:space:]]*\{[[:space:]]*$' "$config" \
+    | grep -qE '^[[:space:]]*path:[[:space:]]*"prisma/migrations",?[[:space:]]*$' \
+    || die "$config must open its \`migrations: {\` block with the literal path \"prisma/migrations\" — the template fingerprint hashes only packages/server/prisma/migrations; keep that literal path or update the fingerprint contract first"
+}
+
 write_migration_fingerprint_input_digests() {
+  local config="packages/server/prisma.config.ts"
   local schema="packages/server/prisma/schema.prisma"
   local migrations="packages/server/prisma/migrations"
 
+  [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint migration inputs"
+  validate_migration_fingerprint_config "$config"
+  sha256sum "$config" || return 1
   sha256sum "$schema" || return 1
+  reject_fingerprint_symlinks "$migrations" || return 1
   if [[ -d "$migrations" ]]; then
     find "$migrations" -type f \( -name '*.sql' -o -name '*.toml' \) \
       -print0 | sort -z | xargs -0 -r sha256sum || return 1
@@ -427,24 +481,37 @@ write_migration_fingerprint_input_digests() {
 }
 
 validate_seed_runtime_import_closure() {
-  local checker root input
+  local checker
   local -a checker_args
 
-  checker="${MUSI_SEED_IMPORT_CLOSURE_CHECKER:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/worktree-seed-import-closure.ts}"
+  checker="${MUSI_SEED_IMPORT_CLOSURE_CHECKER:-$WORKTREE_DB_SCRIPT_DIR/import-closure/closure-walk.ts}"
   [[ -f "$checker" ]] || die "missing $checker — can't validate seed runtime imports"
   checker_args=(
     bun "$checker"
     --root "$PWD"
     --entry "packages/server/prisma/seed-template.ts"
+    --allowed-root "."
+    --allowed-environment-variable "DATABASE_URL"
     --emit-closure-nul
   )
-  for root in "${SEED_BLANKET_HASHED_ROOTS[@]}"; do
-    checker_args+=(--allowed-root "$root")
-  done
-  for input in "${SEED_SERVER_RUNTIME_INPUTS[@]}"; do
-    checker_args+=(--allowed-file "$input")
-  done
+  # The emitted transitive closure is the runtime copy set. Accept every
+  # repository-local file the checker resolves so adding an import extends the
+  # fingerprint automatically instead of requiring a second file manifest.
   "${checker_args[@]}" || return 1
+}
+
+write_seed_dependency_digests() {
+  # External dependency identity is hashed at whole-lockfile granularity. The
+  # seed's own subgraph could be derived, but doing so means re-implementing
+  # Bun's private lockfile layout; an unrelated dependency bump instead costs
+  # one extra template rebuild, amortized across every worktree sharing the
+  # fingerprinted template.
+  local input
+
+  for input in bun.lock package.json; do
+    [[ -f "$input" ]] || die "missing $PWD/$input — can't fingerprint seed dependency inputs"
+    sha256sum "$input" || return 1
+  done
 }
 
 write_seed_runtime_import_digests() {
@@ -465,23 +532,46 @@ write_seed_runtime_import_digests() {
   return "$status"
 }
 
+validate_seed_bunfig_preloads() {
+  local config="$1"
+
+  bun -e '
+    const configPath = process.argv[1];
+    const parsed = Bun.TOML.parse(await Bun.file(configPath).text());
+    const preload = parsed.preload;
+    if (preload === undefined || (Array.isArray(preload) && preload.length === 0)) process.exit(0);
+    process.stderr.write(`${configPath} declares an uncovered top-level preload\n`);
+    process.exit(1);
+  ' "$config" || die "$config declares a Bun preload outside the derived seed closure; remove the preload or extend the fingerprint contract before provisioning templates"
+}
+
 write_seed_fingerprint_input_digests() {
   local config root
 
   write_seed_runtime_import_digests || return 1
-  for root in "${SEED_BLANKET_HASHED_ROOTS[@]}"; do
-    [[ -d "$root" ]] || die "missing $PWD/$root — can't fingerprint template inputs"
-    find "$root" -type f \( -name '*.ts' -o -name '*.json' \) \
-      ! -name '*.test.ts' ! -name '*.spec.ts' ! -name '*.test-helper.ts' \
-      -print0 | sort -z | xargs -0 -r sha256sum || return 1
-  done
-
-  # Seed modules execute these helpers outside src/seed. Keep this manifest
-  # explicit so runtime imports cannot be mistaken for unrelated server code.
-  for config in "${SEED_SERVER_RUNTIME_INPUTS[@]}"; do
-    [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint template inputs"
+  write_seed_dependency_digests || return 1
+  for config in "${SEED_RUNTIME_BUNFIGS[@]}"; do
+    [[ -f "$config" ]] || continue
+    validate_seed_bunfig_preloads "$config"
     sha256sum "$config" || return 1
   done
+  for root in "${SEED_BLANKET_HASHED_ROOTS[@]}"; do
+    reject_fingerprint_symlinks "$root" || return 1
+    [[ -d "$root" ]] || die "missing $PWD/$root — can't fingerprint template inputs"
+    find "$root" -path "$SEED_DATA_HASHED_ROOT" -prune -o -type f \
+      ! -iname '*.md' ! -name '*.test.*' ! -name '*.spec.*' ! -name '*.test-helper.*' \
+      -print0 | sort -z | xargs -0 -r sha256sum || return 1
+  done
+  reject_fingerprint_symlinks "$SEED_DATA_HASHED_ROOT" || return 1
+  [[ -d "$SEED_DATA_HASHED_ROOT" ]] \
+    || die "missing $PWD/$SEED_DATA_HASHED_ROOT — can't fingerprint seed data inputs"
+  find "$SEED_DATA_HASHED_ROOT" -type f -print0 \
+    | sort -z | xargs -0 -r sha256sum || return 1
+  reject_fingerprint_symlinks "$SEED_ENTRY_DIRECTORY" || return 1
+  [[ -d "$SEED_ENTRY_DIRECTORY" ]] \
+    || die "missing $PWD/$SEED_ENTRY_DIRECTORY — can't fingerprint seed entry siblings"
+  find "$SEED_ENTRY_DIRECTORY" -maxdepth 1 -type f -print0 \
+    | sort -z | xargs -0 -r sha256sum || return 1
 
   # Shared package configs determine how the blanket-hashed sources are built
   # and exposed to the server seed runtime.
@@ -1224,7 +1314,17 @@ cmd_init() {
   ensure_shared_output "$wt_root"
 
   # Opportunistic GC before allocating — reclaim orphaned ports/DBs.
-  cmd_gc || true
+  local gc_status=0
+  set +e
+  (
+    set -e
+    cmd_gc
+  )
+  gc_status=$?
+  set -e
+  if (( gc_status != 0 )); then
+    log "WARN: opportunistic GC did not complete; run bun run worktree:gc for diagnosis"
+  fi
 
   # Carry .claude/, .env, package env files, and local-only reference data from
   # primary before template seeding. The seed path reads docs/refs at runtime.
@@ -2096,18 +2196,29 @@ tombstone_read() {
   cat "$file"
 }
 
-tombstone_write() {
-  local json="$1" file tmp
-  assert_state_json "$json" "tombstones.json"
-  file="$(tombstones_file)"
-  ensure_state_dir
+state_json_write() {
+  local json="$1" file="$2" dir tmp
+  dir="$(dirname "$file")"
+  mkdir -p "$dir" || return 1
   # Create the temp file on the same filesystem as the target so `mv` is a
   # true atomic rename. $TMPDIR often points at a tmpfs (/tmp), and a
   # cross-fs mv degrades to copy+unlink — not atomic, so a crash between
-  # the two steps leaves either no tombstones file or a truncated one.
-  tmp="$(mktemp -p "$(state_dir)")"
-  printf '%s\n' "$json" > "$tmp"
-  mv "$tmp" "$file"
+  # the two steps leaves either no state file or a truncated one.
+  tmp="$(mktemp -p "$dir")" || return 1
+  if ! printf '%s\n' "$json" > "$tmp"; then
+    rm -f "$tmp"
+    return 1
+  fi
+  if ! mv "$tmp" "$file"; then
+    rm -f "$tmp"
+    return 1
+  fi
+}
+
+tombstone_write() {
+  local json="$1"
+  assert_state_json "$json" "tombstones.json"
+  state_json_write "$json" "$(tombstones_file)"
 }
 
 # Unlocked RMW primitives. The caller MUST hold gc.lock (cmd_gc does).
@@ -2166,13 +2277,9 @@ template_tombstone_read() {
 }
 
 template_tombstone_write() {
-  local json="$1" file tmp
+  local json="$1"
   assert_state_json "$json" "template-tombstones.json"
-  file="$(template_tombstones_file)"
-  ensure_state_dir
-  tmp="$(mktemp -p "$(state_dir)")"
-  printf '%s\n' "$json" > "$tmp"
-  mv "$tmp" "$file"
+  state_json_write "$json" "$(template_tombstones_file)"
 }
 
 _template_tombstone_mark_unlocked() {
@@ -2219,13 +2326,9 @@ allocation_read() {
 }
 
 allocation_write() {
-  local json="$1" file tmp
+  local json="$1"
   assert_allocation_json "$json"
-  file="$(allocations_file)"
-  ensure_state_dir
-  tmp="$(mktemp -p "$(state_dir)")"
-  printf '%s\n' "$json" > "$tmp"
-  mv "$tmp" "$file"
+  state_json_write "$json" "$(allocations_file)"
 }
 
 assert_allocation_json() {
@@ -2290,8 +2393,8 @@ allocate_resources() {
 
     if printf '%s' "$json" | jq -e --arg s "$slug" 'has($s)' >/dev/null; then
       row="$(printf '%s' "$json" | jq -r --arg s "$slug" '.[$s] | [.server, .client, .redis] | @tsv')"
+      allocation_write "$json" || return 1
       printf '%s\n' "$row"
-      allocation_write "$json"
       return 0
     fi
 
@@ -2311,7 +2414,7 @@ allocate_resources() {
       --argjson redis "$redis_db" \
       --argjson updated "$now" \
       '. + {($s): {server: $server, client: $client, redis: $redis, updatedAt: $updated}}')"
-    allocation_write "$json"
+    allocation_write "$json" || return 1
     printf '%s\t%s\t%s\n' "$server_port" "$client_port" "$redis_db"
   )
 }

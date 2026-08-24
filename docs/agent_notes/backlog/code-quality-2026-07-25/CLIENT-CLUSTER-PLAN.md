@@ -2,10 +2,10 @@
 
 Status: **All 15 slices landed. 7 landed in merge `6cf8c78d5` (C1, C2, C3, C4,
 V1, V2, O1); the remaining 8 (N1, Q1, Q2, Q3, F1, F2, X1, O2) landed on
-`feat/cq-slice-h` — merge SHA pending, filled in by the post-merge pass as the
-first delivery did.** See [Slices](#slices), whose `State` column is the
-authority. The [index reconciliation](#index-reconciliation-applied-2026-07-27)
-this plan carried was applied after the first landing.
+`feat/cq-slice-h` in merge `d539cfdbd`.** See [Slices](#slices), whose `State`
+column is the authority. The
+[index reconciliation](#index-reconciliation-applied-2026-07-27) this plan
+carried was applied after the first landing.
 
 Originally planned as: **one architectural leaf, four bounded cleanups, one doc,
 and four drops; leaf 10 is re-scoped from an architecture fix to a maintenance fix**.
@@ -256,22 +256,23 @@ otherwise.
 | **C4** | **Landed** `6cf8c78d5` | **Inline-edit sync effect (XS, leaf 10 step 1).** Add two cases to `dm-editable-score.test.tsx` — a re-render with a changed `score` while not editing (display follows the prop), and entering edit after a prop change (the input seeds from the new score) — then delete the effect at `dm-editable-score.tsx:31-33`. `enterEdit` (`:60`) already re-seeds. Do **not** extract a shared `useInlineEdit`/`useFieldEditor` hook. | `dm-editable-score.tsx` has exactly one `useEffect` (the focus/select one); the file is gone from `ratchet/local-no-effect-misuse-client` and `ratchet/react-hooks-set-state-in-effect-client` in the regenerated baseline | `bun run test -- packages/client/src/components/sheet/dm-editable-score.test.tsx` then `bun run lint:ratchet` (expect improvement-below-floor per `docs/guides/lint-ratchet.md`) then `bun run lint:ratchet:update`, committing the regenerated `lint-ratchet.baseline.json`. Do not hand-edit the baseline. |
 | **V1** | **Landed** `6cf8c78d5` | **Campaign viewer predicate (M, leaf 12 steps 1-4).** Add `campaignViewer(campaign, userId)` in `packages/client/src/lib/`, returning `{ userId, role, isDm, isOwner }` with `role` typed as shared `CampaignMemberRole` and `isDm` derived *from* `role`. Accept a `CampaignDetail` (role from `members.find(...)`, per `packages/server/src/routers/campaign.ts:84-96`) or a `CampaignSummary` (role from `campaign.role`, per `:104-115`). Land with tests and no call-site changes, then repoint the three derivations one commit each. Replace `lib/drawer-perms.ts:3`'s local `CampaignRole` with the shared type. Move and rename `sheet-state.ts`'s `useCampaignContext` to `useCampaignViewer` — do not add a second adjacent hook — carrying `canRoll` and `sheet-state.test.ts`'s cases with it. Regression guard: a unit test seeding a non-owner `dm` member and an owner who is not a member. | `grep -rn "ownerId" packages/client/src --include='*.ts' --include='*.tsx' \| grep -v '\.test\.'` shows no hit under `pages/` or `components/` (today: `campaign-detail-page.tsx:204`, `sheet-state.ts:40`); `grep -rn "type CampaignRole" packages/client/src` returns 0, down from 2 (the declaration at `lib/drawer-perms.ts:3` and the type import at `components/vtt/vtt-surface.tsx:5`); `campaignViewer` is the only producer of `isDm` in the three repointed files; `useCampaignContext` no longer exists | `bun run test -- packages/client/src/pages/campaign-detail-page.test.tsx packages/client/src/pages/character-sheet/sheet-state.test.ts packages/client/src/components/campaign/settings/campaign-card.test.tsx packages/client/src/lib/drawer-perms.test.ts` then `bun run typecheck` |
 | **V2** | **Landed** `6cf8c78d5` | **Viewer provider and the role prop (M, leaf 12 steps 5-7).** Replace `role={isDm ? "dm" : "player"}` at `maps/map-detail-content.tsx:95` and `combat/combat-map-content.tsx:136` with the viewer's `role`. Add a campaign-viewer provider at the campaign-detail composition root, named so it cannot be confused with `useCampaignViewer`. Delete `isDm` from the six pure forwarders first (`map-detail-view.tsx`, `map-canvas-overlays.tsx`, `combat-map-panel.tsx`, `combat-map-header.tsx`, `encounters/encounter-detail-view.tsx`, `combat/initiative-tracker/initiative-row.tsx`), then work outward one file per commit. Prove the Konva context bridge with one test *before* converting any `<Stage>`-hosted consumer, and stop at the canvas boundary if explicit props are judged worth more than three deleted declarations. Do **not** fold in `campaignId`. Update the maps, combat and pages `MODULE.md` files. | No file declares `isDm` without reading it (the six forwarders above); `grep -rn "readonly isDm" packages/client/src \| grep -v '\.test\.' \| wc -l` is strictly below 41; `grep -rn "readonly campaignId" packages/client/src \| grep -v '\.test\.' \| wc -l` is unchanged at 42; a test renders a `<Stage>`-hosted consumer under the provider | `bun run test -- packages/client/src/components/campaign/maps/map-detail-view.test.tsx packages/client/src/components/campaign/combat/combat-map-panel.test.tsx packages/client/src/components/campaign/encounters/encounter-detail-view.test.tsx packages/client/src/pages/campaign-detail-page.test.tsx` then `bun run typecheck` and `bun run module:index:check` |
-| **N1** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **NPC draft versus submit payload (S, leaf 15 steps 1-4).** Narrow `NpcFormData` (`npc-editor.tsx:18-28`) to the seven editable fields. Change `onSave` to take `CreateNpcInput \| UpdateNpcInput` and pass `result.data` through instead of rebuilding the object. Branch with `"id" in data`, not a truthy property check (see correction 4). Delete both assertions and both markers at `npc-panel.tsx:243-257`, including the inaccurate justification comment. Land the schema trim as a deliberate normalisation with a test submitting `"  Gundren  "`. | `grep -c "type-assertion-boundary" packages/client/src/components/campaign/npcs/npc-panel.tsx` returns 0, down from 2; `NpcFormData` has no optional `id` or `campaignId`; a test asserts the trimmed name reaches the mutation | `bun run test -- packages/client/src/components/campaign/npcs/npc-editor.test.tsx packages/client/src/components/campaign/npcs/npc-panel.test.tsx` then `bun run lint:ratchet` and `bun run typecheck` |
-| **Q1** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Collapse `query-invalidation.ts` (S, leaf 16 step 1).** One `useMemo` over `[trpc, queryClient]` returning an object of plain closures; delete the seventeen `useCallback` wrappers and the closing `useMemo`'s seventeen-identifier dependency array. Exported keys and call signatures must not change. Carry the `invalidateInvitePreview` JSDoc verbatim. Do **not** build a descriptor map plus a generic binder. | `grep -c useCallback packages/client/src/lib/query-invalidation.ts` returns 0, down from 18 (17 wrappers plus the import); `packages/client/src/test/mock-query-invalidation.ts` compiles unchanged; the file is materially shorter than 179 lines | `bun run typecheck` then `bun run test -- packages/client/src/hooks/use-map-layer-mutations.test.tsx packages/client/src/components/campaign/maps/map-detail-mutations.test.tsx packages/client/src/components/campaign/combat/combat-map-mutations.test.tsx packages/client/src/components/campaign/tokens/map-token-mutations.test.tsx packages/client/src/components/campaign/chat/chat-panel.test.tsx` |
-| **Q2** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Character-create input seam (S, leaf 16 steps 5-6).** Move `buildBoostMap`, `buildProficiencies`, `optionalString`, `buildBoostedScores`, `buildSpells` and `buildCreateInput` out of `pages/character-create-page.tsx` into a module beside `components/character-create/wizard-state.ts`, and add the co-located unit test. Do **not** land the move without the test — the test is the payoff. Do **not** "simplify" the `Common` language injection; it is SRD behaviour (`docs/guides/change-rules-logic.md`). | `pages/character-create-page.tsx` contains no `build*` helper; a new test exercises `buildCreateInput` directly, including the `Common` language injection | `bun run test -- packages/client/src/components/character-create/wizard-state.test.ts packages/client/src/pages/character-create-page.test.tsx` plus the new test file |
-| **Q3** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Infinite-query migration (M, leaf 16 steps 2-4).** Write the ~10-line `useDebouncedValue` with its own test (it does not exist today). Convert `components/compendium/magic-item-list.tsx` to `infiniteQueryOptions` following `components/campaign/notes/notes-panel.tsx:240` and `hooks/character-sheet/use-inventory.ts:40`, then `components/campaign/npcs/monster-tab.tsx`, then delete `hooks/use-debounced-cursor-list.ts` and its test. Swap the `hooks/MODULE.md:51` row. Re-test the `PaginatedResultList` wiring: accumulation, `isFetching` vs `isLoading`, reset-on-filter-change. | `hooks/use-debounced-cursor-list.ts` is gone; `useDebouncedValue` exists with a test; `hooks/MODULE.md` lists it | `bun run test -- packages/client/src/components/compendium/magic-item-list.test.tsx packages/client/src/components/campaign/npcs/monster-tab.test.tsx` then `bun run lint:ratchet` — **this slice empties `ratchet/local-no-effect-misuse-client` if C4 has landed; check `bun run lint:ratchet:zero-baseline` before reaching for `--update`**. It also moves a *second* floor: routing both cursor lists through one `makeCursorListQuery` helper deletes the `mock-trpc-magic-item.ts#queryFn <=> mock-trpc-monster.ts#queryFn` identity, so `bun scripts/sensor-near-duplicates.ts --check-baseline` fails stale until `--update` regenerates `sensor-near-duplicates.baseline.json`. That is an improvement below the floor, not an admission — no `--admit`, no hand edit. |
-| **F1** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Homebrew form-data helpers (M, leaf 08 steps 1-3).** Hoist one `str(value: unknown): string` into `components/homebrew/shared/` and delete the nine local copies (including the `v`-parameter variant in `monster-form-data.ts`). Rename the three `numStr` contracts apart by behaviour and hoist only the two-consumer one; `numOnly` (item) and `numWithFallback` (monster) stay in their entity folders per `homebrew/shared/MODULE.md:20-21`. Rename the `parseStringArray` collision in place, by contract, in both directions. **Do not collapse the `numStr` variants** — they differ in whether a string is passed through, dropped, or replaced, and collapsing them silently changes form defaults. Add the missing per-variant coverage *before* renaming. | `grep -rn "function str(" packages/client/src/components/homebrew` returns exactly one hit, under `shared/` (today: 9); `grep -rn "numStr" packages/client/src/components/homebrew` returns 0, down from 31 lines (the replacement names `numOrStr`/`numOnly`/`numWithFallback` do not contain the substring); `grep -rn "parseStringArray" packages/client/src/components/homebrew` returns 0, down from 7; `homebrew/shared/MODULE.md` lists the two promoted helpers | `bun run test -- packages/client/src/components/homebrew/class/class-form-data.test.ts packages/client/src/components/homebrew/subclass/subclass-form-data.test.ts packages/client/src/components/homebrew/item/item-form-data.test.ts packages/client/src/components/homebrew/monster/monster-form-data.test.ts packages/client/src/components/homebrew/background/background-form-data.test.ts packages/client/src/components/homebrew/species/species-form-data.test.ts packages/client/src/components/homebrew/spell/spell-form-data.test.ts packages/client/src/components/homebrew/magic-item/magic-item-form-data.test.ts` |
-| **F2** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Placement and the labeled-field a11y contract (M, leaf 08 steps 4-5 + leaf 14 step 3).** Move `campaign/settings/delete-confirm-dialog.tsx` and its test to `components/common/`, update the four panel imports, and amend `campaign/settings/MODULE.md:3`. Move `pages/sheet-helpers.ts` and its test into `pages/character-sheet/` **and rename its terse locals in the same commit** (`pc` → `primaryClass`, `sc` → `spellcasting`, `inv` → `inventory`, `mod`/`m` → `primaryAbilityMod`/`classAbilityMod`) — doing both at once is what dissolves the 08↔14 sequencing edge. Then add `role="alert"` to `form-field-error.tsx:7`, make `placeholder` optional on `FormFieldProps`, delete `homebrew-text-field.tsx` and repoint `homebrew-core-fields.tsx:37` (safe because that caller passes an explicit `name` — see correction 3), and repoint the three `PasswordField` call sites in `settings-page.tsx`. Test the a11y contract before moving any call site. **Do not** hoist `FormFieldError`; **do not** widen `FormField` into a polymorphic control renderer; **do not** start on the ~49 hand-rolled triples. | `components/campaign/settings/` no longer contains `delete-confirm-dialog.tsx`; `pages/sheet-helpers.ts` no longer exists; `grep -rn "HomebrewTextField" packages/client/src` returns 0, down from 13 (`HomebrewTextareaField` does not match); `form-field-error.tsx` carries `role="alert"`; `form-field.test.tsx` covers the omitted-placeholder case and the three a11y attributes | `bun run test -- packages/client/src/components/common/form-field.test.tsx packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx packages/client/src/pages/settings-page.test.tsx packages/client/src/pages/sheet-helpers.test.ts packages/client/src/components/campaign/notes/notes-panel.test.tsx packages/client/src/components/campaign/npcs/npc-panel.test.tsx` then `bun run module:index:check` |
-| **X1** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **vtt-drawer type and verb renames (XS, leaf 17 steps 1-2 + step 4).** Rename the five module-private `interface ApplyInput` declarations apart (`WeaponAttackInput`, `FeatureUseInput`, `ConfirmCastInput`, `MonsterHpAdjustmentInput`, `DropConcentrationInput`) — zero call-site churn. Then `useMonsterHpUpdate`'s `apply` → `adjustHp` (not `setMonsterHp`: it applies a mode-keyed adjustment with clamping) and `useCastPlacement`'s `dispatch` → `begin` (not `beginCastPlacement`: the hook *calls* the store action of that name and does strictly more). Rename in test and implementation together. Add `useMonsterAttack` to the entry-point list in `hooks/vtt-drawer/MODULE.md`. Leave the other five `apply` members alone. | `grep -rn "interface ApplyInput" packages/client/src` returns 0, down from 5; `grep -rn '\.dispatch\b' packages/client/src` returns 0, down from 1 (`components/vtt/drawer/cast-rail.tsx:156`); `hooks/vtt-drawer/MODULE.md` names `useMonsterAttack` | `bun run test -- packages/client/src/hooks/vtt-drawer/use-cast-placement.test.ts packages/client/src/components/vtt/drawer/monster-hp-control-strip.test.tsx packages/client/src/components/vtt/drawer/cast-rail.test.tsx packages/client/src/components/vtt/drawer/monster-stat-block-drawer.test.tsx` then `bun run typecheck` |
+| **N1** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **NPC draft versus submit payload (S, leaf 15 steps 1-4).** Narrow `NpcFormData` (`npc-editor.tsx:18-28`) to the seven editable fields. Change `onSave` to take `CreateNpcInput \| UpdateNpcInput` and pass `result.data` through instead of rebuilding the object. Branch with `"id" in data`, not a truthy property check (see correction 4). Delete both assertions and both markers at `npc-panel.tsx:243-257`, including the inaccurate justification comment. Land the schema trim as a deliberate normalisation with a test submitting `"  Gundren  "`. | `grep -c "type-assertion-boundary" packages/client/src/components/campaign/npcs/npc-panel.tsx` returns 0, down from 2; `NpcFormData` has no optional `id` or `campaignId`; a test asserts the trimmed name reaches the mutation | `bun run test -- packages/client/src/components/campaign/npcs/npc-editor.test.tsx packages/client/src/components/campaign/npcs/npc-panel.test.tsx` then `bun run lint:ratchet` and `bun run typecheck` |
+| **Q1** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Collapse `query-invalidation.ts` (S, leaf 16 step 1).** One `useMemo` over `[trpc, queryClient]` returning an object of plain closures; delete the seventeen `useCallback` wrappers and the closing `useMemo`'s seventeen-identifier dependency array. Exported keys and call signatures must not change. Carry the `invalidateInvitePreview` JSDoc verbatim. Do **not** build a descriptor map plus a generic binder. | `grep -c useCallback packages/client/src/lib/query-invalidation.ts` returns 0, down from 18 (17 wrappers plus the import); `packages/client/src/test/mock-query-invalidation.ts` compiles unchanged; the file is materially shorter than 179 lines | `bun run typecheck` then `bun run test -- packages/client/src/hooks/use-map-layer-mutations.test.tsx packages/client/src/components/campaign/maps/map-detail-mutations.test.tsx packages/client/src/components/campaign/combat/combat-map-mutations.test.tsx packages/client/src/components/campaign/tokens/map-token-mutations.test.tsx packages/client/src/components/campaign/chat/chat-panel.test.tsx` |
+| **Q2** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Character-create input seam (S, leaf 16 steps 5-6).** Move `buildBoostMap`, `buildProficiencies`, `optionalString`, `buildBoostedScores`, `buildSpells` and `buildCreateInput` out of `pages/character-create-page.tsx` into a module beside `components/character-create/wizard-state.ts`, and add the co-located unit test. Do **not** land the move without the test — the test is the payoff. Do **not** "simplify" the `Common` language injection; it is SRD behaviour (`docs/guides/change-rules-logic.md`). | `pages/character-create-page.tsx` contains no `build*` helper. **Landing-time evidence (`e66cfd75c`, in merge `d539cfdbd`):** the new test exercised `buildCreateInput` directly, including the client-side `Common` injection. Leaf 55 later superseded that behaviour: `133edc7fd` removed the injection after server ownership landed, and the current test asserts that universal starting languages are server-derived. | `bun run test -- packages/client/src/components/character-create/wizard-state.test.ts packages/client/src/pages/character-create-page.test.tsx` plus the new test file |
+| **Q3** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Infinite-query migration (M, leaf 16 steps 2-4).** Write the ~10-line `useDebouncedValue` with its own test (it does not exist today). Convert `components/compendium/magic-item-list.tsx` to `infiniteQueryOptions` following `components/campaign/notes/notes-panel.tsx:240` and `hooks/character-sheet/use-inventory.ts:40`, then `components/campaign/npcs/monster-tab.tsx`, then delete `hooks/use-debounced-cursor-list.ts` and its test. Swap the `hooks/MODULE.md:51` row. Re-test the `PaginatedResultList` wiring: accumulation, `isFetching` vs `isLoading`, reset-on-filter-change. | `hooks/use-debounced-cursor-list.ts` is gone; `useDebouncedValue` exists with a test; `hooks/MODULE.md` lists it | `bun run test -- packages/client/src/components/compendium/magic-item-list.test.tsx packages/client/src/components/campaign/npcs/monster-tab.test.tsx` then `bun run lint:ratchet` — **this slice empties `ratchet/local-no-effect-misuse-client` if C4 has landed; check `bun run lint:ratchet:zero-baseline` before reaching for `--update`**. It also moves a *second* floor: routing both cursor lists through one `makeCursorListQuery` helper deletes the `mock-trpc-magic-item.ts#queryFn <=> mock-trpc-monster.ts#queryFn` identity, so `bun scripts/sensor-near-duplicates.ts --check-baseline` fails stale until `--update` regenerates `sensor-near-duplicates.baseline.json`. That is an improvement below the floor, not an admission — no `--admit`, no hand edit. |
+| **F1** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Homebrew form-data helpers (M, leaf 08 steps 1-3).** Hoist one `str(value: unknown): string` into `components/homebrew/shared/` and delete the nine local copies (including the `v`-parameter variant in `monster-form-data.ts`). Rename the three `numStr` contracts apart by behaviour and hoist only the two-consumer one; `numOnly` (item) and `numWithFallback` (monster) stay in their entity folders per `homebrew/shared/MODULE.md:20-21`. Rename the `parseStringArray` collision in place, by contract, in both directions. **Do not collapse the `numStr` variants** — they differ in whether a string is passed through, dropped, or replaced, and collapsing them silently changes form defaults. Add the missing per-variant coverage *before* renaming. | `grep -rn "function str(" packages/client/src/components/homebrew` returns exactly one hit, under `shared/` (today: 9); `grep -rn "numStr" packages/client/src/components/homebrew` returns 0, down from 31 lines (the replacement names `numOrStr`/`numOnly`/`numWithFallback` do not contain the substring); `grep -rn "parseStringArray" packages/client/src/components/homebrew` returns 0, down from 7; `homebrew/shared/MODULE.md` lists the two promoted helpers | `bun run test -- packages/client/src/components/homebrew/class/class-form-data.test.ts packages/client/src/components/homebrew/subclass/subclass-form-data.test.ts packages/client/src/components/homebrew/item/item-form-data.test.ts packages/client/src/components/homebrew/monster/monster-form-data.test.ts packages/client/src/components/homebrew/background/background-form-data.test.ts packages/client/src/components/homebrew/species/species-form-data.test.ts packages/client/src/components/homebrew/spell/spell-form-data.test.ts packages/client/src/components/homebrew/magic-item/magic-item-form-data.test.ts` |
+| **F2** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Placement and the labeled-field a11y contract (M, leaf 08 steps 4-5 + leaf 14 step 3).** Move `campaign/settings/delete-confirm-dialog.tsx` and its test to `components/common/`, update the four panel imports, and amend `campaign/settings/MODULE.md:3`. Move `pages/sheet-helpers.ts` and its test into `pages/character-sheet/` **and rename its terse locals in the same commit** (`pc` → `primaryClass`, `sc` → `spellcasting`, `inv` → `inventory`, `mod`/`m` → `primaryAbilityMod`/`classAbilityMod`) — doing both at once is what dissolves the 08↔14 sequencing edge. Then add `role="alert"` to `form-field-error.tsx:7`, make `placeholder` optional on `FormFieldProps`, delete `homebrew-text-field.tsx` and repoint `homebrew-core-fields.tsx:37` (safe because that caller passes an explicit `name` — see correction 3), and repoint the three `PasswordField` call sites in `settings-page.tsx`. Test the a11y contract before moving any call site. **Do not** hoist `FormFieldError`; **do not** widen `FormField` into a polymorphic control renderer; **do not** start on the ~49 hand-rolled triples. | `components/campaign/settings/` no longer contains `delete-confirm-dialog.tsx`; `pages/sheet-helpers.ts` no longer exists; `grep -rn "HomebrewTextField" packages/client/src` returns 0, down from 13 (`HomebrewTextareaField` does not match); `form-field-error.tsx` carries `role="alert"`; `form-field.test.tsx` covers the omitted-placeholder case and the three a11y attributes | `bun run test -- packages/client/src/components/common/form-field.test.tsx packages/client/src/components/homebrew/shared/homebrew-core-fields.test.tsx packages/client/src/pages/settings-page.test.tsx packages/client/src/pages/character-sheet/sheet-helpers.test.ts packages/client/src/components/campaign/notes/notes-panel.test.tsx packages/client/src/components/campaign/npcs/npc-panel.test.tsx` then `bun run module:index:check` |
+| **X1** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **vtt-drawer type and verb renames (XS, leaf 17 steps 1-2 + step 4).** Rename the five module-private `interface ApplyInput` declarations apart (`WeaponAttackInput`, `FeatureUseInput`, `ConfirmCastInput`, `MonsterHpAdjustmentInput`, `DropConcentrationInput`) — zero call-site churn. Then `useMonsterHpUpdate`'s `apply` → `adjustHp` (not `setMonsterHp`: it applies a mode-keyed adjustment with clamping) and `useCastPlacement`'s `dispatch` → `begin` (not `beginCastPlacement`: the hook *calls* the store action of that name and does strictly more). Rename in test and implementation together. Add `useMonsterAttack` to the entry-point list in `hooks/vtt-drawer/MODULE.md`. Leave the other five `apply` members alone. | `grep -rn "interface ApplyInput" packages/client/src` returns 0, down from 5; `grep -rn '\.dispatch\b' packages/client/src` returns 0, down from 1 (`components/vtt/drawer/cast-rail.tsx:156`); `hooks/vtt-drawer/MODULE.md` names `useMonsterAttack` | `bun run test -- packages/client/src/hooks/vtt-drawer/use-cast-placement.test.ts packages/client/src/components/vtt/drawer/monster-hp-control-strip.test.tsx packages/client/src/components/vtt/drawer/cast-rail.test.tsx packages/client/src/components/vtt/drawer/monster-stat-block-drawer.test.tsx` then `bun run typecheck` |
 | **O1** | **Landed** `6cf8c78d5` | **Opportunistic: token context-menu state protocol (XS, leaf 13 step 1).** Only for an agent already editing `map-detail-content.tsx` or `combat-map-content.tsx`. Move the duplicated `ContextMenuState` interface plus its `useState`/`open`/`close`/`anchorProps` into a parameterless `useTokenContextMenu()` beside `TokenContextMenu` in `components/campaign/tokens/`. Each caller keeps its own `handleContextMenu`. Do **not** extract `<MapCanvasFrame>`, the panel primitives, or `handleTokenMoved`. | `grep -rn "interface ContextMenuState" packages/client/src` returns exactly one definition, down from 2 | `bun run test -- packages/client/src/components/campaign/maps/map-detail-view.test.tsx packages/client/src/components/campaign/combat/combat-map-panel.test.tsx` |
-| **O2** | **Landed** (`feat/cq-slice-h`, merge SHA pending) | **Opportunistic: sheet dialog micro-tidies (XS, leaf 14 steps 1-2 and 4).** Collapse `HpDialogMount` into `HpDialogSection` in `encounter-detail-view.tsx`; drop the `const store = useCombatStore;` alias in `useHpDialogHandler` and call `useCombatStore.getState()` at the two use sites, removing `store` from the dep array; move `LevelUpBody`'s 24-line re-destructure into its signature. **Preserve verbatim** the `expectedStatsVersion` comment inside `useHpDialogHandler` and change nothing in its mutation payload (`docs/CONCURRENCY.md`). Do **not** group the 24 props and do **not** touch `SheetDialogState`. | `HpDialogMount` no longer exists; `grep -c "const store = useCombatStore;" packages/client/src/components/campaign/encounters/encounter-detail-view.tsx` returns 0, down from 1; `level-up-dialog-body.tsx` destructures in the parameter position; no test file changed | `bun run test -- packages/client/src/components/campaign/encounters/encounter-detail-view.test.tsx packages/client/src/components/sheet/level-up-dialog.test.tsx` |
+| **O2** | **Landed** (`feat/cq-slice-h`, merge `d539cfdbd`) | **Opportunistic: sheet dialog micro-tidies (XS, leaf 14 steps 1-2 and 4).** Collapse `HpDialogMount` into `HpDialogSection` in `encounter-detail-view.tsx`; drop the `const store = useCombatStore;` alias in `useHpDialogHandler` and call `useCombatStore.getState()` at the two use sites, removing `store` from the dep array; move `LevelUpBody`'s 24-line re-destructure into its signature. **Preserve verbatim** the `expectedStatsVersion` comment inside `useHpDialogHandler` and change nothing in its mutation payload (`docs/CONCURRENCY.md`). Do **not** group the 24 props and do **not** touch `SheetDialogState`. | `HpDialogMount` no longer exists; `grep -c "const store = useCombatStore;" packages/client/src/components/campaign/encounters/encounter-detail-view.tsx` returns 0, down from 1; `level-up-dialog-body.tsx` destructures in the parameter position; no test file changed | `bun run test -- packages/client/src/components/campaign/encounters/encounter-detail-view.test.tsx packages/client/src/components/sheet/level-up-dialog.test.tsx` |
 
 ### First landing outcome
 
 Merge `6cf8c78d5` landed C1, C2, C3, C4, V1, V2 and O1. That closes leaves
 48, 09, 10, 12 and 13; the last closes because O1 landed and every other
-leaf-13 step is deliberately dropped. The cluster remains in progress: N1, Q1,
-Q2, Q3, F1, F2, X1 and O2 are the named remainder.
+leaf-13 step is deliberately dropped. At that point N1, Q1, Q2, Q3, F1, F2,
+X1 and O2 were the named remainder; merge `d539cfdbd` later landed all eight
+and finished the cluster.
 
 **C3's review found and reproduced a real ordering regression.** Moving surface
 resets to layout-effect timing meant a participant selected before mount could
@@ -424,24 +425,22 @@ The N1/Q1/Q2/Q3/F1/F2/X1/O2 branch was reviewed before landing. Two of the seven
 findings changed a decision this plan had already made; both are recorded here
 rather than folded silently into a commit.
 
-- **The `Common` language rule stays client-owned, deferred to a follow-up.** The
-  review is right on the facts: `components/character-create/create-character-input.ts`
-  is the only writer of `{ type: "language", name: "Common" }`, and the server's
-  `deriveProficiencies` (`packages/server/src/services/character-create-helpers.ts`)
-  derives class saving throws, armour, weapons and tools plus background skills
-  and tool — never a language — so `character.create` called directly produces a
-  character without Common, contradicting the SRD ("Every player character knows
-  Common", SRD 5.2.1 *Languages*). It is nonetheless not this cluster's to fix:
-  Q2's charter forbids touching the injection, and moving ownership is a rules
-  change under `docs/guides/change-rules-logic.md` — an SRD-sourced helper in
-  `packages/shared/src/rules/`, a shared test first, boundary tests at the
-  service and router, and a question this pack cannot answer (whether characters
-  already created without Common get backfilled). Q2 relocated a pre-existing
-  defect without widening it, which this pack's own rule allows. The two sides
-  can land independently: the server merge already de-duplicates by
-  `type:name`, so a server-side derivation is a no-op for wizard-created
-  characters and the client injection can be removed later or left as display
-  provenance. **Follow-up owner: a new leaf, not this cluster.**
+- **The `Common` language rule stayed client-owned for Q2, then leaf 55 moved it
+  server-side.** The review was right on the landing-time facts: at
+  `d539cfdbd`, `components/character-create/create-character-input.ts` was the
+  only writer of `{ type: "language", name: "Common" }`, and the server's
+  `deriveProficiencies`
+  (`packages/server/src/services/character-create-helpers.ts`) derived class
+  saving throws, armour, weapons and tools plus background skills and tool —
+  never a language — so `character.create` called directly produced a character
+  without Common, contradicting the SRD ("Every player character knows Common",
+  SRD 5.2.1 *Languages*). It was nonetheless not Q2's to fix: Q2's charter
+  forbade touching the injection, and moving ownership required the shared-rules,
+  server-boundary and backfill work recorded in leaf 55. That follow-up is now
+  closed: `0d97cfa3a` defined the shared rule, `50cfd2479` enforced it on the
+  server, `bc39286cc` backfilled existing characters, and `133edc7fd` removed
+  the redundant client injection. The current `buildCreateInput` test asserts
+  that universal starting languages are server-derived.
 - **O2's "change nothing in its mutation payload" constraint was overridden, with
   evidence.** The constraint exists to stop an unmotivated payload edit during a
   micro-tidy, and it held for the alias removal. But `useHpDialogHandler` took
@@ -517,12 +516,64 @@ row-identity pagination tests are hollow does not hold: `isLoading` requires
 `isPending`, which is false once page 1 is cached, so the skeleton branch is
 structurally unreachable during `fetchNextPage`.
 
-**Still unanswered, and deliberately so:** whether `local/no-effect-misuse`
-should now be promoted to normal lint. This branch drained
-`ratchet/local-no-effect-misuse-client` to zero, which is what the plan
-predicted at Q3's verification line. The plan asks the question; nobody has
-ruled. The disposition's `exitPath` points here, so the ruling belongs in this
-document when an owner makes it.
+**Answered — promoted, 2026-07-27.** The question the plan posed was whether
+`local/no-effect-misuse` should become a normal-lint rule once this cluster
+drained `ratchet/local-no-effect-misuse-client` to zero, which is what the plan
+predicted at Q3's verification line. **The ruling is promotion**, taken as
+`docs/guides/lint-ratchet.md`'s default outcome for a drained ratchet rather
+than as a new policy: the rule encodes a permanent decision rule (effects
+synchronize React with external systems), the client scope is fully covered by
+normal ESLint, and a zero baseline that stays a ratchet only defers the same
+verdict while letting a new finding land in a baseline instead of failing
+`bun run lint`.
+
+What that ruling changed:
+
+- `eslint-config/client-configs.js` sets `"local/no-effect-misuse": "error"` on
+  the ratchet's exact scope (`clientSourceFiles` less
+  `clientTestAndHelperSourceFiles`), at `error` rather than `warn` for the
+  reason `docs/guides/lint-ratchet.md` gives — the post-edit tidy hook runs
+  `eslint --fix --no-warn-ignored`, so a `warn` can be missed in the edit loop.
+- `harness.controls.json` re-points the `lint/local/no-effect-misuse` control's
+  invocation at `bun run lint`; `docs/generated/harness-controls.md` and the
+  client row of `docs/generated/lint-coverage-map.md` follow.
+- The registry entry's `zeroBaselineDisposition` reason now records that
+  promotion is done and names the exact retirement sequence, so the `exitPath`
+  points at an answered question rather than an open one.
+
+**The retirement was deferred on the comparison ref, not the code — and has
+since been done.** Dropping the baseline id made
+`lint:ratchet:check-debt-accounting` fail: it accepts a `retirement` record only
+when the retired id is *already empty in the merge-base baseline*, and that base
+comes from `origin/main`. The drain landed on local `main` (`97f2d5084`, in the
+`feat/cq-slice-h` merge `d539cfdbd`) but `origin/main` was 60 commits behind it
+and its baseline still carried one finding for this ratchet, so the removal read
+as an unaccounted dropped floor. The gate was right on its own terms; the input
+was stale.
+
+**Retired on `feat/cq-client-followups` (2026-07-28)**, once `origin/main`
+reached `c104b310b` — which has `97f2d5084` as an ancestor and an empty
+(`items: {}`) baseline entry for this ratchet, so the accounting input is no
+longer stale. The order matters and the earlier note here had it backwards:
+`--retire-ratchet` refuses while the id is still registered, because it retires
+an *orphaned* baseline entry (`tools/lint-ratchet/src/governance/retire-update.ts`
+returns no orphan scope when the registry still contains the id). The sequence
+actually run, matching `docs/guides/lint-ratchet.md`:
+
+1. delete the registry entry from `scripts/lint-ratchet/lint-ratchet-config.ts`;
+2. `bun run lint:ratchet:update -- --retire-ratchet ratchet/local-no-effect-misuse-client`
+   — the normal-lint coverage probe passed and a non-debt retirement record was
+   appended to `lint-ratchet.debt-log.jsonl`;
+3. drop the `ratchet/local-no-effect-misuse-client` control from
+   `harness.controls.json`;
+4. regenerate `lint:restricted-disable-rules` and `docs:harness-controls`.
+
+Nothing about the promotion waited on that: the rule already failed `bun run lint`.
+
+The earlier "dead pointer" finding above stands as rejected on its own terms —
+the `exitPath` resolved to a real file that tracked the drain — but the weaker
+sibling it named (a path can resolve without the document owning a decision) was
+live for this entry until now.
 
 ## Rejected alternatives — why
 
@@ -546,3 +597,164 @@ document when an owner makes it.
 | **Converting the ~49 hand-rolled `Label`→`Input` triples (leaf 08 step 6)** | The leaf deliberately excludes it from its own size estimate, and ~32 of the 83 labeled blocks pair `Label` with `Select`/`Textarea`/`Checkbox`, which one `Input`-shaped primitive cannot absorb. If it is ever wanted it is a separate commit series after F2, not part of it. |
 | **Hoisting `numOnly`, `numWithFallback` or either `parseStringArray` into `homebrew/shared/`** | Each has exactly one consumer, and `homebrew/shared/MODULE.md:20-21` sets a two-consumer admission threshold. Renaming in place is the complete fix; this plan does not get to relax that folder's own rule. |
 | **Splitting `components/sheet/` into subdirectories as part of leaf 48** | It would move every path cited by six other leaves in this pack for no gain, and the flatness is not the finding — the undocumented external surface is. Argue a split separately, and after the doc has established which modules are entry points. |
+
+## Historical review — `feat/cq-client-followups` round 2
+
+**Historical: this round's branch has since landed** (merge `c5985d1da`). The
+findings below are the record of why round three existed, not open work — the
+Branch A ones are closed, and the two freshness ones are
+[leaf 63](./63-character-assignment-cross-client-freshness.md).
+
+Branch `feat/cq-client-followups` (`c104b310b..d007f508f`) was complete, committed
+and gate-green but unmerged at the time. A second review round found the first
+fix round incomplete. Full findings: Codex consult, priority-tagged with citations.
+
+Round 1 raised one P1 and three P2s; the four fix commits (`94d676084`,
+`9ad06761b`, `fe7f7f27c`, `d007f508f`) addressed them. Round 2's verdict was *not
+mergeable*, on two counts plus two follow-ons:
+
+- **[P1] Assignment freshness is still confined to the mutating tab.** The fix
+  invalidates both sides of the swap in that tab's `QueryClient`
+  (`members-panel.tsx:104`), but the server emits only `campaign:updated` after
+  assignment (`routers/campaign.ts:261`, `:295`), an open sheet listens only for
+  `character:updated` (`hooks/realtime-invalidation.ts:183`), and an unlinked
+  sheet is not in the campaign room at all. Assign from tab B and tab A keeps
+  `campaignId: null` and local-only rolls until an incidental refetch. The
+  reported symptom is fixed; the defect is still reachable through ordinary
+  multi-tab/multi-device use.
+- **[P2] The identity-as-capability defect moved into inventory.** The layout
+  still passes raw `linkedCampaignId` to inventory (`sheet-layout.tsx:236`); any
+  non-null value presents a Homebrew tab (`add-item-dialog.tsx:189`) that requests
+  campaign entries the server gates on membership (`homebrew-campaign.ts:113`). A
+  nonmember on a public linked sheet gets a guaranteed authorization failure —
+  a fourth member-only affordance, not a server-authorized mutation path.
+- **[P2] Campaign deletion is another uncovered writer of the sole identity.**
+  Deleting a campaign cascades `CampaignMember` (`schema.prisma:1156`), flipping
+  every surviving assigned character's mapped `campaignId` to `null`, but the
+  client delete path invalidates no character (`campaign-settings-panel.tsx:130`)
+  and the server sends no character freshness event (`routers/campaign.ts:214`).
+- **[P2] The replacement tests still do not pin their claimed boundaries.** The
+  assignment tests never cover an old-character → new-character swap
+  (`members-panel.test.tsx:208`), so a regression retaining old-character
+  invalidation only for explicit unassign passes. The roll spy observes only
+  `useAbilityRoll` (`sheet-layout.test.tsx:166`) while weapon and ability hooks are
+  independent calls (`sheet-state.ts:121`), so changing only `useWeaponRoll` to
+  receive `undefined` survives; the comment's claim that the spy covers inventory
+  and DM callbacks is wrong — those are wired outside that seam.
+
+Confirmed sound and needing no further work: the delayed campaign link is the
+right tradeoff over an instantly-404ing one; the deliberately raw server-authorized
+paths (presence, socket invalidation, dice, DM stat mutations, inventory read/write)
+are each genuinely re-checked server-side; and the ratchet retirement in
+`d007f508f` is internally consistent — registry, baseline, harness control and
+generated docs agree, normal lint still enforces `local/no-effect-misuse` as an
+error, and delisting it from `ratchet-restricted-disable-rules.generated.js` is the
+generator's design (`generate-restricted-disable-rules.ts:11`), not an accident.
+
+**Design question for the owner, before a third fix round.** The reviewer accepts
+the conceptual model — `character.campaignId` as sole association, membership as a
+viewer-specific capability — but judges the implementation drift-prone: two optional
+strings distributed by hand to each consumer, with the inventory miss as evidence
+that the next consumer will be missed too. Proposed instead: a discriminated sheet
+campaign context (`unlinked | resolving | nonmember | member-with-role`) that makes
+each consumer's requirement explicit at the type level. That is a larger change than
+the remaining fixes and should be decided before, not after, round three.
+
+## Decided — design panel, 2026-07-28
+
+Three panelists (Opus 5, Fable 5, GPT/Codex with its own six internal angles)
+answered the question independently against the live tree. The owner adjudicated
+the panel. Decisions below are binding on round three.
+
+**Adopt the discriminated context — but the union is not the enforcement.** All
+three panelists converged, unprompted, on a point the round-2 proposal did not
+make: a union whose consumers destructure back to a bare `string` reproduces the
+exact defect it is meant to prevent. The inventory miss happened because
+`campaignId` and `memberCampaignId` are both `string | undefined`
+(`sheet-layout.tsx:111,124`) — mutually assignable, so the wrong grab compiles
+silently. Codex's consumer-inventory angle put it flatly: *a union without narrow
+consumer props is ceremony.* So the enforcement lives in the **consumer prop
+types**, not in the discriminant:
+
+- Member-capability consumers — `SheetCampaignLink`, `SheetGameLog`,
+  `SheetSharedProps`' mobile-Log gate, and inventory → `AddItemDialog` →
+  `HomebrewItemTab` — take the narrowed member variant, not a string.
+- Identity consumers with a server backstop — presence, the character socket,
+  both roll hooks and `useDmStatsCallbacks` — keep a plain optional id via one
+  centralized projection. Do **not** brand these: presence and character-socket
+  room access are re-checked by `campaign-room-handler.ts`, while campaign roll
+  and DM stat/HP operations are re-checked by `character-auth.ts`. Branding them
+  buys casts at the socket edge for nothing.
+- `useRollPermission` takes the whole context: unlinked rolls are viewer-local
+  UI with no request or shared record, while linked rolls require character
+  ownership or a resolved DM membership.
+- `isCampaignDm` is the third direct projection for DM-only stat affordances.
+
+The acceptance test for the change is mechanical: after it,
+`buildInventoryProps(character.id, linkedCampaignId, …)` (`sheet-layout.tsx:236`)
+must fail to compile. The round-2 defect becomes a `tsc` failure rather than a
+documented promise.
+
+**Five states, discriminant `status`.** `unlinked | resolving | nonmember | error
+| member`, with `role` (the shared `"dm" | "player"`) and `userId` carried only on
+`member`. The fifth state is Codex's, and it is a correctness point rather than a
+naming one: `campaign.get` returns `NOT_FOUND` for both nonmembership and a
+missing campaign (`routers/campaign.ts:145-168`), while a transport failure is not
+evidence of nonmembership. Two constraints keep it from being speculative — `error`
+must render **identically** to `resolving` and `nonmember` (fail closed, no new UI,
+no loading flash the sheet does not have today), and cached `member` must **not** be
+demoted when a background refetch fails. Pin both with tests.
+
+**No React context provider, and no effect.** `SheetSharedProps` stays the single
+declaration point propagated through both simultaneously-mounted responsive trees;
+the earlier rejection at line 591 of this file stands and this change does not
+reopen it — it changes the type of one member and leaves the `Omit`/`Pick`
+derivation working unchanged. Every value here is derived from query results, so it
+is computed during render per `docs/guides/client-effects.md`. A round-three
+implementation that reaches for `useEffect` to maintain this context is wrong and
+should be rejected on sight.
+
+**Round three is two branches, and the split is not the one round 2 assumed.**
+
+- **Branch A (client typing, on top of `feat/cq-client-followups`).** The
+  discriminated context, the inventory member-gate absorbed into it, the
+  members-panel old→new swap test, and the sheet roll-seam test rewritten to pin
+  `useWeaponRoll` as well as `useAbilityRoll` (`sheet-state.ts:121-122` are two
+  independent calls, so today's spy proves nothing about the other). ~4 commits.
+- **Branch B (socket association freshness, new leaf).** The multi-tab P1 and the
+  campaign-deletion cascade are **not** client-shape problems and no context type
+  helps them. `campaign-room-handler.ts:99` is the server's only `socket.join`, so
+  an unlinked sheet is in no room that could carry the message. The mechanism is a
+  new user-targeted `character:associationChanged` event rather than widening
+  `character:updated` (which requires `campaignId` and is campaign-room scoped,
+  `socket-events.ts:63-68`); `broadcast-registry.ts:186-200` already supports
+  global user-filtered delivery. Emitted after persistence per ADR-0003.
+
+Branch A must not claim to fix freshness, and Branch B must not be folded into it —
+all three panelists independently said mixing them is what would make round three
+unlandable.
+
+**Noted for a separate leaf, not for round three** — filed 2026-07-30 as
+[leaf 66](./66-sheet-owner-capability-gate.md), which re-scopes it to the whole
+sheet and to affordance rather than authorization. `InventoryPanel` renders the
+Add button and per-row Edit/Delete with no owner gate at all
+(`inventory-panel.tsx:197-235`; `buildInventoryProps` passes the mutation callbacks
+unconditionally). The round-2 Homebrew finding is the narrow half of this: a
+nonmember on a public sheet is offered the whole mutation surface, and the Homebrew
+tab is merely the one *guaranteed* to fail rather than merely refused. Same defect
+class, wider than the typing change, and it should not be quietly absorbed.
+
+## Implemented — Branch A (landed, merge `c5985d1da`)
+
+`feat/cq-client-followups` implements the Branch A decision above. The
+discriminated sheet context is enforced at member-capability prop boundaries;
+inventory Homebrew access consumes that capability; the old→new and rapid
+none→old→new assignment invalidation cases are pinned; both roll hooks receive
+the authoritative link; and `resolving`, `nonmember` and `error` are compared
+through the rendered layout. The route search identity is removed.
+
+This closes the Branch A findings recorded in the historical round-two section.
+It does **not** close association freshness as a class: the multi-tab/device
+assignment case and campaign-deletion cascade remain Branch B work under the
+user-targeted `character:associationChanged` design, now filed as
+[leaf 63](./63-character-assignment-cross-client-freshness.md).

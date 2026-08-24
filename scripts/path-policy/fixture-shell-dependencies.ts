@@ -17,91 +17,15 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 
-import {
-  capture,
-  collectAssignments,
-  commandOperands,
-  repoRelativePath,
-  resolveFixtureExpression,
-  scriptsFixtureRootFromDestination,
-} from "./fixture-copy-expressions.js";
-import {
-  fixtureGroupKey,
-  type FixtureHelperCall,
-  mergeHelperCallSources,
-  type MutableFixtureCopyGroup,
-  parseFixtureHelperCall,
-} from "./fixture-helper-calls.js";
+import { capture, collectAssignments, repoRelativePath } from "./fixture-copy-expressions.js";
+import type { FixtureCopyGroup } from "./fixture-helper-calls.js";
 import { collectFixtureImportClosureFailures } from "./fixture-import-closure.js";
 import { collectFixtureSandboxes, type FixtureSandbox } from "./fixture-sandbox-model.js";
-import { collectScopedShellLines, type ScopedShellLine } from "./fixture-shell-scope.js";
+import { collectScopedShellLines } from "./fixture-shell-scope.js";
+import { isSmokeTestBasename } from "./smoke-test-files.js";
 
-const smokeFilePattern = /^test-.+\.sh$/u;
 const shellcheckSourcePattern = /^\s*#\s*shellcheck\s+source=(\S+)\s*$/gmu;
 const smokeSubjectPattern = /^#\s*smoke-subjects:(.*)$/gmu;
-
-interface FixtureCopyCommand {
-  readonly functionScope: readonly string[];
-  readonly fixtureRoot: string;
-  readonly sources: readonly string[];
-}
-
-interface FixtureCopyGroup {
-  readonly functionScope: readonly string[];
-  readonly fixtureRoot: string;
-  readonly sources: ReadonlySet<string>;
-}
-
-function isShellPath(path: string | undefined): path is string {
-  return path?.endsWith(".sh") === true;
-}
-
-function parseFixtureCopyCommand(
-  repoRoot: string,
-  scopedLine: ScopedShellLine,
-  assignments: ReadonlyMap<string, string>,
-): FixtureCopyCommand | undefined {
-  const trimmed = scopedLine.line.trim();
-  if (!trimmed.startsWith("cp ")) return undefined;
-  const operands = commandOperands(trimmed);
-  const destination = operands.at(-1);
-  if (destination === undefined) return undefined;
-  const fixtureRoot = scriptsFixtureRootFromDestination(destination);
-  if (fixtureRoot === undefined) return undefined;
-  const sources = operands
-    .slice(0, -1)
-    .map((operand) => resolveFixtureExpression(repoRoot, operand, assignments))
-    .filter(isShellPath);
-  return { functionScope: scopedLine.functionScope, fixtureRoot, sources };
-}
-
-function collectCopiedShellSourcesByFixture(
-  repoRoot: string,
-  scopedLines: readonly ScopedShellLine[],
-  assignments: ReadonlyMap<string, string>,
-): readonly FixtureCopyGroup[] {
-  const copiedByFixture = new Map<string, MutableFixtureCopyGroup>();
-  const helperCalls: FixtureHelperCall[] = [];
-
-  for (const scopedLine of scopedLines) {
-    const command = parseFixtureCopyCommand(repoRoot, scopedLine, assignments);
-    if (command === undefined) {
-      const helperCall = parseFixtureHelperCall(scopedLine);
-      if (helperCall !== undefined) helperCalls.push(helperCall);
-      continue;
-    }
-    const key = fixtureGroupKey(command.functionScope, command.fixtureRoot);
-    const group = copiedByFixture.get(key) ?? {
-      functionScope: command.functionScope,
-      fixtureRoot: command.fixtureRoot,
-      sources: new Set<string>(),
-    };
-    for (const path of command.sources) group.sources.add(path);
-    if (group.sources.size > 0) copiedByFixture.set(key, group);
-  }
-  mergeHelperCallSources(copiedByFixture, helperCalls);
-  return [...copiedByFixture.values()];
-}
 
 function collectSmokeSubjects(source: string): ReadonlySet<string> {
   const subjects = new Set<string>();
@@ -221,8 +145,6 @@ function collectSmokeFixtureFailures(
   const source = readFileSync(resolve(testsDir, smokeFile), "utf8");
   const assignments = collectAssignments(repoRoot, source);
   const scopedLines = collectScopedShellLines(source);
-  const groups = collectCopiedShellSourcesByFixture(repoRoot, scopedLines, assignments);
-
   const seeding = collectFixtureSandboxes(repoRoot, fixturePath, scopedLines, assignments);
   const sandboxes = seeding.sandboxes;
 
@@ -230,7 +152,7 @@ function collectSmokeFixtureFailures(
     ...seeding.failures,
     ...collectSmokeMetadataFailures(fixturePath, collectSmokeSubjects(source), sandboxes),
   ];
-  for (const group of groups) {
+  for (const group of seeding.shellClosureGroups) {
     failures.push(...collectFixtureClosureFailures(repoRoot, fixturePath, group));
   }
   for (const sandbox of sandboxes) {
@@ -243,9 +165,7 @@ export function validateFixtureShellDependencies(repoRoot: string): void {
   const testsDir = resolve(repoRoot, "scripts", "tests");
   if (!existsSync(testsDir)) return;
   const failures: string[] = [];
-  const smokeFiles = readdirSync(testsDir)
-    .filter((name) => smokeFilePattern.test(name))
-    .sort();
+  const smokeFiles = readdirSync(testsDir).filter(isSmokeTestBasename).sort();
 
   for (const smokeFile of smokeFiles) {
     failures.push(...collectSmokeFixtureFailures(repoRoot, testsDir, smokeFile));

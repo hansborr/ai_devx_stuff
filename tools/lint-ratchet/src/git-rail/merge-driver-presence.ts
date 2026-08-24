@@ -11,29 +11,41 @@ function isTimeout(error: Error | undefined): boolean {
   return error !== undefined && "code" in error && error.code === "ETIMEDOUT";
 }
 
-export function forwardMissingMergeDriverWarning(options: {
-  readonly checkScriptPath: string;
+type MergeDriverPresenceOptions = {
   readonly cwd: string;
   readonly env: NodeJS.ProcessEnv;
   readonly warn: (message: string) => void;
   readonly timeoutMs?: number;
-}): void {
+} & (
+  | { readonly checkScriptPath: string; readonly checkCommand?: never }
+  | { readonly checkCommand: readonly [string, ...string[]]; readonly checkScriptPath?: never }
+);
+
+function checkerInvocation(
+  options: MergeDriverPresenceOptions,
+): readonly [string, ...string[]] | undefined {
+  if (options.checkCommand !== undefined) return options.checkCommand;
+  if (existsSync(options.checkScriptPath)) return ["bash", options.checkScriptPath];
+  options.warn(
+    `WARN: merge-driver presence check skipped: checker script not found at ${options.checkScriptPath}`,
+  );
+  return undefined;
+}
+
+export function forwardMissingMergeDriverWarning(options: MergeDriverPresenceOptions): void {
   if (options.env.CI || options.env[SUPPRESS_MERGE_DRIVER_WARN_ENV]) return;
 
   // The advisory is dead in exactly the config where it matters — an adopter who
-  // skipped copying scripts/git/* — if a missing checker script no-ops silently.
-  // Name it instead.
-  if (!existsSync(options.checkScriptPath)) {
-    options.warn(
-      `WARN: merge-driver presence check skipped: checker script not found at ${options.checkScriptPath}`,
-    );
-    return;
-  }
+  // skipped wiring the package checker — if a missing repository shim no-ops
+  // silently. Name it instead.
+  const invocation = checkerInvocation(options);
+  if (invocation === undefined) return;
 
   const timeoutMs = options.timeoutMs ?? CHECK_TIMEOUT_MS;
+  const [command, ...args] = invocation;
   let checkerStdout: string;
   try {
-    const result = spawnSync("bash", [options.checkScriptPath], {
+    const result = spawnSync(command, args, {
       cwd: options.cwd,
       encoding: "utf8",
       stdio: ["ignore", "pipe", "ignore"],

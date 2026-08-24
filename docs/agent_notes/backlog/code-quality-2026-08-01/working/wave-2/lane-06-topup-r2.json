@@ -1,0 +1,600 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-06-tests",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L06-111",
+      "title": "The worktree shell suite is four suites hidden in one 1,986-line script",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "scripts/tests/test-worktree-db.sh",
+          "line": 2,
+          "endLine": 38,
+          "measurement": null,
+          "note": "One smoke entrypoint claims ten subjects, sources worktree-db, drift-hook, dev, and worktree-new into one mutable shell process, and owns a single assertion counter."
+        },
+        {
+          "path": "scripts/tests/test-worktree-db.sh",
+          "line": 1008,
+          "endLine": 1698,
+          "measurement": null,
+          "note": "Distinct worktree:new, worktree:drop/GC, and locking/allocation bands begin at lines 1008, 1324, and 1698 after the initial 1,007-line DB/init/dev band."
+        },
+        {
+          "path": "scripts/tests/test-worktree-db.sh",
+          "line": 1531,
+          "endLine": 1564,
+          "measurement": null,
+          "note": "The drop band replaces production functions in the shared process, making later contracts depend on accumulated shell state."
+        },
+        {
+          "path": "scripts/tests/test-worktree-db.sh",
+          "line": null,
+          "endLine": null,
+          "measurement": "1,986 physical lines and 71 top-level ok assertions; assertion counts across the four visible bands are 39/7/12/13",
+          "note": "The four concerns were partitioned at lines 1008, 1324, and 1698 from the pinned source."
+        }
+      ],
+      "problem": "DB/init/dev helpers, worktree creation recovery, drop/GC, and allocation/state persistence are independent test narratives but can only run as one long shared-state process. Contributors cannot focus one subject, failures suppress every later contract, and function stubs or traps introduced in one band remain ambient context for subsequent bands.",
+      "proposedDirection": "Split the four concern bands into independently executable shell smokes with precise smoke-subject headers and isolated setup and cleanup. Keep the production facade intact and retain shell for these shell-native contracts.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-27",
+        "novelty": "The two-tier contract does not enumerate this existing shell-native giant among the sanctioned splits; this direction avoids the wholesale migration, rename, Vitest rewrite, and production decomposition rejected by CQ25-125, CQ25-126, CQ25-138, and CQ25-140."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-112",
+      "title": "Lint-ratchet acceptance fixtures emit 321 lines of stale package types",
+      "area": "tests",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": 155,
+          "endLine": 241,
+          "measurement": null,
+          "note": "The Vitest fixture emits a complete local copy of the portable package's config-type vocabulary before its two exported fixture values."
+        },
+        {
+          "path": "scripts/tests/test-lint-ratchet.sh",
+          "line": 3483,
+          "endLine": 3860,
+          "measurement": null,
+          "note": "Four shell fixture writers repeat variants of the same JsonValue, source, config, disposition, and allowlist declarations."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/config-types.ts",
+          "line": 40,
+          "endLine": 77,
+          "measurement": null,
+          "note": "The exported authority includes allowEmpty and typeAwareProject plus a refined parser-profile union; none of the five emitted copies reflects those fields."
+        },
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "321 emitted declaration lines across five fixture writers: 60 in output.test.ts and 63 + 72 + 63 + 63 in test-lint-ratchet.sh",
+          "note": "The duplicated declarations are larger than the 83-line authoritative config-types module and have already diverged from it."
+        }
+      ],
+      "problem": "Five acceptance fixture builders make their generated configs look checked against the portable package contract while defining private, divergent facsimiles. Package-type evolution requires broad manual edits and can leave fixtures documenting an obsolete authoring surface.",
+      "proposedDirection": "Emit type-only imports from the already-symlinked @musi/lint-ratchet/kernel/config-types.js export and keep only fixture values in each generated config. Preserve the independent sandbox builders and copy-set closure checks.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-113",
+        "novelty": "CQ25-113 forbids rebuilding a shared sandbox manifest or fixture framework; this keeps those builders independent and removes only redundant copies of an already-exported public type module."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-113",
+      "title": "Server tests enlarge production APIs with seven test-only seams",
+      "area": "server",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/prepared-spell-toggle.ts",
+          "line": 64,
+          "endLine": 83,
+          "measurement": null,
+          "note": "The production module describes its exported TogglePreparedHooks as test injection points; the ordinary exported mutation accepts that hooks object."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/types.ts",
+          "line": 11,
+          "endLine": 24,
+          "measurement": null,
+          "note": "CombatSpellOpts includes transactionProbe and three lifecycle callbacks, although only spell-casting tests supply the option."
+        },
+        {
+          "path": "packages/server/src/routers/homebrew.ts",
+          "line": 68,
+          "endLine": 82,
+          "measurement": null,
+          "note": "assertImportSizeWithinLimit is exported from the router solely so homebrew-import.test.ts can invoke the otherwise router-private guard directly."
+        },
+        {
+          "path": "packages/server/src/socket/broadcast-registry.ts",
+          "line": 340,
+          "endLine": 341,
+          "measurement": null,
+          "note": "The module exports private registry values and event-key unions for direct test introspection; production callers use only broadcast entry points."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "Seven test-only API surfaces across four production modules: TogglePreparedHooks, CombatSpellOpts.transactionProbe, assertImportSizeWithinLimit, two broadcast registries, and two event-key unions",
+          "note": "Outside their defining or propagation modules, every consumer is a test or socket __type-tests__ file."
+        }
+      ],
+      "problem": "Deterministic concurrency controls, registry inspection, and a size-guard helper are mixed into normal router, service, and socket APIs. Contributors must distinguish real caller capabilities from switches no production caller uses, while private registry representation becomes coupled to direct test imports.",
+      "proposedDirection": "Keep deterministic injection but place injection-bearing cores behind clean production facades in explicitly internal modules. Test registry behavior through broadcast entry points and move the size guard out of the router.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-114",
+      "title": "Axe allowlists can outlive the accessibility debt they suppress",
+      "area": "e2e",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "e2e/a11y.spec.ts",
+          "line": 15,
+          "endLine": 24,
+          "measurement": null,
+          "note": "Four view-specific baseline entries suppress three serious-or-critical violation IDs. Comments describe the debt but provide no structured tracker or retirement condition."
+        },
+        {
+          "path": "e2e/a11y.spec.ts",
+          "line": 71,
+          "endLine": 87,
+          "measurement": null,
+          "note": "The helper removes every violation whose ID appears in the view baseline and asserts only that the remainder is empty; it never asserts that baselined violations still exist."
+        },
+        {
+          "path": "e2e/a11y.spec.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "Full-file inspection found 4 baseline rows and 0 assertions that tracked debt remains observable",
+          "note": "Fixing a violation does not force removal of its exemption."
+        }
+      ],
+      "problem": "The accessibility baseline behaves as a permanent subtraction list rather than tracked temporary debt. When a violation is fixed, the suite remains green without retiring its entry, allowing a later occurrence of the same Axe rule on that view to be masked.",
+      "proposedDirection": "Make the helper assert both that no unbaselined violations exist and that every baseline entry is still observed. Require stale entries to be removed and scope exemptions more narrowly where one Axe ID can describe unrelated nodes.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-115",
+      "title": "One lint-ratchet acceptance suite serializes 32 synchronous CLI runs",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": 312,
+          "endLine": 337,
+          "measurement": null,
+          "note": "Every acceptance invocation goes through spawnSync, blocking the Vitest worker until a full Bun CLI process exits."
+        },
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": 423,
+          "endLine": 459,
+          "measurement": null,
+          "note": "A single test performs five sequential CLI launches and carries a 60-second timeout."
+        },
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": 480,
+          "endLine": 561,
+          "measurement": null,
+          "note": "Five output scenarios share a suite-lifetime fixture and execute through ordinary non-concurrent tests; remaining subject groups mostly create isolated fixtures."
+        },
+        {
+          "path": "scripts/lint-ratchet/output.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "32 runtime child-process executions: 22 direct runLintRatchet call sites plus 10 seedCleanBaseline call sites",
+          "note": "All executions are concentrated in one 809-line test file, preventing file-level worker distribution."
+        }
+      ],
+      "problem": "Independent CLI contracts for warnings, diagnostics files, propose mode, drift reporting, update preflight, and tracked-file collection are concentrated in one worker and use a blocking child-process API. Focused feedback is delayed and subject-level cost is difficult to identify.",
+      "proposedDirection": "Move independent subject groups into focused acceptance files backed by one shared fixture helper, and use an asynchronous child-process runner so isolated scenarios can run concurrently. Keep the genuinely shared diagnostics group serialized.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-31",
+        "novelty": "CQ25-31 schedules subject-cluster splits only for scripts/tests/test-lint-ratchet.sh; this is a separate Vitest suite whose defining bottleneck is blocking child-process execution."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-116",
+      "title": "Paired shared schema suites split request contracts across entity-named files",
+      "area": "tests",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/character.test.ts",
+          "line": 33,
+          "endLine": 278,
+          "measurement": null,
+          "note": "The entity-named suite imports four schemas from character-inputs.ts and places their core request cases before entity coverage, while character-inputs.test.ts owns other facets of the same request module."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter.test.ts",
+          "line": 453,
+          "endLine": 597,
+          "measurement": null,
+          "note": "Five input-schema describes live after the encounter entity assertions even though encounter-inputs.test.ts is the dedicated request-contract suite."
+        },
+        {
+          "path": "packages/shared/src/schemas/MODULE.md",
+          "line": 30,
+          "endLine": 48,
+          "measurement": null,
+          "note": "Contributor guidance distinguishes <name>-inputs.ts request contracts from <name>.ts entity contracts; the paired test layout violates that navigation convention."
+        },
+        {
+          "path": "packages/shared/src/schemas",
+          "line": null,
+          "endLine": null,
+          "measurement": "The misplaced character and encounter blocks total 379 lines, 9 describes, and 47 syntactic it declarations representing 49 runtime cases",
+          "note": "Contributors must search both halves of each pair to discover the request contract."
+        }
+      ],
+      "problem": "Character and encounter request validation has two authorities apiece: dedicated *-inputs.test.ts suites and substantial addenda hidden in entity-named suites. The split follows historical field addition rather than a visible concern boundary.",
+      "proposedDirection": "Move the four character request describes into character-inputs.test.ts and the five encounter request describes into encounter-inputs.test.ts as content-only relocations. Keep entity-named suites focused on persisted and output schemas.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-158",
+        "novelty": "CQ25-158 preserved encounter-inputs.test.ts against payload-builder rewrites; this proposes no abstraction, only relocating 141 lines of request tests plus a separate 238-line character pair. CQ25-157's rejected English-title sweep and CQ25-49's scheduled homebrew move remain excluded."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-117",
+      "title": "Near-duplicate sensor gate tests are buried in the detector suite",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/near-duplicates.test.ts",
+          "line": 7,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The file imports both the top-level sensor CLI and baseline modules and the drift-ai detector, check, runner, and scope modules."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates.test.ts",
+          "line": 698,
+          "endLine": 932,
+          "measurement": null,
+          "note": "This 235-line block contains 7 of the file's 35 tests and exercises baseline admission, changed-file rejection, update refusal, staged-baseline bypass prevention, and merge-truth restoration rather than detector behavior."
+        },
+        {
+          "path": "scripts/drift-ai/fixtures/near-duplicate-gate/existing-order.ts",
+          "line": 1,
+          "endLine": 15,
+          "measurement": null,
+          "note": "Three 15-line fixtures under near-duplicate-gate are referenced only by the embedded CLI block, so gate fixture ownership follows the misplaced block into the detector directory."
+        },
+        {
+          "path": "scripts/sensor-near-duplicates-merge-cli.test.ts",
+          "line": 27,
+          "endLine": 127,
+          "measurement": null,
+          "note": "The merge command already has a subject-matched suite, making the absent main sensor suite easy to misread as missing coverage."
+        }
+      ],
+      "problem": "A contributor looking for the main sensor gate contract finds parser and merge suites beside their modules but no sensor-near-duplicates.test.ts; the authoritative CLI contract is hidden at the end of a 932-line detector suite. Focused detector runs also include unrelated temporary-Git-repository scenarios.",
+      "proposedDirection": "As part of the scheduled sensor owner-directory move, extract the runNearDuplicatesCli describe and its fixtures into a subject-named sensor gate suite. Leave detector, runner, comparison, and drift-check contracts in near-duplicates.test.ts.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-42",
+        "novelty": "CQ25-42 schedules moving the sensor-near-duplicates-prefixed family; this identifies a 235-line sensor authority embedded in a differently named drift-ai suite that the prefix-family move does not explicitly capture."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-118",
+      "title": "Harness generator scenarios repeat 53 inline control envelopes",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/harness/generate-hook-wiring.test.ts",
+          "line": 14,
+          "endLine": 44,
+          "measurement": null,
+          "note": "A file-local Record<string, unknown> wrapper supplies common documentation fields, but every scenario still reconstructs its control array and hook-control shell."
+        },
+        {
+          "path": "scripts/harness/generate-verify-steps.test.ts",
+          "line": 12,
+          "endLine": 55,
+          "measurement": null,
+          "note": "A second file-local wrapper repeats the parse and default envelope but does not provide a baseline consumer set."
+        },
+        {
+          "path": "scripts/harness/generate-verify-steps.test.ts",
+          "line": 200,
+          "endLine": 365,
+          "measurement": null,
+          "note": "Seven adjacent policy cases redeclare the same four consumers although each case changes only one or two slot vectors."
+        },
+        {
+          "path": "scripts/harness",
+          "line": null,
+          "endLine": null,
+          "measurement": "53 inline control-id properties: 22 in generate-hook-wiring.test.ts and 31 in generate-verify-steps.test.ts",
+          "note": "The separate single-control skill fixture was excluded."
+        }
+      ],
+      "problem": "Meaningful scenario deltas are surrounded by repeated consumer and control setup. Changes to the canonical consumer set or fixture envelope require broad edits, while readers must compare near-identical arrays to discover what each negative case varies.",
+      "proposedDirection": "Add typed file-local scenario builders: a baseline verify-consumer map with slot overrides and a valid hook-control builder with wiring overrides. Preserve raw objects for malformed-input and duplicate-ID cases.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-13",
+        "novelty": "Leaf 40's scheduled CQ25-48 through CQ25-51 factory work is confined to client, shared, and server fixtures; it does not cover harness-manifest generator scenarios."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-119",
+      "title": "The overview suite forks code-intel's canonical fixture harness",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/code-intel/overview-query.test.ts",
+          "line": 13,
+          "endLine": 58,
+          "measurement": null,
+          "note": "The suite locally recreates the repository root, package-export configuration, in-memory ts-morph project, source writer, and workspace resolver."
+        },
+        {
+          "path": "scripts/code-intel/test-fixtures.test-helper.ts",
+          "line": 9,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The shared helper already exports the same project, source, resolver, and repository-root fixture infrastructure with the canonical package map."
+        },
+        {
+          "path": "scripts/code-intel/overview-query.test.ts",
+          "line": 120,
+          "endLine": 186,
+          "measurement": null,
+          "note": "Four of the suite's five tests construct projects through the private fork, so overview behavior and formatting cases bypass the shared authority rather than adding only a subject-specific adapter."
+        }
+      ],
+      "problem": "The overview suite carries a private 46-line version of shared code-intel test infrastructure. Package-export or compiler-option changes can leave it describing a different synthetic workspace from sibling suites.",
+      "proposedDirection": "Import repoRoot, createFixtureProject, addSource, and createFixtureResolver from test-fixtures.test-helper.ts; keep only the router-specific source builder local.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-120",
+      "title": "Smoke discovery tests manipulate global cwd to reach a private import-time function",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/path-policy-smoke-subjects.ts",
+          "line": 7,
+          "endLine": 22,
+          "measurement": null,
+          "note": "Discovery is private, derives its directory from process.cwd(), and executes while initializing the exported constant."
+        },
+        {
+          "path": "scripts/path-policy/path-policy.test.ts",
+          "line": 301,
+          "endLine": 325,
+          "measurement": null,
+          "note": "The suite reaches the private import-time behavior by changing cwd, clearing the module registry, and dynamically re-importing the module."
+        },
+        {
+          "path": "scripts/path-policy/path-policy.test.ts",
+          "line": 328,
+          "endLine": 361,
+          "measurement": null,
+          "note": "Fixture setup and cleanup must restore process-global cwd and reset the module cache."
+        },
+        {
+          "path": "scripts/path-policy/path-policy.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "Four cases call process.chdir(fixtureRoot); rediscovery and cleanup call vi.resetModules at two sites",
+          "note": "The entire discovery branch suite depends on process-global state and module-cache choreography."
+        }
+      ],
+      "problem": "A small filesystem-selection function can only be tested by mutating worker-global cwd and import state. This hides the actual contract behind module initialization and prevents safe composition with concurrent tests.",
+      "proposedDirection": "Extract a named discovery function that accepts the tests directory or discovered basenames and curated names. Keep SCRIPT_SMOKE_TEST_NAMES as the one-time repository adapter and test the function without chdir or resetModules.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-64",
+        "novelty": "H15 mentions memoizing SCRIPT_SMOKE_TEST_NAMES but does not expose a direct discovery seam or remove the cwd and module-cache test choreography."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-121",
+      "title": "Collector scheduler tests coordinate through real time",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/current-collector.test.ts",
+          "line": 72,
+          "endLine": 75,
+          "measurement": null,
+          "note": "The suite's scheduling primitive is a wall-clock setTimeout rather than a test-controlled deferred promise or barrier."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/current-collector.test.ts",
+          "line": 90,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The bounded-concurrency case encodes completion order through 2 ms timer differences."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/current-collector.test.ts",
+          "line": 126,
+          "endLine": 151,
+          "measurement": null,
+          "note": "The parser-profile case uses 20 ms versus 5 ms sleeps to create overlap before asserting in-flight counts."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/current-collector.test.ts",
+          "line": 154,
+          "endLine": 170,
+          "measurement": null,
+          "note": "The rejection scenario leaves non-failing workers pending on real 5 ms timers while the scheduler rejects."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/current-collection-scheduler.ts",
+          "line": 79,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The behavior under test is an explicit promise-completion state machine whose transitions can be driven deterministically."
+        }
+      ],
+      "problem": "Three scheduler scenarios rely on elapsed wall time to manufacture overlap, completion order, or pending workers. Tiny timing differences obscure the intended transitions and couple concurrency-contract tests to timer scheduling.",
+      "proposedDirection": "Replace delays with named deferred promises or a test-local worker gate. Assert which ratchets start, release or reject them explicitly, and assert each resulting scheduler transition.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-122",
+      "title": "Codemod suites retain four near-identical fixture drivers beside their shared helper",
+      "area": "tests",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/lib/fixture-runner.test-helper.ts",
+          "line": 6,
+          "endLine": 14,
+          "measurement": null,
+          "note": "The helper documents that four suites share its primitives but retain local metadata readers, scenario drivers, and enumeration."
+        },
+        {
+          "path": "scripts/codemods/structured-logging-fix.test.ts",
+          "line": 46,
+          "endLine": 112,
+          "measurement": null,
+          "note": "A representative driver parses metadata, creates and seeds a repository, captures a run, branches on failure, optionally reruns, checks stdout, and compares trees."
+        },
+        {
+          "path": "scripts/codemods/trpc-shared-schema-codemod.test.ts",
+          "line": 51,
+          "endLine": 149,
+          "measurement": null,
+          "note": "The largest driver repeats the lifecycle; its material variation is selecting one of two callbacks and fixture roots."
+        },
+        {
+          "path": "scripts/codemods",
+          "line": null,
+          "endLine": null,
+          "measurement": "Four driver suites total 475 lines and each defines readMetadata, fixtureNames, and runFixture; together they serve 90 case.json records",
+          "note": "The shared helper remains a 14-function primitive toolkit rather than owning the common scenario."
+        }
+      ],
+      "problem": "Low-level parsing, copying, capture, and assertions are centralized, but the same fixture lifecycle remains independently assembled four times. Intentional differences are interleaved with repeated plumbing, making policy changes require comparison of four long drivers.",
+      "proposedDirection": "Centralize metadata parsing and the seed, run, failure-or-success, rerun, and compare lifecycle behind typed callbacks for invocation, expected-root policy, and distinct failure assertions. Keep suite-local labels and the tRPC two-kind adapter.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Type-aware single-flight assertion has only one type-aware fixture",
+      "paths": [
+        "tools/lint-ratchet/src/kernel/current-collector.test.ts",
+        "tools/lint-ratchet/src/kernel/current-collection-scheduler.ts"
+      ],
+      "whySuspectedBug": "The fixture registry declares only one type-aware ratchet, so the maxTypeAwareInFlight assertion cannot exercise the branch that defers a second type-aware ratchet.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "ORCHESTRATION.md finding contract, dedup-corpus.md relevant records, wave-1/lane-06.json, wave-2/lane-06-topup.json, and banked finding-title inventories for all lanes",
+      "e2e/a11y.spec.ts and packages/client/src/components/campaign/combat/roll-mode-toggle{.test.tsx,.tsx}",
+      "eslint-rules/{all-local-rules.js,rule-tester.js,eslint-config-resolution-timeout.js} and their ownership comments/import topology",
+      "scripts/code-intel/{overview-query.test.ts,overview-query.ts,test-fixtures.test-helper.ts}",
+      "scripts/drift-ai/near-duplicates.test.ts, scripts/drift-ai/fixtures/near-duplicate-gate/**, and subject-matched sensor test suites",
+      "Candidate-bearing server production seams and every test consumer of the seven enumerated exports/options",
+      "packages/shared/src/schemas/{character,encounter}{,-inputs}.test.ts candidate blocks and schemas/MODULE.md",
+      "scripts/harness generator fixture wrappers and all repeated-control concern bands",
+      "scripts/lint-ratchet/output.test.ts, tools/lint-ratchet/test/**/*.test.ts, and tools/lint-ratchet/src/kernel/config-types.ts",
+      "scripts/path-policy/path-policy.test.ts and path-policy-smoke-subjects.ts",
+      "Four codemod fixture-driver suites and scripts/codemods/lib/fixture-runner.test-helper.ts",
+      "tools/lint-ratchet/src/kernel/{current-collector.test.ts,current-collector.ts,current-collection-scheduler.ts}"
+    ],
+    "sampled": [
+      "All 45 direct-importing eslint-rules/*.test.js files — every helper import site and consumer topology inspected; unrelated rule-case bodies sampled",
+      "packages/server/src/**/*.{test,test-helper}.{ts,tsx} — all 220 files inventoried; candidate symbol consumers inspected semantically",
+      "Assigned shared schema suite list — all 24 existing files inventoried by imports and describe boundaries; candidate pairs read semantically",
+      "scripts/harness/generate-{hook-wiring,verify-steps}.test.ts and scripts/tests/test-worktree-db.sh — complete case/assertion inventories with every candidate concern boundary inspected",
+      "scripts/tests/test-lint-ratchet.sh — complete function and CLI-call inventory; fixture-writer and adapter sections read semantically, unrelated merge-driver bodies sampled",
+      "Remaining scripts/codemods/**/*.test.ts and all 90 case.json fixtures — driver patterns and metadata inventoried; unrelated before/after bodies not reopened"
+    ],
+    "skipped": [
+      "Full semantic reread of lower-signal package tests unrelated to the 13 required cut candidates",
+      "Full semantic reread of unrelated ESLint rule matrices, lint-ratchet merge-driver scenarios, and codemod before/after source bodies",
+      "Non-corresponding harness, worktree-drift-hook, and dev implementation internals outside the explicit shard partition",
+      "Build artifacts, generated server code, lockfiles, and audit-pack contents outside the contract/dedup/banked-result inputs"
+    ],
+    "pointers": [],
+    "cut": [
+      "Dismissed: eslint-rules/all-local-rules.js, rule-tester.js, and eslint-config-resolution-timeout.js obscure test ownership — each file explicitly documents its test-support role, all 47 imports come from 45 test files, and no runtime importer exists; this does not add a material problem beyond banked L06-015/L09-014.",
+      "Dismissed: RollModeToggle's test suite disguises a production-dead component — its seven cases assert meaningful interaction and accessibility behavior; sole-consumer status belongs to lane 05's production-deadness review, and the suite should simply be removed atomically if the component is removed.",
+      "No promotable candidate was omitted for the soft cap."
+    ]
+  }
+}

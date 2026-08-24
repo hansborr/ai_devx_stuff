@@ -39,7 +39,7 @@ async function collectRatchet(
   binding: LintRatchetEngineBinding,
 ): Promise<RatchetEslintCollectionResult> {
   const files = matchingTrackedFiles(ratchet, trackedFiles);
-  sweepStaleCacheSiblings(ratchet, ruleSourceHash, binding.repoRoot);
+  sweepStaleCacheSiblings(ratchet, ruleSourceHash, binding);
   try {
     return {
       id: ratchet.id,
@@ -47,7 +47,7 @@ async function collectRatchet(
       results: await runEslintForFiles(ratchet, ruleSourceHash, files, binding),
     };
   } finally {
-    sweepStaleCacheSiblings(ratchet, ruleSourceHash, binding.repoRoot);
+    sweepStaleCacheSiblings(ratchet, ruleSourceHash, binding);
   }
 }
 

@@ -2,12 +2,14 @@ runner ran test-adr-check
 runner ran test-ai-hooks
 runner ran test-check-eslint-react-peer-exception
 runner ran test-check-fast-uri-override
+runner ran test-ci-reporting
 runner ran test-code-intel
 runner ran test-codemod-concurrency-guard
 runner ran test-codemod-expand-barrel
 runner ran test-codemod-structured-logging-fix
 runner ran test-codemod-trpc-shared-input
 runner ran test-codemod-trpc-shared-output
+runner ran test-cq-drain
 runner ran test-dependency-freshness
 runner ran test-doctor-json
 runner ran test-eslint-disable-register
@@ -17,6 +19,7 @@ runner ran test-generate-lint-guidance
 runner ran test-generate-module-index
 runner ran test-harness-check
 runner ran test-harness-emit-envelope
+runner ran test-harness-finding
 runner ran test-land
 runner ran test-lint-agent-changed
 runner ran test-lint-agent

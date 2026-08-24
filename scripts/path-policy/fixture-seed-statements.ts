@@ -9,10 +9,10 @@
 import {
   commandOperands,
   fixtureRootForDestination,
-  normalizePath,
   scriptsFixtureRootFromDestination,
   stripQuotes,
 } from "./fixture-copy-expressions.js";
+import { normalizePath } from "./smoke-test-files.js";
 
 const heredocRedirectPattern = /(?:^|\s)>>?\s*(?:"([^"]+)"|'([^']+)'|([^\s"'<>]+))\s*<<-?/u;
 const symlinkCommandPattern = /(?:^|[\s;&|(])(ln\s+-s\S*\s.*)$/u;

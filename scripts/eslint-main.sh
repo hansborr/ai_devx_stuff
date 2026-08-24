@@ -101,13 +101,13 @@ case "$mode" in
   --full)
     [ "$#" -eq 0 ] || reject_full_args "$@"
     PARTITION_ESLINT_ARGS=()
-    musi_eslint_main_cache_prepare "$REPO_ROOT" || exit $?
+    musi_eslint_main_cache_load_plans "$REPO_ROOT" "${MUSI_ESLINT_MAIN_PARTITIONS[@]}" || exit $?
     run_all_partitions run_full_partition
     exit $?
     ;;
   --changed)
     [ "$#" -gt 0 ] || usage
-    musi_eslint_main_cache_prepare "$REPO_ROOT" || exit $?
+    musi_eslint_main_cache_load_plans "$REPO_ROOT" "${MUSI_ESLINT_MAIN_PARTITIONS[@]}" || exit $?
     run_all_partitions run_changed_partition "$@"
     exit $?
     ;;
@@ -117,7 +117,7 @@ case "$mode" in
     shift
     validate_partition_args "$@"
     PARTITION_ESLINT_ARGS=("$@")
-    musi_eslint_main_cache_prepare "$REPO_ROOT" || exit $?
+    musi_eslint_main_cache_load_plans "$REPO_ROOT" "${MUSI_ESLINT_MAIN_PARTITIONS[@]}" || exit $?
     run_full_partition "$partition"
     exit $?
     ;;

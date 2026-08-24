@@ -1,14 +1,16 @@
 import { existsSync, readdirSync, readFileSync, realpathSync } from "node:fs";
 import { basename, join, resolve } from "node:path";
 
+import { classifyLicenseAudit, type PackageInfo } from "./audit-dependency-licenses-core.js";
 import { isRecord } from "./lib/records.js";
 
-interface PackageInfo {
-  name: string;
-  version: string;
-  license: string;
-  manifestPath: string;
-}
+export {
+  classifyLicenseAudit,
+  type LicenseAuditClassification,
+  type PackageInfo,
+  REVIEW_COPYLEFT_RE,
+  STRONG_COPYLEFT_RE,
+} from "./audit-dependency-licenses-core.js";
 
 interface DependencyRequest {
   fromManifestPath: string;
@@ -23,8 +25,6 @@ interface ProductionCollectionState {
 }
 
 const PROJECT_ROOT = resolve(import.meta.dirname, "..");
-export const STRONG_COPYLEFT_RE = /\b(?:AGPL|GPL|SSPL)\b/i;
-export const REVIEW_COPYLEFT_RE = /\b(?:LGPL|MPL|EPL|CDDL|CPL|OSL|RPL)\b/i;
 export const LICENSE_AUDIT_REMEDY =
   "Remedy: replace the dependency, or record an owner-reviewed license decision in a dated docs/agent_notes/ note with package, version, license, and rationale.";
 const ALL_MODE = process.argv.includes("--all");
@@ -209,8 +209,8 @@ function walkForNodeModules(
   }
 }
 
-function workspaceNodeModules(): string[] {
-  const packagesDir = join(PROJECT_ROOT, "packages");
+function workspaceNodeModules(rootDir: string): string[] {
+  const packagesDir = join(rootDir, "packages");
   if (!existsSync(packagesDir)) return [];
 
   return readdirSync(packagesDir, { withFileTypes: true })
@@ -218,8 +218,8 @@ function workspaceNodeModules(): string[] {
     .map((entry) => join(packagesDir, entry.name, "node_modules"));
 }
 
-function workspacePackages(): RootPackage[] {
-  const packagesDir = join(PROJECT_ROOT, "packages");
+function workspacePackages(rootDir: string): RootPackage[] {
+  const packagesDir = join(rootDir, "packages");
   if (!existsSync(packagesDir)) return [];
 
   return readdirSync(packagesDir, { withFileTypes: true })
@@ -228,13 +228,13 @@ function workspacePackages(): RootPackage[] {
     .filter((pkg): pkg is RootPackage => pkg !== null);
 }
 
-function collectInstalledPackages(): PackageInfo[] {
+export function collectInstalledPackages(rootDir: string): PackageInfo[] {
   const packagesByKey = new Map<string, PackageInfo>();
   const seenDirs = new Set<string>();
   const roots = [
-    join(PROJECT_ROOT, "node_modules", ".bun"),
-    join(PROJECT_ROOT, "node_modules"),
-    ...workspaceNodeModules(),
+    join(rootDir, "node_modules", ".bun"),
+    join(rootDir, "node_modules"),
+    ...workspaceNodeModules(rootDir),
   ];
 
   for (const root of roots) {
@@ -282,10 +282,10 @@ function processDependencyRequest(
   enqueueDependencies(state.queue, pkg);
 }
 
-function collectProductionPackages(): PackageInfo[] {
+export function collectProductionPackages(rootDir: string): PackageInfo[] {
   const rootPackages = [
-    readRootPackage(join(PROJECT_ROOT, "package.json")),
-    ...workspacePackages(),
+    readRootPackage(join(rootDir, "package.json")),
+    ...workspacePackages(rootDir),
   ].filter((pkg): pkg is RootPackage => pkg !== null);
   const state: ProductionCollectionState = {
     packagesByKey: new Map<string, PackageInfo>(),
@@ -328,18 +328,11 @@ function printPackageList(title: string, packages: PackageInfo[]): void {
 }
 
 if (import.meta.main) {
-  const packages = ALL_MODE ? collectInstalledPackages() : collectProductionPackages();
-  const strongCopyleft = packages.filter((pkg) => STRONG_COPYLEFT_RE.test(pkg.license));
-  const reviewCopyleft = packages.filter((pkg) => REVIEW_COPYLEFT_RE.test(pkg.license));
-  const unknown = packages.filter(
-    (pkg) => pkg.license === "UNKNOWN" || pkg.license === "UNLICENSED",
-  );
-
-  // A compound license ("GPL-3.0 OR LGPL-3.0") can match more than one
-  // category; count distinct packages so the summary never double-counts.
-  const flaggedCount = new Set(
-    [...strongCopyleft, ...reviewCopyleft, ...unknown].map((pkg) => `${pkg.name}@${pkg.version}`),
-  ).size;
+  const packages = ALL_MODE
+    ? collectInstalledPackages(PROJECT_ROOT)
+    : collectProductionPackages(PROJECT_ROOT);
+  const { strongCopyleft, reviewCopyleft, unknown, flaggedCount, shouldFail } =
+    classifyLicenseAudit(packages);
 
   console.log("Dependency license audit");
   console.log(`Mode: ${ALL_MODE ? "all installed packages" : "production dependency closure"}`);
@@ -361,7 +354,7 @@ if (import.meta.main) {
     console.log(LICENSE_AUDIT_REMEDY);
   }
 
-  if (strongCopyleft.length > 0 || reviewCopyleft.length > 0) {
+  if (shouldFail) {
     process.exitCode = 1;
   }
 }

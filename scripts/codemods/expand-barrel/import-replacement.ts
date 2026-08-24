@@ -2,8 +2,7 @@ import path from "node:path";
 
 import { type ImportDeclaration, type SourceFile } from "ts-morph";
 
-import type { ImportSpecifierInfo } from "../lib/trpc-shared-schema.js";
-import { moduleSource } from "../lib/trpc-shared-schema.js";
+import { type ImportSpecifierInfo, moduleSource } from "../lib/codemod-imports.js";
 import { fail } from "./errors.js";
 import {
   formatImportGroup,

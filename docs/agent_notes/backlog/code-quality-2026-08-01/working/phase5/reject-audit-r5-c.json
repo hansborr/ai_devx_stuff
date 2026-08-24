@@ -1,0 +1,547 @@
+{
+  "contractVersion": 1,
+  "consult": "R5C",
+  "step": "1b-round-5",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[8]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened docs/guides/per-worktree-dev.md:14-29 and :64-109: the command table and multi-lane workflow expose only unqualified worktree:status. scripts/worktree-db.sh:14-20 and :1536-1565 implement distinct --all and --lanes modes, including --base and mutual-exclusion rules. The omission hides the Postgres-free cross-lane Git-progress dashboard precisely where the guide teaches parallel-lane coordination.",
+      "promotionIds": [
+        "R5C-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[11]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reasoning": "Opened package.json:60-63 and :116-134, harness.controls.json:60-80, :1175-1207, :1608-1616, and :1686-1722, plus scripts/harness/generated-surfaces.ts:58-83 and :99-150. Although writer commands use bare, :generate, and :refresh forms, the manifest explicitly records each invocation and checkScript and the loader normalizes them into refreshScript/checkScript roles. No ambiguity or broken discovery follows; renaming them would create broad package, documentation, and hook churn for cosmetic consistency.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[14]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Inventoried packages/client/src/components/character-create and opened its state, context, validation, submission projection, page composition, and the module-doc charter. The directory has 21 production files and no MODULE.md. wizard-state.ts:229-275 owns class-change rewind/spell clearing and background-change equipment-reset invariants; wizard-validation.ts:46-74 gates conditional steps; create-character-input.ts:58-91 is the transport boundary. docs/module-docs.md:24-30 calls for local orientation on exactly this kind of stateful cross-file feature.",
+      "promotionIds": [
+        "R5C-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[8]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened docs/README.md:13-16 and :29-31, which call ai-harness.md the single-source inventory of every guide and say its Guides table indexes them all. docs/ai-harness.md:359-396 inventories the operator and adoption ratchet guides but not lint-ratchet-merges.md or lint-ratchet-reference.md. Both omitted files are substantive, deliberately separate guides. scripts/drift-ai/harness-freshness.ts:134-151 detects file-wide reference absence but does not enforce inventory-table membership.",
+      "promotionIds": [
+        "R5C-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[8]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened docs/guides/lint-message-evals.md:46-55, scripts/lint-message-eval.ts:28-54, scripts/lint-message-eval/trace.ts:61-119, scripts/lint-message-eval/evaluator.ts:127-156, and the committed pilot trace and report. Capture deliberately depends on separate fresh sessions, randomized arm order, complete-source responses, and human-recorded caveats; a recorder cannot enforce the important independence controls. The existing CLI validates and grades completed traces, and no recurring capture population or transcription failure supports productizing this one-off manual research protocol. Authored leaf 176 already owns the sharp provenance-integrity defect.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[10]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened CLIENT-CLUSTER-PLAN.md and checked all three refusals against the current client. CQ25-190 remains supported by VttSurface ownership in components/vtt/MODULE.md:15-18 and behaviorally different map/combat callers. CQ25-193 remains supported by the single SheetSharedProps declaration and derived desktop/mobile shapes without effect-maintained context. CQ25-187 remains supported by heterogeneous Input, Select, Textarea, and Checkbox populations. The cut merely restates three live prior-pack refusals and supplies no reason to overturn them.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[0]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened eslint-rules/structured-logging.js, its RuleTester suite, eslint-config/package-boundary-configs.js, and the generated harness inventory. The implementation owns three policies, but its published description/principle and authoritative generated inventory describe only static messages and direct console calls. A separate ImportDeclaration visitor rejects createScriptLogger imports outside seed/script paths, leaving the third enforced policy undocumented.",
+      "promotionIds": [
+        "R5C-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[3]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened eslint-config/max-lines-exceptions.baseline.json, scripts/max-lines-exceptions-core.ts, and eslint-config/max-lines-exceptions-codec.js. Most reasons state durable current justifications, but the SRD router entry appends +1/+4 implementation deltas and the rest-service entry appends ux-audit change history. The codec requires only a nonblank string and normalization preserves it verbatim, so these fields accumulate changelog prose instead of remaining current exception rationales.",
+      "promotionIds": [
+        "R5C-005"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[10]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened smoke-subject-headers.ts, fixture-shell-dependencies.ts, path-policy-query-core.ts, smoke-test-files.ts, prior H14/CQ25-119, and authored leaves 151/152. H14 centralized smoke-file naming and path normalization, but subject syntax is still parsed independently by the generator and fixture precondition, while exact/trailing-slash matching is hand-copied between selection and fixture coverage. The fixture copy claims parity with the selector but shares neither implementation nor a parity guard.",
+      "promotionIds": [
+        "R5C-006"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[13]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened trpc-shared-schema-imports.ts, trpc-shared-schema-writes.ts, structured-logging-fix-transforms.ts, structured-logging-fix.ts, expand-barrel/run.ts, and authored leaf 149. Structured-logging and expand-barrel call sortImportBlocks while constructing plans, then writeOrPreviewFiles repeats the same full-source sorter; real writes subsequently invoke ESLint simple-import-sort. The first repeated parse/rewrite is redundant, while the custom-versus-ESLint split leaves preview/fallback and successful writes without one declared normalization owner.",
+      "promotionIds": [
+        "R5C-007"
+      ]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R5C-001",
+      "title": "Document the two cross-worktree status modes in the per-worktree guide",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 14,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The command table describes only unqualified worktree:status as current-worktree diagnostics."
+        },
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 64,
+          "endLine": 109,
+          "measurement": null,
+          "note": "The multi-lane orchestration section never mentions the cross-lane status dashboard, and Recovery again uses only unqualified status."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The authoritative header defines --all provisioning diagnostics and the Postgres-free --lanes Git-work summary with optional --base."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 1536,
+          "endLine": 1565,
+          "measurement": null,
+          "note": "The dispatcher implements both modes, mutual exclusion, and the --base-only-with---lanes constraint."
+        }
+      ],
+      "problem": "The dedicated worktree guide teaches multi-lane coordination without exposing the existing read-only command that summarizes ahead/behind state, staged and unstaged work, and commit age across lanes. Contributors must discover both cross-worktree modes from the large shell implementation.",
+      "proposedDirection": "Add command-table entries for worktree:status --all and worktree:status --lanes [--base <ref>], then point the multi-lane section to --lanes while preserving the script as behavioral authority.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[8]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The per-worktree multi-lane section omits worktree:status --lanes and --all.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 265 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-002",
+      "title": "Give the client character-creation wizard a local orientation contract",
+      "area": "client",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create",
+          "line": null,
+          "endLine": null,
+          "measurement": "21 production files and no MODULE.md (`find /workspace/packages/client/src/components/character-create -type f ! -name '*.test.ts' ! -name '*.test.tsx' | wc -l`)",
+          "note": "This is a large multi-step feature directory without the repository's local orientation document."
+        },
+        {
+          "path": "docs/module-docs.md",
+          "line": 24,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The charter requires MODULE docs for large feature directories and surfaces hiding non-obvious state or cross-file flow."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-state.ts",
+          "line": 229,
+          "endLine": 275,
+          "measurement": null,
+          "note": "The reducer owns cross-step invariants: class changes rewind progress and clear spells, while background changes clear equipment."
+        },
+        {
+          "path": "packages/client/src/components/character-create/wizard-validation.ts",
+          "line": 46,
+          "endLine": 74,
+          "measurement": null,
+          "note": "Step advancement is a keyed validation graph, including exact class-dependent spell counts."
+        },
+        {
+          "path": "packages/client/src/components/character-create/create-character-input.ts",
+          "line": 58,
+          "endLine": 91,
+          "measurement": null,
+          "note": "A separate projection converts wizard state into the shared mutation contract and intentionally leaves universal proficiencies to the server."
+        },
+        {
+          "path": "packages/client/src/pages/character-create-page.tsx",
+          "line": 8,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The page composes nine step components plus state, navigation, and submission seams."
+        }
+      ],
+      "problem": "A contributor entering this 21-file wizard has no local map of state ownership, conditional-step behavior, cross-step reset invariants, validation, or the client-to-server projection boundary. Those contracts are spread across reducer comments and implementation files despite meeting the repository's explicit MODULE threshold.",
+      "proposedDirection": "Add character-create/MODULE.md covering provider/reducer ownership, step composition, conditional spell navigation, reset invariants, validation and buildCreateInput boundaries, and focused test seams; regenerate MODULE-INDEX.md.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[14]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "Character creation is a 21-file multi-step feature without a local MODULE document.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 042 — hint only",
+        "looks close to leaf 045 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-003",
+      "title": "The claimed complete guide map omits two deliberate lint-ratchet guides",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/README.md",
+          "line": 13,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The docs landing page calls ai-harness.md the authoritative single-source inventory of every guide."
+        },
+        {
+          "path": "docs/README.md",
+          "line": 29,
+          "endLine": 31,
+          "measurement": null,
+          "note": "It explicitly claims the ai-harness Guides table indexes all task recipes."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 359,
+          "endLine": 396,
+          "measurement": null,
+          "note": "The guide inventory names lint-ratchet.md and lint-ratchet-adoption.md but has no entries for the merge runbook or internals reference."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-merges.md",
+          "line": 1,
+          "endLine": 19,
+          "measurement": null,
+          "note": "This is a substantive operator runbook for merge drivers, truth-up hooks, recovery, and portable merge handling."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-reference.md",
+          "line": 1,
+          "endLine": 12,
+          "measurement": null,
+          "note": "This is a substantive internals reference covering the kernel, registry, CI, metrics, identity, parsers, and rollout."
+        },
+        {
+          "path": "docs/guides",
+          "line": null,
+          "endLine": null,
+          "measurement": "Two guide files lack canonical docs/guides references in ai-harness.md (`comm -23 <(find /workspace/docs/guides -maxdepth 1 -type f -name '*.md' -printf 'docs/guides/%f\\n' | sort) <(rg -o 'docs/guides/[a-z0-9-]+\\.md' /workspace/docs/ai-harness.md | sort -u)`): lint-ratchet-merges.md and lint-ratchet-reference.md",
+          "note": "The omission is exactly the two intentionally separated ratchet guides."
+        },
+        {
+          "path": "scripts/drift-ai/harness-freshness.ts",
+          "line": 134,
+          "endLine": 151,
+          "measurement": null,
+          "note": "The freshness check reports files with no full-path reference anywhere in ai-harness.md but does not enforce inventory-table membership."
+        }
+      ],
+      "problem": "The docs front door promises a complete, single-source guide map, yet two operationally distinct lint-ratchet guides are absent. Readers cannot discover merge recovery or the internals reference by task, and the freshness sensor checks file-wide references rather than inventory membership.",
+      "proposedDirection": "Add dedicated inventory rows for the merge runbook and internals reference, preserving their distinct audiences. Tighten or clarify the freshness contract so a stray reference cannot satisfy a claim that the Guides table indexes every guide.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[8]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The claimed complete guide inventory omits two of 24 guides.",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "ruling",
+          "ref": "CQ25-78",
+          "residual": "CQ25-78 preserves four audience-partitioned lint-ratchet guides. This candidate honors that ruling and only makes the two omitted guides discoverable; it does not fold them together."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 094 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-004",
+      "title": "The structured-logging control inventory omits its script-logger import policy",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "eslint-rules/structured-logging.js",
+          "line": 178,
+          "endLine": 187,
+          "measurement": null,
+          "note": "The rule's published description and principle describe static-message and direct-console policy only."
+        },
+        {
+          "path": "eslint-rules/structured-logging.js",
+          "line": 199,
+          "endLine": 210,
+          "measurement": null,
+          "note": "The same rule defines noScriptLoggerImport and enforces it through a separate ImportDeclaration visitor."
+        },
+        {
+          "path": "docs/generated/harness-controls.md",
+          "line": 412,
+          "endLine": 426,
+          "measurement": null,
+          "note": "The generated control inventory repeats the incomplete principle, propagating the omission to the authoritative documentation surface."
+        }
+      ],
+      "problem": "The local rule enforces a path-sensitive ban on createScriptLogger imports, but its metadata and generated inventory advertise only message-shape and console policy. Reviewers and rule authors cannot discover the third policy from the documented control contract and may misclassify failures or duplicate the restriction elsewhere.",
+      "proposedDirection": "Extend the rule description and principle to name the createScriptLogger path restriction, or split that restriction into a separately named control if ownership warrants it, then regenerate the harness inventory.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[0]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "structured-logging combines static-message, console-use, and script-import controls — valuable but lower-ranked than the broader rule-authoring and concurrency findings",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-005",
+      "title": "Max-lines exception reasons are accumulating per-change history instead of current rationale",
+      "area": "harness",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "eslint-config/max-lines-exceptions.baseline.json",
+          "line": 147,
+          "endLine": 159,
+          "measurement": null,
+          "note": "Two live reasons append implementation deltas (+1/+4) and a named ux-audit change to the durable exception justification."
+        },
+        {
+          "path": "eslint-config/max-lines-exceptions-codec.js",
+          "line": 101,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The shared parser checks only that reason is nonblank, so changelog-shaped prose is retained like a durable rationale."
+        },
+        {
+          "path": "scripts/max-lines-exceptions-core.ts",
+          "line": 73,
+          "endLine": 81,
+          "measurement": null,
+          "note": "Baseline updates copy each reason through unchanged, allowing per-change clauses to accumulate across cap updates."
+        }
+      ],
+      "problem": "The reason field is review metadata explaining why an oversized file remains exceptional, but two entries mix that current justification with historical line deltas and ticket-specific implementation prose. Later reviewers inherit archaeology instead of a concise statement of the live boundary and split condition.",
+      "proposedDirection": "Rewrite the affected reasons as present-tense structural justifications and document that cap adjustments update current rationale rather than append change history; keep commit history as the history source.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[3]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "max-lines baseline reasons have become per-change changelog prose — lower-value churn contributor",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-43",
+          "residual": "The prior max-lines slice moves merge-driver machinery and explicitly makes no eslint-config edits; it does not clean or govern exception-reason content."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-006",
+      "title": "Smoke-subject parsing and matching still have two correctness owners",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/smoke-subject-headers.ts",
+          "line": 33,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The generator owns subject tokenization plus repo-relative POSIX validation."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 40,
+          "endLine": 42,
+          "measurement": null,
+          "note": "The fixture precondition declares its own smoke-subject header regex rather than consuming the generator parser."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 106,
+          "endLine": 111,
+          "measurement": null,
+          "note": "The fixture precondition independently tokenizes smoke subjects with weaker validation."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 125,
+          "endLine": 129,
+          "measurement": null,
+          "note": "Changed-mode selection defines exact-path and trailing-slash-prefix matching privately."
+        },
+        {
+          "path": "scripts/path-policy/fixture-shell-dependencies.ts",
+          "line": 151,
+          "endLine": 161,
+          "measurement": null,
+          "note": "Fixture coverage hand-copies the selector semantics and claims exact parity in a comment without sharing implementation."
+        }
+      ],
+      "problem": "The generated registry and fixture-copy precondition interpret the same # smoke-subjects syntax through separate parsers, while changed-mode selection and fixture coverage separately encode the same exact-or-directory match. A syntax or normalization change can make the validator approve metadata that selects differently, undermining the check meant to prove copied inputs select their smoke.",
+      "proposedDirection": "Export one smoke-subject line parser and one normalized subject-match predicate from the path-policy vocabulary module; have generation, fixture validation, and query selection consume them while retaining the generator's stronger diagnostics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[10]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "smoke-subject syntax and matching have multiple owners — concrete but lower-ranked than the duplicate copy models",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-119",
+          "residual": "H14 centralized smoke-test filename predicates and path normalization; it did not centralize smoke-subject header parsing or exact/directory subject matching."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 151 — hint only",
+        "looks close to leaf 152 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R5C-007",
+      "title": "Codemod write plans normalize imports redundantly through three passes",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/codemods/structured-logging-fix-transforms.ts",
+          "line": 324,
+          "endLine": 328,
+          "measurement": null,
+          "note": "The structured-logging transformer sorts import blocks while constructing its rewrite result."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/run.ts",
+          "line": 26,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Expand-barrel likewise sorts each plan before passing it to the shared writer."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-writes.ts",
+          "line": 135,
+          "endLine": 161,
+          "measurement": null,
+          "note": "The shared writer sorts every plan again and, for real writes, then launches ESLint's simple-import-sort rules."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-schema-imports.ts",
+          "line": 125,
+          "endLine": 167,
+          "measurement": null,
+          "note": "sortImportBlocks reparses the full source with a fresh ts-morph Project and rewrites import ranges, so duplicate calls are substantive repeated work."
+        }
+      ],
+      "problem": "Structured-logging and expand-barrel parse and rewrite imports at transformation time and immediately repeat the identical custom pass in writeOrPreviewFiles; successful real writes then apply another policy through ESLint. This wastes full-file parsing, obscures normalization ownership, and lets dry-run or fallback output differ from successful written output without an explicit contract.",
+      "proposedDirection": "Make the shared writer the sole owner of plan normalization and remove producer-side sortImportBlocks calls. Then document or characterize the remaining custom-sort/ESLint relationship so preview and write semantics have one deliberate contract.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R5C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[13]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "codemods contain multiple import-normalization paths — lower-ranked after extracting the broader codemod-core finding",
+          "rejectionReason": "none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 149 — hint only"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly the ten assigned lane-07, lane-08, and lane-09 cuts. No tests or builds were run, no files were modified, and the final git status remained clean.",
+    "R5C-001 independently reconstructs the defect from source, but authored leaf 265 appears to own the same underlying finding; this is recorded only as a dedup hint.",
+    "For R5C-002, the 21-file count excludes adjacent *.test.ts and *.test.tsx files; page composition and each ownership boundary were sampled rather than treating directory size alone as sufficient.",
+    "R5C-003 preserves CQ25-78's audience-partitioned lint-ratchet guides and does not propose folding them together.",
+    "The lane-08 recorder item was checked across the guide, CLI, parser, evaluator, committed trace, pilot report, and authored leaf 176; it remains an unsupported feature idea rather than a reconstructed defect.",
+    "The lane-08 abstraction bundle was checked individually against CQ25-187, CQ25-190, CQ25-193 and the current implementations; no overturn evidence was found.",
+    "CQ25-119/H14 was opened to distinguish its landed filename/path-normalization scope from R5C-006's residual header-parser and subject-matcher duplication."
+  ]
+}

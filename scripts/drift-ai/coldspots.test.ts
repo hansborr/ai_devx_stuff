@@ -1,9 +1,9 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { runColdspots } from "./coldspots.js";
 import type { ColdspotsAdvisory, ColdspotSection, StaleMarkerSection } from "./coldspots-format.js";
 import type { GitRunner } from "./git-changed-scope.js";
@@ -15,6 +15,7 @@ import { runDriftAi } from "./runner.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 const NOW_MS = Date.parse("2026-05-29T00:00:00-07:00");
+const tmpRepo = registerTempRootCleanup();
 
 function isoDaysAgo(days: number): string {
   return new Date(NOW_MS - days * DAY_MS).toISOString();
@@ -44,7 +45,7 @@ function commitBlock(
 }
 
 function coldspotsGit(logByWindow: Readonly<Record<number, string>>): GitRunner {
-  const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-coldspots-"));
+  const repoRoot = tmpRepo.makeTempRepo("drift-coldspots-");
   return (args) => {
     const key = args.join(" ");
     if (key === "rev-parse --show-toplevel") return `${repoRoot}\n`;
@@ -236,7 +237,7 @@ describe("runColdspots", () => {
   });
 
   it("returns exit code 2 for invalid --config JSON", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "drift-coldspots-cfg-"));
+    const dir = tmpRepo.makeTempRepo("drift-coldspots-cfg-");
     const configPath = path.join(dir, "drift-ai.config.json");
     writeFileSync(configPath, "{ not valid json");
     const result = runColdspots({
@@ -289,7 +290,7 @@ function markersGit(opts: {
   blobless?: boolean;
   dirtyPaths?: readonly string[];
 }): { git: GitRunner; blamed: string[] } {
-  const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-coldspots-markers-"));
+  const repoRoot = tmpRepo.makeTempRepo("drift-coldspots-markers-");
   const blamed: string[] = [];
   const dirtyPaths = new Set(opts.dirtyPaths ?? []);
   const partialFilter =

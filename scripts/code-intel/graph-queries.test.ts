@@ -104,6 +104,9 @@ describe("graph-queries", () => {
     expect(output).not.toContain(" -- server:");
     expect(output).not.toContain("packages/server/src/direct.test.ts");
     expect(output).not.toContain("packages/client/src/core-view.ts");
+    // dependents is file-anchored and guarded at input, so it carries no
+    // scope statement; only discovery-mode (def --name) output does.
+    expect(output).not.toContain("Scope:");
 
     const filteredJsonOutput = runCodeIntel(
       [
@@ -425,6 +428,9 @@ describe("graph-queries", () => {
     const directOutput = runCodeIntel(["tests", target, "--direct"], context);
     expect(directOutput).toContain("packages/client/src/core.test.ts direct candidate");
     expect(directOutput).not.toContain("packages/server/src/core-helper.test.ts");
+    // tests is file-anchored and guarded at input, so it carries no scope
+    // statement; only discovery-mode (def --name) output does.
+    expect(directOutput).not.toContain("Scope:");
 
     const limitedOutput = runCodeIntel(["tests", target, "--depth", "2", "--limit", "1"], context);
     expect(limitedOutput).toContain("tests packages/shared/src/rules/core.ts (3 results)");

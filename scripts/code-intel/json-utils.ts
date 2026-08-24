@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from "node:fs";
 
+import { isRecord } from "../lib/records.js";
 import type { JsonRecord } from "./types.js";
 
 export function readJsonObject(filePath: string): JsonRecord {
@@ -22,8 +23,4 @@ export function arrayProperty(record: JsonRecord, key: string): unknown[] | unde
 export function stringProperty(record: JsonRecord, key: string): string | undefined {
   const value = record[key];
   return typeof value === "string" ? value : undefined;
-}
-
-export function isRecord(value: unknown): value is JsonRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }

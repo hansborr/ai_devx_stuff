@@ -12,8 +12,12 @@
 # This list is looped over by the install dispatcher
 # (install-all-merge-drivers.sh), the truth-up dispatcher
 # (run-baseline-truth-up.sh), and the .husky/post-commit merge-marker sweep.
-# Before this registry those names were hand-maintained as three parallel lists;
-# adding a fifth baseline artifact is now a one-line change here.
+# Adding or renaming a family also requires its merge-driver descriptor,
+# truth-up metadata/handler, merge-CLI table entry, baseline-path map, and
+# conventional install/check/lib shims. Package-owned families deliberately
+# replace some of those surfaces with tombstones or executable shims. Keep the
+# per-key policy and complete checklist in
+# scripts/baseline-family-parity.test.ts aligned with this registry.
 #
 # Sourced, never executed: it only assigns MUSI_BASELINE_DRIVERS. Keep it free of
 # `set` options and side effects so any hook can source it safely.

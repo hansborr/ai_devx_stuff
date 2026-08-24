@@ -1,21 +1,26 @@
-import { createHash } from "node:crypto";
-import { existsSync, readdirSync, realpathSync, statSync } from "node:fs";
+// Where `--latest` looks is decided entirely by the environment. The
+// per-worktree state-path protocol that produces those directories (repo root
+// -> canonical identity path -> sha256 worktree key -> MUSI_VERIFY_STATE_ROOT
+// -> `<state-root>/<name>.<key>`) has exactly one runtime implementation:
+// scripts/lib/verify-state-paths.sh owns it, and callers reach it through
+// scripts/lib/verify-metadata.sh, that protocol's public entry point. It
+// crosses into this process as an env contract that scripts/logs-audit.sh
+// exports for `bun run logs:audit`. This module deliberately owns no
+// derivation: a TypeScript copy of the protocol used to live here behind a
+// keep-in-sync comment, had already drifted on its fallback and empty-value
+// edges, and drifted silently — a wrong directory and an empty one look
+// identical from here. Missing env is therefore reported, never guessed.
+import { readdirSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
-import { cwd, env as runtimeProcessEnv } from "node:process";
-
-import { defaultGitRunner, readRepoRoot } from "../lib/git.js";
+import { env as runtimeProcessEnv } from "node:process";
 
 const JSONL_LOG_EXTENSION = ".jsonl";
-const STANDARD_VERIFY_LOG_DIR_NAME = "musi-pre-commit-logs";
-const STANDARD_BUN_LOG_DIR_NAME = "musi-bun-logs";
 
 export type LogsAuditLatestEnv = {
   readonly AI_BUN_LOG_DIR?: string;
   readonly MUSI_STANDARD_BUN_LOG_DIR?: string;
   readonly MUSI_STANDARD_VERIFY_LOG_DIR?: string;
   readonly MUSI_VERIFY_LOG_DIR?: string;
-  readonly MUSI_VERIFY_STATE_ROOT?: string;
-  readonly REPO_ROOT?: string;
 };
 
 type LatestLogCandidate = {
@@ -27,54 +32,14 @@ function runtimeEnv(): LogsAuditLatestEnv {
   return runtimeProcessEnv;
 }
 
-function sha256Hex(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
-}
-
-function repoRootForState(env: LogsAuditLatestEnv): string {
-  if (env.REPO_ROOT !== undefined && env.REPO_ROOT.length > 0) return env.REPO_ROOT;
-  try {
-    // "discarded": outside a repository this probe is an expected outcome the
-    // fallback below already handles, so git's fatal must not reach stderr.
-    return readRepoRoot(defaultGitRunner({ stderr: "discarded" }));
-  } catch {
-    return cwd() || "/workspace";
-  }
-}
-
-// Canonicalize a filesystem path via realpathSync, deferring to a caller-chosen
-// fallback when the path cannot be resolved. The worktree-identity caller keeps
-// the raw path; the log-root caller resolves to an absolute path so distinct
-// spellings of the same root still dedupe.
-function realpathOrFallback(value: string, fallback: (value: string) => string): string {
-  try {
-    return realpathSync(value);
-  } catch {
-    return fallback(value);
-  }
-}
-
-function worktreeStateKey(env: LogsAuditLatestEnv): string {
-  const repoRoot = repoRootForState(env);
-  const identity = existsSync(repoRoot) ? realpathOrFallback(repoRoot, (value) => value) : repoRoot;
-  return sha256Hex(identity);
-}
-
-function standardStateRoot(env: LogsAuditLatestEnv): string {
-  const rawStateRoot = env.MUSI_VERIFY_STATE_ROOT ?? "/tmp";
-  return rawStateRoot.replace(/\/+$/u, "") || "/";
-}
-
-// Standalone fallback for direct `bun run logs:audit --latest` calls. Shell
-// wrappers export MUSI_STANDARD_*_LOG_DIR; keep this in sync with
-// scripts/lib/verify-metadata.sh's musi_standard_state_path contract.
-function standardStatePath(name: string, stateRoot: string, worktreeKey: string): string {
-  const basename = `${name}.${worktreeKey}`;
-  return stateRoot === "/" ? `/${basename}` : path.join(stateRoot, basename);
-}
-
+// Canonicalize a root so distinct spellings of the same directory still dedupe;
+// an unresolvable root falls back to its absolute form rather than dropping out.
 function canonicalLogRootKey(root: string): string {
-  return realpathOrFallback(root, (value) => path.resolve(value));
+  try {
+    return realpathSync(root);
+  } catch {
+    return path.resolve(root);
+  }
 }
 
 function uniqueLatestLogRoots(roots: readonly string[]): readonly string[] {
@@ -89,23 +54,37 @@ function uniqueLatestLogRoots(roots: readonly string[]): readonly string[] {
   return unique;
 }
 
-function defaultLatestLogRoots(env: LogsAuditLatestEnv): readonly string[] {
-  let cachedStateRoot: string | undefined;
-  let cachedWorktreeKey: string | undefined;
-  const fallbackStandardPath = (name: string): string => {
-    cachedStateRoot ??= standardStateRoot(env);
-    cachedWorktreeKey ??= worktreeStateKey(env);
-    return standardStatePath(name, cachedStateRoot, cachedWorktreeKey);
-  };
-  const verifyLogDir =
-    env.MUSI_VERIFY_LOG_DIR ??
-    env.MUSI_STANDARD_VERIFY_LOG_DIR ??
-    fallbackStandardPath(STANDARD_VERIFY_LOG_DIR_NAME);
-  const hookLogDir =
-    env.AI_BUN_LOG_DIR ??
-    env.MUSI_STANDARD_BUN_LOG_DIR ??
-    fallbackStandardPath(STANDARD_BUN_LOG_DIR_NAME);
-  return uniqueLatestLogRoots([verifyLogDir, hookLogDir]);
+// `${VAR:-fallback}` semantics: a set-but-empty variable is unset. Every shell
+// reader of these same names spells the fallback that way (scripts/verify.sh,
+// scripts/land.sh, scripts/verify-logs.sh, scripts/ai-hooks/stop-policy.sh,
+// scripts/ai-hooks/session-state.sh), so an override that arrives empty must
+// fall through to the standard name here too. `??` would instead let the empty
+// string win and then drop the whole log family — the writer would use the
+// standard dir while `--latest` never looked at it.
+function firstConfiguredDir(
+  override: string | undefined,
+  standard: string | undefined,
+): string | undefined {
+  return override !== undefined && override.length > 0 ? override : standard;
+}
+
+/**
+ * The verify and hook log roots `--latest` will search, read purely from the
+ * environment: a per-caller override first, then the standard name the
+ * `bun run logs:audit` shim exports. An empty result means the env contract
+ * never arrived — the caller reports that rather than searching a guess.
+ */
+export function defaultLatestLogRoots(env: LogsAuditLatestEnv = runtimeEnv()): readonly string[] {
+  const verifyLogDir = firstConfiguredDir(
+    env.MUSI_VERIFY_LOG_DIR,
+    env.MUSI_STANDARD_VERIFY_LOG_DIR,
+  );
+  const hookLogDir = firstConfiguredDir(env.AI_BUN_LOG_DIR, env.MUSI_STANDARD_BUN_LOG_DIR);
+  return uniqueLatestLogRoots(
+    [verifyLogDir, hookLogDir].flatMap((root) =>
+      root === undefined || root.length === 0 ? [] : [root],
+    ),
+  );
 }
 
 function collectLatestLogCandidates(root: string): readonly LatestLogCandidate[] {
@@ -125,14 +104,15 @@ function collectLatestLogCandidates(root: string): readonly LatestLogCandidate[]
 }
 
 // Select the single newest run's log in one pass. The caller (`resolveRunFiles`
-// in scripts/logs-audit.ts) audits every returned file, so returning multiple
-// files on an exact same-millisecond tie across roots would audit two unrelated
-// logs; pick the lexicographically smaller path as a stable, deterministic
-// tiebreak. The return type stays an array so an empty result still means "no
-// compatible logs" for the caller.
-export function findLatestCompatibleLogFiles(
-  roots: readonly string[] = defaultLatestLogRoots(runtimeEnv()),
-): readonly string[] {
+// in scripts/logs-audit/logs-audit-runner.ts) audits every returned file, so
+// returning multiple files on an exact same-millisecond tie across roots would
+// audit two unrelated logs; pick the lexicographically smaller path as a stable,
+// deterministic tiebreak. The return type stays an array so an empty result
+// still means "no compatible logs" for the caller. `roots` is required:
+// resolving them is the caller's job precisely so "no roots configured" stays a
+// distinguishable condition rather than collapsing into "searched and found
+// nothing".
+export function findLatestCompatibleLogFiles(roots: readonly string[]): readonly string[] {
   const candidates = uniqueLatestLogRoots(roots).flatMap((root) =>
     collectLatestLogCandidates(root),
   );

@@ -1,6 +1,7 @@
 # 08. Client form primitives are re-invented per feature folder, and the generic ones are parked where they were first needed
 
-Status: Open under [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slices
+Status: **Landed 2026-07-27 on branch `feat/cq-slice-h` (merge
+`d539cfdbd`)** through [CLIENT-CLUSTER-PLAN.md](./CLIENT-CLUSTER-PLAN.md) slices
 **F1 and F2**; the plan supersedes and shrinks this leaf (L→M). **Steps 6 and 7
 are dropped permanently**; do not schedule the ~49-site form sweep or loose-root
 regrouping from the `## Proposed direction` below.

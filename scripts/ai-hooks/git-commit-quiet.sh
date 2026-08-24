@@ -22,8 +22,12 @@ set -u
 
 HOOK_LIB="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT=$(git -C "$HOOK_LIB" rev-parse --show-toplevel 2>/dev/null || git rev-parse --show-toplevel 2>/dev/null || echo "${CLAUDE_PROJECT_DIR:-/workspace}")
+MUSI_VERIFY_LOG_DIR_OVERRIDE="${MUSI_VERIFY_LOG_DIR:-}"
+AI_PRECOMMIT_LOG_DIR_OVERRIDE="${AI_PRECOMMIT_LOG_DIR:-}"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/common.sh"
+# shellcheck source=/dev/null
+. "$HOOK_LIB/claude-adapter.sh"
 # shellcheck source=/dev/null
 . "$HOOK_LIB/policy.sh"
 # shellcheck source=/dev/null
@@ -293,8 +297,12 @@ fi
 # back to a raw tail only if there's no structured output.
 LOG_DIR="$AI_PRECOMMIT_LOG_DIR"
 OUTPUT=$(cat "$OUTFILE" 2>/dev/null)
+EVIDENCE_WORK_ROOT=""
+[ "$ATTRIBUTED" -eq 1 ] && EVIDENCE_WORK_ROOT="$WORK_ROOT"
 
-if SUMMARY=$(ai_precommit_failure_summary "$OUTPUT" "$LOG_DIR"); then
+if SUMMARY=$(ai_precommit_failure_summary \
+  "$OUTPUT" "$LOG_DIR" "$EVIDENCE_WORK_ROOT" \
+  "$MUSI_VERIFY_LOG_DIR_OVERRIDE" "$AI_PRECOMMIT_LOG_DIR_OVERRIDE"); then
   :
 elif [ "$EXIT_CODE" -eq 0 ] && [ "$HEAD_AFTER" = "$HEAD_BEFORE" ]; then
   # bash -c reported success but HEAD didn't move in WORK_ROOT. That is only

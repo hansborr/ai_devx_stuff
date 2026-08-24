@@ -37,6 +37,19 @@
       "minLines": 3,
       "excludePrefixes": ["docs/generated/", "fixtures/generated/"]
     },
+    "layer-direction": {
+      "rules": [
+        {
+          "id": "domain-must-not-import-http",
+          "sourceLayer": "domain",
+          "sourcePrefix": "src/domain/",
+          "targetLayer": "http",
+          "targetPrefix": "src/http/",
+          "hint": "move the dependency down: keep domain logic independent of the http layer; extract shared contracts into src/domain, or move the caller into src/http."
+        }
+      ],
+      "allowedEdges": [["src/domain/legacy-adapter.ts", "src/http/client.ts"]]
+    },
     "near-duplicates": {
       "minLines": 10,
       "minTokens": 60,

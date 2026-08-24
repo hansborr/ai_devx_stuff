@@ -1,0 +1,140 @@
+{
+  "step": "2a-r2",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "numberingBase": 230,
+  "entries": [
+    {
+      "promotionId": "R2B-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "107-ai-hook-policy-2121-line-shell-parsing.md",
+      "leafNumber": "107",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-002",
+      "ruling": "new-leaf",
+      "leafFile": "230-single-source-edited-path-decoding-and-eslint-file.md",
+      "leafNumber": "230",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-003",
+      "ruling": "new-leaf",
+      "leafFile": "231-fail-closed-when-similarity-ts-output-no-longer.md",
+      "leafNumber": "231",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-004",
+      "ruling": "new-leaf",
+      "leafFile": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+      "leafNumber": "232",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-005",
+      "ruling": "new-leaf",
+      "leafFile": "233-bulk-load-encounter-participants-before-character.md",
+      "leafNumber": "233",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-006",
+      "ruling": "new-leaf",
+      "leafFile": "234-route-manual-combat-logs-through-encounter-combat-s.md",
+      "leafNumber": "234",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-007",
+      "ruling": "new-leaf",
+      "leafFile": "235-preserve-gridtype-through-client-map-component.md",
+      "leafNumber": "235",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-008",
+      "ruling": "new-leaf",
+      "leafFile": "236-use-tanstack-router-for-the-campaign-homebrew.md",
+      "leafNumber": "236",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-009",
+      "ruling": "new-leaf",
+      "leafFile": "237-associate-homebrew-validation-errors-with-their.md",
+      "leafNumber": "237",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-010",
+      "ruling": "new-leaf",
+      "leafFile": "238-share-class-and-subclass-caster-selection-fields.md",
+      "leafNumber": "238",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2B-011",
+      "ruling": "new-leaf",
+      "leafFile": "239-extract-the-duplicated-homebrew-confirm-by-name.md",
+      "leafNumber": "239",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-001",
+      "ruling": "new-leaf",
+      "leafFile": "240-classify-the-below-low-trivial-encounter-tier-as.md",
+      "leafNumber": "240",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-002",
+      "ruling": "new-leaf",
+      "leafFile": "241-share-the-repeated-initiative-tracker-participant.md",
+      "leafNumber": "241",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-003",
+      "ruling": "new-leaf",
+      "leafFile": "242-derive-slow-test-project-roots-with-fileurltopath.md",
+      "leafNumber": "242",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-004",
+      "ruling": "new-leaf",
+      "leafFile": "243-correct-prototype-headers-that-deny-registered.md",
+      "leafNumber": "243",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-005",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "189-downstream-packages-keep-semantic-copies.md",
+      "leafNumber": "189",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-006",
+      "ruling": "new-leaf",
+      "leafFile": "244-let-multiclass-characters-choose-their-unarmored.md",
+      "leafNumber": "244",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R2C-007",
+      "ruling": "new-leaf",
+      "leafFile": "245-reject-empty-fixture-and-smoke-discovery-sets.md",
+      "leafNumber": "245",
+      "mergedPromotionIds": []
+    }
+  ],
+  "rejected": [
+    "R2C-008",
+    "R2D01-001",
+    "R2D01-002",
+    "R2D01-003",
+    "R2D01-004"
+  ]
+}

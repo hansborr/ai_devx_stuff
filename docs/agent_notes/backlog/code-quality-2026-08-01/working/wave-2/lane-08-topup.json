@@ -1,0 +1,614 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-08-cross-cutting",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L08-101",
+      "title": "Shared runtime-neutrality enforcement permits Node dependencies",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/tsconfig.json",
+          "line": 3,
+          "endLine": 7,
+          "measurement": null,
+          "note": "The production shared project explicitly grants Node ambient types."
+        },
+        {
+          "path": "eslint-config/package-boundary-configs.js",
+          "line": 114,
+          "endLine": 163,
+          "measurement": null,
+          "note": "The runtime-neutrality policy blocks client/server frameworks and selected browser globals, but contains no equivalent Node builtin-import or Node-global restriction."
+        },
+        {
+          "path": "packages/shared/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "Pinned scan of 146 TypeScript files found Node/global usage only in two test-tier sentinels; none of the 73 production-like files matched node:, Buffer, process, NodeJS, __dirname, or __filename.",
+          "note": "Production shared code is currently runtime-neutral, so enforcing the intended contract has no migration debt."
+        },
+        {
+          "path": "packages/shared/src/test-tier-sentinel.test.ts",
+          "line": 8,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The current Node ambient consumer is test-only process.env wiring, which can remain under a test-specific configuration."
+        }
+      ],
+      "problem": "The shared package is described and linted as runtime-neutral, but enforcement is one-sided: browser dependencies fail while process, Buffer, node:fs, or another server-only dependency can compile and lint. A new contributor can therefore break browser portability without crossing an enforced package boundary.",
+      "proposedDirection": "Ban Node builtins and Node-only globals in production shared files while retaining Node types for test-only configurations or targeted sentinel exclusions. Preserve the existing browser and framework restrictions.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-102",
+      "title": "Worktree provisioning is hard-wired to devcontainer credentials despite the root Compose setup",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 222,
+          "endLine": 239,
+          "measurement": null,
+          "note": "admin_url unconditionally requires the primary checkout's .devcontainer/.env and reads DATABASE_URL only from it."
+        },
+        {
+          "path": ".env.example",
+          "line": 5,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The root setup already defines PostgreSQL credentials and development, test, and E2E URLs for localhost:8002."
+        },
+        {
+          "path": "docker-compose.yml",
+          "line": 1,
+          "endLine": 15,
+          "measurement": null,
+          "note": "The root Compose stack is a distinct supported database topology driven by the root .env."
+        },
+        {
+          "path": ".devcontainer/.env.example",
+          "line": 10,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The mandatory source uses the container-only db:5432 hostname, so the two env files are not safely interchangeable."
+        }
+      ],
+      "problem": "A contributor using the root Compose stack already has valid administration credentials, but worktree provisioning fails until a second devcontainer-specific env file exists. Copying that file mechanically can select the wrong hostname outside the container.",
+      "proposedDirection": "Give admin_url an explicit credential-source contract: prefer a dedicated worktree-admin URL override, retain .devcontainer/.env compatibility, and support the primary root .env when it is the active Compose topology. Validate the selected URL before writes and align banked documentation finding L07-017 with that precedence.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-5",
+        "novelty": "CQ25-5 and related CQ25-62/CQ25-63 records cover state and file-layout seams in worktree-db.sh, not its exclusive credential-source assumption; this direction also avoids the broad decomposition refused by CQ25-125/CQ25-126."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-103",
+      "title": "Add a preview/apply safety boundary to SRD backfills",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/package.json",
+          "line": 23,
+          "endLine": 28,
+          "measurement": null,
+          "note": "Two database-writing backfills are exposed immediately beside read- and generation-oriented SRD commands."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-runner.ts",
+          "line": 14,
+          "endLine": 25,
+          "measurement": null,
+          "note": "The common runner connects to serverEnv.databaseUrl and immediately invokes the mutating callback without CLI options, target confirmation, or preview mode."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-spell-combat.ts",
+          "line": 36,
+          "endLine": 57,
+          "measurement": null,
+          "note": "The spell backfill performs updateMany once per corpus row."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-monster-actions.ts",
+          "line": 47,
+          "endLine": 83,
+          "measurement": null,
+          "note": "The monster backfill overwrites four persisted fields row by row."
+        }
+      ],
+      "problem": "Contributors and harness users cannot inspect the selected database and planned change counts before these commands begin writing. The current workaround is manual DATABASE_URL inspection plus an external backup, and a wrong environment becomes observable only after mutation starts.",
+      "proposedDirection": "Use the common runner to print a sanitized host/database target and require an explicit apply flag. Add dry-run summaries to both callbacks, with transaction semantics chosen separately where their rejection behavior permits all-or-nothing execution.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-104",
+      "title": "Let lint-ratchet proposal previews evaluate third-party rules",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/propose.ts",
+          "line": 36,
+          "endLine": 49,
+          "measurement": null,
+          "note": "Proposal summaries can represent only core or local source kinds."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/propose.ts",
+          "line": 68,
+          "endLine": 77,
+          "measurement": null,
+          "note": "The proposal engine already receives the binding containing the repository's third-party plugin allowlist."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/propose.ts",
+          "line": 137,
+          "endLine": 142,
+          "measurement": null,
+          "note": "Third-party rule IDs are rejected with an error that names a possible future --plugin option."
+        },
+        {
+          "path": "docs/guides/lint-ratchet.md",
+          "line": 95,
+          "endLine": 107,
+          "measurement": null,
+          "note": "The dry-run command documents core/local support and explicitly defers third-party previews."
+        },
+        {
+          "path": "docs/guides/lint-ratchet.md",
+          "line": 289,
+          "endLine": 297,
+          "measurement": null,
+          "note": "The workaround is to author the plugin allowlist and complete registry entry before existing third-party infrastructure can be exercised."
+        }
+      ],
+      "problem": "Contributors, harness users, and external adopters cannot use the proposal command to discover the scope and baseline cost of a third-party rule. Hand-authoring the allowlist, source shape, parser profile, and registry entry defeats the command's safe-preview purpose.",
+      "proposedDirection": "Add explicit plugin identity and parser-profile proposal options, validate them against the injected binding and allowlist, construct the existing third-party source shape, and emit a promotable third-party registry entry.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-105",
+      "title": "Homebrew write validation loses its type correlation before editor reads",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 223,
+          "endLine": 255,
+          "measurement": null,
+          "note": "The shared registry correlates each homebrew type with a schema only during validation, then returns an erased record."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 284,
+          "endLine": 308,
+          "measurement": null,
+          "note": "The persisted read contract exposes entry data as Record<string, unknown> rather than a type-correlated discriminated union."
+        },
+        {
+          "path": "packages/server/src/routers/homebrew.ts",
+          "line": 231,
+          "endLine": 253,
+          "measurement": null,
+          "note": "The server validates type-specific data before persistence but does not preserve that correlation in its response contract."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 77,
+          "endLine": 80,
+          "measurement": null,
+          "note": "Editor adapters consequently accept opaque persisted records at the registry boundary."
+        },
+        {
+          "path": "packages/client/src/components/homebrew",
+          "line": null,
+          "endLine": null,
+          "measurement": "Pinned exact-signature search found eight production getDefault* adapters, excluding the monster editor, that accept data?: Record<string, unknown>.",
+          "note": "The erased contract creates a repeated client-side decoding family rather than an isolated exception."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/item/item-form-data.ts",
+          "line": 131,
+          "endLine": 170,
+          "measurement": null,
+          "note": "A representative adapter manually probes and converts unknown persisted fields into editor form state."
+        }
+      ],
+      "problem": "Shared knows the relationship between a homebrew discriminator and its data schema, and server writes enforce it, but reads discard that relationship. Each editor must rebuild a partial decoder from unknown records, making additions laborious and creating competing definitions of persisted shape across shared and client.",
+      "proposedDirection": "Expose a shared typed read adapter or discriminated persisted-entry union derived from the existing registry. Make each editor receive its correlated data type, migrate the eight adapters incrementally, and preserve the deliberately separate form-state coercions covered by existing constraints.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed client cluster correlates editor form state only after getDefault; eight remaining getters still receive opaque persisted records because the shared type-to-schema relationship stops at validation."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-106",
+      "title": "Downstream packages keep semantic copies beside shared rule authorities",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/attack-roll-inputs.ts",
+          "line": 13,
+          "endLine": 18,
+          "measurement": null,
+          "note": "Generic RollMode is declared inside an attack-specific schema module."
+        },
+        {
+          "path": "packages/shared/src/rules/d20-roll.ts",
+          "line": 3,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Generic d20 rules must import the type from that attack-specific location."
+        },
+        {
+          "path": "packages/client/src/components/sheet/roll-context-menu.tsx",
+          "line": 7,
+          "endLine": 50,
+          "measurement": null,
+          "note": "The client independently re-declares and operates on the same three-value roll-mode union."
+        },
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 12,
+          "endLine": 12,
+          "measurement": null,
+          "note": "Shared exports MAX_SPELL_LEVEL."
+        },
+        {
+          "path": "packages/server/src/utils/spell-slot-sync.ts",
+          "line": 7,
+          "endLine": 17,
+          "measurement": null,
+          "note": "Server spell-slot synchronization encodes the same maximum as a local literal 9."
+        },
+        {
+          "path": "packages/shared/src/map/area-template.ts",
+          "line": 19,
+          "endLine": 20,
+          "measurement": null,
+          "note": "Shared owns DEFAULT_TEMPLATE_SIZE_FT."
+        },
+        {
+          "path": "packages/client/src/stores/map-canvas-store.ts",
+          "line": 206,
+          "endLine": 208,
+          "measurement": null,
+          "note": "The client defines a separate DEFAULT_TEMPLATE_SIZE for the same default."
+        },
+        {
+          "path": "packages/shared/src/schemas/monster.ts",
+          "line": 102,
+          "endLine": 113,
+          "measurement": null,
+          "note": "Shared defines the closed MONSTER_SPELL_FREQUENCIES vocabulary."
+        },
+        {
+          "path": "packages/client/src/components/campaign/npcs/monster-spellcasting-block.tsx",
+          "line": 8,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The client mirrors the frequency vocabulary and presentation order instead of consuming the authority."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/monster/monster-form-data.ts",
+          "line": 101,
+          "endLine": 123,
+          "measurement": null,
+          "note": "CR-to-proficiency rules remain client-local while the adjacent CR-to-XP authority is imported from shared."
+        }
+      ],
+      "problem": "Shared exports several rule constants or closed vocabularies, yet server and client retain semantic copies or cannot discover the neutral type because it lives in an attack-specific module. These copies look harmless to a new contributor but can drift independently across package boundaries.",
+      "proposedDirection": "Move RollMode to a neutral d20 contract, import shared constants and frequency tuples directly, and move CR-to-proficiency alongside shared CR-to-XP rules. Add a narrow semantic-straggler check to the existing authority-consolidation workflow rather than introducing a general constants package.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-110",
+        "novelty": "The routed sweep identifies concrete semantic stragglers left after the authority-consolidation ruling: RollMode, maximum spell level, template size, monster spell frequencies, and CR proficiency. CQ25-115, CQ25-117, and CQ25-182 cover adjacent landed clusters but not these remaining consumers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-107",
+      "title": "Make combat history navigable through one paginated read model",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/encounter.ts",
+          "line": 179,
+          "endLine": 185,
+          "measurement": null,
+          "note": "EncounterDetail optionally carries an embedded logs array."
+        },
+        {
+          "path": "packages/server/src/utils/encounter-query.ts",
+          "line": 132,
+          "endLine": 138,
+          "measurement": null,
+          "note": "Every detail query nevertheless includes the complete combatLogs relation without a limit."
+        },
+        {
+          "path": "packages/server/src/utils/encounter-query.ts",
+          "line": 265,
+          "endLine": 285,
+          "measurement": null,
+          "note": "The mapper always serializes those logs into encounter detail."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.ts",
+          "line": 275,
+          "endLine": 288,
+          "measurement": null,
+          "note": "The separate combat-log API defaults to 50 entries and supports a cursor."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/combat-log.ts",
+          "line": 90,
+          "endLine": 108,
+          "measurement": null,
+          "note": "The service returns an ascending page and nextCursor."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/encounter-detail-view.tsx",
+          "line": 233,
+          "endLine": 266,
+          "measurement": null,
+          "note": "The client issues one listCombatLogs query and passes only that first page to the panel."
+        },
+        {
+          "path": "packages/client/src/components/campaign/combat/combat-log-panel.tsx",
+          "line": 265,
+          "endLine": 291,
+          "measurement": null,
+          "note": "The panel renders the supplied page but exposes no continuation control."
+        }
+      ],
+      "problem": "DMs and players get two competing history paths: encounter detail pays to load the full history but the UI ignores it, while the visible panel stops after the API's first 50 ascending records despite receiving a next cursor. Long encounters therefore make later history unreachable through the panel.",
+      "proposedDirection": "Remove logs from EncounterDetail and its unbounded include, make listCombatLogs the sole read model, and give the panel an infinite-query or explicit load-more flow with a clearly chosen newest-versus-oldest initial-page policy.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-108",
+      "title": "Turn the disabled stat-block placeholder into a party reveal workflow",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/vtt/in-vtt-drawer.tsx",
+          "line": 50,
+          "endLine": 71,
+          "measurement": null,
+          "note": "The VTT contains a disabled stat-block action presented as a future capability."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-context-menu.tsx",
+          "line": 24,
+          "endLine": 39,
+          "measurement": null,
+          "note": "Current token stat-block access is restricted to DMs."
+        },
+        {
+          "path": "packages/client/src/lib/drawer-perms.ts",
+          "line": 33,
+          "endLine": 35,
+          "measurement": null,
+          "note": "Non-DM users are denied monster stat-block drawer access."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/monster-stat-block-drawer.tsx",
+          "line": 139,
+          "endLine": 165,
+          "measurement": null,
+          "note": "A reusable monster stat-block renderer already exists."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/monster-hp-control-strip.tsx",
+          "line": 16,
+          "endLine": 53,
+          "measurement": null,
+          "note": "DM mutation controls are already isolated enough to omit from a spectator-safe rendering mode."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 304,
+          "endLine": 332,
+          "measurement": null,
+          "note": "Encounter participant mutations already persist and broadcast participant state changes."
+        }
+      ],
+      "problem": "When a DM wants players to inspect a discovered creature, the current workaround is relaying selected statistics through chat or voice. Players cannot use the existing renderer because access is all-or-nothing and includes DM-only information and controls.",
+      "proposedDirection": "Persist an explicit per-participant reveal state, broadcast it through the existing encounter update path, and add a spectator-safe drawer mode that hides HP and mutation controls. Keep reveal distinct from ordinary token visibility so map information and rules information remain independently controllable.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-109",
+      "title": "Let players choose Strength or Dexterity for Finesse attacks",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 29,
+          "endLine": 39,
+          "measurement": null,
+          "note": "The shared rule implementation silently chooses the better Strength or Dexterity modifier."
+        },
+        {
+          "path": "packages/server/src/seed/data/reference/5e-SRD-Weapon-Properties.json",
+          "line": 9,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The seeded Finesse rule text states that the attacker chooses which ability to use."
+        },
+        {
+          "path": "packages/shared/src/schemas/attack-roll-inputs.ts",
+          "line": 58,
+          "endLine": 75,
+          "measurement": null,
+          "note": "The attack input contract has no ability-choice field."
+        },
+        {
+          "path": "packages/client/src/hooks/vtt-drawer/use-weapon-attack.ts",
+          "line": 79,
+          "endLine": 103,
+          "measurement": null,
+          "note": "The VTT dispatches weapon attacks without offering or sending that choice."
+        }
+      ],
+      "problem": "Players cannot exercise the explicit Finesse choice when both abilities are valid; the system silently optimizes instead. This matters for effects or table rules that distinguish the ability used, and the workaround is manual rolling outside the attack workflow.",
+      "proposedDirection": "Add an optional server-validated Strength-or-Dexterity override for Finesse weapons, retain the current best-modifier selection as the default, and show a compact selector only when both choices are legal.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-110",
+      "title": "Expose the level-up history already returned with each character",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/character.ts",
+          "line": 190,
+          "endLine": 245,
+          "measurement": null,
+          "note": "Shared defines structured CharacterLevelChoice records with level and choice metadata."
+        },
+        {
+          "path": "packages/shared/src/schemas/character.ts",
+          "line": 261,
+          "endLine": 274,
+          "measurement": null,
+          "note": "Character detail already returns levelChoices."
+        },
+        {
+          "path": "packages/client/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "Pinned search found zero non-test production TS/TSX consumers of levelChoices.",
+          "note": "The transmitted history has no client presentation."
+        },
+        {
+          "path": "packages/client/src/components/sheet/level-up-dialog.tsx",
+          "line": 116,
+          "endLine": 172,
+          "measurement": null,
+          "note": "The sheet presents only the next level-up transaction, not prior choices."
+        }
+      ],
+      "problem": "Players and DMs must reconstruct prior class, subclass, feat, and ability choices from the current sheet or external notes even though structured choice history is already included in character detail.",
+      "proposedDirection": "Render a read-only level timeline grouped by level and resolved to human-readable class, subclass, feat, and ability labels. Treat rollback as a separate future design because the records do not presently capture a complete reversible mutation manifest.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Rename the unrelated shared and client WeaponAttackResult interfaces",
+      "ref": "CQ25-16",
+      "reason": "This is the pure-rename territory owned by open leaf 46; the path-qualified interfaces have different domains and no consumer imports both."
+    },
+    {
+      "title": "Create one cross-package typed scenario-builder convention",
+      "ref": "CQ25-13",
+      "reason": "CQ25-13 and CQ25-48 through CQ25-51 already own typed-builder work, while banked L06-007/L06-008/L06-009/L06-013 cover the concrete test-shaped duplication; the remaining builders do not share one domain contract."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Upcast slot-damage validation caps only one increment rather than the maximum cast result",
+      "paths": [
+        "packages/shared/src/schemas/spell.ts:99",
+        "packages/shared/src/schemas/spell.ts:107",
+        "packages/server/src/services/spell-casting/resolve-character-spell.ts:91",
+        "packages/shared/src/dice/dice-notation.ts:136"
+      ],
+      "whySuspectedBug": "The schema accepts baseDice plus one perLevelDice increment at or below 100, but execution multiplies perLevelDice by every slot level above the base. A spell such as base 98d6 plus 2d6 per level can pass validation and later exceed the dice parser's 100-die limit.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Character sheet AC can disagree with encounter combat AC",
+      "paths": [
+        "packages/client/src/pages/character-sheet/sheet-state.ts:135",
+        "packages/client/src/components/sheet/combat-stats.tsx:156",
+        "packages/server/src/utils/encounter-query.ts:155"
+      ],
+      "whySuspectedBug": "The sheet displays freshly computed equipment and class AC while encounter combat resolves character AC from persisted stats.ac.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "Shard A explicit pointer partition 1-5, 7, and 20: scripts/db-status.ts, scripts/logs-audit/**, packages/server/src/logger.ts, packages/server/src/routers/srd.ts, the referenced server database/test helpers, attack resolver/helper files, client SRD consumers, invite flows, account settings, and all banked wave-1 lane JSON files relevant to those pointers. Pointers 1/2/3/4/5/7/20 were already fully covered by L08-003/L08-018/L08-002/L08-020/L08-012/L08-006/L08-004 and were not re-reported.",
+      "Shard B explicit pointer partition 6, 8-12, 17-18: packages/shared/src/{constants.ts,schemas/attack-roll-inputs.ts,schemas/spell.ts,schemas/monster.ts,rules/**,map/area-template.ts,dice/dice-notation.ts}, packages/server/src/{utils/spell-slot-sync.ts,services/spell-casting/resolve-character-spell.ts}, and the referenced client roll, map, monster, species, and homebrew form files. Pointers 6/8/12/17/18 became L08-106; pointer 9 was deduplicated; pointers 10/11 were dismissed or cut below.",
+      "Shard C explicit pointer partition 13-15, 19, and 23: packages/shared/src/schemas/{map.ts,homebrew.ts,encounter.ts,encounter-inputs.ts}, packages/server/src/{routers/map-layer.ts,routers/homebrew.ts,utils/encounter-query.ts,services/encounter-combat/combat-log.ts}, and referenced client homebrew and encounter/combat surfaces. Pointers 15/23 became L08-107, pointer 19 became L08-105, pointer 14 was already covered by L05-016, and pointer 13 was dismissed.",
+      "Shard D explicit pointer partition 21, 22, 24, 26, and 29: referenced client VTT drawer, token, route, authentication, character-sheet, and level-up files plus the corresponding shared attack and character schemas and server encounter mutation/SRD reference files. Pointers 21/26/29 became L08-108/L08-109/L08-110; pointers 22/24 were cut below.",
+      "Shard E explicit pointer partition 16, 25, 27, 28, and 30-32: all root and packages/* tsconfig files; eslint-config/package-boundary-configs.js; packages/server/package.json; all packages/server/src/seed/backfill*.ts files; scripts/lint-message-eval/{evaluator,reporter,trace}.ts; tools/lint-ratchet/src/governance/propose.ts; docs/guides/lint-ratchet.md; .env.example; docker-compose.yml; init-test-db.sql; and assigned .devcontainer environment files. Pointers 16/30 became L08-101, pointer 27 became L08-102, pointer 28 became L08-103, pointer 32 became L08-104, and pointers 25/31 were dismissed."
+    ],
+    "sampled": [
+      "scripts/worktree-db.sh: read lines 1-320 and 1030-1310 plus pinned searches for every environment and credential read/write; unrelated allocation, garbage-collection, and status implementations were not semantically reviewed.",
+      "Minimal-scenario-builder corpus: sampled representative shared Zod input builders, the server encounter test helper, client CharacterSpellWithDetails fixture declarations, and duplicated drift-advisory builders; banked lane-06 measurements supplied the broader counts.",
+      "Prior-pack corpus: read every record directly relevant to routed candidates, including CQ25-5, CQ25-13, CQ25-16, CQ25-48 through CQ25-51, CQ25-62, CQ25-63, CQ25-110, CQ25-115, CQ25-117, CQ25-125, CQ25-126, CQ25-158, CQ25-171, CQ25-172, CQ25-179, CQ25-182, CQ25-197, CQ25-219, and CQ25-220.",
+      "Pointer 10 dismissal: species-step's local readonly projections are deliberately narrower presentation views and remain structurally checked at their call sites; no independent domain authority was found.",
+      "Pointer 13 dismissal: map-layer's small local parsed-record type is confined to a generic JSON/Prisma boundary and does not establish a second cross-package MapLayer authority.",
+      "Pointer 16 also folds the Node-types observation from banked L04-001 into the new enforcement asymmetry rather than repeating that shared build finding.",
+      "Pointer 25 dismissal: the candidate is test-shaped and owned by lane 06; its builders span unrelated Zod inputs, database scenarios, client fixtures, and analyzer envelopes rather than a reusable runtime contract.",
+      "Pointer 31 dismissal: scripts/lint-message-eval/reporter.ts:46 explicitly treats the fixed replay as a directional pilot and tells readers to rerun independent sessions; banked L09-019 owns the actionable provenance weakness, while scheduled model collection would be a different and materially costlier feature."
+    ],
+    "skipped": [
+      "A new exhaustive whole-repository sweep outside the 32 routed-pointer path partitions was skipped because this was a wave-2 top-up, not a fresh lane pass; wave-1 L08-001 through L08-020 remain the coverage authority for the earlier cross-cutting sweep.",
+      "No tests, builds, linters, generators, or other executable verification commands were run, per instruction."
+    ],
+    "pointers": [],
+    "cut": [
+      "Pointer 11, centralize the two narrow split('d').map(Number) decoders: valid small cleanup adjacent to packages/shared/src/dice/dice-notation.ts, but lower value than the ten retained findings and constrained by CQ25-179's intentionally narrow grammar.",
+      "Pointer 22, show a +N overflow indicator after four token conditions: qualified cheap player/DM feature with evidence at packages/client/src/components/campaign/maps/token-condition-icons.tsx:49-77, but cut below the top-up cap.",
+      "Pointer 24, make the static legal/license route unauthenticated: qualified small contributor/prospective-player feature with evidence at packages/client/src/routes/legal-route.ts:4-16 and packages/client/src/components/common/auth-guard.tsx:32-41, but cut below the top-up cap.",
+      "Pointer 26's Unarmored Defense half was not promoted: unlike the retained Finesse choice, it requires a persisted preference and interaction with CQ25-219's separated AC-authority work rather than a cheap input extension.",
+      "Pointer 29's rollback half was not promoted: CharacterLevelChoice records provide useful display history but do not encode prior state, an inverse mutation manifest, or safe handling for intervening edits."
+    ]
+  }
+}

@@ -21,6 +21,15 @@ const DRIVER_WARN =
 const CONFLICT_MARKER_TRIPWIRE =
   "sensor-knip-unused-exports.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run sensor:knip-unused-exports:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours sensor-knip-unused-exports.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then resolve by regenerating with `bun scripts/sensor-knip-unused-exports.ts --update`; never hand-merge this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.";
 const SUPPRESS_DRIVER_WARN_ENV = "MUSI_SUPPRESS_MERGE_DRIVER_WARN";
+const CLI_USAGE = [
+  "Usage:",
+  "  bun run sensor:knip-unused-exports",
+  "  bun scripts/sensor-knip-unused-exports.ts --update",
+  "  bun scripts/sensor-knip-unused-exports.ts --baseline=<path>",
+  "",
+  "Fails when knip's unused exported symbol identities differ from the committed baseline.",
+  "Exit codes: 0 clean; 1 unclassified failure; 2 usage or transient failure; 3 stale entries; 4 summary drift; 5 corrupt or unreadable baseline.",
+].join("\n");
 
 type CategoryCounts = Partial<Record<UnusedExportCategory, number>>;
 
@@ -119,6 +128,31 @@ function installDriver(root: string): void {
 }
 
 describe("runKnipUnusedExportsCli", () => {
+  it("preserves the help sentinel and exit-2 CLI error prefix", () => {
+    expect(runKnipUnusedExportsCli({ argv: ["--update", "--help"] })).toEqual({
+      exitCode: 0,
+      stdout: CLI_USAGE,
+    });
+    expect(runKnipUnusedExportsCli({ argv: ["--nope"] })).toEqual({
+      exitCode: 2,
+      stdout: `ERROR: Unknown argument: --nope\n${CLI_USAGE}`,
+    });
+    expect(runKnipUnusedExportsCli({ argv: ["--baseline"] })).toEqual({
+      exitCode: 2,
+      stdout: "ERROR: --baseline requires a path.",
+    });
+  });
+
+  it.each([
+    { name: "later help", argv: ["stray", "--help"] },
+    { name: "later malformed option", argv: ["stray", "--baseline"] },
+  ])("reports the first invalid argument before $name", ({ argv }) => {
+    expect(runKnipUnusedExportsCli({ argv })).toEqual({
+      exitCode: 2,
+      stdout: `ERROR: Unknown argument: stray\n${CLI_USAGE}`,
+    });
+  });
+
   it("warns once in check and update modes when the merge driver is missing", () => {
     const root = makeDriverFixture();
     const baselinePath = path.join(root, "sensor-knip-unused-exports.baseline.json");
@@ -196,6 +230,27 @@ describe("runKnipUnusedExportsCli", () => {
     expect(suppressedWarnings).toEqual([]);
   });
 
+  it("labels default runner warnings with the standalone sensor identity", () => {
+    const root = tmpRepo.writeRepo({
+      "package.json": '{"name":"knip-label-fixture","private":true}\n',
+      "sensor-knip-unused-exports.baseline.json": baselineText({}),
+    });
+    const warnings: string[] = [];
+
+    const result = runKnipUnusedExportsCli({
+      argv: [],
+      cwd: root,
+      env: { CI: "1" },
+      warn: (line) => warnings.push(line),
+    });
+
+    expect(result.exitCode).toBe(0);
+    expect(warnings.some((warning) => warning.startsWith("sensor:knip-unused-exports:"))).toBe(
+      true,
+    );
+    expect(warnings.some((warning) => warning.startsWith("drift:ai:"))).toBe(false);
+  });
+
   it("passes when the current identities match the baseline", () => {
     const root = tmpRepo.writeRepo({
       "sensor-knip-unused-exports.baseline.json": baselineText({ exports: 1, types: 1 }),
@@ -222,7 +277,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 2 })),
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stdout).toContain("added 1 new identity");
     expect(result.stdout).toContain(`+ exports|${SYMBOL_FILE}|unusedExport2`);
   });
@@ -240,7 +295,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stdout).toContain("added 1 new identity");
     expect(result.stdout).toContain(`+ exports|${SYMBOL_FILE}|unusedExport1`);
     expect(result.stdout).toContain(`- exports|${SYMBOL_FILE}|retiredSymbol`);
@@ -257,7 +312,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stdout).toContain("dropped 2 baseline identities");
     expect(result.stdout).toContain(
       "run bun scripts/sensor-knip-unused-exports.ts --update to lock it in by lowering the committed baseline.",
@@ -265,9 +320,17 @@ describe("runKnipUnusedExportsCli", () => {
     expect(result.stdout).toContain(`- exports|${SYMBOL_FILE}|unusedExport2`);
   });
 
-  it("writes a deterministic identity baseline in update mode", () => {
+  it("reads --baseline in both forms and writes a deterministic update", () => {
     const root = tmpRepo.makeTempRepo("sensor-knip-unused-exports-");
     const baselinePath = path.join(root, "baseline.json");
+    writeFileSync(baselinePath, baselineText({ exports: 1, enumMembers: 1 }));
+
+    const check = runKnipUnusedExportsCli({
+      argv: ["--baseline", baselinePath],
+      cwd: root,
+      runner: knipReporting(unusedExportReport({ exports: 1, enumMembers: 1 })),
+    });
+    expect(check.exitCode).toBe(0);
 
     const result = runKnipUnusedExportsCli({
       argv: ["--update", `--baseline=${baselinePath}`],
@@ -334,7 +397,7 @@ describe("runKnipUnusedExportsCli", () => {
       }),
       expected: "entry key must be 'exports|src/symbols.ts|unusedExport1'",
     },
-  ])("returns an infrastructure failure for $name in the baseline", ({ baseline, expected }) => {
+  ])("returns the corrupt-baseline verdict for $name", ({ baseline, expected }) => {
     const root = tmpRepo.writeRepo({ "sensor-knip-unused-exports.baseline.json": baseline });
 
     const result = runKnipUnusedExportsCli({
@@ -343,7 +406,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(5);
     expect(result.stdout).toContain(expected);
   });
 
@@ -359,7 +422,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({})),
     });
 
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(5);
     expect(result.stdout).toBe(`ERROR: ${CONFLICT_MARKER_TRIPWIRE}`);
     expect(result.stdout).not.toContain("JSON");
   });
@@ -380,7 +443,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(4);
     expect(result.stdout).toContain("WARN: baseline summary does not match the entries");
     expect(result.stdout).toContain(
       'derived {"count":1,"categories":{"exports":1,"types":0,"enumMembers":0,"namespaceMembers":0}}',
@@ -428,7 +491,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 2 })),
     });
 
-    expect(result.exitCode).toBe(1);
+    expect(result.exitCode).toBe(3);
     expect(result.stdout).toContain("FAIL: knip unused-export symbols added 1 new identity");
     expect(result.stdout).not.toContain("WARN: baseline summary does not match the entries");
     expect(result.stdout).not.toContain("run: bun scripts/sensor-knip-unused-exports.ts --update");
@@ -443,7 +506,7 @@ describe("runKnipUnusedExportsCli", () => {
       runner: knipReporting(unusedExportReport({ exports: 1 })),
     });
 
-    expect(result.exitCode).toBe(2);
+    expect(result.exitCode).toBe(5);
     expect(result.stdout).toContain("ERROR: baseline missing at");
     expect(result.stdout).toContain("run bun scripts/sensor-knip-unused-exports.ts --update");
   });

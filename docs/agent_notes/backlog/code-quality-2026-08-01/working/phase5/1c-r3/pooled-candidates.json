@@ -1,0 +1,764 @@
+{
+  "step": "1c-input",
+  "builtFrom": [
+    {
+      "consult": "R3B",
+      "file": "reject-audit-r3-b.json",
+      "count": 7
+    },
+    {
+      "consult": "R3C",
+      "file": "reject-audit-r3-c.json",
+      "count": 6
+    }
+  ],
+  "candidateCount": 13,
+  "candidates": [
+    {
+      "promotionId": "R3B-001",
+      "title": "Require structured purpose metadata for script-parity exemptions",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 3,
+          "endLine": 35,
+          "measurement": null,
+          "note": "The exemption population is represented only as script-name strings, with no per-entry purpose or ownership metadata."
+        },
+        {
+          "path": "scripts/harness/harness-manifest-schema.ts",
+          "line": 120,
+          "endLine": 125,
+          "measurement": null,
+          "note": "The typed manifest contract permits only an array of nonblank strings for scriptParityExemptions."
+        },
+        {
+          "path": "scripts/harness/harness-gate-parity.ts",
+          "line": 22,
+          "endLine": 60,
+          "measurement": null,
+          "note": "Parity validates existence, naming convention, alias nonredundancy, and completeness but cannot validate why an exemption remains appropriate."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "31 exemptions (`jq '.scriptParityExemptions | length' harness.controls.json`)",
+          "note": "Thirty-one operational scripts cross this rationale-free exception boundary."
+        }
+      ],
+      "problem": "Scripts exempted from the harness control inventory carry only their names. Reviewers can verify that an exemption refers to a real, convention-matching, nonredundant script, but cannot determine from the machine-readable source why it is an operational utility rather than an enforcement control or detect when that reason stops being true.",
+      "proposedDirection": "Associate every exemption with structured purpose, audience/function, side-effect class, invocation form, and optional owning documentation, and completeness-check that metadata. This can merge into the command-catalog direction already proposed by leaf 085.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[5]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "scriptParity exemptions lack a structured rationale requirement.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 085 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-002",
+      "title": "Give ESLint cache policy a typed reusable boundary",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/lib/eslint-main-cache.sh",
+          "line": 60,
+          "endLine": 117,
+          "measurement": null,
+          "note": "The shell helper writes its NUL-delimited path input to a temporary file, then embeds a Node program in a heredoc to hash paths and contents."
+        },
+        {
+          "path": "scripts/lib/eslint-main-cache.sh",
+          "line": 148,
+          "endLine": 187,
+          "measurement": null,
+          "note": "Cache preparation, stale-directory pruning, and argument construction communicate through ambient MUSI_ESLINT_MAIN_CACHE_DIR and MUSI_ESLINT_MAIN_CACHE_ARGS globals."
+        },
+        {
+          "path": "scripts/lint-agent.ts",
+          "line": 38,
+          "endLine": 72,
+          "measurement": null,
+          "note": "The TypeScript consumer constructs inline Bash that sources the shell library, splits stdout into argument lines, and checks only the first token before forwarding the remainder."
+        }
+      ],
+      "problem": "Cache identity correctness determines whether rule, configuration, and type-graph edits can be masked by stale ESLint diagnostics. The policy is single-sourced but trapped behind sourced shell, ambient globals, an embedded Node heredoc, and a line-oriented subprocess protocol. Tests cover current behavior and overt failures degrade safely to no cache, but the compiler cannot connect either consumer to the returned argument shape.",
+      "proposedDirection": "Extract cache identity, directory selection, pruning, and argument construction into an importable TypeScript module. Let lint-agent call it directly and retain a thin shell adapter with an explicit machine protocol for eslint-main.sh.",
+      "leafability": "single-leaf",
+      "confidence": "medium",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[23]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "ESLint cache policy mixes shell sourcing, embedded JavaScript, and textual protocols.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-124",
+          "residual": "CQ25-124 records the measured Bash-facade/TypeScript-analytical-core precedent. This candidate applies that boundary narrowly to analysis already embedded as Node and needed by a TypeScript consumer; it does not reopen a general Bash migration."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 141 — hint only; leaf 141 owns duplicated verify log-state discovery, not ESLint cache identity or argument transport"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-003",
+      "title": "Make socket rate-limit classification independent of human-readable text",
+      "area": "server",
+      "category": "hack",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/socket/connection-handler.ts",
+          "line": 14,
+          "endLine": 19,
+          "measurement": null,
+          "note": "The per-packet middleware represents rate-limit rejection only as an ordinary Error with an English message."
+        },
+        {
+          "path": "packages/server/src/socket/connection-handler.ts",
+          "line": 36,
+          "endLine": 39,
+          "measurement": null,
+          "note": "The error handler derives the client-facing RATE_LIMIT code by comparing err.message to that exact text."
+        },
+        {
+          "path": "packages/server/src/socket/connection-handler.test.ts",
+          "line": 176,
+          "endLine": 193,
+          "measurement": null,
+          "note": "The test named for RATE_LIMIT categorization describes the string mapping but does not assert the emitted error code."
+        }
+      ],
+      "problem": "A presentation string is also an undocumented sentinel between two branches. Editing or wrapping only the producer text makes genuine throttling errors reach clients as INTERNAL_ERROR, and the existing categorization test does not inspect the emitted payload. Nothing structurally connects the rejection cause to its protocol code.",
+      "proposedDirection": "Represent rate-limit rejection with a tagged or custom error, map that stable discriminator to RATE_LIMIT while keeping message text presentational, and assert the emitted error payload in a focused test.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[14]",
+          "lane": "lane-03-server",
+          "originalTitle": "Socket rate-limiter wiring couples machine behavior to an English error string.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-004",
+      "title": "Unify character-create choice chips and restore pressed-state semantics",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.tsx",
+          "line": 103,
+          "endLine": 134,
+          "measurement": null,
+          "note": "Class-skill chips independently implement capped selection, disabled handling, and selected styling but expose no aria-pressed state."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.tsx",
+          "line": 154,
+          "endLine": 183,
+          "measurement": null,
+          "note": "Language chips repeat the interaction and style branches, again without aria-pressed."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/spell-selection-step.tsx",
+          "line": 34,
+          "endLine": 63,
+          "measurement": null,
+          "note": "SpellOptionButton implements the same choice-chip model but exposes isSelected through aria-pressed."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.test.tsx",
+          "line": 101,
+          "endLine": 112,
+          "measurement": null,
+          "note": "The language-selection test observes selected state only through the border-primary CSS class."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/spell-selection-step.test.tsx",
+          "line": 52,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The corresponding spell-choice test asserts semantic aria-pressed state, demonstrating the drift."
+        }
+      ],
+      "problem": "Three character-creation choice-chip implementations maintain selected, disabled, focus, and click semantics separately. They have already diverged: spell choices communicate pressed state, but class-skill and language choices communicate it only visually. Screen-reader users cannot determine which skills or languages are selected, and interaction changes require synchronized edits.",
+      "proposedDirection": "Extract a small character-create choice-chip primitive that owns aria-pressed, common focus/selection styling, disabled behavior, and click guards. Keep domain labels, cap calculations, and spell badges in callers.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[13]",
+          "lane": "lane-05-client",
+          "originalTitle": "Three character-create choice chips duplicate one interaction model.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-005",
+      "title": "Preserve TanStack route types through MobileNavLink",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 18,
+          "endLine": 29,
+          "measurement": null,
+          "note": "MobileNavLink widens its destination to string before forwarding it to the typed TanStack Link."
+        },
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 62,
+          "endLine": 77,
+          "measurement": null,
+          "note": "Five mobile-only destinations cross the widened wrapper boundary."
+        },
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 95,
+          "endLine": 118,
+          "measurement": null,
+          "note": "Adjacent desktop navigation passes route literals directly to Link and retains route validation."
+        },
+        {
+          "path": "packages/client/src/routes/router.ts",
+          "line": 5,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The application router is registered with TanStack React Router, supplying the route type information discarded by the wrapper."
+        }
+      ],
+      "problem": "MobileNavLink accepts any string rather than a registered TanStack destination, creating an untyped hole around five navigation links. Mobile-only route typos or stale paths lose compile-time protection and can surface only when a user opens the mobile menu.",
+      "proposedDirection": "Type the wrapper from TanStack Link's registered-router destination props, or accept and forward the relevant Link props without widening to string.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[19]",
+          "lane": "lane-05-client",
+          "originalTitle": "MobileNavLink widens typed routes to string.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 236 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-006",
+      "title": "Give repeated homebrew checkboxes one shared UI primitive",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/spell/spell-form-fields.tsx",
+          "line": 140,
+          "endLine": 163,
+          "measurement": null,
+          "note": "One form repeats two raw labeled checkbox assemblies with identical input styling."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/shared/capped-checkbox-group.tsx",
+          "line": 51,
+          "endLine": 65,
+          "measurement": null,
+          "note": "Even the existing shared checkbox group reconstructs the same raw styled input internally."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/MODULE.md",
+          "line": 29,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The module guide directs helpers shared by existing entity modules into homebrew/shared."
+        },
+        {
+          "path": "packages/client/src/components/homebrew",
+          "line": null,
+          "endLine": null,
+          "measurement": "15 checkbox occurrences across 10 files (`rg -n 'type=\"checkbox\"' packages/client/src/components/homebrew --glob '*.tsx' | wc -l; rg -l 'type=\"checkbox\"' packages/client/src/components/homebrew --glob '*.tsx' | wc -l`)",
+          "note": "The same native checkbox surface is spread across ten homebrew production files."
+        }
+      ],
+      "problem": "Homebrew entity forms repeat 15 raw native checkbox controls across 10 files, all copying the same input class and locally assembling labeling and change behavior. With no shared checkbox primitive, visual, focus, disabled, or accessibility convention changes require a broad manual sweep and can drift between editors.",
+      "proposedDirection": "Add a focused checkbox presentation primitive in the existing homebrew shared area or client UI primitives, owning native input styling and label association while forwarding normal checked, disabled, id, and change props.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[40]",
+          "lane": "lane-05-client",
+          "originalTitle": "Homebrew repeats one raw checkbox primitive across ten files.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3B-007",
+      "title": "Keep CharacterTab on the inferred campaign output contract",
+      "area": "client",
+      "category": "hack",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx",
+          "line": 148,
+          "endLine": 155,
+          "measurement": null,
+          "note": "CharacterTab obtains inferred query data, then replaces it with a handwritten partial shape through a framework assertion."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx",
+          "line": 157,
+          "endLine": 169,
+          "measurement": null,
+          "note": "All downstream character filtering and projection is performed from the asserted members value."
+        },
+        {
+          "path": "packages/server/src/routers/campaign.ts",
+          "line": 145,
+          "endLine": 168,
+          "measurement": null,
+          "note": "campaign.get publishes campaignDetailSchema as its output and returns the mapped CampaignDetail contract."
+        },
+        {
+          "path": "packages/server/src/routers/campaign.ts",
+          "line": 63,
+          "endLine": 81,
+          "measurement": null,
+          "note": "The canonical member mapper supplies character id and name, the fields CharacterTab needs."
+        }
+      ],
+      "problem": "CharacterTab discards the generated campaign.get result type in favor of an asserted handwritten members projection even though useQuery already carries the output schema. The duplicate shape can lag behind transport changes, weakening the client/server change signal at the query boundary meant to provide it.",
+      "proposedDirection": "Delete the assertion and read campaignQuery.data?.members directly. If a named projection helps readability, derive it from the inferred campaign output rather than asserting the query result.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[43]",
+          "lane": "lane-05-client",
+          "originalTitle": "CharacterTab replaces inferred tRPC output with a handwritten assertion.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-b.json"
+    },
+    {
+      "promotionId": "R3C-001",
+      "title": "Correct two shared type-assertion boundary categories",
+      "area": "shared",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 51,
+          "endLine": 53,
+          "measurement": null,
+          "note": "abilityRequirementEntries asserts Object.entries back to the known AbilityAbbreviation key tuple but labels the runtime invariant as a framework boundary."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 80,
+          "endLine": 84,
+          "measurement": null,
+          "note": "clampSpellSlotTableLevel proves the number lies in the literal table-key range with runtime checks, then labels the narrowing assertion as framework."
+        },
+        {
+          "path": "docs/guides/local-eslint-rules.md",
+          "line": 364,
+          "endLine": 375,
+          "measurement": null,
+          "note": "The authoritative marker taxonomy assigns Object.entries/Object.keys widening and runtime-predicate narrowing to interop, while framework is reserved for library seams."
+        }
+      ],
+      "problem": "The two machine-parseable markers describe local runtime invariants as external framework seams. Assertion inventories and reviews therefore receive the wrong remediation signal, and production examples contradict the repository's explicit taxonomy.",
+      "proposedDirection": "Change both marker categories from framework to interop while retaining their concrete reasons; no runtime change is required.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-04.json::coverage.cut[7]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Two type-assertion markers classify built-in Object.entries/range narrowing as framework rather than interop.",
+          "rejectionReason": "Coverage cut after the lane ranked this localized marker correction below retained shared-package findings."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 038 — hint only; that leaf corrects the same marker-category defect in dice-notation.ts, while these two rules files remain outside its parser-only scope"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    },
+    {
+      "promotionId": "R3C-101",
+      "title": "Spell filter selects lack rendered interaction coverage",
+      "area": "client",
+      "category": "test-shape",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/spell-filter-bar.tsx",
+          "line": 74,
+          "endLine": 112,
+          "measurement": null,
+          "note": "SpellFilterBar renders search plus Level, School, and Status controls with separate value conversions and filter patches."
+        },
+        {
+          "path": "packages/client/src/components/sheet/spell-filter-bar.test.ts",
+          "line": 1,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The colocated suite imports and tests only pure conversion helpers; it never imports or renders SpellFilterBar."
+        },
+        {
+          "path": "packages/client/src/components/sheet/spells-panel.test.tsx",
+          "line": 190,
+          "endLine": 218,
+          "measurement": null,
+          "note": "The composition suite checks filter-bar presence and drives only text search, leaving all three rendered selects unexercised."
+        }
+      ],
+      "problem": "The level, school, and prepared-status controls are user-facing filter paths, but tests stop at pure guards and text-search composition. Regressions in option population, current-value projection, labels, or callback wiring can make a select ineffective or update the wrong field while every existing test remains green.",
+      "proposedDirection": "Render SpellFilterBar with controlled filters and add focused interactions for Level, School, and Status, asserting complete onFilterChange payloads and representative option labels.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[12]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Spell-filter rendered-control coverage",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 053 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    },
+    {
+      "promotionId": "R3C-271",
+      "title": "Correct the lint-ratchet demo's false monotonic-debt claim",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 65,
+          "endLine": 86,
+          "measurement": null,
+          "note": "The public walkthrough deliberately accepts an increase from two findings to three, then concludes that debt can only trend down."
+        },
+        {
+          "path": "docs/guides/lint-ratchet.md",
+          "line": 197,
+          "endLine": 215,
+          "measurement": null,
+          "note": "The authoritative guide documents intentional worse-baseline updates and their committed acceptance record."
+        },
+        {
+          "path": "docs/harness-tour.md",
+          "line": 43,
+          "endLine": 57,
+          "measurement": null,
+          "note": "The tour advertises the demo's explicitly accepted increase and defines the invariant as symmetric recording, not monotonic decrease."
+        }
+      ],
+      "problem": "The adoption example teaches the supported explicit-increase workflow and immediately summarizes it with an invariant that workflow disproves. An adopter can incorrectly conclude that accepted increases are forbidden, obscuring the debt-log governance contract and making the demo disagree with its manual.",
+      "proposedDirection": "State the actual invariant: debt cannot change silently; increases require --allow-worse plus a recorded reason, while decreases require a committed baseline update.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[12]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The lint-ratchet demo says debt can only trend down immediately after demonstrating an accepted increase.",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 090's public lint-ratchet documentation accuracy work — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    },
+    {
+      "promotionId": "R3C-272",
+      "title": "Remove completed leaf implementation instructions from the active lint coverage map",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 409,
+          "endLine": 419,
+          "measurement": null,
+          "note": "The active map describes the portable lint-ratchet package and demo as future Leaf 02 implementation slices."
+        },
+        {
+          "path": "tools/lint-ratchet/package.json",
+          "line": 1,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The portable @musi/lint-ratchet workspace package and governance exports are already present."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 223,
+          "endLine": null,
+          "measurement": null,
+          "note": "A live row says Leaf 40 can still drain simple-import-sort/imports from drift-ai."
+        },
+        {
+          "path": "eslint-config/code-quality-configs.js",
+          "line": 189,
+          "endLine": 195,
+          "measurement": null,
+          "note": "The repository-wide TypeScript configuration already enforces simple-import-sort/imports as an error."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 458,
+          "endLine": 487,
+          "measurement": null,
+          "note": "The current policy map ends with a Leaf 41 implementation section mixing landed outcomes, obsolete instructions, and remaining-work assertions."
+        }
+      ],
+      "problem": "A document used as the live lint-surface and follow-up map still presents completed audit slices in future tense and emits at least one follow-up already enforced by normal lint. Contributors cannot distinguish current policy from closed implementation history, inviting redundant work and undermining genuine follow-ups.",
+      "proposedDirection": "Audit the hand-maintained map prose and blocker cells against live configuration, retain only current-state coverage and actionable follow-ups, and leave closed chronology to historical notes or git history.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[6]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The active lint coverage map retains closed leaf-era implementation residue.",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-44",
+          "residual": "CQ25-44 relocates the lint-coverage-map family and preserves its checker and generator facades; it does not remove stale leaf-era prose or validate follow-up claims against live lint configuration."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 111's lint-coverage-map source-of-truth redesign — hint only",
+        "looks close to leaf 102's lint-coverage-map ownership correction — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    },
+    {
+      "promotionId": "R3C-301",
+      "title": "The notification UI ignores the server cursor, making every persisted notification after the newest 20 inaccessible",
+      "area": "client",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/notification-inputs.ts",
+          "line": 16,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The public list input supports an optional cursor and bounded page size."
+        },
+        {
+          "path": "packages/server/src/routers/notification.ts",
+          "line": 31,
+          "endLine": 50,
+          "measurement": null,
+          "note": "The server counts all unread rows independently of the page and returns nextCursor when more notification rows exist."
+        },
+        {
+          "path": "packages/client/src/hooks/use-notifications.ts",
+          "line": 57,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The sole client hook issues a normal one-page query with limit 20 and never passes or consumes a cursor."
+        },
+        {
+          "path": "packages/client/src/components/notifications/notification-popover.tsx",
+          "line": 51,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The popover renders only the hook's current array and exposes no load-more or history path."
+        }
+      ],
+      "problem": "The persistence and wire layers implement notification history, but the only client fetch stops after 20 rows and discards nextCursor. After enough notifications accumulate, unreadCount can include rows the user cannot inspect or mark individually, and without a retention policy the inaccessible tail only grows.",
+      "proposedDirection": "Use an infinite notification query, expose guarded load-more state in the popover, and preserve socket prepends plus optimistic mark-read updates across loaded pages. Add focused multi-page and socket-prepend coverage.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-08.json::coverage.cut[6]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Older-notification pagination; useful but lower value than actionable notification deep links.",
+          "rejectionReason": "Cut as useful but lower value than actionable notification deep links."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 064 — hint only; that leaf fixes server cursor correctness and explicitly excludes client infinite-query changes",
+        "looks close to leaf 196 — hint only; that leaf adds notification deep links, not access to older pages"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    },
+    {
+      "promotionId": "R3C-401",
+      "title": "Debt-log variants require non-exhaustive dispatch across parsing, reporting, and accounting",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 23,
+          "endLine": 90,
+          "measurement": null,
+          "note": "The four-record union is not uniformly discriminated: accepted debt has no kind and needs a presence-based predicate."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 409,
+          "endLine": 420,
+          "measurement": null,
+          "note": "The parser dispatches three explicit kinds and sends every other value, including unknown kinds, through the accepted-debt schema."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log.ts",
+          "line": 110,
+          "endLine": 160,
+          "measurement": null,
+          "note": "Report rendering reimplements four-way selection as an ordered type-guard ladder with a defensive fallthrough."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/baseline-debt-accounting-lifecycle.ts",
+          "line": 69,
+          "endLine": 134,
+          "measurement": null,
+          "note": "Lifecycle accounting separately dispatches retirement, accepted debt, metric migration, and coverage shrink through repeated predicates."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/baseline-update-apply.ts",
+          "line": 86,
+          "endLine": 118,
+          "measurement": null,
+          "note": "The update writer constructs each event family independently and hand-orders the heterogeneous batch."
+        }
+      ],
+      "problem": "Debt-log record kinds form a persisted protocol, but classification and behavior are hand-dispatched in the parser, renderer, writer, and accounting paths. Because accepted debt lacks the common discriminator, TypeScript cannot require exhaustive handling: a new variant can be omitted or misclassified, and an unknown kind currently falls into accepted-debt validation instead of failing explicitly.",
+      "proposedDirection": "Normalize legacy kind-less accepted-debt rows at parse time into a uniformly discriminated union, emit an explicit accepted-debt kind for new rows, reject unknown kinds, and convert downstream consumers to exhaustive kind switches.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[6]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "debt-log variants use several disconnected dispatch surfaces — larger and less certain than the retained metric registry finding",
+          "rejectionReason": "Coverage cut as larger and less certain than the retained metric-registry finding."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 160 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r3-c.json"
+    }
+  ]
+}

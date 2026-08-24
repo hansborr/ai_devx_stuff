@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { BoundedFullHistory } from "./bounded-full-history.js";
-import { FULL_HISTORY_RENAME_CAVEAT } from "./bounded-full-history-disclosure.js";
-import type { CommitRecord } from "./hotspots-history.js";
-import type { PrototypeCap } from "./prototype-advisory.js";
+import {
+  createCommitRecord as rec,
+  createCompleteBoundedHistory,
+  createFileChange as change,
+} from "./bounded-history.test-helper.js";
 import {
   buildTestOrphaningAdvisory,
   DEFAULT_TEST_ORPHANING_TOP,
@@ -11,71 +12,16 @@ import {
   formatTestOrphaningAdvisoryText,
 } from "./test-orphaning-advisory.js";
 
-function rec(overrides: Partial<CommitRecord>): CommitRecord {
-  return {
-    hash: "h",
-    authorName: "Ada",
-    authorEmail: "ada@example.com",
-    authorDate: "2026-05-29T00:00:00Z",
-    committerDate: "2026-05-29T00:00:00Z",
-    subject: "subject",
-    coAuthors: [],
-    files: [],
-    ...overrides,
-  };
-}
-
-function change(path: string, added = 1, deleted = 0): CommitRecord["files"][number] {
-  return { path, added, deleted, binary: false };
-}
-
 function history(
-  records: readonly CommitRecord[],
-  overrides: Partial<BoundedFullHistory> = {},
-): BoundedFullHistory {
-  const prototypeCaps: PrototypeCap[] = [
-    { label: "full-history commits", limit: 5000, hit: false, detail: null },
-  ];
-  return {
-    records,
-    commitCount: records.length,
-    distinctFileCount: new Set(records.flatMap((record) => record.files.map((file) => file.path)))
-      .size,
-    requestedCaps: {
-      since: null,
-      maxCommits: 5000,
-      maxFiles: 20000,
-      maxOutputBytes: 512,
-      timeoutMs: 30000,
-    },
-    scannedRange: {
-      since: null,
-      newestCommitHash: records[0]?.hash ?? null,
-      newestCommitDate: records[0]?.authorDate ?? null,
-      oldestCommitHash: records.at(-1)?.hash ?? null,
-      oldestCommitDate: records.at(-1)?.authorDate ?? null,
-    },
-    partial: false,
-    stoppedReason: "completed",
-    moreCommitsObserved: false,
-    moreHistoryMayExist: false,
-    unexamined: {
-      commits: { kind: "known", count: 0 },
-      files: { kind: "known", count: 0 },
-    },
-    linesAvailable: true,
-    elapsedMs: 9,
-    renameCaveat: FULL_HISTORY_RENAME_CAVEAT,
-    degradations: [],
-    prototypeCaps,
-    gitError: null,
-    ...overrides,
-  };
+  records: Parameters<typeof createCompleteBoundedHistory>[0],
+  overrides: Partial<ReturnType<typeof createCompleteBoundedHistory>> = {},
+): ReturnType<typeof createCompleteBoundedHistory> {
+  return createCompleteBoundedHistory(records, { elapsedMs: 9, ...overrides });
 }
 
 // A history newest-first (index 0 = newest): a.ts co-changes its test every time
 // (healthy), b.ts churns ahead of its test (stale), c.ts has no inferred test.
-function mixedHistory(): BoundedFullHistory {
+function mixedHistory(): ReturnType<typeof createCompleteBoundedHistory> {
   return history([
     rec({
       hash: "n6",
@@ -178,6 +124,28 @@ describe("buildTestOrphaningAdvisory", () => {
         lastTestChangeDate: "2026-05-15T00:00:00Z",
         matchedPattern: "{dir}/{name}.test{ext}",
       },
+    ]);
+  });
+
+  it("keeps the three newest source subjects when unrelated commits are interleaved", () => {
+    const advisory = buildTestOrphaningAdvisory({
+      history: history([
+        rec({ subject: "newest unrelated", files: [change("docs/newest.md")] }),
+        rec({ subject: "newest source", files: [change("src/interleaved.ts")] }),
+        rec({ subject: "middle unrelated", files: [change("docs/middle.md")] }),
+        rec({ subject: "middle source", files: [change("src/interleaved.ts")] }),
+        rec({ subject: "older unrelated", files: [change("docs/older.md")] }),
+        rec({ subject: "older source", files: [change("src/interleaved.ts")] }),
+        rec({ subject: "oldest unrelated", files: [change("docs/oldest.md")] }),
+        rec({ subject: "source beyond limit", files: [change("src/interleaved.ts")] }),
+        rec({ subject: "trailing unrelated", files: [change("docs/trailing.md")] }),
+      ]),
+    });
+
+    expect(advisory.sections[0]?.entries[0]?.recentSubjects).toEqual([
+      "newest source",
+      "middle source",
+      "older source",
     ]);
   });
 

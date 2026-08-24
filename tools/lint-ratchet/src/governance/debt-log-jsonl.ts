@@ -12,7 +12,8 @@ function debtLogLines(text: string): readonly string[] {
   const lines = text.split(/\r?\n/u);
   // Pops exactly ONE trailing empty split (the final "\n"): a "\n\n" tail or an
   // interior blank hard-fails below, the strict opposite of logs-audit's
-  // forgive-all-trailing-blanks policy (scripts/logs-audit.ts auditJsonlText) —
+  // forgive-all-trailing-blanks policy (`auditJsonlText` in
+  // scripts/logs-audit/logs-audit-ingestion.ts) —
   // deliberate for a tool-written merge=union log where blanks mean corruption.
   if (lines.length > 0 && lines[lines.length - 1] === "") lines.pop();
   return lines;

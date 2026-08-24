@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "scopeMode": "current",
   "base": null,
   "resolvedRef": null,
@@ -22,7 +22,12 @@
     },
     {
       "check": "suppressions",
-      "reason": "only available in changed scope"
+      "reason": "only available in changed scope",
+      "code": "changed-scope-only"
+    },
+    {
+      "check": "layer-direction",
+      "reason": "no layer-direction rules configured"
     }
   ],
   "summary": {

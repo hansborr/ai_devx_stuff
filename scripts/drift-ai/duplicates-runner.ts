@@ -27,13 +27,12 @@ import {
   parseDuplicatesReport,
 } from "./duplicates.js";
 import {
-  changedFilesFromScope,
   configuredRootFor,
   isSourceLike,
   sortFindingsByFileMessage,
   toPosix,
 } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { changedFilesFromScope, type CurrentDetectorScope, type DetectorScope } from "./scope.js";
 import type { DriftFinding } from "./types.js";
 
 // --- Subprocess runner ------------------------------------------------------
@@ -182,7 +181,7 @@ export function runDuplicatesCheck(options: RunDuplicatesCheckOptions): DriftFin
   const supportedExtensions = options.duplicateSupportedExtensions ?? JSCPD_SUPPORTED_EXTENSIONS;
   if (options.detectorScope.scopeMode === "current") {
     return runCurrentDuplicatesCheck(
-      options,
+      { ...options, detectorScope: options.detectorScope },
       minLines,
       minTokens,
       mode,
@@ -199,8 +198,12 @@ export function runDuplicatesCheck(options: RunDuplicatesCheckOptions): DriftFin
   return runDuplicateScopes(scopes, options.runner, minLines, minTokens, mode, ignoreGlobs);
 }
 
+type RunCurrentDuplicatesCheckOptions = RunDuplicatesCheckOptions & {
+  readonly detectorScope: CurrentDetectorScope;
+};
+
 function runCurrentDuplicatesCheck(
-  options: RunDuplicatesCheckOptions,
+  options: RunCurrentDuplicatesCheckOptions,
   minLines: number,
   minTokens: number,
   mode: "mild" | "weak",
@@ -272,7 +275,7 @@ function buildUnreadableReportFinding(scopePath: string, error: string): DriftFi
 }
 
 function mapCurrentFilesToScopes(
-  detectorScope: DetectorScope,
+  detectorScope: CurrentDetectorScope,
   options: {
     readonly roots: readonly string[];
     readonly ignoreGlobs: readonly string[];
@@ -291,7 +294,7 @@ function mapCurrentFilesToScopes(
 }
 
 function currentDuplicateSourcePaths(
-  detectorScope: DetectorScope,
+  detectorScope: CurrentDetectorScope,
   options: {
     readonly ignoreGlobs: readonly string[];
     readonly supportedExtensions: ReadonlySet<string>;
@@ -299,7 +302,6 @@ function currentDuplicateSourcePaths(
 ): string[] {
   const paths = new Set<string>();
   for (const file of detectorScope.files) {
-    if (file.scope !== "current") continue;
     const filePath = toPosix(file.path);
     if (!isSourceLike(filePath, options.supportedExtensions)) continue;
     if (matchesAnyGlob(filePath, options.ignoreGlobs)) continue;

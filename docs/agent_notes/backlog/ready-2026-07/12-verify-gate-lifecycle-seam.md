@@ -31,11 +31,11 @@ The pre-commit EXIT trap additionally carries
 `musi_precommit_fast_provenance_on_exit`; verify.sh's does not. This is
 partly intentional policy and partly drift — exactly the "duplicates
 across the boundary are defects" failure mode the substrate ruling names
-(docs/ai-harness.md:203).
+(`docs/ai-harness.md` **Substrate Ruling (Bash Vs TS)**).
 
 This continues the leaf-10/A1 extraction
 (arch-review-2026-07/00-report.md candidate A1 :205-212; Done 2026-07-07
-in 76bdb9cc, 3805cd2a, 664ca92d; referenced by docs/ai-harness.md:197),
+in 76bdb9cc, 3805cd2a, 664ca92d; referenced by the same substrate ruling),
 which deliberately stopped at engine internals and left the surrounding
 lifecycle glue in the two callers.
 
@@ -47,8 +47,8 @@ aggregate → finalize — so `scripts/verify.sh` and `.husky/pre-commit`
 shrink to policy callers that supply parameters and slot sets rather
 than re-implementing the lifecycle. This stays bash per the substrate
 ruling: "Repo-local gate orchestration stays bash, sharing engine
-libraries" (docs/ai-harness.md:193; ruling section :184, rules
-:189-206, signed off b7c2ce73 2026-07-14).
+libraries" (`docs/ai-harness.md` **Substrate Ruling (Bash Vs TS)**, signed off
+`b7c2ce73` 2026-07-14).
 
 ### Required first step (both consults)
 

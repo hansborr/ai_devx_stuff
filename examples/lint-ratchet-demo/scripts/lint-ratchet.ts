@@ -11,6 +11,8 @@
 //   bun scripts/lint-ratchet.ts --check-baseline     # gate + missing-driver warning
 //   bun scripts/lint-ratchet.ts --update [--allow-worse --reason "<why>"]
 //   bun scripts/lint-ratchet.ts --propose <ruleId> <glob...>  # preview a baseline
+//   bun scripts/lint-ratchet.ts --trend [--all] [--since <date>] [--max <n>]
+import { existsSync } from "node:fs";
 import { resolve } from "node:path";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
@@ -24,6 +26,7 @@ import {
   runLintRatchetUpdate,
 } from "@musi/lint-ratchet/governance/operations.js";
 import { runLintRatchetProposeCli } from "@musi/lint-ratchet/governance/propose.js";
+import { runLintRatchetTrendCli } from "@musi/lint-ratchet/governance/trend.js";
 import { validateLintRatchetRegistry } from "@musi/lint-ratchet/kernel/baseline.js";
 
 import {
@@ -31,6 +34,7 @@ import {
   demoContext,
   demoProposeEngine,
   demoRatchets,
+  demoWorkflowVocabulary,
   repoRoot,
 } from "./lint-ratchet/adapter.js";
 
@@ -39,7 +43,7 @@ const PROCESS_ARG_OFFSET = 2;
 // against this set the same way the Musi adapter validates against its wired rules.
 const DEMO_LOCAL_RULE_IDS = new Set(["local/no-console-log"]);
 
-type Mode = "gate" | "check-registry" | "check-baseline" | "update" | "propose";
+type Mode = "gate" | "check-registry" | "check-baseline" | "update" | "propose" | "trend";
 
 interface DemoArgs {
   readonly mode: Mode;
@@ -48,6 +52,9 @@ interface DemoArgs {
   // Populated only for --propose <ruleId> <glob...>.
   readonly proposeRuleId?: string;
   readonly proposeFiles?: readonly string[];
+  readonly trendSince?: string;
+  readonly trendMax?: number;
+  readonly trendAll: boolean;
 }
 
 class UsageError extends Error {}
@@ -58,6 +65,9 @@ function parseArgs(argv: readonly string[]): DemoArgs {
   let reason: string | undefined;
   let proposeRuleId: string | undefined;
   const proposeFiles: string[] = [];
+  let trendSince: string | undefined;
+  let trendMax: number | undefined;
+  let trendAll = false;
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     switch (arg) {
@@ -69,6 +79,9 @@ function parseArgs(argv: readonly string[]): DemoArgs {
         break;
       case "--update":
         mode = "update";
+        break;
+      case "--trend":
+        mode = "trend";
         break;
       case "--propose": {
         // --propose <ruleId> <glob...>: the ruleId then one or more file globs,
@@ -92,6 +105,25 @@ function parseArgs(argv: readonly string[]): DemoArgs {
         reason = value;
         break;
       }
+      case "--since": {
+        index += 1;
+        const value = argv[index];
+        if (value === undefined) throw new UsageError("--since requires a value");
+        trendSince = value;
+        break;
+      }
+      case "--max": {
+        index += 1;
+        const value = argv[index];
+        if (value === undefined || !/^[1-9]\d*$/u.test(value)) {
+          throw new UsageError("--max requires a positive integer");
+        }
+        trendMax = Number(value);
+        break;
+      }
+      case "--all":
+        trendAll = true;
+        break;
       default:
         throw new UsageError(`unknown argument: ${arg ?? "(none)"}`);
     }
@@ -99,14 +131,16 @@ function parseArgs(argv: readonly string[]): DemoArgs {
   return {
     mode,
     allowWorse,
+    trendAll,
     ...(reason === undefined ? {} : { reason }),
     ...(proposeRuleId === undefined ? {} : { proposeRuleId }),
     ...(proposeFiles.length === 0 ? {} : { proposeFiles }),
+    ...(trendSince === undefined ? {} : { trendSince }),
+    ...(trendMax === undefined ? {} : { trendMax }),
   };
 }
 
-const RECOVERY_COMMAND =
-  'bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this debt beats a rushed fix>"';
+const RECOVERY_COMMAND = demoWorkflowVocabulary.regressionUpdateCommand;
 
 /**
  * The demo's own result envelope. Intentionally minimal and distinct from the
@@ -136,7 +170,7 @@ function reportComparison(regressions: readonly string[], improvements: readonly
         status: "improved",
         regressions,
         improvements,
-        recovery: "bun run lint:ratchet:update  # lock in the improvement",
+        recovery: `${demoWorkflowVocabulary.updateCommand}  # lock in the improvement`,
       })}\n`,
     );
     return 1;
@@ -161,6 +195,7 @@ async function runGate(): Promise<number> {
 
 function runCheckRegistry(): number {
   const failures = validateLintRatchetRegistry(demoRatchets, {
+    exitPathExists: (exitPath) => existsSync(resolve(demoContext.repoRoot, exitPath)),
     localRuleIds: DEMO_LOCAL_RULE_IDS,
   });
   if (failures.length > 0) {
@@ -213,9 +248,30 @@ async function runProposeMode(args: DemoArgs): Promise<number> {
   return 0;
 }
 
+function runTrendMode(args: DemoArgs): number {
+  runLintRatchetTrendCli({
+    context: demoContext,
+    ratchets: demoRatchets,
+    includeRetired: args.trendAll,
+    ...(args.trendSince === undefined ? {} : { since: args.trendSince }),
+    ...(args.trendMax === undefined ? {} : { max: args.trendMax }),
+  });
+  return 0;
+}
+
 function warnIfMergeDriverMissing(): void {
   forwardMissingMergeDriverWarning({
-    checkScriptPath: resolve(repoRoot, "scripts/git/check-lint-ratchet-merge-driver.sh"),
+    checkCommand: [
+      "bun",
+      "-e",
+      'import("@musi/lint-ratchet/git-rail/executable-cli.js").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))',
+      "--",
+      "check",
+      "--adapter",
+      "scripts/lint-ratchet/adapter.ts",
+      "--repair-command",
+      demoWorkflowVocabulary.installMergeDriverCommand,
+    ],
     cwd: process.cwd(),
     env: process.env,
     warn: (message) => {
@@ -236,6 +292,8 @@ async function main(): Promise<number> {
       return runUpdate(args);
     case "propose":
       return runProposeMode(args);
+    case "trend":
+      return runTrendMode(args);
     case "gate":
     case "check-baseline":
       return runGate();
@@ -254,7 +312,7 @@ try {
     // The package reports only the missing path; the recovery command is this
     // demo's own runner script, so the adapter appends it.
     process.stderr.write(
-      `lint:ratchet: ${error.relativeBaselinePath} does not exist; run bun run lint:ratchet:update\n`,
+      `lint:ratchet: ${error.relativeBaselinePath} does not exist; run ${demoWorkflowVocabulary.updateCommand}\n`,
     );
     process.exitCode = 1;
   } else if (error instanceof BaselineParseError) {

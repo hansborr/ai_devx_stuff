@@ -1,0 +1,1187 @@
+{
+ "batch": "wave1-lanes-04-09-plus-wave2",
+ "pin": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "rowCount": 173,
+ "note": "judge-stage rejections; verification-stage refutations land in batch2-verify.json later",
+ "rejected": [
+  {
+   "candidateId": "D-007",
+   "stage": "judge",
+   "reason": "The metamagic catalog is frozen SRD 5.2.1 text, so the claimed content-vs-rules change conflict is hypothetical (only one non-test importer of METAMAGIC_OPTIONS); the 215-line module is well sectioned and the mechanics APIs remain easy to find. Splitting buys no recurring benefit for the importer churn — same calculus as the declined CQ25-116."
+  },
+  {
+   "candidateId": "D-016",
+   "stage": "judge",
+   "reason": "The 'unused' aliases are a deliberate uniform idiom (every exported schema carries a paired z.infer alias, per the shared-schemas-are-the-contract convention), not accidental dead code; pruning 122 symbols is L-sized needs-split churn that leaves the schema/alias pairing inconsistent, invites re-adds as consumers appear, and the proposed adopter-required policy adds friction against a self-documenting convention. Low severity + L churn on app-side type surface (no harness-copyability weight) does not pay for itself; the valuable selective slice already landed as CQ25-115."
+  },
+  {
+   "candidateId": "D-031",
+   "stage": "judge",
+   "reason": "Flat per-form state with a paired persisted<->form adapter is a conventional, contained pattern; the monster module is already section-decomposed (ability-scores, defenses, spellcasting, action-list components) with its own MODULE.md, and the 47-field set mirrors the pinned SRD 5.2.1 stat block, so the field-addition tax this fix targets lands rarely. The L-sized restructure (six domain sub-form types, narrowed section props, split adapters, test rewrites) mostly regroups mapping code that must exist anyway rather than shrinking it, and the prior client cluster (CQ25-117/CQ25-197) already reworked homebrew form helpers without electing this split. Churn does not pay for itself at this repo's bar."
+  },
+  {
+   "candidateId": "D-054",
+   "stage": "judge",
+   "reason": "Rejected: the perf claim is unmeasured (the lane admits no timing was collected) and half the cited waste is negligible — evaluateCloneCorpusCandidates is a pure in-memory MinHash/LSH computation over a tiny fixture corpus, so 11 repeat evaluations cost milliseconds. The real cost sits in six committedDebtRepo git-repo builds in near-duplicates.test.ts, but those admission tests mutate the repo after baseline, so sharing a prepared baseline means template-copy plumbing that trades test independence for an unproven speedup. M-sized churn with needs-split leafability does not pay at this bar without a measured suite-time problem."
+  },
+  {
+   "candidateId": "D-066",
+   "stage": "judge",
+   "reason": "The recovery contract the finding calls undefined is defined by construction: each artifact is written with ensureDirWriteFileAtomicallySync (no torn files), check mode independently enumerates every stale output (generate-hook-wiring.ts:300-305) and runs in the commit gate, and generation is a pure render-then-overwrite-all from the manifest, so rerun repairs any mixed state. Mid-batch write failure in a local dev generator is rare and self-healing; adding injectable writers and failure-injection suites adds production indirection and test churn for a failure mode with no observed cost, and does not improve harness copyability."
+  },
+  {
+   "candidateId": "D-075",
+   "stage": "judge",
+   "reason": "Rejected on inspection of the cited code: these seams are deliberate, heavily documented design, not accidental API bloat. TogglePreparedHooks carries a full JSDoc doctrine explaining why deterministic injection is the only non-flaky way to pin the cap invariant and retry schedule, transactionProbe is the same sanctioned pattern for race-sensitive mutations, and assertImportSizeWithinLimit's export is documented defence-in-depth with a clear rationale. Optional injection params cost production callers nothing to ignore, so the claimed contributor confusion is minimal; wrapping each core in an 'internal module + facade' adds an indirection layer and churn on race-sensitive surfaces (exactly where docs/CONCURRENCY.md counsels caution) for no behavioral gain. The one residual kernel (registry/event-key exports coupling representation to tests) is too small to carry an M-sized restructure."
+  },
+  {
+   "candidateId": "D-084",
+   "stage": "judge",
+   "reason": "Rejected: the shared helper's header explicitly records this split as a deliberate stop-point from a prior dedup pass — byte-identical metadata-validator and fs/stdout blocks were centralized, and the per-suite readMetadata/runFixture drivers were intentionally kept local because they genuinely diverge (failure-assertion variant, runTwice policy, tRPC two-kind parameterization). Folding the remaining lifecycle skeleton behind three-way typed callbacks trades four short straight-line drivers (86-162 lines each) for callback indirection on a surface whose semantics rarely change; the churn does not pay for itself at this repo's bar."
+  },
+  {
+   "candidateId": "D-122",
+   "stage": "judge",
+   "reason": "Subsumed by approved batch-1 C-021, which already covers hard-coded package topology in the analyzer cores including code-intel and whose policy-adapter direction would deliver this fix; approving it separately duplicates churn. The standalone case is also weaker than claimed: documented scope (AGENTS.md, ts-graph skill) matches behavior and single-file queries fail loudly with an explicit supported-scope message, so the exclusion is not silent on the main path. The genuinely new material — 127 tracked TS files under tools/ and examples/lint-ratchet-demo invisible to discovery-mode queries, and the extend-coverage vs. rename-plus-diagnostic decision — should be carried into C-021's brief as scope input rather than run as separate work."
+  },
+  {
+   "candidateId": "D-128",
+   "stage": "judge",
+   "reason": "The cwd tripwire is real and recurring (documented in scripts/README.md:118-124 and worked around by the AGENTS.md --cwd convention), but the proposed dispatcher does not eliminate the underlying nearest-package.json ambiguity — package-local `bun run dev` would still mean something different — it only adds a parallel bespoke entry point. The canonical `bun --cwd=\"$(git rev-parse --show-toplevel)\"` form is already documented, dependency-free, and itself copyable, while a dispatcher adds a new hand-maintained harness surface (script registration, doc/guide migration across AGENTS.md and generated verify wiring) whose churn outweighs the marginal DX gain. Rejection is on fix economics, not on the problem's existence."
+  },
+  {
+   "candidateId": "D-132",
+   "stage": "judge",
+   "reason": "Recorded rejection: the common provenance questions are already answered by existing surfaces — path-policy query core for changed-path-to-smoke selection, the generated harness-controls Markdown rendered from the manifest, harness:check/registration-check diagnostics, and doctor's follow-up commands. A new joined query tool would itself become a registered harness surface (package script, smoke, path-policy row, manifest entry, docs) that must track every manifest facet change; that ongoing churn exceeds the low-severity discoverability gain, and the harness's copyability rests on the controls and generators, not on an extra viewer."
+  },
+  {
+   "candidateId": "D-149",
+   "stage": "judge",
+   "reason": "Rejection. The builder is a deliberate, recent design (lint-deep-dive-2026-07 leaf 40) that replaced nine hand-repeated no-restricted-syntax blocks whose flat-config replace semantics made a dropped fence a silent policy loss. The proof machinery is exactly what makes authoring order irrelevant by construction; the proposed 'generate a concrete partition from declarative scope membership' is close to a description of what already exists minus the disjointness guarantees, and the resolution snapshot alone cannot cover files outside its probe set. The ongoing tax is confined to occasional policy extension, and the authoring surface is the 266-line data file walked by a 148-line guide (docs/guides/add-restricted-syntax-fence.md) that says the engine is rarely touched; three test files plus the snapshot fence the behavior. An L rewrite of a working, tested, guide-documented engine to shrink a one-time 450-line cost does not pay at this repo's bar and risks reintroducing the hazard it was built to remove."
+  },
+  {
+   "candidateId": "D-158",
+   "stage": "judge",
+   "reason": "Rejected: the metadata contract is already machine-enforced — all-local-rules.js feeds a meta-contract suite that catches omissions, so the factory would only relocate enforcement that exists. The repeated boilerplate is trivial (schema: [] on 29 non-test rules), and raw ESLint rule anatomy is the ecosystem-standard shape: for a public harness reference, standard rule modules are MORE copyable than a bespoke defineLocalRule indirection a reader must first learn. Migrating all 32 production rules is broad churn through the safety-critical lint layer with regression surface and no behavior gain; the cost/benefit fails at this repo's bar."
+  },
+  {
+   "candidateId": "D-161",
+   "stage": "judge",
+   "reason": "The claimed fragmentation mostly does not exist at the pin: zero-baseline.ts already exports the shared probe (createNormalLintStatusForFile, matchingTrackedFiles, aggregateNormalLintStatus, trackedFilesFromGit) and the retire path injects it — retire-promotion-proof.ts takes statusForFile as a parameter and retire-update.ts reuses the same helpers. Residual duplication is a two-line ESLint construction and optionsFromConfig, an options extractor whose semantics differ from the severity parser ruleConfigValue; a new package-level probe abstraction would add indirection without paying for its churn. Cited files retire-rule-proof.ts/retire-rule-update.ts also do not exist (actual: retire-promotion-proof.ts, retire-update.ts)."
+  },
+  {
+   "candidateId": "D-167",
+   "stage": "judge",
+   "reason": "Read both engines: the claimed harm is thinner than the summary suggests. expand-barrel's runOne already builds a full per-barrel plan before one writeOrPreviewFiles call, and trpc-shared-engine's runAll preflights all discovery errors before any write; the remaining 'intermediate states' are each independently coherent, valid changes (a barrel expanded in package A but not B compiles and lints), dry-run exists, and codemods run in a git-managed tree where recovery is trivial. Repeated project construction only costs seconds on a rarely-invoked path. Rearchitecting two engines into a single-project merged-plan commit is a coherent-M refactor whose churn (engine orchestration, collision detection, tests) is not paid back by a cold path with no observed failure mode — recorded rejection."
+  }
+ ],
+ "approved": [
+  {
+   "id": "D-001",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-002",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-003",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-004",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-005",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-006",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-008",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-009",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-010",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-011",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-012",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-013",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-014",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-015",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-017",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-018",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-019",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-020",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-021",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-022",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-023",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-024",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-025",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-026",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-027",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-028",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-029",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-030",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-032",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-033",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-034",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-035",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-036",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-037",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-038",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-039",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-040",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-041",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-042",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-043",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-044",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-045",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-046",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-047",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-048",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-049",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-050",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-051",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-052",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-053",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-055",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-056",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-057",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-058",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-059",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-060",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-061",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-062",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-063",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-064",
+   "severity": "high",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-065",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-067",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-068",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-069",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-070",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-071",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-072",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-073",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-074",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-076",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-077",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-078",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-079",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-080",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-081",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-082",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-083",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": true,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-085",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-086",
+   "severity": "high",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-087",
+   "severity": "high",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-088",
+   "severity": "high",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-089",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-090",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-091",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-092",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-093",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-094",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-095",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-096",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-097",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-098",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-099",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-100",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-101",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-102",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-103",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-104",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-105",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-106",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-107",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-108",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-109",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-110",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-111",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-112",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-113",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-114",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-115",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-116",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-117",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-118",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": {
+    "batch1Id": "C-035",
+    "relation": "extends",
+    "note": "C-035 covers the event taxonomy duplicated and implicit within logs-audit's own checks; L08-002 extends the same vocabulary-duplication problem across the producer/auditor boundary into server code (app.ts, request-logger.ts). A single shared logging-policy module would satisfy both; plan them together."
+   }
+  },
+  {
+   "id": "D-119",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-120",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-121",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-123",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-124",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-125",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-126",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-127",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-129",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-130",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-131",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-133",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-134",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-135",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-136",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-137",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-138",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-139",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-140",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-141",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-142",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-143",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-144",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-145",
+   "severity": "high",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-146",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-147",
+   "severity": "high",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-148",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-150",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-151",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-152",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-153",
+   "severity": "medium",
+   "size": "L",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-154",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-155",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-156",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-157",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-159",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-160",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-162",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-163",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-164",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-165",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-166",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-168",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-169",
+   "severity": "medium",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  },
+  {
+   "id": "D-170",
+   "severity": "medium",
+   "size": "M",
+   "lightVerify": false,
+   "batch1Overlap": {
+    "batch1Id": "C-038",
+    "relation": "extends",
+    "note": "C-038 is the identical problem shape in the sibling analyzer entrypoint (code-intel.ts maintains an unused pseudo-library facade). L02-101 extends the same problem to drift-ai.ts; the fixes are per-file but the direction and acceptance criteria are the same and could share one plan."
+   }
+  },
+  {
+   "id": "D-171",
+   "severity": "low",
+   "size": "S",
+   "lightVerify": false,
+   "batch1Overlap": null
+  }
+ ]
+}

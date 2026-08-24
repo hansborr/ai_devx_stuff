@@ -1,7 +1,7 @@
 # Backlog
 
 Status: Living reference index
-Updated: 2026-07-27
+Updated: 2026-08-12
 
 Parked workstreams that still matter, but should stay out of the default
 agent loop.
@@ -22,37 +22,96 @@ Do **not** read this folder at session start. Promote an item back into
 
 ## Parked items
 
-- `code-quality-2026-07-25/00-index.md` — 60-leaf refactor/simplification audit
+- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (101 landed,
+  168 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
+  prioritised harness leaves, lint-related first, and granted standing
+  merge-on-green; on 2026-08-14 the queue was extended to cover the whole
+  harness area (104 queued leaves) for an unattended drain. To dispatch,
+  run `node docs/agent_notes/backlog/code-quality-2026-08-01/drain.mjs status` —
+  it computes what is free, gates a hand-picked set against the edge graph and
+  live lanes (`plan`), and renders the implementer and reviewer missions
+  (`brief`). `DRAIN.md` is the short loop around it; `DRAIN-NOTES.md` holds the
+  failure modes. Standalone next to `code-quality-2026-07-25` (dedup, not
+  absorption). Read `AUDIT-SUMMARY.md` for what the audit covered and what it
+  admits it did not, `CONSTRAINTS.md` for the rulings not to silently
+  re-open — including the round-6 dispositions of all 15 formerly unread cuts
+  and the never-renumber rule for the 096/161 holes — and `BUGS-HANDOFF.md` for
+  118 unverified bug suspicions that
+  are input to a later `/code-review`, not to this pack.
+- `verify-gate-followups-2026-07-30/00-index.md` — _(Drained 2026-07-30: both
+  leaves landed — the registration hang guard widened to 45 seconds via merge
+  `1fd8cfb66`, and the failure-only start-of-run load/core sample via merge
+  `c1313c043`. Retained as the provenance record; its one recorded follow-up,
+  whether pre-runtime lock/queue failures need separate lock-stage evidence, is
+  future scope and deliberately unscheduled.)_ Two owner-approved gate
+  follow-ups. This pack does not reopen the closed `pain-points-2026-07-29`
+  pack.
+- `pain-points-2026-07-29/00-index.md` — live-tree and ownership reconciliation
+  of the twelve persisted Musi pain-point notes: thirteen bounded leaves, one
+  of them the mandatory parallel-verify item. The disposition ledger records
+  fixed, external, duplicate, too-large, insufficient-evidence, and
+  owner-decision residue; this is not a second ready queue.
+- `code-quality-2026-07-25/00-index.md` — 72-leaf refactor/simplification audit
   across `packages/{shared,server,client}`, the harness, the lint machinery, and
   the test suite, with dedicated comment-smell and naming lenses. Headline: the
   codebase is structurally sound — the recurring pattern is a problem solved
-  correctly once and then paid for by copy-paste rather than extraction. The
-  index carries a ledger of changes that look attractive but should not be
-  proposed, so they are not re-raised. Not a second ready queue; leaves 29 and 32
-  carry the operational risk. Twenty-three leaves (24, 11, 37, 43, 39, 47, 01,
-  18, 19, 20, 21, 22, 23, 25, 26, 48, 09, 10, 12, 13, 50, 51, 52) landed across
-  eight deliveries on 2026-07-26 and 2026-07-27. The shared cluster is finished:
-  21 of its 22 slices landed and U3 is closed-declined with reasons, not
-  deferred. The client cluster is in progress — seven slices landed, eight
-  remain. The server/comments cluster has not started: `feat/cq-server-cluster`
-  landed the three standalone server leaves (50, 51, 52) that plan's writing
-  produced, not any of its slices. All six XL leaves
-  (07/27/28/34/40/42) have a `NN-PLAN.md` scheduling plan, leaf 53 has one too,
-  and the client, harness, shared and server/comments clusters have a
-  `*-CLUSTER-PLAN.md` covering 34 leaves — read the plan, not the leaf, before
-  scheduling one.
-  The plans shrink or drop work the index's leaf rows still list at full size,
-  and the plan is authoritative where they differ — except for the eight shared
-  rows and the ten client rows, whose reconciliations were applied on 2026-07-26
-  and 2026-07-27 and which now carry their plan's own sizes and dropped-step
-  records. `53-PLAN.md`'s reconciliation is not applied yet; it lands with its
-  first slice.
-  Leaves 50, 51 and 52 were added on 2026-07-26 from the slice C review and the
-  server planning session; they pin their anchors to `5ff5751a`, not the pack's
-  `883d48bf`, and all three have since landed. Leaves 53 and 54 carry recorded
-  owner decisions. Leaves 55-57 came from the client-cluster reviews and pin to
-  `709b27668`; leaves 58, 59 and 60 came from the server-cluster review rounds
-  and pre-merge panel and pin to `f16079c2f` / `b16000968`.
+  correctly once and then paid for by copy-paste rather than extraction. 52
+  leaves landed or were deliberately closed across thirty-seven deliveries
+  between 2026-07-26 and 2026-08-01; 20 are open, and the next candidate needs
+  an owner priority call. Leaf 41's scheduled work is finished: its strict
+  runtime guard and names-only router binding are implemented, while its domain
+  split remains optional and unscheduled. New leaf 72 records leaf 66's
+  non-blocking panel residual: prop builders still source gated callbacks, so a
+  future callback can bypass the enumerated composition overrides; the related
+  empty viewer details region is opportunistic only. The concurrency
+  delivery installed the
+  mandatory nested Prisma update guard over one generated reachable relation subgraph,
+  while retaining lint as the earlier non-authoritative diagnostic and leaving
+  connect/create/delete-style operators explicitly outside v1. The lint
+  delivery centralized the drifted AST
+  helpers behind an export-driven collision guard, ordered the local-rule
+  registry, and made rule changes select those guards under changed
+  verification. It deliberately kept the three config-focused suites in the
+  existing lint-rule Vitest project: a standalone config project added
+  ownership plumbing and a second command without behavioral coverage.
+  The lint-ratchet sandbox residual is also closed: focused import-closure
+  assertions now guard both existing copy lists before sandbox construction,
+  without restoring a fixture manifest or teaching the generic analyzer to
+  parse dynamic pipelines. The shared, client, and scheduled server/comments
+  work is finished. The harness cluster is in progress: 18 of 23 slices landed
+  across merges `2667ee8e0`, `ac3ce2b0f`, `1bfbfc115`, `e7462ee51`,
+  `bdc120756`, `c6e1be2a2`, `e2dc60cb9`, `57ef569e5`, and `64a7fac64`. Five
+  slices remain open: H11/H12 await unlanded 28-PLAN slice 28.1, H15 awaits
+  unlanded 27-PLAN slice 27.3, and optional H20/H21 are unstarted. The
+  client-cache delivery made immutable SRD lists fresh
+  without retaining every parameterized key, invalidated the initiating
+  client's whole character-detail family after assignment changes, and
+  explicitly accepted unbounded cross-client staleness rather than adding wider
+  socket machinery. Its unrelated roll-test residue is now closed: the rendered
+  denial has authorized Strength-check and equipped-Longsword controls, while
+  the duplicate failed-lookup hook composition case was deliberately declined.
+  The direct concurrency branch still runs its shared cross-detector corpus,
+  including the scanner's prior edge cases. Leaf 60 retired the nested
+  ts-morph detector when the generated graph/runtime guard became authoritative;
+  ESLint keeps the nested author-time diagnostic and all 45 former parity cases
+  as its own regression corpus. The
+  lint-helper collision guard now protects
+  every named export from every other module per rule target at every
+  declaration depth; its widened corpus removed one byte-identical
+  binding-resolution copy without an allowlist. Not a second ready queue;
+  leaves 29 and 32 carry
+  the operational risk. The index is the orchestration surface — open leaves,
+  plan pointers, live dependency edges, cluster state — written for **one lane
+  worked in series**, and **the plan, not the leaf, is the schedulable unit**
+  (eight leaves have an `NN-PLAN.md` — the six XL leaves plus 41 and 53; four
+  cluster plans cover 34 leaves, and plans shrink or drop work the leaves still
+  describe at full size).
+  Landing history lives on each leaf's own `Status` header and in the plans'
+  `State` columns, not in the index. Two companion files carry what the index
+  used to inline: `CONSTRAINTS.md` (changes that look attractive but are wrong
+  here, so they are not re-raised, plus the landed plans these leaves re-enter)
+  and `AUDIT-SUMMARY.md` (findings synthesis, the comment and naming lenses, and
+  the coverage boundaries).
 - `agent-pain-points-2026-07-21/00-index.md` — multi-stage audit of the
   persisted agent pain-point log and its available Claude-memory sources:
   nine actionable repository candidates, one teammate-handoff feasibility
@@ -107,6 +166,10 @@ Do **not** read this folder at session start. Promote an item back into
 - `worktree-local-observability.md` — parked local dev-session observability
   plan; the fixture-backed `logs:audit` quality checks landed, while capture
   directories and a log inspector remain unpromoted.
+- `worktree-seed-closure-followups.md` — three prospective, loud
+  wrong-rejections deferred from the final seed-closure review: isolated-store
+  npm aliases, option validation in `"skip"` traversal, and the missing `json5`
+  terminal-loader classification.
 - `harness-presentation-2026-06/00-README.md` — 2026-06-13 research pack +
   deliverables for a 23-slide talk on harness/context/agentic engineering
   (Musi as case study): research report, slide-deck text, an 8-item improvement

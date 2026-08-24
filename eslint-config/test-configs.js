@@ -4,12 +4,8 @@ import testingLibraryPlugin from "eslint-plugin-testing-library";
 import vitestPlugin from "@vitest/eslint-plugin";
 import playwright from "eslint-plugin-playwright";
 
-import {
-  codemodTestFiles,
-  nonE2eTestIgnores,
-  scriptTestAssertFunctionNames,
-  unitTestFiles,
-} from "./shared-policy.js";
+import { nonE2eTestIgnores, unitTestFiles } from "./path-glob-policy.js";
+import { codemodTestFiles, scriptTestAssertFunctionNames } from "./script-test-policy.js";
 
 export function createTestAndE2eConfigs(repoRoot) {
   return [

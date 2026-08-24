@@ -147,7 +147,11 @@ function withFakeTargetKnip(run: (fixture: FakeTargetKnip) => void): void {
   }
 }
 
-function makeDefaultKnipInput(fixture: FakeTargetKnip, argv: readonly string[]): CheckRunInput {
+function makeDefaultKnipInput(
+  fixture: FakeTargetKnip,
+  argv: readonly string[],
+  warnStderr: (message: string) => void = () => undefined,
+): CheckRunInput {
   return {
     ...RUN_STATE,
     repoRoot: fixture.repoRoot,
@@ -160,7 +164,7 @@ function makeDefaultKnipInput(fixture: FakeTargetKnip, argv: readonly string[]):
         pathExists: pathExistsFor(INSTALLED_WITH_ROOT_CONFIG),
       },
       cli: parseArgs(["--scope", "current", ...argv]),
-      warnStderr: () => undefined,
+      warnStderr,
     },
   };
 }
@@ -252,6 +256,17 @@ describe("parseKnipUnusedExports", () => {
 
   it("returns an empty list for a clean run", () => {
     expect(parseKnipUnusedExports('{"issues":[]}')).toEqual({ ok: true, symbols: [] });
+  });
+
+  it("rejects a non-object report envelope", () => {
+    expect(parseKnipUnusedExports("[]")).toEqual({
+      ok: false,
+      error: "expected a JSON object with an 'issues' array",
+    });
+  });
+
+  it("treats a non-array issues field as a successful report with no rows", () => {
+    expect(parseKnipUnusedExports('{"issues":{}}')).toEqual({ ok: true, symbols: [] });
   });
 
   it("tolerates a row missing a category key entirely (subset --include)", () => {
@@ -662,6 +677,21 @@ describe("formatText provenance tag (unused-exports)", () => {
 // --- selected-check include categories --------------------------------------
 
 describe("knip service resolver include categories", () => {
+  it("labels the production drift:ai knip heartbeat", () => {
+    withFakeTargetKnip((fixture) => {
+      clearKnipRunCache();
+      const warnings: string[] = [];
+      const outcome = orphanFilesCheck.runWithSelectedConfig(
+        makeDefaultKnipInput(fixture, ["--check", "orphan-files"], (message) =>
+          warnings.push(message),
+        ),
+      );
+
+      expect(outcome.status).toBe("ran");
+      expect(warnings).toEqual(["drift:ai: running knip self-scan (budget 180s)…"]);
+    });
+  });
+
   it("uses file-only knip categories for orphan-files-only runs", () => {
     withFakeTargetKnip((fixture) => {
       clearKnipRunCache();
@@ -740,11 +770,13 @@ describe("memoizingDefaultKnipRunner", () => {
     };
     const orphanRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       underlyingRunner,
     });
     const unusedRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       underlyingRunner,
     });
@@ -773,11 +805,13 @@ describe("memoizingDefaultKnipRunner", () => {
       // build; the first spawns, the second reuses the cached result.
       const orphan = memoizingDefaultKnipRunner({
         analyzedRepoRoot: "/repo/target",
+        commandLabel: "drift:ai",
         knipBin: "/bin/knip",
         underlyingRunner,
       });
       const unused = memoizingDefaultKnipRunner({
         analyzedRepoRoot: "/repo/target",
+        commandLabel: "drift:ai",
         knipBin: "/bin/knip",
         underlyingRunner,
       });
@@ -820,6 +854,7 @@ describe("memoizingDefaultKnipRunner", () => {
     };
     const runner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       underlyingRunner,
     });

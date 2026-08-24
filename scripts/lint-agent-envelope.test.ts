@@ -1,11 +1,8 @@
 import { resolve } from "node:path";
 
+import { harnessDiagnosticsSchema, type HarnessFinding } from "@musi/harness-diagnostics/schema.js";
 import { describe, expect, it } from "vitest";
 
-import {
-  harnessDiagnosticsSchema,
-  type HarnessFinding,
-} from "../packages/shared/src/schemas/harness-diagnostics.js";
 import type { ESLintMessage } from "./lib/eslint-json.js";
 import type { RuleDocsEntry } from "./lib/lint-rule-docs.js";
 import {

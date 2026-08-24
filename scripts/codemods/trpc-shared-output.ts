@@ -8,11 +8,9 @@ import {
   type SharedSchemaCodemodConfig,
   type SharedSchemaTargetContext,
 } from "./lib/trpc-shared-engine.js";
-import {
-  referencedIdentifiers,
-  SHARED_SCHEMA_PREFIX,
-  validateSharedSchemaSource,
-} from "./lib/trpc-shared-schema.js";
+import { referencedIdentifiers } from "./lib/trpc-shared-schema-identifiers.js";
+import { validateSharedSchemaSource } from "./lib/trpc-shared-schema-paths.js";
+import { SHARED_SCHEMA_PREFIX } from "./lib/trpc-shared-schema-types.js";
 import {
   assertConstSchemaIsOnlyOutputReference,
   CODEMOD_NAME,

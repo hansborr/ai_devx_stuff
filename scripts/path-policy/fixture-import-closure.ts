@@ -23,9 +23,10 @@
 import { readdirSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 
-import { validateSeedImportClosure } from "../worktree-seed-import-closure.js";
-import { entryPathPattern, normalizePath } from "./fixture-copy-expressions.js";
+import { validateSeedImportClosure } from "../import-closure/closure-walk.js";
+import { entryPathPattern } from "./fixture-copy-expressions.js";
 import type { FixtureSandbox } from "./fixture-sandbox-model.js";
+import { normalizePath } from "./smoke-test-files.js";
 
 /**
  * `cp -R scripts/support/. "$dir/scripts/support/"` puts executable modules in

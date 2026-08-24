@@ -5,7 +5,6 @@ export const ratchetRestrictedDisableRuleIds = Object.freeze([
   "@typescript-eslint/strict-boolean-expressions",
   "local/no-arbitrary-tailwind-value",
   "local/no-commented-out-code",
-  "local/no-effect-misuse",
   "local/no-swallowed-errors",
   "local/type-assertion-boundary",
   "max-depth",

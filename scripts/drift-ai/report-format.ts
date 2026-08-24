@@ -66,15 +66,14 @@ export function formatText(report: DriftReport): string {
 }
 
 function formatNothingToRun(skippedChecks: DriftReport["skippedChecks"]): string {
-  if (
-    skippedChecks.length === 0 ||
-    skippedChecks.every((skip) => skip.reason === "check is not implemented")
-  ) {
+  if (skippedChecks.length === 0) {
     return "drift:ai: no implemented checks selected.";
   }
   const [skip] = skippedChecks;
   if (skip !== undefined && skippedChecks.length === 1) {
-    if (skip.check === "suppressions" && skip.reason === "only available in changed scope") {
+    // Dispatch on the machine-readable code, never the reason prose: the reason
+    // is presentation-only and may be reworded without changing which branch runs.
+    if (skip.check === "suppressions" && skip.code === "changed-scope-only") {
       return `drift:ai: ${skip.check} is ${skip.reason}; nothing to run.`;
     }
     return `drift:ai: ${skip.check} was skipped: ${skip.reason}; nothing to run.`;

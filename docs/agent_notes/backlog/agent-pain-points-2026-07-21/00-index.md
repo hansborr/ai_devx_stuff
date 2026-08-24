@@ -2,13 +2,14 @@
 
 Status: Mostly drained — 7 of 9 repository candidates implemented; 10 and the 05 probe remain
 Date: 2026-07-21
-Updated: 2026-07-25
+Updated: 2026-07-29
 
-This pack reconciles `/home/node/persist/musi/pain_points.log` and its available
-Claude-memory sources against the live repository, tests, history, and existing
-backlog. Parallel subsystem triage produced candidate leaves; independent
-runtime, command-safety, harness, data-model, evidence, and portfolio reviewers
-then tried to refute or narrow every candidate.
+This pack reconciles the pre-migration pain-points collection, preserved at
+`/home/node/persist/musi/pain_points/archive/2026-07-21-through-2026-07-29.log`,
+and its available Claude-memory sources against the live repository, tests,
+history, and existing backlog. Parallel subsystem triage produced candidate
+leaves; independent runtime, command-safety, harness, data-model, evidence, and
+portfolio reviewers then tried to refute or narrow every candidate.
 
 The result is nine actionable repository candidates, one feasibility probe with
 conditional implementation, and one non-schedulable correctness rider merged
@@ -21,7 +22,7 @@ queue. Promote accepted work only through
 | # | Item | Priority | Size | Status |
 | --- | --- | --- | --- | --- |
 | 02 | [Consolidate `land.sh` flow-test ownership](./02-consolidate-land-flow-test-ownership.md) | P2 | M | Implemented — 2026-07-22 |
-| 03 | [C8 command-target correctness rider](./03-resolve-hook-command-targets.md) | — | — | Accepted decision record — non-schedulable; merged into ready C8/leaf 13 |
+| 03 | [C8 command-target correctness rider](./03-resolve-hook-command-targets.md) | — | — | Accepted decision record — target-classification work remains in C8; immediate Bash failure-evidence repair moved to the 2026-07-29 pain-point pack |
 | 04 | [Bound agent backends to the wrapper lifetime](./04-bound-agent-backend-lifetime.md) | — | — | Cancelled — owner decision 2026-07-22; record retained |
 | 05 | [Require an attributable teammate handoff](./05-require-attributable-teammate-handoff.md) | P2 | S probe / M conditional | Probe candidate — implementation requires an explicit GO result |
 | 06 | [Restrict agent stash commands to an allowlist](./06-block-linked-worktree-stash-mutations.md) | P1 | S–M | Implemented — 2026-07-22 |
@@ -49,8 +50,14 @@ Seven of the nine repository candidates landed between 2026-07-22 and
    check; implement Phase B only on an explicit `GO`. Agent team mode is still
    disabled locally and must be re-enabled to run it.
 
-03 stays inside the existing C8 command-policy campaign; it is not a lane. 04
-was cancelled by owner decision (see below).
+03's target-classification contract stays inside the existing C8
+command-policy campaign; it is not a lane. By owner decision on 2026-07-29,
+the current Bash failure-log reader is carved out of the C8 rider into the
+bounded compatibility repair at
+[`../pain-points-2026-07-29/02-parallel-verify-lane-isolation-plan.md`](../pain-points-2026-07-29/02-parallel-verify-lane-isolation-plan.md).
+C8 S4 remains the later typed command-policy owner and must preserve the
+producer-authoritative behavior that repair establishes.
+04 was cancelled by owner decision (see below).
 
 ## Owner decisions — 2026-07-22
 

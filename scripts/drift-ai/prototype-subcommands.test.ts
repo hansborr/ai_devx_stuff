@@ -105,6 +105,7 @@ describe("runPrototypeSubcommand", () => {
   it("dispatches clone-candidates as a prototype advisory subcommand", () => {
     const repoRoot = makeTempDir();
     const files = ["src/left.ts", "src/right.ts"];
+    let includeExactTokens: boolean | undefined;
 
     const result = expectPrototypeResult(
       runPrototypeSubcommand({
@@ -113,14 +114,18 @@ describe("runPrototypeSubcommand", () => {
         gitBuffer: () => nulDelimited(files),
         stat: statForCurrentFiles(repoRoot, files),
         rootExists: () => true,
-        nearDuplicates: () => ({
-          ok: true,
-          engine: NEAR_DUPLICATE_TOOL,
-          functions: cloneFunctions(),
-        }),
+        nearDuplicates: (input) => {
+          includeExactTokens = input.includeExactTokens;
+          return {
+            ok: true,
+            engine: NEAR_DUPLICATE_TOOL,
+            functions: cloneFunctions(),
+          };
+        },
       }),
     );
 
+    expect(includeExactTokens).toBe(false);
     expect(result.exitCode).toBe(0);
     // type-assertion-boundary: test - the JSON output contract is what this dispatch test verifies.
     const advisory = JSON.parse(result.stdout) as Record<string, unknown>;
@@ -139,7 +144,13 @@ describe("runPrototypeSubcommand", () => {
       JSON.stringify({
         checks: {
           "ghost-files": {
-            currentAllowedPairs: [["src/encounter-legacy.ts", "src/encounter.ts"]],
+            currentAllowedPairs: [
+              {
+                files: ["src/encounter-legacy.ts", "src/encounter.ts"],
+                rationale:
+                  "The legacy and current encounter modules represent separate candidates; remove when the legacy module is retired.",
+              },
+            ],
           },
         },
       }),

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { aggregateFiles } from "./coldspots-aggregate.js";
 import { reduceColdspot } from "./coldspots-coldspot.js";
 import type { CollectedHistory, CommitFileChange, CommitRecord } from "./hotspots-history.js";
 
@@ -52,6 +53,40 @@ function daysAgo(days: number): string {
 }
 
 describe("reduceColdspot", () => {
+  it("uses the newest of multiple touches to calculate a file's age", () => {
+    const records = Array.from({ length: 30 }, (_unused, i) =>
+      rec([file(`app/a-${i}.ts`)], { authorDate: daysAgo(0) }),
+    );
+    records.push(
+      rec([file("legacy/multi-touch.ts", 250, 0)], { authorDate: daysAgo(45) }),
+      rec([file("legacy/multi-touch.ts", 1, 0)], { authorDate: "not-a-date" }),
+      rec([file("legacy/multi-touch.ts", 250, 0)], { authorDate: daysAgo(90) }),
+    );
+
+    const section = reduceColdspot(history(records), { top: 50, revisionFloor: 3 });
+
+    const multiTouch = section.entries.find((entry) => entry.path === "legacy/multi-touch.ts");
+    expect(multiTouch?.ageDays).toBe(45);
+    expect(multiTouch?.amplifiers.map((amp) => amp.kind)).toContain("large-file-cold");
+  });
+
+  it("uses the earliest of multiple touches for birth metadata", () => {
+    const recentFollowUp = rec([file("scaffold/target.ts", 1, 1)], {
+      authorDate: daysAgo(20),
+    });
+    const birthFiles = [
+      file("scaffold/target.ts", 80, 0),
+      ...Array.from({ length: 11 }, (_unused, i) => file(`scaffold/sibling-${i}.ts`, 80, 0)),
+    ];
+    const birth = rec(birthFiles, { authorDate: daysAgo(90) });
+
+    const aggregate = aggregateFiles([recentFollowUp, birth]).get("scaffold/target.ts");
+
+    expect(aggregate?.birthMs).toBe(Date.parse(daysAgo(90)));
+    expect(aggregate?.birthFileCount).toBe(12);
+    expect(aggregate?.birthLinesAdded).toBe(960);
+  });
+
   it("fires stale-in-hot-neighborhood when the directory churns but the file does not", () => {
     const records: CommitRecord[] = [];
     // src/active/fossil.ts: one touch, long ago, never since.

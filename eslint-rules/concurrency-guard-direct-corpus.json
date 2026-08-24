@@ -1,0 +1,113 @@
+{
+  "$comment": [
+    "Shared behaviour corpus for the direct-write branch of the concurrency gate.",
+    "Two independent detectors implement it — eslint-rules/concurrency-guard.js (ESTree)",
+    "and scripts/codemods/concurrency-guard/ast.ts (ts-morph). Both are run over every",
+    "case below by their focused suites. `expected` lists findings in source order; an",
+    "empty list means no finding. Add a case here rather than to one suite when changing",
+    "which direct calls either detector recognises. Path exemptions are tested separately."
+  ],
+  "cases": [
+    {
+      "name": "inline direct write",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "await tx.characterStats.update({ where: { characterId }, data });",
+      "expected": [
+        {
+          "delegate": "characterStats",
+          "method": "update"
+        }
+      ]
+    },
+    {
+      "name": "delegate alias behind a satisfies expression at the call site",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nconst stats = tx.characterStats;\nawait (stats satisfies typeof stats).update({ where: { characterId }, data });",
+      "expected": [
+        {
+          "delegate": "characterStats",
+          "method": "update"
+        }
+      ]
+    },
+    {
+      "name": "delegate alias initialized through a satisfies expression",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nconst stats = tx.characterStats satisfies typeof tx.characterStats;\nawait stats.update({ where: { characterId }, data });",
+      "expected": [
+        {
+          "delegate": "characterStats",
+          "method": "update"
+        }
+      ]
+    },
+    {
+      "name": "delegate alias behind a non-null expression at the call site",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nconst stats = tx.characterStats;\nawait stats!.updateMany({ where: { characterId }, data });",
+      "expected": [
+        {
+          "delegate": "characterStats",
+          "method": "updateMany"
+        }
+      ]
+    },
+    {
+      "name": "renamed destructured delegate alias",
+      "filename": "packages/server/src/routers/encounter.ts",
+      "code": "export {};\nconst { encounterParticipant: participants } = tx;\nawait participants.upsert({ where: { id }, create, update });",
+      "expected": [
+        {
+          "delegate": "encounterParticipant",
+          "method": "upsert"
+        }
+      ]
+    },
+    {
+      "name": "computed string member access",
+      "filename": "packages/server/src/routers/encounter.ts",
+      "code": "await tx['encounter']['update']({ where: { id }, data });",
+      "expected": [
+        {
+          "delegate": "encounter",
+          "method": "update"
+        }
+      ]
+    },
+    {
+      "name": "no-substitution template member is not a static name",
+      "filename": "packages/server/src/routers/encounter.ts",
+      "code": "await tx.encounter[`update`]({ where: { id }, data });",
+      "expected": []
+    },
+    {
+      "name": "dynamic computed mutator names no method",
+      "filename": "packages/server/src/routers/encounter.ts",
+      "code": "await tx.encounter[method]({ where: { id }, data });",
+      "expected": []
+    },
+    {
+      "name": "let-bound delegate is not treated as a stable alias",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nlet stats = tx.characterStats;\nstats = replacement;\nawait stats.update({ where: { characterId }, data });",
+      "expected": []
+    },
+    {
+      "name": "identifier spelled exactly as a gated delegate is reported",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nconst write = ({ characterStats }) => characterStats.update({ where: { characterId }, data });",
+      "expected": [
+        {
+          "delegate": "characterStats",
+          "method": "update"
+        }
+      ]
+    },
+    {
+      "name": "renamed destructured function parameter is not a const alias",
+      "filename": "packages/server/src/routers/character.ts",
+      "code": "export {};\nconst write = ({ characterStats: stats }) => stats.update({ where: { characterId }, data });",
+      "expected": []
+    }
+  ]
+}

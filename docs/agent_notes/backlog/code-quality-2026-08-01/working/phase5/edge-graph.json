@@ -1,0 +1,4663 @@
+{
+ "contractVersion": 1,
+ "step": "edge-graph",
+ "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "generatedFrom": {
+  "declaredRelations": "working/phase5/s1-records.json",
+  "adjudicatedRelations": "working/phase5/s3-adjudication.json",
+  "leafHeaders": "NNN-*.md",
+  "directionOverrides": "working/phase5/build-edge-graph.mjs#DIRECTION_OVERRIDES"
+ },
+ "summary": {
+  "liveLeaves": 269,
+  "edges": 251,
+  "byProvenance": {
+   "s3": 27,
+   "declared": 224
+  },
+  "byKind": {
+   "alternativeTo": 1,
+   "coLand": 1,
+   "collides": 21,
+   "contradicts": 6,
+   "moots": 2,
+   "prefersBefore": 14,
+   "rebaseOn": 67,
+   "requires": 10,
+   "serialize": 129
+  },
+  "declaredRelationsInput": 233,
+  "s3NonDistinctInput": 29,
+  "declaredRelationsSuperseded": 8,
+  "declaredPairsSuperseded": 6,
+  "retiredEndpointInputs": 9,
+  "retiredRelationsRepointed": 3,
+  "retiredRelationsDroppedInternal": 6,
+  "leavesWithSequencing": 186,
+  "directionOverrides": 3,
+  "directionalArcs": 28,
+  "directionalAcyclic": true
+ },
+ "directionOverrides": [
+  {
+   "id": "direction-171-182",
+   "kind": "prefersBefore",
+   "rawInputIds": [
+    "d-171-01",
+    "d-182-02"
+   ],
+   "corrected": {
+    "from": "182-logging-producers-their-auditor-separately.md",
+    "to": "171-logs-audit-business-event-taxonomy.md"
+   },
+   "authorities": [
+    {
+     "location": "171-logs-audit-business-event-taxonomy.md:63-64",
+     "text": "Prefer landing leaf 182 first so this table imports the shared authz, mutation, and broadcast outcome tuples from `@musi/shared/logging-policy`."
+    },
+    {
+     "location": "182-logging-producers-their-auditor-separately.md:144-149",
+     "text": "Plan and land this work jointly with [171-logs-audit-business-event-taxonomy.md](./171-logs-audit-business-event-taxonomy.md). Preferred order is this leaf first, followed by leaf 171 importing the shared outcome tuples into its script-local family-policy table. If leaf 171 lands first, this leaf should replace its local outcome literals without moving its classification logic."
+    }
+   ]
+  },
+  {
+   "id": "direction-061-189",
+   "kind": "prefersBefore",
+   "rawInputIds": [
+    "d-189-01"
+   ],
+   "corrected": {
+    "from": "061-rollmodetoggle-complete-production-orphan.md",
+    "to": "189-downstream-packages-keep-semantic-copies.md"
+   },
+   "authorities": [
+    {
+     "location": "189-downstream-packages-keep-semantic-copies.md:142",
+     "text": "- Prefer landing [061-rollmodetoggle-complete-production-orphan.md](./061-rollmodetoggle-complete-production-orphan.md) first because it deletes the only production client component importing shared `RollMode`; otherwise skip that soon-to-be-deleted file during the move."
+    }
+   ]
+  },
+  {
+   "id": "direction-094-220",
+   "kind": "prefersBefore",
+   "rawInputIds": [
+    "d-220-02"
+   ],
+   "corrected": {
+    "from": "094-two-documents-both-claim-be-authoritative.md",
+    "to": "220-add-a-joined-explain-view-for-harness-control.md"
+   },
+   "authorities": [
+    {
+     "location": "220-add-a-joined-explain-view-for-harness-control.md:88-90",
+     "text": "- [094-two-documents-both-claim-be-authoritative.md](./094-two-documents-both-claim-be-authoritative.md) settles which inventory is authoritative but does not provide a joined query. Preserve that authority model."
+    }
+   ]
+  }
+ ],
+ "retirements": [
+  {
+   "retiredFile": "096-per-worktree-guide-omits-mandatory.md",
+   "survivingFile": "198-worktree-provisioning-hard-wired.md"
+  },
+  {
+   "retiredFile": "161-drift-ai-executable-exposes-incoherent-23.md",
+   "survivingFile": "142-code-intelts-maintains-unused-pseudo-library.md"
+  }
+ ],
+ "retirementActions": [
+  {
+   "inputId": "s3-c11-096-198",
+   "provenance": "s3",
+   "originalEndpoints": [
+    "096-per-worktree-guide-omits-mandatory.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "normalizedEndpoints": [
+    "198-worktree-provisioning-hard-wired.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "relation": {
+    "kind": "subsumes",
+    "confidence": "adjudicated",
+    "warrant": "198 contains the credential-resolution implementation, tests, script documentation, and the guide alignment that constitutes 096's entire doc-only outcome: it explicitly requires the guide to describe the new precedence and reachability contract (198:43-68). 096 itself says its prerequisite text must rebase onto 198's contract and that 198 carries the follow-up edit if 096 lands first (096:68-77)."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this relation internal to the surviving leaf"
+  },
+  {
+   "inputId": "s3-p02-142-161",
+   "provenance": "s3",
+   "originalEndpoints": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "161-drift-ai-executable-exposes-incoherent-23.md"
+   ],
+   "normalizedEndpoints": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "relation": {
+    "kind": "duplicate",
+    "confidence": "adjudicated",
+    "warrant": "Leaf 142 expressly calls 161 “the identical problem” and gives both one executable-only convention and shared acceptance criteria (142-code-intelts-maintains-unused-pseudo-library.md:141-159). Leaf 161 reciprocally requires joint planning under that same convention (161-drift-ai-executable-exposes-incoherent-23.md:57-72). Different root files and per-file commits are implementation slices of one problem, not separate findings."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this relation internal to the surviving leaf"
+  },
+  {
+   "inputId": "d-096-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "096-per-worktree-guide-omits-mandatory.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "normalizedEndpoints": [
+    "198-worktree-provisioning-hard-wired.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "relation": {
+    "kind": "rebaseOn",
+    "confidence": "explicit",
+    "warrant": "Coordinate: if 198 lands first, this Prerequisites section must describe the credential resolution 198 establishes rather than the current `.devcontainer/.env`-only behavior; if this leaf lands first, 198 carries the follow-up edit to the new section."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this declaration internal to the surviving leaf",
+   "supersededByS3Input": "s3-c11-096-198"
+  },
+  {
+   "inputId": "d-142-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "161-drift-ai-executable-exposes-incoherent-23.md"
+   ],
+   "normalizedEndpoints": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "relation": {
+    "kind": "prefersBefore",
+    "confidence": "explicit",
+    "warrant": "Land this leaf first — it is the template, and it is the cheaper half, because `drift-ai.ts` additionally requires retargeting six test importers while this one has none."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this declaration internal to the surviving leaf",
+   "supersededByS3Input": "s3-p02-142-161"
+  },
+  {
+   "inputId": "d-147-03",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "147-major-harness-implementation-directories.md",
+    "161-drift-ai-executable-exposes-incoherent-23.md"
+   ],
+   "normalizedEndpoints": [
+    "147-major-harness-implementation-directories.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "relation": {
+    "kind": "rebaseOn",
+    "confidence": "inferred",
+    "warrant": "The latter is jointly planned with [161-drift-ai-executable-exposes-incoherent-23.md](./161-drift-ai-executable-exposes-incoherent-23.md); if this module doc lands first, those leaves must carry its refresh."
+   },
+   "disposition": "repointed",
+   "reason": "the declared relation now targets the surviving merged host"
+  },
+  {
+   "inputId": "d-161-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "161-drift-ai-executable-exposes-incoherent-23.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "normalizedEndpoints": [
+    "142-code-intelts-maintains-unused-pseudo-library.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "relation": {
+    "kind": "requires",
+    "confidence": "explicit",
+    "warrant": "Plan this jointly with [142-code-intelts-maintains-unused-pseudo-library.md](./142-code-intelts-maintains-unused-pseudo-library.md): the two sibling entrypoints must share the executable-only convention and acceptance criteria. If they land separately, land after leaf 142, whose code-intel change establishes the precedent."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this declaration internal to the surviving leaf",
+   "supersededByS3Input": "s3-p02-142-161"
+  },
+  {
+   "inputId": "d-198-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "198-worktree-provisioning-hard-wired.md",
+    "096-per-worktree-guide-omits-mandatory.md"
+   ],
+   "normalizedEndpoints": [
+    "198-worktree-provisioning-hard-wired.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "relation": {
+    "kind": "rebaseOn",
+    "confidence": "explicit",
+    "warrant": "Coordinate with leaf 096 in either landing order."
+   },
+   "disposition": "dropped-internal",
+   "reason": "the S3 merge made this declaration internal to the surviving leaf",
+   "supersededByS3Input": "s3-c11-096-198"
+  },
+  {
+   "inputId": "d-208-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "208-converge-drift-ai-command-result-and-sentinel-error.md",
+    "161-drift-ai-executable-exposes-incoherent-23.md"
+   ],
+   "normalizedEndpoints": [
+    "208-converge-drift-ai-command-result-and-sentinel-error.md",
+    "142-code-intelts-maintains-unused-pseudo-library.md"
+   ],
+   "relation": {
+    "kind": "serialize",
+    "confidence": "explicit",
+    "warrant": "Sequence edits to `runner.ts` and facade-facing result exports with [161-drift-ai-executable-exposes-incoherent-23.md](./161-drift-ai-executable-exposes-incoherent-23.md)."
+   },
+   "disposition": "repointed",
+   "reason": "the declared relation now targets the surviving merged host"
+  },
+  {
+   "inputId": "d-265-01",
+   "provenance": "declared",
+   "originalEndpoints": [
+    "265-document-cross-worktree-status-modes.md",
+    "096-per-worktree-guide-omits-mandatory.md"
+   ],
+   "normalizedEndpoints": [
+    "265-document-cross-worktree-status-modes.md",
+    "198-worktree-provisioning-hard-wired.md"
+   ],
+   "relation": {
+    "kind": "serialize",
+    "confidence": "inferred",
+    "warrant": "Its scope is independent, but coordinate the shared file if both changes land together."
+   },
+   "disposition": "repointed",
+   "reason": "the declared relation now targets the surviving merged host"
+  }
+ ],
+ "edges": [
+  {
+   "id": "d-001-01",
+   "from": "001-chat-persistence-delivery-policy.md",
+   "to": "008-chat-broadcast-facade-bypasses-registry.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but the two must not be worked concurrently in `packages/server/src/socket/`; if 008 lands first, build `deliverChatMessage` on its post-change surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-001-02",
+   "from": "001-chat-persistence-delivery-policy.md",
+   "to": "008-chat-broadcast-facade-bypasses-registry.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but the two must not be worked concurrently in `packages/server/src/socket/`; if 008 lands first, build `deliverChatMessage` on its post-change surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-008-01",
+   "from": "008-chat-broadcast-facade-bypasses-registry.md",
+   "to": "001-chat-persistence-delivery-policy.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but do not work the two concurrently; whichever lands second rebases its call-site edits on the other.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-008-02",
+   "from": "008-chat-broadcast-facade-bypasses-registry.md",
+   "to": "001-chat-persistence-delivery-policy.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but do not work the two concurrently; whichever lands second rebases its call-site edits on the other.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-234-01",
+   "from": "234-route-manual-combat-logs-through-encounter-combat-s.md",
+   "to": "001-chat-persistence-delivery-policy.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Rebase against [001-chat-persistence-delivery-policy.md](./001-chat-persistence-delivery-policy.md) if it changes the combat-chat surface, and do not implement overlapping combat-chat edits concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-234-02",
+   "from": "234-route-manual-combat-logs-through-encounter-combat-s.md",
+   "to": "001-chat-persistence-delivery-policy.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Rebase against [001-chat-persistence-delivery-policy.md](./001-chat-persistence-delivery-policy.md) if it changes the combat-chat surface, and do not implement overlapping combat-chat edits concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-268-01",
+   "from": "268-type-dice-roll-metadata-as-rollresult-at-the.md",
+   "to": "001-chat-persistence-delivery-policy.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequence this work after or with [001-chat-persistence-delivery-policy.md](./001-chat-persistence-delivery-policy.md), whose migration touches `dice.roll` but explicitly leaves metadata shapes caller-owned.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-002-205",
+   "endpoints": [
+    "002-request-socket-boundaries-capture-production.md",
+    "205-rename-auth-service-to-reflect-its.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 002 converts both `upload-routes.ts` and `trpc/context.ts` to injected database boundaries while retaining direct auth-primitive imports (002:93-117), whereas leaf 205 renames those imports and replaces each boundary's Bearer parsing with a shared extractor (205:52-76). Their intents are separate, but concurrent implementation would rewrite the same functions, and 002 incorrectly claims no cross-leaf ordering dependency (002:190-192).",
+   "adjudication": {
+    "assignment": "s3-p01",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "002-request-socket-boundaries-capture-production.md",
+     "to": "205-rename-auth-service-to-reflect-its.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Leaf 205 renames the auth-primitives import and consolidates Bearer-header extraction in `upload-routes.ts` and `trpc/context.ts`, while this leaf refactors both request boundaries for database injection. Either order works, but do not implement the two leaves concurrently."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-003-01",
+   "from": "003-seed-json-boundaries-alternate-between.md",
+   "to": "009-all-four-seed-generators-can-overwrite.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but avoid working the two concurrently in `packages/server/src/seed/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-009-01",
+   "from": "009-all-four-seed-generators-can-overwrite.md",
+   "to": "003-seed-json-boundaries-alternate-between.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No file overlaps with this leaf's four entrypoints and there is no ordering dependency, but avoid working the two concurrently in that directory.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-003-097",
+   "endpoints": [
+    "003-seed-json-boundaries-alternate-between.md",
+    "097-two-database-writing-srd-backfill-commands.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 003 only classifies current corpora and updates assertion-policy breadcrumbs (003-seed-json-boundaries-alternate-between.md:94-114,131-133), whereas 097's removal branch deletes both backfill implementations (097-two-database-writing-srd-backfill-commands.md:74-79). Removal would require rebasing 003's table and marker-edit slice, but it does not oppose 003's directory-level validation invariant; this is an undeclared conditional target collision, not a contradiction.",
+   "adjudication": {
+    "assignment": "s3-c08",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "003-seed-json-boundaries-alternate-between.md",
+     "to": "097-two-database-writing-srd-backfill-commands.md",
+     "kind": "rebaseOn",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [097-two-database-writing-srd-backfill-commands.md](./097-two-database-writing-srd-backfill-commands.md): decide its keep-vs-remove branch before finalizing this leaf's corpus table and assertion-marker updates. If it removes the backfills, omit both backfill rows and marker edits; if it retains them, the validation-policy work remains independent."
+    },
+    {
+     "from": "097-two-database-writing-srd-backfill-commands.md",
+     "to": "003-seed-json-boundaries-alternate-between.md",
+     "kind": "moots-slice",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate the removal branch with [003-seed-json-boundaries-alternate-between.md](./003-seed-json-boundaries-alternate-between.md): removing these commands moots only that leaf's two backfill corpus-table rows and assertion-marker edits, so land removal first or rebase its corpus inventory; the remaining seed-boundary policy is independent."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-004-01",
+   "from": "004-character-creation-large-pseudo-module-loose.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "006-server-mappers-maintain-parallel-handwritten.md works in `utils/character-mapping*`, whose test file this leaf re-points (one import line) — no ordering dependency, but do not work the two concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-019-01",
+   "from": "019-utility-broadcast-tests-seed-through.md",
+   "to": "004-character-creation-large-pseudo-module-loose.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "**Sequencing:** land this fixture-decoupling before [004-character-creation-large-pseudo-module-loose.md](./004-character-creation-large-pseudo-module-loose.md), which otherwise rewires the same three imports plus the level-up helper to a moved facade.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-004-025",
+   "endpoints": [
+    "004-character-creation-large-pseudo-module-loose.md",
+    "025-spellcastingts-contains-five-independently.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "004 renames and moves `character-create-helpers.ts`, `character-create-spells.ts`, and their tests into new module paths (004-character-creation-large-pseudo-module-loose.md:131-149), while 025 requires import repoints in those old-path files (025-spellcastingts-contains-five-independently.md:60-74,133-149). Landing the move first invalidates 025's target paths, and neither leaf declares this edge.",
+   "adjudication": {
+    "assignment": "s3-c04",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "025-spellcastingts-contains-five-independently.md",
+     "to": "004-character-creation-large-pseudo-module-loose.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Cross-reference: 004-character-creation-large-pseudo-module-loose.md moves and renames the character-creation files this leaf repoints. No hard ordering, but do not work the leaves concurrently: if 004 lands first, apply these shared-rule import repoints to its post-move `nested-creates.ts`, `spells.ts`, and `spells.test.ts`; if 025 lands first, 004 must move the already-repointed files without restoring the old shared imports."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-004-02",
+   "from": "004-character-creation-large-pseudo-module-loose.md",
+   "to": "042-flat-character-creation-contract-forces.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "042-flat-character-creation-contract-forces.md and 045-character-creation-ability-rules-have-four.md approach character creation from the shared/client contract side; avoid concurrent edits to the creation surfaces, no ordering required.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-042-01",
+   "from": "042-flat-character-creation-contract-forces.md",
+   "to": "004-character-creation-large-pseudo-module-loose.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Related leaves (no recorded ordering edge — avoid concurrent edits): 004-character-creation-large-pseudo-module-loose.md reorganizes the same directory at module level; 045-character-creation-ability-rules-have-four.md deduplicates the ability-rule constants this leaf brushes against (e.g. POINT_BUY_COSTS in both steps/ability-score-card.tsx and wizard-validation.ts:9-20) — both leaves edit wizard-validation.ts; 056-wizard-contexttesttsx-stale-duplicate-wizard.md prunes wizard-context.test.tsx, which a state reshape also touches.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-004-03",
+   "from": "004-character-creation-large-pseudo-module-loose.md",
+   "to": "045-character-creation-ability-rules-have-four.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "042-flat-character-creation-contract-forces.md and 045-character-creation-ability-rules-have-four.md approach character creation from the shared/client contract side; avoid concurrent edits to the creation surfaces, no ordering required.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-045-01",
+   "from": "045-character-creation-ability-rules-have-four.md",
+   "to": "004-character-creation-large-pseudo-module-loose.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Note that 004-character-creation-large-pseudo-module-loose.md and 042-flat-character-creation-contract-forces.md also work in the character-create area — avoid concurrent edits to the same files, but land order is free.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-004-065",
+   "endpoints": [
+    "004-character-creation-large-pseudo-module-loose.md",
+    "065-server-service-suites-redundantly-wipe.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "004 moves five character-creation suites into the new module folder (004-character-creation-large-pseudo-module-loose.md:139-149), while 065 removes hooks and imports from four of those exact suites (065-server-service-suites-redundantly-wipe.md:53-63,83-100). The move changes the cleanup leaf's concrete paths and makes concurrent work unsafe, but no relation is declared.",
+   "adjudication": {
+    "assignment": "s3-c04",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "065-server-service-suites-redundantly-wipe.md",
+     "to": "004-character-creation-large-pseudo-module-loose.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Cross-reference: 004-character-creation-large-pseudo-module-loose.md moves the character-creation suites named here. No hard ordering, but do not work the leaves concurrently: if 004 lands first, remove the redundant cleans at the post-move suite paths; if 065 lands first, 004 must move the cleaned suites without reintroducing the deleted hooks or imports."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-205-01",
+   "from": "205-rename-auth-service-to-reflect-its.md",
+   "to": "004-character-creation-large-pseudo-module-loose.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate the `services/README.md` edit with [004-character-creation-large-pseudo-module-loose.md](./004-character-creation-large-pseudo-module-loose.md) if the two leaves are implemented nearby; that leaf changes the same inventory for character creation but does not cover this rename.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-211-01",
+   "from": "211-reuse-validated-class-references-during.md",
+   "to": "004-character-creation-large-pseudo-module-loose.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land after, or rebase onto, 004-character-creation-large-pseudo-module-loose.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-005-01",
+   "from": "005-spell-participant-loading-discards-prisma.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but the two edit the same `mapParticipant` caller surface — do not work them concurrently, and whichever lands second re-checks the `ParticipantRow` seam still admits spell-casting's includes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-005-02",
+   "from": "005-spell-participant-loading-discards-prisma.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but the two edit the same `mapParticipant` caller surface — do not work them concurrently, and whichever lands second re-checks the `ParticipantRow` seam still admits spell-casting's includes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-006-01",
+   "from": "006-server-mappers-maintain-parallel-handwritten.md",
+   "to": "005-spell-participant-loading-discards-prisma.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but the two edit the same `mapParticipant` caller surface — do not work them concurrently, and whichever lands second re-checks the `ParticipantRow` seam still admits spell-casting's includes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-006-02",
+   "from": "006-server-mappers-maintain-parallel-handwritten.md",
+   "to": "005-spell-participant-loading-discards-prisma.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but the two edit the same `mapParticipant` caller surface — do not work them concurrently, and whichever lands second re-checks the `ParticipantRow` seam still admits spell-casting's includes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-014-01",
+   "from": "014-map-layer-responses-mapped-twice-divergent.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Neither leaf edits the other's mapper code, but avoid working the two concurrently in `packages/server/src/utils/`; either order lands cleanly.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-019-02",
+   "from": "019-utility-broadcast-tests-seed-through.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[006-server-mappers-maintain-parallel-handwritten.md](./006-server-mappers-maintain-parallel-handwritten.md) may also edit `seed-read-normalization.test.ts`; either order works, but do not work them concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-229-02",
+   "from": "229-standardize-datetimefield-backed-mapper-result.md",
+   "to": "006-server-mappers-maintain-parallel-handwritten.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordinate overlapping mapper type edits with [006-server-mappers-maintain-parallel-handwritten.md](./006-server-mappers-maintain-parallel-handwritten.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-007-017",
+   "endpoints": [
+    "007-cascade-deleters-duplicate-load-bearing-turn.md",
+    "017-participant-mutation-comments-misstate.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 007 explicitly records that both leaves edit `participant-stats-mutations.ts`, in different header paragraphs, and therefore may land in either order but must not be worked concurrently (007:164-169). Leaf 017's absolute statement that it can land independently of every other leaf contradicts that declared serialization requirement (017:117-123).",
+   "adjudication": {
+    "assignment": "s3-p01",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "017-participant-mutation-comments-misstate.md",
+     "to": "007-cascade-deleters-duplicate-load-bearing-turn.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Leaf 007 modifies the same `participant-stats-mutations.ts` header while introducing the cascade-origin coordinator: it rewrites the shape-4 block, while this leaf corrects shapes 1–3 and the `BlindParticipantFields` JSDoc. Either order works, but do not implement the two leaves concurrently."
+    }
+   ],
+   "supersededDeclared": [
+    {
+     "inputId": "d-007-01",
+     "from": "007-cascade-deleters-duplicate-load-bearing-turn.md",
+     "to": "017-participant-mutation-comments-misstate.md",
+     "kind": "serialize",
+     "confidence": "explicit",
+     "warrant": "Different paragraphs, either order works; just do not work the two leaves concurrently."
+    }
+   ]
+  },
+  {
+   "id": "d-233-01",
+   "from": "233-bulk-load-encounter-participants-before-character.md",
+   "to": "007-cascade-deleters-duplicate-load-bearing-turn.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Do not implement this concurrently with [007-cascade-deleters-duplicate-load-bearing-turn.md](./007-cascade-deleters-duplicate-load-bearing-turn.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-009-02",
+   "from": "009-all-four-seed-generators-can-overwrite.md",
+   "to": "087-server-contributor-maps-contradict-omit.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate contributor documentation for the `src/seed` subsystem with 087-server-contributor-maps-contradict-omit.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-010-184",
+   "endpoints": [
+    "010-trpc-error-sanitization-depends-unstable.md",
+    "184-human-readable-server-messages-act-client.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 010 refactors the types, imports, and recursive validation-error handling surrounding `formatTrpcError` and its tests (010:77-103), while leaf 184 adds `data.reasonCode` at that same formatter/test boundary (184:49-53). Leaf 010 also says the wire output must stay exactly as it is and claims no sequencing edges (010:112-116,134-135), so either implementation changes the formatter shape on which the other must operate. The invariants compose, but the undeclared shared edit requires serialization.",
+   "adjudication": {
+    "assignment": "s3-c09",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "010-trpc-error-sanitization-depends-unstable.md",
+     "to": "184-human-readable-server-messages-act-client.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Serialize this leaf with [184-human-readable-server-messages-act-client.md](./184-human-readable-server-messages-act-client.md): both edit `formatTrpcError` and `trpc.test.ts`; if 184 lands first, preserve `data.reasonCode` while refactoring only validation-error typing, and if this leaf lands first, 184 must extend the transport-owned formatter without restoring the unstable tRPC import or Zod-derived `SafeIssue` type."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-229-01",
+   "from": "229-standardize-datetimefield-backed-mapper-result.md",
+   "to": "014-map-layer-responses-mapped-twice-divergent.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequence this work after [014-map-layer-responses-mapped-twice-divergent.md](./014-map-layer-responses-mapped-twice-divergent.md), which owns deletion of the duplicate MapLayer mapper and establishes the `z.input`/raw-`Date` convention.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-019-03",
+   "from": "019-utility-broadcast-tests-seed-through.md",
+   "to": "109-musi-repository-policy-embedded-throughout.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Leaf [109-musi-repository-policy-embedded-throughout.md](./109-musi-repository-policy-embedded-throughout.md) migrates the layer-direction allowed edge this leaf removes, so whichever lands second must use the resulting one-edge inventory.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-025-01",
+   "from": "025-spellcastingts-contains-five-independently.md",
+   "to": "021-shared-production-builds-expose-colocated.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — whichever lands second absorbs the drift — but do not work the two concurrently in `packages/shared`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-025-02",
+   "from": "025-spellcastingts-contains-five-independently.md",
+   "to": "021-shared-production-builds-expose-colocated.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — whichever lands second absorbs the drift — but do not work the two concurrently in `packages/shared`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-022-01",
+   "from": "022-saving-throw-phases-exchange-oversized.md",
+   "to": "193-shared-weapon-rules-helpers-demand-full.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering required, but whichever lands second should match the focused-phase-input shape the first established, so the two rules modules read as one idiom.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-024-01",
+   "from": "024-encounter-inputs-monolith-spanning-three.md",
+   "to": "026-monster-provenance-invariants-disappear.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land this mechanical split first so 026's semantic rework lands in the already-slimmed `encounter-inputs.ts` — or at minimum do not run the two leaves concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-024-02",
+   "from": "024-encounter-inputs-monolith-spanning-three.md",
+   "to": "026-monster-provenance-invariants-disappear.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land this mechanical split first so 026's semantic rework lands in the already-slimmed `encounter-inputs.ts` — or at minimum do not run the two leaves concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-026-01",
+   "from": "026-monster-provenance-invariants-disappear.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land the two leaves serially in either order to avoid merge conflicts.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-030-02",
+   "from": "030-attack-spell-contracts-duplicate-behavior.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Leaf [031-attack-damagets-eight-concern-rules-grab-bag.md](./031-attack-damagets-eight-concern-rules-grab-bag.md) restructures `rules/attack-damage.ts` nearby and [024-encounter-inputs-monolith-spanning-three.md](./024-encounter-inputs-monolith-spanning-three.md) reshapes the adjacent encounter contracts; no ordering dependency, but avoid concurrent edits to the combat schema files.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-048-01",
+   "from": "048-monsteradddata-erases-mutually-exclusive.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "024-encounter-inputs-monolith-spanning-three.md and 026-monster-provenance-invariants-disappear.md both target packages/shared/src/schemas/encounter-inputs.ts; this leaf deliberately leaves that file untouched, so it can land in any order provided the wire schema stays out of scope here.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-024-064",
+   "endpoints": [
+    "024-encounter-inputs-monolith-spanning-three.md",
+    "064-pagination-suites-systematically-avoid-tie.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "024 moves the combat-log schemas into encounter-combat-inputs.ts and splits their tests into encounter-combat-inputs.test.ts at 024-encounter-inputs-monolith-spanning-three.md:90-94 and :104-114. 064 independently edits combat-log pagination and explicitly changes the cursor literal still named at encounter-inputs.test.ts at 064-pagination-suites-systematically-avoid-tie.md:118-128 and :167-170. Landing 024 relocates 064's named test target, and neither leaf declares the required serialization/rebase edge.",
+   "adjudication": {
+    "assignment": "s3-c02",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "024-encounter-inputs-monolith-spanning-three.md",
+     "to": "064-pagination-suites-systematically-avoid-tie.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Serialize this mechanical contract/test split with leaf 064 and prefer landing this leaf first; after the split, 064's combat-log cursor fixture belongs in encounter-combat-inputs.test.ts. Do not implement the two leaves concurrently."
+    },
+    {
+     "from": "064-pagination-suites-systematically-avoid-tie.md",
+     "to": "024-encounter-inputs-monolith-spanning-three.md",
+     "kind": "rebaseOn",
+     "confidence": "adjudicated",
+     "warrant": "Serialize with leaf 024. If 024 lands first, apply the id-shaped combat-log cursor fixture update in encounter-combat-inputs.test.ts; if 064 lands first, 024 must carry that updated fixture while splitting the test file."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-071-01",
+   "from": "071-paired-shared-schema-suites-split-request.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering edge, but do not work the two concurrently; if 024 lands first and splits the module, relocate each describe beside whichever suite covers its schema's new home.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-100-01",
+   "from": "100-shared-local-documentation-carries-stale.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering edge, but avoid concurrent edits to that file; if either lands first, re-verify the untested-file list against the tree instead of applying step 1 blind.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-190-01",
+   "from": "190-make-combat-history-navigable-through-one.md",
+   "to": "024-encounter-inputs-monolith-spanning-three.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Both touch `encounter-inputs.ts` for separate reasons, so ordinary rebase coordination is sufficient.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-031-05",
+   "from": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "to": "025-spellcastingts-contains-five-independently.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "`025-spellcastingts-contains-five-independently.md` reorganizes `spellcasting.ts` itself; if both are in flight, land this small move first (or rebase it trivially) so the pair has a home before that leaf reshapes the module.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-250-01",
+   "from": "250-correct-two-shared-assertion-boundary-categories.md",
+   "to": "025-spellcastingts-contains-five-independently.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land this before or atomically with [025-spellcastingts-contains-five-independently.md](./025-spellcastingts-contains-five-independently.md) so the corrected spell-slot marker travels into the new module rather than being lost or copied with its old category.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-048-02",
+   "from": "048-monsteradddata-erases-mutually-exclusive.md",
+   "to": "026-monster-provenance-invariants-disappear.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "024-encounter-inputs-monolith-spanning-three.md and 026-monster-provenance-invariants-disappear.md both target packages/shared/src/schemas/encounter-inputs.ts; this leaf deliberately leaves that file untouched, so it can land in any order provided the wire schema stays out of scope here.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-190-02",
+   "from": "190-make-combat-history-navigable-through-one.md",
+   "to": "026-monster-provenance-invariants-disappear.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Both touch `encounter-inputs.ts` for separate reasons, so ordinary rebase coordination is sufficient.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-027-01",
+   "from": "027-condition-damage-modules-mix-contracts.md",
+   "to": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate landing order to avoid textual conflicts; there is no semantic dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-031-01",
+   "from": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "to": "027-condition-damage-modules-mix-contracts.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the spell pair is outside all four leaves' targets — but avoid concurrent edits to the file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-033-01",
+   "from": "033-attunement-game-rule-lives-request-schema.md",
+   "to": "027-condition-damage-modules-mix-contracts.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "None changes the attunement rule, so there is no semantic ordering dependency, but avoid concurrent edits.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-027-02",
+   "from": "027-condition-damage-modules-mix-contracts.md",
+   "to": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate landing order to avoid textual conflicts; there is no semantic dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-035-01",
+   "from": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "to": "027-condition-damage-modules-mix-contracts.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Four other leaves touch `attack-damage.ts` with distinct problems; there is no ordering dependency, but avoid concurrent edits: `027-condition-damage-modules-mix-contracts.md` repoints the damage-type import; `031-attack-damagets-eight-concern-rules-grab-bag.md` moves the spell helpers; `193-shared-weapon-rules-helpers-demand-full.md` narrows helper inputs around the same functions; and `191-let-players-choose-strength-dexterity.md` changes finesse ability choice in `computeWeaponAttack`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-037-01",
+   "from": "037-static-rules-tables-expose-inconsistent.md",
+   "to": "027-condition-damage-modules-mix-contracts.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "`027-condition-damage-modules-mix-contracts.md` also edits `srd-weapons.ts` to repoint its damage-type import. No ordering dependency, but avoid concurrent edits to that file; leaf 035 only edits `attack-damage.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-027-04",
+   "from": "027-condition-damage-modules-mix-contracts.md",
+   "to": "191-let-players-choose-strength-dexterity.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate landing order to avoid textual conflicts; there is no semantic dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-027-03",
+   "from": "027-condition-damage-modules-mix-contracts.md",
+   "to": "193-shared-weapon-rules-helpers-demand-full.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate landing order to avoid textual conflicts; there is no semantic dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-221-01",
+   "from": "221-rename-metamagic-slot-terminology-to-options-known.md",
+   "to": "029-one-metamagic-constant-controls-two.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Avoid concurrent edits to `sorcery-points.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-030-01",
+   "from": "030-attack-spell-contracts-duplicate-behavior.md",
+   "to": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Leaf [031-attack-damagets-eight-concern-rules-grab-bag.md](./031-attack-damagets-eight-concern-rules-grab-bag.md) restructures `rules/attack-damage.ts` nearby and [024-encounter-inputs-monolith-spanning-three.md](./024-encounter-inputs-monolith-spanning-three.md) reshapes the adjacent encounter contracts; no ordering dependency, but avoid concurrent edits to the combat schema files.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-031-02",
+   "from": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "to": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the spell pair is outside all four leaves' targets — but avoid concurrent edits to the file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-035-02",
+   "from": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "to": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Four other leaves touch `attack-damage.ts` with distinct problems; there is no ordering dependency, but avoid concurrent edits: `027-condition-damage-modules-mix-contracts.md` repoints the damage-type import; `031-attack-damagets-eight-concern-rules-grab-bag.md` moves the spell helpers; `193-shared-weapon-rules-helpers-demand-full.md` narrows helper inputs around the same functions; and `191-let-players-choose-strength-dexterity.md` changes finesse ability choice in `computeWeaponAttack`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-031-04",
+   "from": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "to": "191-let-players-choose-strength-dexterity.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the spell pair is outside all four leaves' targets — but avoid concurrent edits to the file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-191-01",
+   "from": "191-let-players-choose-strength-dexterity.md",
+   "to": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard order, but if the module-split leaf lands first, apply this work to the relocated ability-selection module; whichever lands later must rebase helper signatures.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-031-03",
+   "from": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "to": "193-shared-weapon-rules-helpers-demand-full.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the spell pair is outside all four leaves' targets — but avoid concurrent edits to the file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-193-01",
+   "from": "193-shared-weapon-rules-helpers-demand-full.md",
+   "to": "031-attack-damagets-eight-concern-rules-grab-bag.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no semantic ordering dependency, but avoid concurrent edits to that file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-189-02",
+   "from": "189-downstream-packages-keep-semantic-copies.md",
+   "to": "032-encounter-calculators-re-declare-participant.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "032-encounter-calculators-re-declare-participant.md shares the prior-pack single-sourcing constraint and has minor file-level overlap in `packages/shared/src/rules/xp.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-033-044",
+   "endpoints": [
+    "033-attunement-game-rule-lives-request-schema.md",
+    "044-optimistic-writers-spread-transport.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "033-attunement-game-rule-lives-request-schema.md:154-160 explicitly says to avoid concurrent edits with 044 because both modify inventory-inputs.ts, while 044-optimistic-writers-spread-transport.md:181-182 claims there are no sequencing edges against any pack leaf. The implementations are compatible, but these scheduling assertions are incompatible.",
+   "adjudication": {
+    "assignment": "s3-c07",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "044-optimistic-writers-spread-transport.md",
+     "to": "033-attunement-game-rule-lives-request-schema.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [033-attunement-game-rule-lives-request-schema.md](./033-attunement-game-rule-lives-request-schema.md): it relocates MAX_ATTUNED_ITEMS from inventory-inputs.ts while this leaf restructures schemas in that module; avoid concurrent edits, with no hard ordering."
+    }
+   ],
+   "supersededDeclared": [
+    {
+     "inputId": "d-033-02",
+     "from": "033-attunement-game-rule-lives-request-schema.md",
+     "to": "044-optimistic-writers-spread-transport.md",
+     "kind": "serialize",
+     "confidence": "explicit",
+     "warrant": "None changes the attunement rule, so there is no semantic ordering dependency, but avoid concurrent edits."
+    }
+   ]
+  },
+  {
+   "id": "d-100-02",
+   "from": "100-shared-local-documentation-carries-stale.md",
+   "to": "034-campaign-homebrew-procedure-contracts-split.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering edge, but avoid concurrent edits to that file; if either lands first, re-verify the untested-file list against the tree instead of applying step 1 blind.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-034-01",
+   "from": "034-campaign-homebrew-procedure-contracts-split.md",
+   "to": "194-generic-mutation-acknowledgment-hidden-under.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Either order works, but do not run the two concurrently: if 194 lands first, this fold moves the converged imports instead of the local `z.object({ success: z.boolean() })` declarations; if this leaf lands first, 194's homebrew edits target `homebrew-inputs.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-034-02",
+   "from": "034-campaign-homebrew-procedure-contracts-split.md",
+   "to": "194-generic-mutation-acknowledgment-hidden-under.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Either order works, but do not run the two concurrently: if 194 lands first, this fold moves the converged imports instead of the local `z.object({ success: z.boolean() })` declarations; if this leaf lands first, 194's homebrew edits target `homebrew-inputs.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-035-04",
+   "from": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "to": "191-let-players-choose-strength-dexterity.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Four other leaves touch `attack-damage.ts` with distinct problems; there is no ordering dependency, but avoid concurrent edits: `027-condition-damage-modules-mix-contracts.md` repoints the damage-type import; `031-attack-damagets-eight-concern-rules-grab-bag.md` moves the spell helpers; `193-shared-weapon-rules-helpers-demand-full.md` narrows helper inputs around the same functions; and `191-let-players-choose-strength-dexterity.md` changes finesse ability choice in `computeWeaponAttack`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-191-03",
+   "from": "191-let-players-choose-strength-dexterity.md",
+   "to": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard order, but if the module-split leaf lands first, apply this work to the relocated ability-selection module; whichever lands later must rebase helper signatures.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-035-03",
+   "from": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "to": "193-shared-weapon-rules-helpers-demand-full.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Four other leaves touch `attack-damage.ts` with distinct problems; there is no ordering dependency, but avoid concurrent edits: `027-condition-damage-modules-mix-contracts.md` repoints the damage-type import; `031-attack-damagets-eight-concern-rules-grab-bag.md` moves the spell helpers; `193-shared-weapon-rules-helpers-demand-full.md` narrows helper inputs around the same functions; and `191-let-players-choose-strength-dexterity.md` changes finesse ability choice in `computeWeaponAttack`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-193-02",
+   "from": "193-shared-weapon-rules-helpers-demand-full.md",
+   "to": "035-weapon-helpers-widen-closed-vocabularies.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no semantic ordering dependency, but avoid concurrent edits to that file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-039-01",
+   "from": "039-responsive-character-sheets-keep-two.md",
+   "to": "192-expose-level-up-history-already-returned.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "`192-expose-level-up-history-already-returned.md` also edits `SheetBody`, `desktop-sheet-layout.tsx`, and `mobile-sheet-tabs.tsx` to add the history panel. There is no semantic dependency, but avoid concurrent edits.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-214-02",
+   "from": "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md",
+   "to": "039-responsive-character-sheets-keep-two.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate with 039-responsive-character-sheets-keep-two.md only if its implementation changes the character-sheet composition boundary.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-040-058",
+   "endpoints": [
+    "040-vtt-actions-tab-duplicates-two-dedicated.md",
+    "058-vtt-spell-tests-copy-full.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 040 rewrites `actions-tab.test.tsx` and `spells-tab.test.tsx` to assert shared casting eligibility and the real feature mutation (040:128-136), while leaf 058 mechanically replaces spell fixtures in those same suites with builder calls (058:69-81). Neither declares the other, and concurrent work would change the same scenario setup and assertions.",
+   "adjudication": {
+    "assignment": "s3-p01",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "058-vtt-spell-tests-copy-full.md",
+     "to": "040-vtt-actions-tab-duplicates-two-dedicated.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Leaf 040 rewrites `tabs/actions-tab.test.tsx` and `tabs/spells-tab.test.tsx` for shared eligibility and real feature-use behavior, while this leaf converts their spell fixtures. Either order works, but do not implement the two leaves concurrently; if leaf 040 lands first, include any spell fixtures it adds in this builder migration."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-041-044",
+   "endpoints": [
+    "041-character-hooks-expose-second-identity.md",
+    "044-optimistic-writers-spread-transport.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Full-leaf reading reveals a stronger conflict than S2's collision: 041-character-hooks-expose-second-identity.md:160-163 explicitly requires retaining characterId in UPDATE_STATS_CONTROL_FIELDS and says removing it would leak the injected identity, while 044-optimistic-writers-spread-transport.md:104-117 explicitly deletes that helper and transfers stripping to patch-schema parsing. The final invariants can coexist, but the written implementation directions pull oppositely over the same helper.",
+   "adjudication": {
+    "assignment": "s3-c07",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "044-optimistic-writers-spread-transport.md",
+     "to": "041-character-hooks-expose-second-identity.md",
+     "kind": "requires",
+     "confidence": "adjudicated",
+     "warrant": "Land [041-character-hooks-expose-second-identity.md](./041-character-hooks-expose-second-identity.md) before this leaf: 041 injects character identity and preserves UPDATE_STATS_CONTROL_FIELDS, after which this leaf deletes that denylist and makes the positive patch schema responsible for stripping the injected identity."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-041-050",
+   "endpoints": [
+    "041-character-hooks-expose-second-identity.md",
+    "050-optimistic-character-sheet-mutations-omit.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "041-character-hooks-expose-second-identity.md:101-127 changes action signatures and adjacent tests for all four hook implementations consumed by 050, while 050-optimistic-character-sheet-mutations-omit.md:81-119 adds action-driving rollback and invalidation tests to those suites. The new tests must use 041's narrowed payloads, but neither leaf declares this coordination.",
+   "adjudication": {
+    "assignment": "s3-c07",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "050-optimistic-character-sheet-mutations-omit.md",
+     "to": "041-character-hooks-expose-second-identity.md",
+     "kind": "requires",
+     "confidence": "adjudicated",
+     "warrant": "Land [041-character-hooks-expose-second-identity.md](./041-character-hooks-expose-second-identity.md) before this leaf so the new rollback and invalidation tests use the narrowed action payloads; 041 changes all four hook implementations consumed here and their adjacent suites."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-041-01",
+   "from": "041-character-hooks-expose-second-identity.md",
+   "to": "062-character-key-hook-constructs-three-filter.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land that small deletion before this migration (or explicitly rebase this leaf after it) to avoid conflict churn.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-042-02",
+   "from": "042-flat-character-creation-contract-forces.md",
+   "to": "045-character-creation-ability-rules-have-four.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Related leaves (no recorded ordering edge — avoid concurrent edits): 004-character-creation-large-pseudo-module-loose.md reorganizes the same directory at module level; 045-character-creation-ability-rules-have-four.md deduplicates the ability-rule constants this leaf brushes against (e.g. POINT_BUY_COSTS in both steps/ability-score-card.tsx and wizard-validation.ts:9-20) — both leaves edit wizard-validation.ts; 056-wizard-contexttesttsx-stale-duplicate-wizard.md prunes wizard-context.test.tsx, which a state reshape also touches.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-045-02",
+   "from": "045-character-creation-ability-rules-have-four.md",
+   "to": "042-flat-character-creation-contract-forces.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Note that 004-character-creation-large-pseudo-module-loose.md and 042-flat-character-creation-contract-forces.md also work in the character-create area — avoid concurrent edits to the same files, but land order is free.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-042-056",
+   "endpoints": [
+    "042-flat-character-creation-contract-forces.md",
+    "056-wizard-contexttesttsx-stale-duplicate-wizard.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 042 explicitly says its state reshape migrates `wizard-state.test.ts` and touches the context suite, and records 056 among leaves to avoid implementing concurrently (042:108-113,160-168). Leaf 056 instead requires `wizard-state.test.ts` to stay untouched and claims no other leaf touches these wizard test files (056:81-95). Those scope and independence statements are incompatible even though the underlying work can be serialized.",
+   "adjudication": {
+    "assignment": "s3-p01",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "056-wizard-contexttesttsx-stale-duplicate-wizard.md",
+     "to": "042-flat-character-creation-contract-forces.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Leaf 042 reshapes `WizardState`, migrates `wizard-state.test.ts`, and may touch `wizard-context.test.tsx`. Either order works, but do not implement the two leaves concurrently; if leaf 042 lands first, rebase this cleanup onto its new reducer and test shapes."
+    }
+   ],
+   "supersededDeclared": [
+    {
+     "inputId": "d-042-03",
+     "from": "042-flat-character-creation-contract-forces.md",
+     "to": "056-wizard-contexttesttsx-stale-duplicate-wizard.md",
+     "kind": "serialize",
+     "confidence": "explicit",
+     "warrant": "Related leaves (no recorded ordering edge — avoid concurrent edits): 004-character-creation-large-pseudo-module-loose.md reorganizes the same directory at module level; 045-character-creation-ability-rules-have-four.md deduplicates the ability-rule constants this leaf brushes against (e.g. POINT_BUY_COSTS in both steps/ability-score-card.tsx and wizard-validation.ts:9-20) — both leaves edit wizard-validation.ts; 056-wizard-contexttesttsx-stale-duplicate-wizard.md prunes wizard-context.test.tsx, which a state reshape also touches."
+    }
+   ]
+  },
+  {
+   "id": "d-213-01",
+   "from": "213-make-character-wizard-step-validation-exhaustive.md",
+   "to": "042-flat-character-creation-contract-forces.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate with 042-flat-character-creation-contract-forces.md, which restructures wizard-state.ts and wizard-validation.ts.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-270-01",
+   "from": "270-add-a-local-orientation-contract-for-the-client.md",
+   "to": "042-flat-character-creation-contract-forces.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Prefer landing this document after [042-flat-character-creation-contract-forces.md](./042-flat-character-creation-contract-forces.md) and [045-character-creation-ability-rules-have-four.md](./045-character-creation-ability-rules-have-four.md) if they are scheduled, so it describes their settled ownership accurately. If the document lands first, describe the audit pin and require those leaves to refresh it with their implementation changes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-060-01",
+   "from": "060-participant-presentation-duplicated-between.md",
+   "to": "043-encounter-detail-behavior-fragmented-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but do not work the two leaves concurrently in `encounter-participants.tsx`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-043-01",
+   "from": "043-encounter-detail-behavior-fragmented-across.md",
+   "to": "088-client-component-module-documents-misstate.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Soft note: if 088-client-component-module-documents-misstate.md (combat MODULE refresh) lands nearby, keep the encounters-vs-combat delegation lines in the two MODULE.md files consistent.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-044-050",
+   "endpoints": [
+    "044-optimistic-writers-spread-transport.md",
+    "050-optimistic-character-sheet-mutations-omit.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "The pre-seeded defect is confirmed: 050-optimistic-character-sheet-mutations-omit.md:149-152 explicitly requires avoiding concurrent edits because 044 changes the exact use-inventory onMutate behavior its tests surround, while 044-optimistic-writers-spread-transport.md:181-182 claims no sequencing edges. The production and coverage directions are complementary, but their declared scheduling invariants conflict.",
+   "adjudication": {
+    "assignment": "s3-c07",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "044-optimistic-writers-spread-transport.md",
+     "to": "050-optimistic-character-sheet-mutations-omit.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [050-optimistic-character-sheet-mutations-omit.md](./050-optimistic-character-sheet-mutations-omit.md): it adds rollback tests around use-inventory's onMutate behavior and edits the same inventory test suite; avoid concurrent edits, with no hard ordering."
+    }
+   ],
+   "supersededDeclared": [
+    {
+     "inputId": "d-050-01",
+     "from": "050-optimistic-character-sheet-mutations-omit.md",
+     "to": "044-optimistic-writers-spread-transport.md",
+     "kind": "serialize",
+     "confidence": "explicit",
+     "warrant": "Adjacent leaves touch the same files; avoid concurrent edits (no hard ordering): 044-optimistic-writers-spread-transport.md edits the optimistic writers in use-inventory.ts and siblings — the exact onMutate behavior these failure tests seed around; and 062-character-key-hook-constructs-three-filter.md trims unused filter members from character-keys.ts, which the invalidation assertions should read their expected keys from."
+    }
+   ]
+  },
+  {
+   "id": "d-270-02",
+   "from": "270-add-a-local-orientation-contract-for-the-client.md",
+   "to": "045-character-creation-ability-rules-have-four.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Prefer landing this document after [042-flat-character-creation-contract-forces.md](./042-flat-character-creation-contract-forces.md) and [045-character-creation-ability-rules-have-four.md](./045-character-creation-ability-rules-have-four.md) if they are scheduled, so it describes their settled ownership accurately. If the document lands first, describe the audit pin and require those leaves to refresh it with their implementation changes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-046-01",
+   "from": "046-generic-map-canvas-performs-combat-domain.md",
+   "to": "088-client-component-module-documents-misstate.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequencing: soft edge with 088-client-component-module-documents-misstate.md — both touch combat/MODULE.md; whichever lands second folds the other's wording (this leaf adds one line about combat-map-bridges.ts owning the combat-token projection).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-047-01",
+   "from": "047-toolhandler-erases-coordinate-domains.md",
+   "to": "105-client-source-comments-preserve-three.md",
+   "kind": "moots",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Land 105 first, or skip that comment-only step if this leaf has already landed.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-053-01",
+   "from": "053-filterselect-erases-schema-derived-option.md",
+   "to": "048-monsteradddata-erases-mutually-exclusive.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordinate the shared file; either leaf may otherwise land first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-049-191",
+   "endpoints": [
+    "049-player-monster-attack-hooks-duplicate-target.md",
+    "191-let-players-choose-strength-dexterity.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "049 promises to keep useWeaponAttack's public argument/result shapes byte-compatible while replacing its implementation with a payload adapter (049-player-monster-attack-hooks-duplicate-target.md:75-106). 191 must widen that same hook's apply input and payload forwarding with abilityOverride (191-let-players-choose-strength-dexterity.md:37-44). Without a declared relation, either landing changes the interface premise the other must preserve or extend.",
+   "adjudication": {
+    "assignment": "s3-c01",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "049-player-monster-attack-hooks-duplicate-target.md",
+     "to": "191-let-players-choose-strength-dexterity.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "**Coordination with [191-let-players-choose-strength-dexterity.md](./191-let-players-choose-strength-dexterity.md):** serialize edits to `use-weapon-attack.ts` and its test. If 191 lands first, preserve its optional `abilityOverride` apply argument and mutation forwarding when shrinking the hook to an adapter; if this leaf lands first, 191 must add the override to the thin weapon adapter and capture it in the coordinator payload builder. The byte-compatible contract promise applies to the public interface present when this refactor lands."
+    },
+    {
+     "from": "191-let-players-choose-strength-dexterity.md",
+     "to": "049-player-monster-attack-hooks-duplicate-target.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "**Coordination with [049-player-monster-attack-hooks-duplicate-target.md](./049-player-monster-attack-hooks-duplicate-target.md):** serialize edits to `use-weapon-attack.ts` and its test. If 049 lands first, add `abilityOverride` to its thin weapon adapter and capture it in the coordinator payload builder; if 191 lands first, 049 must preserve the widened apply contract and forwarding while extracting the lifecycle. There is no semantic dependency outside this adapter rebase."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-050-02",
+   "from": "050-optimistic-character-sheet-mutations-omit.md",
+   "to": "062-character-key-hook-constructs-three-filter.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Adjacent leaves touch the same files; avoid concurrent edits (no hard ordering): 044-optimistic-writers-spread-transport.md edits the optimistic writers in use-inventory.ts and siblings — the exact onMutate behavior these failure tests seed around; and 062-character-key-hook-constructs-three-filter.md trims unused filter members from character-keys.ts, which the invalidation assertions should read their expected keys from.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-227-01",
+   "from": "227-make-legal-license-and-srd-attribution-available.md",
+   "to": "051-flat-route-tree-makes-authentication-eleven.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If that change lands first, move `/legal` out of its authenticated layout; if this change lands first, the layout's protected set must exclude `/legal`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-054-179",
+   "endpoints": [
+    "054-tokencontextmenu-option-bag-two-different.md",
+    "179-turn-disabled-stat-block-placeholder-party.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "054:52-65 defines the complete discriminated combat-menu prop set and corresponding caller/test rewrite. 179:100-110 requires a new reveal-aware input resolved by the combat caller and consumed by resolveOpenSheetIntent, thereby changing that same combat variant, call site, and test contract. Neither leaf declares the edge; 054:90-91 instead denies it.",
+   "adjudication": {
+    "assignment": "s3-c05",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "054-tokencontextmenu-option-bag-two-different.md",
+     "to": "179-turn-disabled-stat-block-placeholder-party.md",
+     "kind": "soft-sequencing",
+     "confidence": "adjudicated",
+     "warrant": "Soft sequencing edge with [179-turn-disabled-stat-block-placeholder-party.md](./179-turn-disabled-stat-block-placeholder-party.md): both change TokenContextMenu's combat contract, combat-map-content.tsx, and variant tests; whichever lands second must carry the reveal-aware open-sheet input through the discriminated combat props and explicit combat test bag."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-054-215",
+   "endpoints": [
+    "054-tokencontextmenu-option-bag-two-different.md",
+    "215-converge-destructive-client-actions-on-one.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "054:74-76 promises a type-level rewrite with menu behavior unchanged and 054:86-89 requires new variant-specific test bags. 215:59-69 changes TokenContextMenu removal behavior, callback ownership, its callers, and the same test coverage. Landing either first changes the premises and test structure the other must preserve, but no relation is declared.",
+   "adjudication": {
+    "assignment": "s3-c05",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "054-tokencontextmenu-option-bag-two-different.md",
+     "to": "215-converge-destructive-client-actions-on-one.md",
+     "kind": "soft-sequencing",
+     "confidence": "adjudicated",
+     "warrant": "Soft sequencing edge with [215-converge-destructive-client-actions-on-one.md](./215-converge-destructive-client-actions-on-one.md): both change TokenContextMenu, its onRemove caller semantics, and its test helper; whichever lands second must preserve the discriminated map/combat bags while carrying the confirmation-owner and user-level dialog coverage changes."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-060-02",
+   "from": "060-participant-presentation-duplicated-between.md",
+   "to": "088-client-component-module-documents-misstate.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[088-client-component-module-documents-misstate.md](./088-client-component-module-documents-misstate.md) refreshes the combat MODULE docs; if both are in flight, land the MODULE.md edits sequentially so neither overwrites the other's corrections.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-061-01",
+   "from": "061-rollmodetoggle-complete-production-orphan.md",
+   "to": "088-client-component-module-documents-misstate.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but whichever lands second should reflect the other's outcome.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-088-01",
+   "from": "088-client-component-module-documents-misstate.md",
+   "to": "061-rollmodetoggle-complete-production-orphan.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land part 1 after or alongside leaf 61 so the map never advertises a just-deleted file; if leaf 61 slips, still drop the entry-point line (a MODULE map need not enumerate production orphans).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-089-01",
+   "from": "089-client-hook-page-entry-point-maps-omit-major.md",
+   "to": "061-rollmodetoggle-complete-production-orphan.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The dead-code removals in 061-rollmodetoggle-complete-production-orphan.md and 062-character-key-hook-constructs-three-filter.md can shrink the client's production-consumer set, so parts 2-3 must re-derive their lists against the tree at landing time rather than trusting this leaf's enumeration; no hard dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-189-01",
+   "from": "061-rollmodetoggle-complete-production-orphan.md",
+   "to": "189-downstream-packages-keep-semantic-copies.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Prefer landing 061-rollmodetoggle-complete-production-orphan.md first because it deletes the only production client component importing shared `RollMode`; otherwise skip that soon-to-be-deleted file during the move.",
+   "directionOverride": {
+    "id": "direction-061-189",
+    "rawInputIds": [
+     "d-189-01"
+    ],
+    "authorities": [
+     {
+      "location": "189-downstream-packages-keep-semantic-copies.md:142",
+      "text": "- Prefer landing [061-rollmodetoggle-complete-production-orphan.md](./061-rollmodetoggle-complete-production-orphan.md) first because it deletes the only production client component importing shared `RollMode`; otherwise skip that soon-to-be-deleted file during the move."
+     }
+    ]
+   },
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-089-02",
+   "from": "089-client-hook-page-entry-point-maps-omit-major.md",
+   "to": "062-character-key-hook-constructs-three-filter.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The dead-code removals in 061-rollmodetoggle-complete-production-orphan.md and 062-character-key-hook-constructs-three-filter.md can shrink the client's production-consumer set, so parts 2-3 must re-derive their lists against the tree at landing time rather than trusting this leaf's enumeration; no hard dependency in either direction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-062-01",
+   "from": "062-character-key-hook-constructs-three-filter.md",
+   "to": "105-client-source-comments-preserve-three.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but do not edit `character-keys.ts` concurrently in both.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-105-01",
+   "from": "105-client-source-comments-preserve-three.md",
+   "to": "062-character-key-hook-constructs-three-filter.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two leaves partition cleanly (prose here, members there), but if 062 lands first, step 2 collapses to deleting the three doc lines along with the members; avoid editing `character-keys.ts` in both leaves concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-105-02",
+   "from": "105-client-source-comments-preserve-three.md",
+   "to": "062-character-key-hook-constructs-three-filter.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two leaves partition cleanly (prose here, members there), but if 062 lands first, step 2 collapses to deleting the three doc lines along with the members; avoid editing `character-keys.ts` in both leaves concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-063-01",
+   "from": "063-worktree-shell-suite-four-suites-hidden-one.md",
+   "to": "198-worktree-provisioning-hard-wired.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[198-worktree-provisioning-hard-wired.md](./198-worktree-provisioning-hard-wired.md) touches production `worktree-db.sh` but is test-independent — no ordering constraint, just avoid working both concurrently in the same files.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-252-01",
+   "from": "252-expose-persisted-notification-history-beyond-the.md",
+   "to": "064-pagination-suites-systematically-avoid-tie.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequence after [064-pagination-suites-systematically-avoid-tie.md](./064-pagination-suites-systematically-avoid-tie.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-070-01",
+   "from": "070-server-mutation-vitest-config-re-declares.md",
+   "to": "066-three-mutation-test-lanes-can-strand-live.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Adjacent, no ordering dependency: [066-three-mutation-test-lanes-can-strand-live.md](./066-three-mutation-test-lanes-can-strand-live.md) works the Stryker lane runner (package scripts and the `stryker.config.*.mjs` lane configs), not these Vitest files; avoid editing the mutation-test surface in both leaves concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-066-01",
+   "from": "066-three-mutation-test-lanes-can-strand-live.md",
+   "to": "101-mutation-docs-promise-sandbox-isolation.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequencing: land before [101-mutation-docs-promise-sandbox-isolation.md](101-mutation-docs-promise-sandbox-isolation.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-101-01",
+   "from": "101-mutation-docs-promise-sandbox-isolation.md",
+   "to": "066-three-mutation-test-lanes-can-strand-live.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequencing: land after 066 if its guarded-runner direction is going ahead (066's own sequencing note requires this leaf to describe the final runtime behavior).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-168-01",
+   "from": "168-harness-generator-scenarios-repeat-53-inline.md",
+   "to": "066-three-mutation-test-lanes-can-strand-live.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The separate failure-and-recovery contract for these generators remains in [066-three-mutation-test-lanes-can-strand-live.md](./066-three-mutation-test-lanes-can-strand-live.md); neither leaf depends on the other, but concurrent edits to the same suites should be avoided.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-067-01",
+   "from": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "to": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Land in either order, but expect merge conflicts in the fixture-writer region if worked concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-068-01",
+   "from": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "to": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two must not run concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-068-02",
+   "from": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "to": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Prefer landing 067's content fix first so this leaf relocates the corrected writer into the helper; otherwise a mechanical rebase of one over the other is required.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-073-01",
+   "from": "073-portable-lint-ratchet-tests-depend.md",
+   "to": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The acceptance leaves restructure the same suites; if either lands first, carry the `\"junction\"` argument through any moved fixture-setup helper rather than re-editing five call sites.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-181-01",
+   "from": "181-harness-diagnostics-live-application.md",
+   "to": "067-lint-ratchet-acceptance-fixtures-emit-321.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There are mechanical conflicts with 067-lint-ratchet-acceptance-fixtures-emit-321.md and 068-one-lint-ratchet-acceptance-suite-serializes.md around `scripts/lint-ratchet/output.test.ts`, and with 152-path-policy-query-core-closed-over-musis.md around the generated path-policy surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-073-02",
+   "from": "073-portable-lint-ratchet-tests-depend.md",
+   "to": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The acceptance leaves restructure the same suites; if either lands first, carry the `\"junction\"` argument through any moved fixture-setup helper rather than re-editing five call sites.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-181-02",
+   "from": "181-harness-diagnostics-live-application.md",
+   "to": "068-one-lint-ratchet-acceptance-suite-serializes.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There are mechanical conflicts with 067-lint-ratchet-acceptance-fixtures-emit-321.md and 068-one-lint-ratchet-acceptance-suite-serializes.md around `scripts/lint-ratchet/output.test.ts`, and with 152-path-policy-query-core-closed-over-musis.md around the generated path-policy surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-077-01",
+   "from": "077-eleven-non-encounter-e2e-suites-present.md",
+   "to": "079-e2e-specs-bypass-page-objects-through-raw.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No page-object or assertion-content changes — raw-locator cleanups in these same specs belong to `079-e2e-specs-bypass-page-objects-through-raw.md`; avoid working the two concurrently in one spec file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-078-01",
+   "from": "078-axe-allowlists-can-outlive-accessibility.md",
+   "to": "079-e2e-specs-bypass-page-objects-through-raw.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency; just avoid editing this file concurrently in both leaves.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-079-01",
+   "from": "079-e2e-specs-bypass-page-objects-through-raw.md",
+   "to": "091-e2e-guide-permits-raw-locators-mandatory.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but the migrated call sites here should match the idiom that leaf lands on.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-091-01",
+   "from": "091-e2e-guide-permits-raw-locators-mandatory.md",
+   "to": "079-e2e-specs-bypass-page-objects-through-raw.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[079-e2e-specs-bypass-page-objects-through-raw.md](./079-e2e-specs-bypass-page-objects-through-raw.md) covers spec-level selector/page-object discipline in the same `e2e/` tree; avoid concurrent edits to `docs/guides/add-e2e-test.md`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-080-01",
+   "from": "080-public-harness-copy-recipes-not-closed-over.md",
+   "to": "168-harness-generator-scenarios-repeat-53-inline.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "If S3 chooses registry injection into `generate-harness-controls.ts`, land it after or coordinated with leaf 168's test edits to avoid conflicting test rewrites.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-080-181",
+   "endpoints": [
+    "080-public-harness-copy-recipes-not-closed-over.md",
+    "181-harness-diagnostics-live-application.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 080 replaces the hand-maintained diagnostics copy set and starters with entrypoints and a generated closure (`080-public-harness-copy-recipes-not-closed-over.md:90-115`), while leaf 181 moves the schema into a new workspace package and requires the same copy-set and adoption guidance to describe that package (`181-harness-diagnostics-live-application.md:70-90,112-115`). Leaf 080 expressly excludes package extraction (`080-public-harness-copy-recipes-not-closed-over.md:124-129`), so the intents are separate, but leaf 181 changes the package boundary against which leaf 080's manifest and prose must be written; neither leaf declares this relation.",
+   "adjudication": {
+    "assignment": "s3-c10",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "080-public-harness-copy-recipes-not-closed-over.md",
+     "to": "181-harness-diagnostics-live-application.md",
+     "kind": "requires",
+     "confidence": "adjudicated",
+     "warrant": "**Sequencing:** Requires [181-harness-diagnostics-live-application.md](./181-harness-diagnostics-live-application.md) to land first. Define the public recipe entrypoints and generated closure against `@musi/harness-diagnostics`, let leaf 181 own the schema move and package-oriented adoption guidance, and then replace the resulting hand-maintained copy lists with generated-manifest pointers."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-081-01",
+   "from": "081-lint-ratchet-adoption-docs-mix-packaged.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If 124 lands first and reshapes the CLI surface, spot-check the rewritten example labels; neither direction blocks the other.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-103-01",
+   "from": "103-primary-onboarding-omits-bashunix-runtime.md",
+   "to": "082-devcontainer-quick-start-depends.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If either lands first, point the README's Windows sentence at whatever they leave in place.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-084-01",
+   "from": "084-backlog-simultaneously-action-queue-evidence.md",
+   "to": "083-sole-progress-queue-mostly-stale-view.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no ordering dependency between the leaves; if both land, the README wording should distinguish the generated catalog, the ready dispatch queue, and the active-work queue.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-219-01",
+   "from": "219-give-repository-workflows-cwd-stable-scope-bearing.md",
+   "to": "085-specialist-package-script-surface-has-no.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate the new aliases and their purpose/cwd metadata with 085-specialist-package-script-surface-has-no.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-220-01",
+   "from": "220-add-a-joined-explain-view-for-harness-control.md",
+   "to": "085-specialist-package-script-surface-has-no.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "085-specialist-package-script-surface-has-no.md proposes a command-keyed catalog; consume its metadata if available, but do not turn that generated documentation into the explain engine's authority.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-266-02",
+   "from": "266-add-a-human-focused-contribution-entrypoint.md",
+   "to": "085-specialist-package-script-surface-has-no.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "If it lands first, link that catalog for specialist command lookup rather than duplicating it here.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-087-01",
+   "from": "087-server-contributor-maps-contradict-omit.md",
+   "to": "097-two-database-writing-srd-backfill-commands.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The seed map should link the operator runbook from 097-two-database-writing-srd-backfill-commands.md rather than author operator prose itself, leaving a pointer if that leaf has not landed; 203-add-previewapply-safety-boundary-srd.md changes backfill behavior on the same files, so the map should describe the backfills' role, not their safety semantics.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-087-02",
+   "from": "087-server-contributor-maps-contradict-omit.md",
+   "to": "203-add-previewapply-safety-boundary-srd.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "The seed map should link the operator runbook from 097-two-database-writing-srd-backfill-commands.md rather than author operator prose itself, leaving a pointer if that leaf has not landed; 203-add-previewapply-safety-boundary-srd.md changes backfill behavior on the same files, so the map should describe the backfills' role, not their safety semantics.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-090-01",
+   "from": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+   "to": "112-public-lint-ratchet-demo-asks-adopters.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard ordering dependency, but avoid concurrent edits to examples/lint-ratchet-demo/README.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-092-01",
+   "from": "092-concurrency-rulebook-claims-three-exhaustive.md",
+   "to": "099-concurrency-rulebook-mislocates-participant.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two are distinct claims but can land as one documentation pass over `docs/CONCURRENCY.md`; if worked separately, avoid concurrent edits to the file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-099-01",
+   "from": "099-concurrency-rulebook-mislocates-participant.md",
+   "to": "092-concurrency-rulebook-claims-three-exhaustive.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two could land as one doc pass, but they are distinct claims — do not edit the file concurrently in two lanes.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-123-01",
+   "from": "123-concurrency-policy-fragmented-across.md",
+   "to": "092-concurrency-rulebook-claims-three-exhaustive.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Sequencing (soft edge only): the suggestion strings embed `docs/CONCURRENCY.md` pattern anchors, and [092-concurrency-rulebook-claims-three-exhaustive.md](./092-concurrency-rulebook-claims-three-exhaustive.md) and [099-concurrency-rulebook-mislocates-participant.md](./099-concurrency-rulebook-mislocates-participant.md) are both CONCURRENCY.md accuracy passes — if either renames headings, land them first or re-verify the anchors when the descriptor is generated.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-094-01",
+   "from": "094-two-documents-both-claim-be-authoritative.md",
+   "to": "093-harness-manifest-guide-undercounts-omits.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "[093-harness-manifest-guide-undercounts-omits.md](093-harness-manifest-guide-undercounts-omits.md) corrects manifest-guide prose on an adjacent surface — avoid editing the same paragraphs concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-220-02",
+   "from": "094-two-documents-both-claim-be-authoritative.md",
+   "to": "220-add-a-joined-explain-view-for-harness-control.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "094-two-documents-both-claim-be-authoritative.md settles which inventory is authoritative but does not provide a joined query.",
+   "directionOverride": {
+    "id": "direction-094-220",
+    "rawInputIds": [
+     "d-220-02"
+    ],
+    "authorities": [
+     {
+      "location": "220-add-a-joined-explain-view-for-harness-control.md:88-90",
+      "text": "- [094-two-documents-both-claim-be-authoritative.md](./094-two-documents-both-claim-be-authoritative.md) settles which inventory is authoritative but does not provide a joined query. Preserve that authority model."
+     }
+    ]
+   },
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-095-01",
+   "from": "095-homebrew-module-index-sends-contributors.md",
+   "to": "180-homebrew-entry-type-vocabulary-enumerated.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If that leaf lands first and reshapes `entry-editor-registry.ts`, re-check that the recipe pointer written here still names the surviving registry file; no hard ordering otherwise.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-097-01",
+   "from": "097-two-database-writing-srd-backfill-commands.md",
+   "to": "203-add-previewapply-safety-boundary-srd.md",
+   "kind": "moots",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Decide the keep-vs-remove question first or jointly: removal makes that leaf moot, and if its preview/apply change lands first, the runbook text here must describe the preview-by-default behavior rather than the current write-immediately behavior.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-097-02",
+   "from": "097-two-database-writing-srd-backfill-commands.md",
+   "to": "203-add-previewapply-safety-boundary-srd.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Decide the keep-vs-remove question first or jointly: removal makes that leaf moot, and if its preview/apply change lands first, the runbook text here must describe the preview-by-default behavior rather than the current write-immediately behavior.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-203-01",
+   "from": "203-add-previewapply-safety-boundary-srd.md",
+   "to": "097-two-database-writing-srd-backfill-commands.md",
+   "kind": "alternativeTo",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If that leaf removes the obsolete commands, both the safety rail and predicate cleanup are moot.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-203-02",
+   "from": "203-add-previewapply-safety-boundary-srd.md",
+   "to": "097-two-database-writing-srd-backfill-commands.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "If the commands remain, land the cleanup with or after this boundary and land the boundary before or with the runbook update so the documentation describes preview-by-default behavior rather than the current immediate-write behavior.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-123-02",
+   "from": "123-concurrency-policy-fragmented-across.md",
+   "to": "099-concurrency-rulebook-mislocates-participant.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Sequencing (soft edge only): the suggestion strings embed `docs/CONCURRENCY.md` pattern anchors, and [092-concurrency-rulebook-claims-three-exhaustive.md](./092-concurrency-rulebook-claims-three-exhaustive.md) and [099-concurrency-rulebook-mislocates-participant.md](./099-concurrency-rulebook-mislocates-participant.md) are both CONCURRENCY.md accuracy passes — if either renames headings, land them first or re-verify the anchors when the descriptor is generated.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-223-01",
+   "from": "223-remove-the-fulfilled-shared-rules-mutation-gap-from.md",
+   "to": "101-mutation-docs-promise-sandbox-isolation.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Preserve its eventual per-lane sandbox and recovery wording if it lands first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-103-02",
+   "from": "103-primary-onboarding-omits-bashunix-runtime.md",
+   "to": "106-root-devcontainer-compose-bootstrap.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If either lands first, point the README's Windows sentence at whatever they leave in place.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-266-01",
+   "from": "266-add-a-human-focused-contribution-entrypoint.md",
+   "to": "103-primary-onboarding-omits-bashunix-runtime.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate the shared file; neither proposal subsumes the other.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-107-01",
+   "from": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Slice A adds a facet to `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md), [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md), [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) also restructure. No hard ordering edge, but do not edit the manifest concurrently with those leaves, and if 114 lands a new facet model first, the `commandPolicy` facet adopts it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-107-05",
+   "from": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering edge, but do not edit the manifest concurrently with those leaves, and if 114 lands a new facet model first, the `commandPolicy` facet adopts it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-107-02",
+   "from": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "to": "116-generated-surface-dependencies-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Slice A adds a facet to `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md), [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md), [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) also restructure. No hard ordering edge, but do not edit the manifest concurrently with those leaves, and if 114 lands a new facet model first, the `commandPolicy` facet adopts it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-107-03",
+   "from": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "to": "125-manifest-copies-verify-slot-programs-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Slice A adds a facet to `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md), [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md), [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) also restructure. No hard ordering edge, but do not edit the manifest concurrently with those leaves, and if 114 lands a new facet model first, the `commandPolicy` facet adopts it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-107-04",
+   "from": "107-ai-hook-policy-2121-line-shell-parsing.md",
+   "to": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Slice A adds a facet to `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md), [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md), [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) also restructure. No hard ordering edge, but do not edit the manifest concurrently with those leaves, and if 114 lands a new facet model first, the `commandPolicy` facet adopts it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-109-01",
+   "from": "109-musi-repository-policy-embedded-throughout.md",
+   "to": "132-drift-check-registration-has-three-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequencing: [`132-drift-check-registration-has-three-manually.md`](./132-drift-check-registration-has-three-manually.md) restructures the same registration authorities part 1 edits (`check-metadata.ts`, `config.ts`); either may land first but do not work them concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-109-02",
+   "from": "109-musi-repository-policy-embedded-throughout.md",
+   "to": "134-analyzer-families-maintain-divergent-source.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[`134-analyzer-families-maintain-divergent-source.md`](./134-analyzer-families-maintain-divergent-source.md) covers the families' broader source/test path taxonomies; part 4's `pathArea` extraction is deliberately narrower — do not fold that leaf's scope in here, and avoid concurrent edits to drift-triage taxonomy code.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-147-01",
+   "from": "147-major-harness-implementation-directories.md",
+   "to": "109-musi-repository-policy-embedded-throughout.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The code-intel document should land after, or be explicitly updated by, the topology work in [109-musi-repository-policy-embedded-throughout.md](./109-musi-repository-policy-embedded-throughout.md) and the entrypoint-boundary work in [142-code-intelts-maintains-unused-pseudo-library.md](./142-code-intelts-maintains-unused-pseudo-library.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-185-02",
+   "from": "185-repository-path-containment-has-several.md",
+   "to": "109-musi-repository-policy-embedded-throughout.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard ordering, but if either lands first, re-run the caller inventory because path-policy or code-intel call sites may have moved.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-110-02",
+   "from": "110-parallel-verify-dependencies-hidden.md",
+   "to": "116-generated-surface-dependencies-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md) also edits the manifest (generated-surface facets) — different problem, same file; avoid concurrent edits.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-110-01",
+   "from": "110-parallel-verify-dependencies-hidden.md",
+   "to": "125-manifest-copies-verify-slot-programs-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "It edits the same `harness.controls.json` slot entries and `generate-verify-steps.ts` from the duplication angle; the two directions are compatible but must not be worked concurrently, and a shared plan should decide which lands first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-111-157",
+   "endpoints": [
+    "111-lint-coverage-map-reverse-parses-generated.md",
+    "157-shared-policyjs-grab-bag-unrelated-lint.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 111 proposes importing shared globs from `eslint-config/shared-policy.js` (111:92-119), which leaf 157 deletes and replaces with focused modules (157:27-41). This is a missing rebase relation, not a contradiction: leaf 157 preserves every glob and policy value rather than deleting the constants leaf 111 needs (157:37,45).",
+   "adjudication": {
+    "assignment": "s3-c06",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "111-lint-coverage-map-reverse-parses-generated.md",
+     "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+     "kind": "rebaseOn",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [157-shared-policyjs-grab-bag-unrelated-lint.md](./157-shared-policyjs-grab-bag-unrelated-lint.md): if leaf 157 lands first, import shared lint globs from its focused path/glob vocabulary module; if this leaf lands first, leaf 157 must retarget the new manifest importer when it deletes `shared-policy.js`. Do not recreate a compatibility barrel."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-251-01",
+   "from": "251-remove-closed-implementation-residue-from-the-active.md",
+   "to": "111-lint-coverage-map-reverse-parses-generated.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land before [111-lint-coverage-map-reverse-parses-generated.md](./111-lint-coverage-map-reverse-parses-generated.md) so its full-document renderer migrates corrected policy rather than preserving stale prose.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-112-01",
+   "from": "112-public-lint-ratchet-demo-asks-adopters.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Soft edge to [124-ratchet-cli-has-no-authoritative-command.md](./124-ratchet-cli-has-no-authoritative-command.md): if that leaf restructures root `scripts/lint-ratchet/` CLI files this leaf migrates or deletes, coordinate ordering to avoid conflicting rewrites.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-113-01",
+   "from": "113-baseline-updates-serialize-stale-local.md",
+   "to": "122-portable-lint-ratchet-package-hard-codes.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Sequencing (soft, no hard dependencies): keep the preflight and its remediation prose in the adapter/binding rather than the kernel so it does not enlarge the surface of the kernel-vocabulary cleanup in [122-portable-lint-ratchet-package-hard-codes.md](./122-portable-lint-ratchet-package-hard-codes.md); and if [124-ratchet-cli-has-no-authoritative-command.md](./124-ratchet-cli-has-no-authoritative-command.md) restructures CLI parsing, whichever leaf lands second rebases trivially, since both touch the `--update` entry path in `scripts/lint-ratchet`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-113-02",
+   "from": "113-baseline-updates-serialize-stale-local.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequencing (soft, no hard dependencies): keep the preflight and its remediation prose in the adapter/binding rather than the kernel so it does not enlarge the surface of the kernel-vocabulary cleanup in [122-portable-lint-ratchet-package-hard-codes.md](./122-portable-lint-ratchet-package-hard-codes.md); and if [124-ratchet-cli-has-no-authoritative-command.md](./124-ratchet-cli-has-no-authoritative-command.md) restructures CLI parsing, whichever leaf lands second rebases trivially, since both touch the `--update` entry path in `scripts/lint-ratchet`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-115-01",
+   "from": "115-gate-parity-checks-fingerprint-source-text.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordination, not ordering: parts 1 and 3 add/derive from `generatedSurface` facets in `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md) and [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md) also restructure.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-116-01",
+   "from": "116-generated-surface-dependencies-manually.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering, but do not work 114 and this leaf concurrently in `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-114-02",
+   "from": "114-harness-controls-represented-competing.md",
+   "to": "125-manifest-copies-verify-slot-programs-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) edit `harness.controls.json` *content* (slot programs, hook wiring), not the parser modules — no ordering dependency, but avoid working them concurrently with this leaf in `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-114-03",
+   "from": "114-harness-controls-represented-competing.md",
+   "to": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) edit `harness.controls.json` *content* (slot programs, hook wiring), not the parser modules — no ordering dependency, but avoid working them concurrently with this leaf in `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-126-03",
+   "from": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-114-01",
+   "from": "114-harness-controls-represented-competing.md",
+   "to": "127-public-harness-manifest-has-no-versioned.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[127-public-harness-manifest-has-no-versioned.md](./127-public-harness-manifest-has-no-versioned.md) covers the *external* publication of a versioned manifest schema and could sequence naturally after this internal consolidation.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-127-01",
+   "from": "127-public-harness-manifest-has-no-versioned.md",
+   "to": "114-harness-controls-represented-competing.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No hard ordering edge, but both edit `harness-manifest-schema.ts`'s orbit — sequence them rather than working them concurrently, and if 114 lands first, re-check which module exports the root schema before starting step 1.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-115-02",
+   "from": "115-gate-parity-checks-fingerprint-source-text.md",
+   "to": "116-generated-surface-dependencies-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordination, not ordering: parts 1 and 3 add/derive from `generatedSurface` facets in `harness.controls.json`, which [114-harness-controls-represented-competing.md](./114-harness-controls-represented-competing.md) and [116-generated-surface-dependencies-manually.md](./116-generated-surface-dependencies-manually.md) also restructure.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-116-02",
+   "from": "116-generated-surface-dependencies-manually.md",
+   "to": "125-manifest-copies-verify-slot-programs-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Same-file neighbors: [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) (gate slot programs) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) (hook adapter bindings) are distinct duplication problems inside `harness.controls.json`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-125-01",
+   "from": "125-manifest-copies-verify-slot-programs-across.md",
+   "to": "116-generated-surface-dependencies-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not edit the manifest concurrently with either.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-116-03",
+   "from": "116-generated-surface-dependencies-manually.md",
+   "to": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Same-file neighbors: [125-manifest-copies-verify-slot-programs-across.md](./125-manifest-copies-verify-slot-programs-across.md) (gate slot programs) and [126-hook-wiring-repeats-adapter-templates-leaves.md](./126-hook-wiring-repeats-adapter-templates-leaves.md) (hook adapter bindings) are distinct duplication problems inside `harness.controls.json`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-126-02",
+   "from": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "to": "116-generated-surface-dependencies-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-119-02",
+   "from": "119-migration-safety-validation-embeds-multiple.md",
+   "to": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency; if both land, the S3 doc sentence should name whichever precedents exist at that point.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-117-01",
+   "from": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "to": "141-latest-log-discovery-mirrors-verify-state.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[141-latest-log-discovery-mirrors-verify-state.md](./141-latest-log-discovery-mirrors-verify-state.md) duplicates the state-path protocol on the consumer side and would resolve against the same surface `verify-state-paths.sh` extracts in slice 3 — land that leaf before or after slice 3, not concurrently with it.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-141-01",
+   "from": "141-latest-log-discovery-mirrors-verify-state.md",
+   "to": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Neither blocks the other, but they must not edit `verify-metadata.sh` concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-204-01",
+   "from": "204-decompose-the-stateful-bash-verification-engine.md",
+   "to": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[117-verify-metadatash-second-kitchen-sink-shell.md](./117-verify-metadatash-second-kitchen-sink-shell.md) addresses the sibling metadata library and explicitly excludes `verify-engine.sh`; coordinate internal library names and avoid concurrent edits to shared harness fixtures.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-271-01",
+   "from": "271-route-verifylogs-wrapper-marker-reads-through-canonical-codec.md",
+   "to": "117-verify-metadatash-second-kitchen-sink-shell.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordinate with [117-verify-metadatash-second-kitchen-sink-shell.md](./117-verify-metadatash-second-kitchen-sink-shell.md), whose move-only decomposition places the canonical function in an internal marker library.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-118-01",
+   "from": "118-doctorsh-organized-around-ambient-mutable.md",
+   "to": "119-migration-safety-validation-embeds-multiple.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[119-migration-safety-validation-embeds-multiple.md](./119-migration-safety-validation-embeds-multiple.md) reworks the migration-safety scanner internals; doctor consumes only its `--json` envelope and prose lines through the untouched `run_migration_safety` bypass, but avoid editing that function concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-119-01",
+   "from": "119-migration-safety-validation-embeds-multiple.md",
+   "to": "118-doctorsh-organized-around-ambient-mutable.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the facade's path and CLI contract are frozen by this leaf — but do not work the two concurrently in `scripts/doctor.sh`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-119-181",
+   "endpoints": [
+    "119-migration-safety-validation-embeds-multiple.md",
+    "181-harness-diagnostics-live-application.md"
+   ],
+   "kind": "contradicts",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 119 directs its new core to consume `harnessFindingSchema` from `packages/shared/src/schemas/harness-diagnostics.ts` (`119-migration-safety-validation-embeds-multiple.md:100-125`), but leaf 181 deletes that file and makes `@musi/harness-diagnostics/schema.js` the sole import boundary (`181-harness-diagnostics-live-application.md:70-90`). They additionally rewrite the same envelope emitter and generated path-policy surface, yet neither declares the dependency.",
+   "adjudication": {
+    "assignment": "s3-c10",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "119-migration-safety-validation-embeds-multiple.md",
+     "to": "181-harness-diagnostics-live-application.md",
+     "kind": "requires",
+     "confidence": "adjudicated",
+     "warrant": "**Sequencing:** Requires [181-harness-diagnostics-live-application.md](./181-harness-diagnostics-live-application.md) to land first. Import `harnessFindingSchema` from `@musi/harness-diagnostics/schema.js`, not the deleted `packages/shared/src/schemas/harness-diagnostics.ts`, and rebase the envelope-emitter, generated path-policy, and harness-guide edits onto that relocated package boundary."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-120-01",
+   "from": "120-cli-option-models-remain-parallel-registries.md",
+   "to": "132-drift-check-registration-has-three-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not work them concurrently with slice B in `scripts/drift-ai/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-132-01",
+   "from": "132-drift-check-registration-has-three-manually.md",
+   "to": "120-cli-option-models-remain-parallel-registries.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but avoid working them concurrently with this leaf — 120 in particular edits `scripts/drift-ai/types.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-120-02",
+   "from": "120-cli-option-models-remain-parallel-registries.md",
+   "to": "135-hotspot-lenses-registered-through-parallel.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not work them concurrently with slice B in `scripts/drift-ai/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-135-02",
+   "from": "135-hotspot-lenses-registered-through-parallel.md",
+   "to": "120-cli-option-models-remain-parallel-registries.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but avoid working them concurrently in `scripts/drift-ai/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-122-01",
+   "from": "122-portable-lint-ratchet-package-hard-codes.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Soft edges: land before — or explicitly rebase-coordinate with — any future CQ25-74 (testId→ratchetId) work, which touches the same kernel modules; light file adjacency with [124-ratchet-cli-has-no-authoritative-command.md](./124-ratchet-cli-has-no-authoritative-command.md) in `scripts/lint-ratchet/` — do not run the two lanes concurrently, to avoid adapter-file merge conflicts.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-150-01",
+   "from": "150-engine-context-leaves-local-rule-cache.md",
+   "to": "122-portable-lint-ratchet-package-hard-codes.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land this before [122-portable-lint-ratchet-package-hard-codes.md](./122-portable-lint-ratchet-package-hard-codes.md), or plan the two together, so that leaf extends the same engine-binding convention instead of adding a competing seam.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-122-188",
+   "endpoints": [
+    "122-portable-lint-ratchet-package-hard-codes.md",
+    "188-let-lint-ratchet-proposal-previews-evaluate.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "122 threads workflow vocabulary through `governance/propose.ts`, including its registry-paste hint (122-portable-lint-ratchet-package-hard-codes.md:97-105,127-132), while 188 changes the same proposal types, binding use, builders, allowlist handling, and promotable formatting (188-let-lint-ratchet-proposal-previews-evaluate.md:25-39). Neither leaf declares this edge, and either implementation changes the function signatures and formatting premises the other must edit.",
+   "adjudication": {
+    "assignment": "s3-c03",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "122-portable-lint-ratchet-package-hard-codes.md",
+     "to": "188-let-lint-ratchet-proposal-previews-evaluate.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Soft edge to [188-let-lint-ratchet-proposal-previews-evaluate.md](./188-let-lint-ratchet-proposal-previews-evaluate.md): both modify `tools/lint-ratchet/src/governance/propose.ts`; serialize or explicitly rebase-coordinate them so workflow-vocabulary threading and third-party preview changes share the final proposal option, binding, remediation-hint, and formatting paths."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-156-01",
+   "from": "156-hook-edit-check-protocol-maintained-manually.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "This is a merge-conflict edge only; either leaf may land first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-178-01",
+   "from": "178-local-lint-rules-lack-one-canonical.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordinate with 124-ratchet-cli-has-no-authoritative-command.md because both read `lintRatchets`; avoid concurrent restructuring of `lint-ratchet-config.ts` exports.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-188-01",
+   "from": "188-let-lint-ratchet-proposal-previews-evaluate.md",
+   "to": "124-ratchet-cli-has-no-authoritative-command.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "This has a soft option-parser overlap with 124-ratchet-cli-has-no-authoritative-command.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-125-02",
+   "from": "125-manifest-copies-verify-slot-programs-across.md",
+   "to": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not edit the manifest concurrently with either.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-126-01",
+   "from": "126-hook-wiring-repeats-adapter-templates-leaves.md",
+   "to": "125-manifest-copies-verify-slot-programs-across.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but do not work them concurrently with this leaf in `harness.controls.json` or `scripts/harness/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-127-178",
+   "endpoints": [
+    "127-public-harness-manifest-has-no-versioned.md",
+    "178-local-lint-rules-lack-one-canonical.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "127 adds `$schema` to `harness.controls.json`, emits its contract, validates the live manifest, and changes registration checks and package metadata (127-public-harness-manifest-has-no-versioned.md:77-121). 178 removes 32 controls from that same file, makes `readHarnessManifest` assemble a generated include, and changes the same registration/freshness surfaces (178-local-lint-rules-lack-one-canonical.md:42-65). That decomposition directly changes whether 127 is publishing and round-tripping the authored file or the assembled manifest, and no relation is declared.",
+   "adjudication": {
+    "assignment": "s3-c03",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "127-public-harness-manifest-has-no-versioned.md",
+     "to": "178-local-lint-rules-lack-one-canonical.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Serialize with [178-local-lint-rules-lack-one-canonical.md](./178-local-lint-rules-lack-one-canonical.md): both change `harness.controls.json`, `package.json`, registration checks, and generated-surface freshness. If 178 lands first, this leaf must publish and round-trip the assembled manifest contract, including the generated lint-rule-controls include, rather than treating the authored root fragment as complete; if this leaf lands first, 178 must preserve the `$schema` pointer and schema freshness while introducing include ownership."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-128-01",
+   "from": "128-baseline-merge-metadata-distributed-across.md",
+   "to": "129-post-merge-truth-up-parses-human-diagnostics.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency — the parity test reads only the metadata case at `:24-45`, which that leaf does not move — but avoid editing the file concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-131-152",
+   "endpoints": [
+    "131-codex-agent-skill-depends-claude-owned.md",
+    "152-path-policy-query-core-closed-over-musis.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 131 changes `path-policy.ts`, `path-policy.test.ts`, the generated smoke-subject registry, and `harness.controls.json` for wrapper relocation (131-codex-agent-skill-depends-claude-owned.md:109-124), while leaf 152 changes those same surfaces to remove the registry from `PATH_POLICY`, relocate its type, and register the extracted engine (152-path-policy-query-core-closed-over-musis.md:113-146). In particular, 131 regenerates the artifact whose ownership and emitted form 152 changes, so concurrent implementation would disturb the other's generated-output premise. No relation is declared; leaf 131 instead incorrectly denies all sequencing edges at lines 182-184.",
+   "adjudication": {
+    "assignment": "s3-c12",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "131-codex-agent-skill-depends-claude-owned.md",
+     "to": "152-path-policy-query-core-closed-over-musis.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "[152-path-policy-query-core-closed-over-musis.md](./152-path-policy-query-core-closed-over-musis.md) also edits `path-policy.ts`, `path-policy.test.ts`, `path-policy-smoke-subjects-data.ts`, and `harness.controls.json`. Either leaf may land first, but do not implement them concurrently; after both changes are combined, regenerate smoke subjects so 131's relocated wrapper paths use 152's new registry type and ownership boundary."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-131-159",
+   "endpoints": [
+    "131-codex-agent-skill-depends-claude-owned.md",
+    "159-path-policy-gives-single-segment-glob-two.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 131 deletes a `PATH_POLICY` shell-surface selector and repoints an assertion in `path-policy.test.ts` (131-codex-agent-skill-depends-claude-owned.md:109-120), while leaf 159 documents that selector type, replaces the test-local matcher used by such assertions, and registers its new module in `harness.controls.json` (159-path-policy-gives-single-segment-glob-two.md:27-42). These are different intents over a shared selector-and-test surface, and 159's matcher extraction changes the test premise under 131's assertion edit. Neither leaf declares this edge; 131 affirmatively denies it at lines 182-184.",
+   "adjudication": {
+    "assignment": "s3-c12",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "131-codex-agent-skill-depends-claude-owned.md",
+     "to": "159-path-policy-gives-single-segment-glob-two.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "[159-path-policy-gives-single-segment-glob-two.md](./159-path-policy-gives-single-segment-glob-two.md) also edits `path-policy.ts`, `path-policy.test.ts`, and `harness.controls.json`. Either leaf may land first, but do not implement them concurrently; preserve 131's relocated-script shell coverage while routing its updated assertion through 159's canonical star-only matcher, then refresh the combined manifest closures."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-132-02",
+   "from": "132-drift-check-registration-has-three-manually.md",
+   "to": "135-hotspot-lenses-registered-through-parallel.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but avoid working them concurrently with this leaf — 120 in particular edits `scripts/drift-ai/types.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-135-01",
+   "from": "135-hotspot-lenses-registered-through-parallel.md",
+   "to": "132-drift-check-registration-has-three-manually.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency, but avoid working them concurrently in `scripts/drift-ai/`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-133-01",
+   "from": "133-code-intel-daemon-guards-promise-wire-types.md",
+   "to": "145-daemon-querytestts-combines-daemon.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "No ordering dependency; avoid working the two concurrently in `scripts/code-intel/` test files.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-163-01",
+   "from": "163-ratchet-driven-file-boundaries-strand.md",
+   "to": "137-knip-check-reparses-same-cached-report.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[137-knip-check-reparses-same-cached-report.md](./137-knip-check-reparses-same-cached-report.md) also edits `knip-runner.ts`. There is no logical ordering dependency, but do not work the two concurrently; apply caller-neutral diagnostics to the runner surface left by whichever change lands first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-163-02",
+   "from": "163-ratchet-driven-file-boundaries-strand.md",
+   "to": "137-knip-check-reparses-same-cached-report.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[137-knip-check-reparses-same-cached-report.md](./137-knip-check-reparses-same-cached-report.md) also edits `knip-runner.ts`. There is no logical ordering dependency, but do not work the two concurrently; apply caller-neutral diagnostics to the runner surface left by whichever change lands first.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-138-01",
+   "from": "138-triage-merge-keys-leak-directly-public.md",
+   "to": "139-triage-locations-have-two-independently.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Leaf [139](./139-triage-locations-have-two-independently.md) (dual location representations) touches the same files; the structured-location `pairItemId` constructor above is what keeps pair identity stable if it lands, but avoid working the two concurrently in `scripts/drift-triage/triage-report*.ts`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-139-01",
+   "from": "139-triage-locations-have-two-independently.md",
+   "to": "138-triage-merge-keys-leak-directly-public.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land the two in one lane and in that order — identity first, then locations — or the second one lands on top of a key format the first one just changed.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-139-02",
+   "from": "139-triage-locations-have-two-independently.md",
+   "to": "138-triage-merge-keys-leak-directly-public.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "They must not run concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-139-03",
+   "from": "139-triage-locations-have-two-independently.md",
+   "to": "166-triage-report-tests-bury-scenarios-repeated.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Do not work concurrently with [166-triage-report-tests-bury-scenarios-repeated.md](./166-triage-report-tests-bury-scenarios-repeated.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-142-02",
+   "from": "142-code-intelts-maintains-unused-pseudo-library.md",
+   "to": "147-major-harness-implementation-directories.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If that doc lands first, this leaf carries the one-line update to it; if this leaf lands first, the doc simply describes two four-line executables.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-147-02",
+   "from": "147-major-harness-implementation-directories.md",
+   "to": "142-code-intelts-maintains-unused-pseudo-library.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The code-intel document should land after, or be explicitly updated by, the topology work in [109-musi-repository-policy-embedded-throughout.md](./109-musi-repository-policy-embedded-throughout.md) and the entrypoint-boundary work in [142-code-intelts-maintains-unused-pseudo-library.md](./142-code-intelts-maintains-unused-pseudo-library.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-147-03",
+   "from": "147-major-harness-implementation-directories.md",
+   "to": "142-code-intelts-maintains-unused-pseudo-library.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "The latter is jointly planned with [161-drift-ai-executable-exposes-incoherent-23.md](./161-drift-ai-executable-exposes-incoherent-23.md); if this module doc lands first, those leaves must carry its refresh.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-208-01",
+   "from": "208-converge-drift-ai-command-result-and-sentinel-error.md",
+   "to": "142-code-intelts-maintains-unused-pseudo-library.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Sequence edits to `runner.ts` and facade-facing result exports with [161-drift-ai-executable-exposes-incoherent-23.md](./161-drift-ai-executable-exposes-incoherent-23.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-144-01",
+   "from": "144-logs-audit-policy-tests-encode-50-scenarios.md",
+   "to": "182-logging-producers-their-auditor-separately.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Landing this leaf first is preferable, since named scenarios make that later churn attributable; neither order blocks the other.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-148-01",
+   "from": "148-rule-source-hashing-depends-home-grown.md",
+   "to": "150-engine-context-leaves-local-rule-cache.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "The changes are semantically independent and require coordination only to avoid merge friction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-150-02",
+   "from": "150-engine-context-leaves-local-rule-cache.md",
+   "to": "148-rule-source-hashing-depends-home-grown.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Neither leaf depends on the other; coordinate only for merge friction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-157-04",
+   "from": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "to": "152-path-policy-query-core-closed-over-musis.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "[152-path-policy-query-core-closed-over-musis.md](./152-path-policy-query-core-closed-over-musis.md) shares only the `jsTsLintableExtensions` import in `scripts/path-policy/path-policy.ts`; either order works with a trivial rebase.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-159-01",
+   "from": "159-path-policy-gives-single-segment-glob-two.md",
+   "to": "152-path-policy-query-core-closed-over-musis.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Both leaves edit `path-policy-query-core.ts`; either may land first, but they should not run concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-181-03",
+   "from": "181-harness-diagnostics-live-application.md",
+   "to": "152-path-policy-query-core-closed-over-musis.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There are mechanical conflicts with 067-lint-ratchet-acceptance-fixtures-emit-321.md and 068-one-lint-ratchet-acceptance-suite-serializes.md around `scripts/lint-ratchet/output.test.ts`, and with 152-path-policy-query-core-closed-over-musis.md around the generated path-policy surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-185-01",
+   "from": "185-repository-path-containment-has-several.md",
+   "to": "152-path-policy-query-core-closed-over-musis.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard ordering, but if either lands first, re-run the caller inventory because path-policy or code-intel call sites may have moved.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-220-03",
+   "from": "220-add-a-joined-explain-view-for-harness-control.md",
+   "to": "152-path-policy-query-core-closed-over-musis.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If it lands first, build against its injected engine; neither proposal should expand the other's result contract implicitly.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-153-01",
+   "from": "153-global-restricted-import-policy-survives.md",
+   "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Coordinate with [157-shared-policyjs-grab-bag-unrelated-lint.md](./157-shared-policyjs-grab-bag-unrelated-lint.md): if this leaf lands first, leaf 157 must move the composer with the focused package-boundary policy; if leaf 157 lands first, add the composer to that new module rather than recreating `shared-policy.js`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-157-01",
+   "from": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "to": "153-global-restricted-import-policy-survives.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If leaf 153 lands first, move its `restrictedImportsRule` composer with the package-boundary policy and preserve its callers; if this leaf lands first, leaf 153 must add the composer to the new focused module rather than recreating `shared-policy.js`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-153-197",
+   "endpoints": [
+    "153-global-restricted-import-policy-survives.md",
+    "197-shared-runtime-neutrality-enforcement.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 153 converts every restricted-import site, including the shared-package site in `package-boundary-configs.js`, to its composer (153:60-83), while leaf 197 adds Node patterns at that same shared-package rule site and requires existing schemas-barrel restrictions to survive replacement (197:49-58). Neither leaf declares how the new patterns enter the composer.",
+   "adjudication": {
+    "assignment": "s3-c06",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "197-shared-runtime-neutrality-enforcement.md",
+     "to": "153-global-restricted-import-policy-survives.md",
+     "kind": "rebaseOn",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [153-global-restricted-import-policy-survives.md](./153-global-restricted-import-policy-survives.md): build the production shared Node-builtin restriction through `restrictedImportsRule`; if this leaf lands first, leaf 153 must convert the new rule site while preserving its Node patterns, and if leaf 153 lands first, pass the Node patterns as composer extras."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-157-02",
+   "from": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "to": "158-typescript-consumers-depend-hand-written.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Preferred joint plan: land this split first, including its temporary declaration and parity updates, then let leaf 158 generate declarations for the final module set.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-157-03",
+   "from": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "to": "158-typescript-consumers-depend-hand-written.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Do not implement them concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-158-01",
+   "from": "158-typescript-consumers-depend-hand-written.md",
+   "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "The two leaves must not run concurrently.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-157-197",
+   "endpoints": [
+    "157-shared-policyjs-grab-bag-unrelated-lint.md",
+    "197-shared-runtime-neutrality-enforcement.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 197's production/test tiering relies on `sharedSourceFiles` and `sharedTestAndHelperSourceFiles` (197:37-45,54-60), while leaf 157 moves those globs out of `shared-policy.js`, deletes that module, and retargets its importers (157:27-41). No ordering or rebase relation is declared.",
+   "adjudication": {
+    "assignment": "s3-c06",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "197-shared-runtime-neutrality-enforcement.md",
+     "to": "157-shared-policyjs-grab-bag-unrelated-lint.md",
+     "kind": "rebaseOn",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate with [157-shared-policyjs-grab-bag-unrelated-lint.md](./157-shared-policyjs-grab-bag-unrelated-lint.md): after the split, import `sharedSourceFiles` and `sharedTestAndHelperSourceFiles` from the focused path/glob module; if this leaf lands first, leaf 157 must retarget those imports when deleting `shared-policy.js`."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-178-02",
+   "from": "178-local-lint-rules-lack-one-canonical.md",
+   "to": "158-typescript-consumers-depend-hand-written.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate with 158-typescript-consumers-depend-hand-written.md if it lands concurrently because both touch `eslint-config/` and may churn the config-surface manifest.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-224-01",
+   "from": "224-remove-lint-ratchet-compatibility-apis-used-only-by.md",
+   "to": "160-debt-log-union-uses-absence-discriminator.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate the debt-log edit with [160-debt-log-union-uses-absence-discriminator.md](./160-debt-log-union-uses-absence-discriminator.md), which changes the same batch validation and append surface.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-245-01",
+   "from": "245-reject-empty-fixture-and-smoke-discovery-sets.md",
+   "to": "167-codemod-fixtures-duplicate-identical-before.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Do not work concurrently in `fixture-runner.test-helper.ts` with [167-codemod-fixtures-duplicate-identical-before.md](./167-codemod-fixtures-duplicate-identical-before.md), which changes expected-directory semantics in the same helper but does not own discovery non-vacuity.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-182-01",
+   "from": "182-logging-producers-their-auditor-separately.md",
+   "to": "171-logs-audit-business-event-taxonomy.md",
+   "kind": "coLand",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Plan and land this work jointly with 171-logs-audit-business-event-taxonomy.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-182-02",
+   "from": "182-logging-producers-their-auditor-separately.md",
+   "to": "171-logs-audit-business-event-taxonomy.md",
+   "kind": "prefersBefore",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Preferred order is this leaf first, followed by leaf 171 importing the shared outcome tuples into its script-local family-policy table.",
+   "directionOverride": {
+    "id": "direction-171-182",
+    "rawInputIds": [
+     "d-171-01",
+     "d-182-02"
+    ],
+    "authorities": [
+     {
+      "location": "171-logs-audit-business-event-taxonomy.md:63-64",
+      "text": "Prefer landing leaf 182 first so this table imports the shared authz, mutation, and broadcast outcome tuples from `@musi/shared/logging-policy`."
+     },
+     {
+      "location": "182-logging-producers-their-auditor-separately.md:144-149",
+      "text": "Plan and land this work jointly with [171-logs-audit-business-event-taxonomy.md](./171-logs-audit-business-event-taxonomy.md). Preferred order is this leaf first, followed by leaf 171 importing the shared outcome tuples into its script-local family-policy table. If leaf 171 lands first, this leaf should replace its local outcome literals without moving its classification logic."
+     }
+    ]
+   },
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-255-01",
+   "from": "255-make-exact-token-collection-explicit-at-the.md",
+   "to": "173-near-duplicate-sensor-gate-tests-buried.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Do not combine its file relocation with this API correction.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-224-02",
+   "from": "224-remove-lint-ratchet-compatibility-apis-used-only-by.md",
+   "to": "175-metric-strategy-registry-does-not-make.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Whichever lands second should rebase the focused kernel tests rather than restore either convenience API.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-184-01",
+   "from": "184-human-readable-server-messages-act-client.md",
+   "to": "187-add-campaign-ownership-transfer-account.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate the `owned_campaigns_exist` path with 187-add-campaign-ownership-transfer-account.md.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-187-01",
+   "from": "187-add-campaign-ownership-transfer-account.md",
+   "to": "184-human-readable-server-messages-act-client.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "If leaf 184 has not landed, keep “Transfer or delete campaigns you own before deleting your account” unchanged so the current client substring branch continues to work; if it has landed, preserve the `owned_campaigns_exist` reason code instead.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-184-248",
+   "endpoints": [
+    "184-human-readable-server-messages-act-client.md",
+    "248-preserve-registered-route-typing-through.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 184 migrates `JoinPage` and `CharacterSheetPage` error branches away from message comparisons, explicitly including the locally manufactured missing-code message (184:25-29,55-63). Leaf 248 makes those pages' parameters required and removes the missing-parameter fallbacks while preserving domain error handling (248:76-88). Thus leaf 248 deletes one concrete branch leaf 184 otherwise migrates, and both rewrite the surviving page boundaries without declaring an edge. Leaf 248's existing no-order sentence concerns only leaf 236 (248:114-118), not leaf 184.",
+   "adjudication": {
+    "assignment": "s3-c09",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "184-human-readable-server-messages-act-client.md",
+     "to": "248-preserve-registered-route-typing-through.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Serialize the `JoinPage` and `CharacterSheetPage` edits with [248-preserve-registered-route-typing-through.md](./248-preserve-registered-route-typing-through.md): if 248 lands first, migrate only the surviving invite and character error branches; if this leaf lands first, 248 removes the now-impossible missing-parameter branch while preserving reason-code-based domain error handling."
+    }
+   ],
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-263-01",
+   "from": "263-preserve-closed-vocabularies-through-homebrew-form.md",
+   "to": "189-downstream-packages-keep-semantic-copies.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "After the spell-school consolidation in [189-downstream-packages-keep-semantic-copies.md](./189-downstream-packages-keep-semantic-copies.md) lands, carry its schema-derived school type through `SpellFormData`.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-191-02",
+   "from": "191-let-players-choose-strength-dexterity.md",
+   "to": "193-shared-weapon-rules-helpers-demand-full.md",
+   "kind": "rebaseOn",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no hard order, but if the module-split leaf lands first, apply this work to the relocated ability-selection module; whichever lands later must rebase helper signatures.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-193-03",
+   "from": "193-shared-weapon-rules-helpers-demand-full.md",
+   "to": "191-let-players-choose-strength-dexterity.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "There is no semantic ordering dependency, but avoid concurrent edits to that file.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-237-01",
+   "from": "237-associate-homebrew-validation-errors-with-their.md",
+   "to": "195-validate-concrete-homebrew-entry-data-before.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate overlapping form edits with [195-validate-concrete-homebrew-entry-data-before.md](./195-validate-concrete-homebrew-entry-data-before.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-252-02",
+   "from": "252-expose-persisted-notification-history-beyond-the.md",
+   "to": "196-make-notifications-navigate-campaign-context.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Coordinate popover and mark-read edits with [196-make-notifications-navigate-campaign-context.md](./196-make-notifications-navigate-campaign-context.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-265-01",
+   "from": "265-document-cross-worktree-status-modes.md",
+   "to": "198-worktree-provisioning-hard-wired.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "inferred",
+   "warrant": "Its scope is independent, but coordinate the shared file if both changes land together.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-214-01",
+   "from": "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md",
+   "to": "200-generic-srd-getall-contract-client-specific.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land after, or rebase onto, 200-generic-srd-getall-contract-client-specific.md so this change uses that leaf's final lookup-bundle procedure, schema, and type names rather than creating intermediate vocabulary.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-253-01",
+   "from": "253-converge-typecheck-fan-out-on-the-shared-parallel.md",
+   "to": "204-decompose-the-stateful-bash-verification-engine.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Do not fold this work into that verification-engine split; coordinate only if both changes touch shared harness fixtures or dependency inventories.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-239-01",
+   "from": "239-extract-the-duplicated-homebrew-confirm-by-name.md",
+   "to": "215-converge-destructive-client-actions-on-one.md",
+   "kind": "requires",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Land after, or rebase onto, [215-converge-destructive-client-actions-on-one.md](./215-converge-destructive-client-actions-on-one.md), because that proposal changes the ordinary common confirmation component.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-260-01",
+   "from": "260-rename-create-only-map-layer-actions-as-enable.md",
+   "to": "215-converge-destructive-client-actions-on-one.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "explicit",
+   "warrant": "Avoid concurrent edits, and preserve that leaf's destructive action callbacks separately from these enable-only names.",
+   "supersededDeclared": []
+  },
+  {
+   "id": "d-250-02",
+   "from": "250-correct-two-shared-assertion-boundary-categories.md",
+   "to": "222-make-multiclass-prerequisite-table-states-exclusive.md",
+   "kind": "serialize",
+   "provenance": "declared",
+   "confidence": "ambiguous",
+   "warrant": "Coordinate the multiclass edit with [222-make-multiclass-prerequisite-table-states-exclusive.md](./222-make-multiclass-prerequisite-table-states-exclusive.md).",
+   "supersededDeclared": []
+  },
+  {
+   "id": "s3-231-255",
+   "endpoints": [
+    "231-fail-closed-when-similarity-ts-output-no-longer.md",
+    "255-make-exact-token-collection-explicit-at-the.md"
+   ],
+   "kind": "collides",
+   "provenance": "s3",
+   "confidence": "adjudicated",
+   "warrant": "Leaf 231 adds several new direct similarity-ts runner fixtures (231-fail-closed-when-similarity-ts-output-no-longer.md:43-54), while leaf 255 makes includeExactTokens required and mandates updating every direct runner construction (255-make-exact-token-collection-explicit-at-the.md:46-52). Whichever lands second must rebase over the other's runner/test changes, but neither leaf declares that relation.",
+   "adjudication": {
+    "assignment": "s3-p03",
+    "subsumer": null,
+    "remedy": "add-relation"
+   },
+   "sequencing": [
+    {
+     "from": "255-make-exact-token-collection-explicit-at-the.md",
+     "to": "231-fail-closed-when-similarity-ts-output-no-longer.md",
+     "kind": "serialize",
+     "confidence": "adjudicated",
+     "warrant": "Coordinate this required-option change with [231-fail-closed-when-similarity-ts-output-no-longer.md](./231-fail-closed-when-similarity-ts-output-no-longer.md): if 231 lands first, include its new similarity-ts runner fixtures in the explicit-boolean caller sweep; if this leaf lands first, 231 must set `includeExactTokens: false` in each new similarity-ts fixture. Keep protocol validation and exact-token policy as separate changes."
+    }
+   ],
+   "supersededDeclared": []
+  }
+ ],
+ "leafSequencing": {
+  "001-chat-persistence-delivery-policy.md": {
+   "coordinateWith": [
+    "008",
+    "234"
+   ],
+   "landBefore": [
+    "268"
+   ]
+  },
+  "002-request-socket-boundaries-capture-production.md": {
+   "coordinateWith": [
+    "205"
+   ]
+  },
+  "003-seed-json-boundaries-alternate-between.md": {
+   "coordinateWith": [
+    "009",
+    "097"
+   ],
+   "decideWith": [
+    "097"
+   ]
+  },
+  "004-character-creation-large-pseudo-module-loose.md": {
+   "coordinateWith": [
+    "006",
+    "025",
+    "042",
+    "045",
+    "065",
+    "205"
+   ],
+   "preferAfter": [
+    "019"
+   ],
+   "landBefore": [
+    "211"
+   ]
+  },
+  "005-spell-participant-loading-discards-prisma.md": {
+   "coordinateWith": [
+    "006"
+   ]
+  },
+  "006-server-mappers-maintain-parallel-handwritten.md": {
+   "coordinateWith": [
+    "004",
+    "005",
+    "014",
+    "019",
+    "229"
+   ]
+  },
+  "007-cascade-deleters-duplicate-load-bearing-turn.md": {
+   "coordinateWith": [
+    "017",
+    "233"
+   ]
+  },
+  "008-chat-broadcast-facade-bypasses-registry.md": {
+   "coordinateWith": [
+    "001"
+   ]
+  },
+  "009-all-four-seed-generators-can-overwrite.md": {
+   "coordinateWith": [
+    "003",
+    "087"
+   ]
+  },
+  "010-trpc-error-sanitization-depends-unstable.md": {
+   "coordinateWith": [
+    "184"
+   ]
+  },
+  "011-encounter-map-behavior-duplicated-across-two.md": {},
+  "012-server-utilities-lack-orientation-contract.md": {},
+  "013-spell-eligibility-bypasses-module-facade.md": {},
+  "014-map-layer-responses-mapped-twice-divergent.md": {
+   "coordinateWith": [
+    "006"
+   ],
+   "landBefore": [
+    "229"
+   ]
+  },
+  "015-participant-create-data-helpers-erase-their.md": {},
+  "016-two-narrow-operations-receive-unrestricted.md": {},
+  "017-participant-mutation-comments-misstate.md": {
+   "coordinateWith": [
+    "007"
+   ]
+  },
+  "018-legacy-invite-suite-duplicates-newer-split.md": {},
+  "019-utility-broadcast-tests-seed-through.md": {
+   "preferBefore": [
+    "004"
+   ],
+   "coordinateWith": [
+    "006",
+    "109"
+   ]
+  },
+  "020-opposite-spell-slot-operations-duplicate.md": {},
+  "021-shared-production-builds-expose-colocated.md": {
+   "coordinateWith": [
+    "025"
+   ]
+  },
+  "022-saving-throw-phases-exchange-oversized.md": {
+   "coordinateWith": [
+    "193"
+   ]
+  },
+  "023-five-summary-projections-hand-copy-canonical.md": {},
+  "024-encounter-inputs-monolith-spanning-three.md": {
+   "coordinateWith": [
+    "026",
+    "030",
+    "048",
+    "064",
+    "071",
+    "100",
+    "190"
+   ],
+   "preferBefore": [
+    "026"
+   ]
+  },
+  "025-spellcastingts-contains-five-independently.md": {
+   "coordinateWith": [
+    "004",
+    "021"
+   ],
+   "preferAfter": [
+    "031",
+    "250"
+   ]
+  },
+  "026-monster-provenance-invariants-disappear.md": {
+   "coordinateWith": [
+    "024",
+    "048",
+    "190"
+   ],
+   "preferAfter": [
+    "024"
+   ]
+  },
+  "027-condition-damage-modules-mix-contracts.md": {
+   "coordinateWith": [
+    "031",
+    "033",
+    "035",
+    "037",
+    "191",
+    "193"
+   ]
+  },
+  "028-map-inputs-tests-obscure-mutations-inside.md": {},
+  "029-one-metamagic-constant-controls-two.md": {
+   "coordinateWith": [
+    "221"
+   ]
+  },
+  "030-attack-spell-contracts-duplicate-behavior.md": {
+   "coordinateWith": [
+    "024",
+    "031"
+   ]
+  },
+  "031-attack-damagets-eight-concern-rules-grab-bag.md": {
+   "preferBefore": [
+    "025"
+   ],
+   "coordinateWith": [
+    "027",
+    "030",
+    "035",
+    "191",
+    "193"
+   ]
+  },
+  "032-encounter-calculators-re-declare-participant.md": {
+   "coordinateWith": [
+    "189"
+   ]
+  },
+  "033-attunement-game-rule-lives-request-schema.md": {
+   "coordinateWith": [
+    "027",
+    "044"
+   ]
+  },
+  "034-campaign-homebrew-procedure-contracts-split.md": {
+   "coordinateWith": [
+    "100",
+    "194"
+   ]
+  },
+  "035-weapon-helpers-widen-closed-vocabularies.md": {
+   "coordinateWith": [
+    "027",
+    "031",
+    "191",
+    "193"
+   ]
+  },
+  "036-combat-result-schemas-make-always-produced.md": {},
+  "037-static-rules-tables-expose-inconsistent.md": {
+   "coordinateWith": [
+    "027"
+   ]
+  },
+  "038-dice-grammar-semantics-depend-positional.md": {},
+  "039-responsive-character-sheets-keep-two.md": {
+   "coordinateWith": [
+    "192",
+    "214"
+   ]
+  },
+  "040-vtt-actions-tab-duplicates-two-dedicated.md": {
+   "coordinateWith": [
+    "058"
+   ]
+  },
+  "041-character-hooks-expose-second-identity.md": {
+   "landBefore": [
+    "044",
+    "050"
+   ],
+   "landAfter": [
+    "062"
+   ]
+  },
+  "042-flat-character-creation-contract-forces.md": {
+   "coordinateWith": [
+    "004",
+    "045",
+    "056",
+    "213",
+    "270"
+   ]
+  },
+  "043-encounter-detail-behavior-fragmented-across.md": {
+   "coordinateWith": [
+    "060",
+    "088"
+   ]
+  },
+  "044-optimistic-writers-spread-transport.md": {
+   "coordinateWith": [
+    "033",
+    "050"
+   ],
+   "landAfter": [
+    "041"
+   ]
+  },
+  "045-character-creation-ability-rules-have-four.md": {
+   "coordinateWith": [
+    "004",
+    "042",
+    "270"
+   ]
+  },
+  "046-generic-map-canvas-performs-combat-domain.md": {
+   "coordinateWith": [
+    "088"
+   ]
+  },
+  "047-toolhandler-erases-coordinate-domains.md": {
+   "decideWith": [
+    "105"
+   ]
+  },
+  "048-monsteradddata-erases-mutually-exclusive.md": {
+   "coordinateWith": [
+    "024",
+    "026",
+    "053"
+   ]
+  },
+  "049-player-monster-attack-hooks-duplicate-target.md": {
+   "coordinateWith": [
+    "191"
+   ]
+  },
+  "050-optimistic-character-sheet-mutations-omit.md": {
+   "landAfter": [
+    "041"
+   ],
+   "coordinateWith": [
+    "044",
+    "062"
+   ]
+  },
+  "051-flat-route-tree-makes-authentication-eleven.md": {
+   "coordinateWith": [
+    "227"
+   ]
+  },
+  "052-campaign-tabs-manually-synchronized-across.md": {},
+  "053-filterselect-erases-schema-derived-option.md": {
+   "coordinateWith": [
+    "048"
+   ]
+  },
+  "054-tokencontextmenu-option-bag-two-different.md": {
+   "coordinateWith": [
+    "179",
+    "215"
+   ]
+  },
+  "055-token-placement-mirrors-store-state-dialog.md": {},
+  "056-wizard-contexttesttsx-stale-duplicate-wizard.md": {
+   "coordinateWith": [
+    "042"
+   ]
+  },
+  "057-character-sheettesttsx-no-longer-tests.md": {},
+  "058-vtt-spell-tests-copy-full.md": {
+   "coordinateWith": [
+    "040"
+   ]
+  },
+  "059-fog-overlay-component-tests-assert-only.md": {},
+  "060-participant-presentation-duplicated-between.md": {
+   "coordinateWith": [
+    "043",
+    "088"
+   ]
+  },
+  "061-rollmodetoggle-complete-production-orphan.md": {
+   "coordinateWith": [
+    "088",
+    "089"
+   ],
+   "preferBefore": [
+    "189"
+   ]
+  },
+  "062-character-key-hook-constructs-three-filter.md": {
+   "landBefore": [
+    "041"
+   ],
+   "coordinateWith": [
+    "050",
+    "089",
+    "105"
+   ]
+  },
+  "063-worktree-shell-suite-four-suites-hidden-one.md": {
+   "coordinateWith": [
+    "198"
+   ]
+  },
+  "064-pagination-suites-systematically-avoid-tie.md": {
+   "coordinateWith": [
+    "024"
+   ],
+   "landBefore": [
+    "252"
+   ]
+  },
+  "065-server-service-suites-redundantly-wipe.md": {
+   "coordinateWith": [
+    "004"
+   ]
+  },
+  "066-three-mutation-test-lanes-can-strand-live.md": {
+   "coordinateWith": [
+    "070",
+    "168"
+   ],
+   "preferBefore": [
+    "101"
+   ],
+   "landBefore": [
+    "101"
+   ]
+  },
+  "067-lint-ratchet-acceptance-fixtures-emit-321.md": {
+   "coordinateWith": [
+    "068",
+    "073",
+    "181"
+   ]
+  },
+  "068-one-lint-ratchet-acceptance-suite-serializes.md": {
+   "coordinateWith": [
+    "067",
+    "073",
+    "181"
+   ]
+  },
+  "069-eslint-configuration-suites-repeat-real.md": {},
+  "070-server-mutation-vitest-config-re-declares.md": {
+   "coordinateWith": [
+    "066"
+   ]
+  },
+  "071-paired-shared-schema-suites-split-request.md": {
+   "coordinateWith": [
+    "024"
+   ]
+  },
+  "072-collector-scheduler-tests-coordinate-through.md": {},
+  "073-portable-lint-ratchet-tests-depend.md": {
+   "coordinateWith": [
+    "067",
+    "068"
+   ]
+  },
+  "074-coverage-gates-count-490-lines-test.md": {},
+  "075-live-message-identity-golden-stale-machine.md": {},
+  "076-schema-tests-retain-opaque-audit-numbers.md": {},
+  "077-eleven-non-encounter-e2e-suites-present.md": {
+   "coordinateWith": [
+    "079"
+   ]
+  },
+  "078-axe-allowlists-can-outlive-accessibility.md": {
+   "coordinateWith": [
+    "079"
+   ]
+  },
+  "079-e2e-specs-bypass-page-objects-through-raw.md": {
+   "coordinateWith": [
+    "077",
+    "078",
+    "091"
+   ]
+  },
+  "080-public-harness-copy-recipes-not-closed-over.md": {
+   "coordinateWith": [
+    "168"
+   ],
+   "landAfter": [
+    "181"
+   ]
+  },
+  "081-lint-ratchet-adoption-docs-mix-packaged.md": {
+   "coordinateWith": [
+    "124"
+   ]
+  },
+  "082-devcontainer-quick-start-depends.md": {
+   "coordinateWith": [
+    "103"
+   ]
+  },
+  "083-sole-progress-queue-mostly-stale-view.md": {
+   "coordinateWith": [
+    "084"
+   ]
+  },
+  "084-backlog-simultaneously-action-queue-evidence.md": {
+   "coordinateWith": [
+    "083"
+   ]
+  },
+  "085-specialist-package-script-surface-has-no.md": {
+   "coordinateWith": [
+    "219",
+    "220",
+    "266"
+   ]
+  },
+  "086-driftai-operator-guide-890-line-multi.md": {},
+  "087-server-contributor-maps-contradict-omit.md": {
+   "coordinateWith": [
+    "009",
+    "097",
+    "203"
+   ]
+  },
+  "088-client-component-module-documents-misstate.md": {
+   "coordinateWith": [
+    "043",
+    "046",
+    "060",
+    "061"
+   ]
+  },
+  "089-client-hook-page-entry-point-maps-omit-major.md": {
+   "coordinateWith": [
+    "061",
+    "062"
+   ]
+  },
+  "090-lint-ratchet-newcomer-docs-omit-prerequisite.md": {
+   "coordinateWith": [
+    "112"
+   ]
+  },
+  "091-e2e-guide-permits-raw-locators-mandatory.md": {
+   "coordinateWith": [
+    "079"
+   ]
+  },
+  "092-concurrency-rulebook-claims-three-exhaustive.md": {
+   "coordinateWith": [
+    "099",
+    "123"
+   ]
+  },
+  "093-harness-manifest-guide-undercounts-omits.md": {
+   "coordinateWith": [
+    "094"
+   ]
+  },
+  "094-two-documents-both-claim-be-authoritative.md": {
+   "coordinateWith": [
+    "093"
+   ],
+   "preferBefore": [
+    "220"
+   ]
+  },
+  "095-homebrew-module-index-sends-contributors.md": {
+   "coordinateWith": [
+    "180"
+   ]
+  },
+  "097-two-database-writing-srd-backfill-commands.md": {
+   "coordinateWith": [
+    "003",
+    "087",
+    "203"
+   ],
+   "decideWith": [
+    "003",
+    "203"
+   ],
+   "preferAfter": [
+    "203"
+   ]
+  },
+  "098-scripts-guide-lists-only-three-twelve.md": {},
+  "099-concurrency-rulebook-mislocates-participant.md": {
+   "coordinateWith": [
+    "092",
+    "123"
+   ]
+  },
+  "100-shared-local-documentation-carries-stale.md": {
+   "coordinateWith": [
+    "024",
+    "034"
+   ]
+  },
+  "101-mutation-docs-promise-sandbox-isolation.md": {
+   "preferAfter": [
+    "066"
+   ],
+   "landAfter": [
+    "066"
+   ],
+   "coordinateWith": [
+    "223"
+   ]
+  },
+  "102-generated-doc-ownership-table-misclassifies.md": {},
+  "103-primary-onboarding-omits-bashunix-runtime.md": {
+   "coordinateWith": [
+    "082",
+    "106",
+    "266"
+   ]
+  },
+  "104-scripts-readme-gives-non-root-recovery.md": {},
+  "105-client-source-comments-preserve-three.md": {
+   "decideWith": [
+    "047"
+   ],
+   "coordinateWith": [
+    "062"
+   ]
+  },
+  "106-root-devcontainer-compose-bootstrap.md": {
+   "coordinateWith": [
+    "103"
+   ]
+  },
+  "107-ai-hook-policy-2121-line-shell-parsing.md": {
+   "coordinateWith": [
+    "114",
+    "116",
+    "125",
+    "126"
+   ]
+  },
+  "108-worktree-seed-validation-implements-private.md": {},
+  "109-musi-repository-policy-embedded-throughout.md": {
+   "coordinateWith": [
+    "019",
+    "132",
+    "134",
+    "147",
+    "185"
+   ]
+  },
+  "110-parallel-verify-dependencies-hidden.md": {
+   "coordinateWith": [
+    "116",
+    "125"
+   ]
+  },
+  "111-lint-coverage-map-reverse-parses-generated.md": {
+   "coordinateWith": [
+    "157"
+   ],
+   "preferAfter": [
+    "251"
+   ]
+  },
+  "112-public-lint-ratchet-demo-asks-adopters.md": {
+   "coordinateWith": [
+    "090",
+    "124"
+   ]
+  },
+  "113-baseline-updates-serialize-stale-local.md": {
+   "coordinateWith": [
+    "122",
+    "124"
+   ]
+  },
+  "114-harness-controls-represented-competing.md": {
+   "coordinateWith": [
+    "107",
+    "115",
+    "116",
+    "125",
+    "126",
+    "127"
+   ],
+   "preferBefore": [
+    "127"
+   ]
+  },
+  "115-gate-parity-checks-fingerprint-source-text.md": {
+   "coordinateWith": [
+    "114",
+    "116"
+   ]
+  },
+  "116-generated-surface-dependencies-manually.md": {
+   "coordinateWith": [
+    "107",
+    "110",
+    "114",
+    "115",
+    "125",
+    "126"
+   ]
+  },
+  "117-verify-metadatash-second-kitchen-sink-shell.md": {
+   "coordinateWith": [
+    "119",
+    "141",
+    "204",
+    "271"
+   ]
+  },
+  "118-doctorsh-organized-around-ambient-mutable.md": {
+   "coordinateWith": [
+    "119"
+   ]
+  },
+  "119-migration-safety-validation-embeds-multiple.md": {
+   "coordinateWith": [
+    "117",
+    "118"
+   ],
+   "landAfter": [
+    "181"
+   ]
+  },
+  "120-cli-option-models-remain-parallel-registries.md": {
+   "coordinateWith": [
+    "132",
+    "135"
+   ]
+  },
+  "121-drift-ai-code-intel-independently-encode.md": {},
+  "122-portable-lint-ratchet-package-hard-codes.md": {
+   "coordinateWith": [
+    "113",
+    "124",
+    "188"
+   ],
+   "preferAfter": [
+    "150"
+   ]
+  },
+  "123-concurrency-policy-fragmented-across.md": {
+   "coordinateWith": [
+    "092",
+    "099"
+   ]
+  },
+  "124-ratchet-cli-has-no-authoritative-command.md": {
+   "coordinateWith": [
+    "081",
+    "112",
+    "113",
+    "122",
+    "156",
+    "178",
+    "188"
+   ]
+  },
+  "125-manifest-copies-verify-slot-programs-across.md": {
+   "coordinateWith": [
+    "107",
+    "110",
+    "114",
+    "116",
+    "126"
+   ]
+  },
+  "126-hook-wiring-repeats-adapter-templates-leaves.md": {
+   "coordinateWith": [
+    "107",
+    "114",
+    "116",
+    "125"
+   ]
+  },
+  "127-public-harness-manifest-has-no-versioned.md": {
+   "preferAfter": [
+    "114"
+   ],
+   "coordinateWith": [
+    "114",
+    "178"
+   ]
+  },
+  "128-baseline-merge-metadata-distributed-across.md": {
+   "coordinateWith": [
+    "129"
+   ]
+  },
+  "129-post-merge-truth-up-parses-human-diagnostics.md": {
+   "coordinateWith": [
+    "128"
+   ]
+  },
+  "130-workflows-embed-substantial-reporting-api.md": {},
+  "131-codex-agent-skill-depends-claude-owned.md": {
+   "coordinateWith": [
+    "152",
+    "159"
+   ]
+  },
+  "132-drift-check-registration-has-three-manually.md": {
+   "coordinateWith": [
+    "109",
+    "120",
+    "135"
+   ]
+  },
+  "133-code-intel-daemon-guards-promise-wire-types.md": {
+   "coordinateWith": [
+    "145"
+   ]
+  },
+  "134-analyzer-families-maintain-divergent-source.md": {
+   "coordinateWith": [
+    "109"
+   ]
+  },
+  "135-hotspot-lenses-registered-through-parallel.md": {
+   "coordinateWith": [
+    "120",
+    "132"
+   ]
+  },
+  "136-environment-provider-metadata-has-four.md": {},
+  "137-knip-check-reparses-same-cached-report.md": {
+   "coordinateWith": [
+    "163"
+   ]
+  },
+  "138-triage-merge-keys-leak-directly-public.md": {
+   "coordinateWith": [
+    "139"
+   ],
+   "landBefore": [
+    "139"
+   ]
+  },
+  "139-triage-locations-have-two-independently.md": {
+   "coordinateWith": [
+    "138",
+    "166"
+   ],
+   "landAfter": [
+    "138"
+   ]
+  },
+  "140-analyzer-presentation-logic-uses-english.md": {},
+  "141-latest-log-discovery-mirrors-verify-state.md": {
+   "coordinateWith": [
+    "117"
+   ]
+  },
+  "142-code-intelts-maintains-unused-pseudo-library.md": {
+   "coordinateWith": [
+    "147",
+    "208"
+   ]
+  },
+  "143-two-command-test-filenames-substantially.md": {},
+  "144-logs-audit-policy-tests-encode-50-scenarios.md": {
+   "preferBefore": [
+    "182"
+   ]
+  },
+  "145-daemon-querytestts-combines-daemon.md": {
+   "coordinateWith": [
+    "133"
+   ]
+  },
+  "146-duplicates-suite-umbrella-four-production.md": {},
+  "147-major-harness-implementation-directories.md": {
+   "coordinateWith": [
+    "109",
+    "142"
+   ]
+  },
+  "148-rule-source-hashing-depends-home-grown.md": {
+   "coordinateWith": [
+    "150"
+   ]
+  },
+  "149-generic-codemod-infrastructure-hidden-behind.md": {},
+  "150-engine-context-leaves-local-rule-cache.md": {
+   "preferBefore": [
+    "122"
+   ],
+   "coordinateWith": [
+    "148"
+   ]
+  },
+  "151-fixture-copies-parsed-grouped-two.md": {},
+  "152-path-policy-query-core-closed-over-musis.md": {
+   "coordinateWith": [
+    "131",
+    "157",
+    "159",
+    "181",
+    "185",
+    "220"
+   ]
+  },
+  "153-global-restricted-import-policy-survives.md": {
+   "coordinateWith": [
+    "157",
+    "197"
+   ]
+  },
+  "154-concurrency-guard-compresses-two-analyzers.md": {},
+  "155-transaction-callback-tracking-duplicated.md": {},
+  "156-hook-edit-check-protocol-maintained-manually.md": {
+   "coordinateWith": [
+    "124"
+   ]
+  },
+  "157-shared-policyjs-grab-bag-unrelated-lint.md": {
+   "coordinateWith": [
+    "111",
+    "152",
+    "153",
+    "158",
+    "197"
+   ],
+   "preferBefore": [
+    "158"
+   ]
+  },
+  "158-typescript-consumers-depend-hand-written.md": {
+   "preferAfter": [
+    "157"
+   ],
+   "coordinateWith": [
+    "157",
+    "178"
+   ]
+  },
+  "159-path-policy-gives-single-segment-glob-two.md": {
+   "coordinateWith": [
+    "131",
+    "152"
+   ]
+  },
+  "160-debt-log-union-uses-absence-discriminator.md": {
+   "coordinateWith": [
+    "224"
+   ]
+  },
+  "162-test-orphaning-indexes-history-then-rescans.md": {},
+  "163-ratchet-driven-file-boundaries-strand.md": {
+   "coordinateWith": [
+    "137"
+   ]
+  },
+  "164-drift-ai-suites-leave-dozens-temporary.md": {},
+  "165-eight-drift-command-fakes-bypass-strict-git.md": {},
+  "166-triage-report-tests-bury-scenarios-repeated.md": {
+   "coordinateWith": [
+    "139"
+   ]
+  },
+  "167-codemod-fixtures-duplicate-identical-before.md": {
+   "coordinateWith": [
+    "245"
+   ]
+  },
+  "168-harness-generator-scenarios-repeat-53-inline.md": {
+   "coordinateWith": [
+    "066",
+    "080"
+   ]
+  },
+  "169-suppression-allowlists-cannot-ratchet.md": {},
+  "170-semgrep-rule-source-types-runtime-schema.md": {},
+  "171-logs-audit-business-event-taxonomy.md": {
+   "coordinateWith": [
+    "182"
+   ],
+   "preferAfter": [
+    "182"
+   ]
+  },
+  "172-two-drift-advisories-duplicate-complete.md": {},
+  "173-near-duplicate-sensor-gate-tests-buried.md": {
+   "coordinateWith": [
+    "255"
+   ]
+  },
+  "174-overview-suite-forks-code-intels-canonical.md": {},
+  "175-metric-strategy-registry-does-not-make.md": {
+   "coordinateWith": [
+    "224"
+   ]
+  },
+  "176-lint-message-evaluation-records-source.md": {},
+  "177-logs-audit-leaves-ingestion-core-flat.md": {},
+  "178-local-lint-rules-lack-one-canonical.md": {
+   "coordinateWith": [
+    "124",
+    "127",
+    "158"
+   ]
+  },
+  "179-turn-disabled-stat-block-placeholder-party.md": {
+   "coordinateWith": [
+    "054"
+   ]
+  },
+  "180-homebrew-entry-type-vocabulary-enumerated.md": {
+   "coordinateWith": [
+    "095"
+   ]
+  },
+  "181-harness-diagnostics-live-application.md": {
+   "coordinateWith": [
+    "067",
+    "068",
+    "152"
+   ],
+   "landBefore": [
+    "080",
+    "119"
+   ]
+  },
+  "182-logging-producers-their-auditor-separately.md": {
+   "preferAfter": [
+    "144"
+   ],
+   "coordinateWith": [
+    "171"
+   ],
+   "preferBefore": [
+    "171"
+   ]
+  },
+  "183-database-url-selection-duplicated-across.md": {},
+  "184-human-readable-server-messages-act-client.md": {
+   "coordinateWith": [
+    "010",
+    "187",
+    "248"
+   ]
+  },
+  "185-repository-path-containment-has-several.md": {
+   "coordinateWith": [
+    "109",
+    "152"
+   ]
+  },
+  "186-authentication-redirects-depend-undocumented.md": {},
+  "187-add-campaign-ownership-transfer-account.md": {
+   "coordinateWith": [
+    "184"
+   ]
+  },
+  "188-let-lint-ratchet-proposal-previews-evaluate.md": {
+   "coordinateWith": [
+    "122",
+    "124"
+   ]
+  },
+  "189-downstream-packages-keep-semantic-copies.md": {
+   "coordinateWith": [
+    "032"
+   ],
+   "preferAfter": [
+    "061"
+   ],
+   "landBefore": [
+    "263"
+   ]
+  },
+  "190-make-combat-history-navigable-through-one.md": {
+   "coordinateWith": [
+    "024",
+    "026"
+   ]
+  },
+  "191-let-players-choose-strength-dexterity.md": {
+   "coordinateWith": [
+    "027",
+    "031",
+    "035",
+    "049",
+    "193"
+   ]
+  },
+  "192-expose-level-up-history-already-returned.md": {
+   "coordinateWith": [
+    "039"
+   ]
+  },
+  "193-shared-weapon-rules-helpers-demand-full.md": {
+   "coordinateWith": [
+    "022",
+    "027",
+    "031",
+    "035",
+    "191"
+   ]
+  },
+  "194-generic-mutation-acknowledgment-hidden-under.md": {
+   "coordinateWith": [
+    "034"
+   ]
+  },
+  "195-validate-concrete-homebrew-entry-data-before.md": {
+   "coordinateWith": [
+    "237"
+   ]
+  },
+  "196-make-notifications-navigate-campaign-context.md": {
+   "coordinateWith": [
+    "252"
+   ]
+  },
+  "197-shared-runtime-neutrality-enforcement.md": {
+   "coordinateWith": [
+    "153",
+    "157"
+   ]
+  },
+  "198-worktree-provisioning-hard-wired.md": {
+   "coordinateWith": [
+    "063",
+    "265"
+   ]
+  },
+  "199-magic-item-seed-validation-shadows-shared.md": {},
+  "200-generic-srd-getall-contract-client-specific.md": {
+   "landBefore": [
+    "214"
+   ]
+  },
+  "201-let-users-rename-homebrew-collection-while.md": {},
+  "202-enable-existing-comment-density-sensor.md": {},
+  "203-add-previewapply-safety-boundary-srd.md": {
+   "coordinateWith": [
+    "087",
+    "097"
+   ],
+   "decideWith": [
+    "097"
+   ],
+   "preferBefore": [
+    "097"
+   ]
+  },
+  "204-decompose-the-stateful-bash-verification-engine.md": {
+   "coordinateWith": [
+    "117",
+    "253"
+   ]
+  },
+  "205-rename-auth-service-to-reflect-its.md": {
+   "coordinateWith": [
+    "002",
+    "004"
+   ]
+  },
+  "206-single-source-memory-wait-timeout-validation-across.md": {},
+  "207-encode-ghost-files-mode-dependencies-as.md": {},
+  "208-converge-drift-ai-command-result-and-sentinel-error.md": {
+   "coordinateWith": [
+    "142"
+   ]
+  },
+  "209-remove-the-unused-repository-root-parameter-from.md": {},
+  "210-load-metamagics-only-after-level-up-applicability-is.md": {},
+  "211-reuse-validated-class-references-during.md": {
+   "landAfter": [
+    "004"
+   ]
+  },
+  "212-give-initiative-orchestration-layers.md": {},
+  "213-make-character-wizard-step-validation-exhaustive.md": {
+   "coordinateWith": [
+    "042"
+   ]
+  },
+  "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md": {
+   "coordinateWith": [
+    "039"
+   ],
+   "landAfter": [
+    "200"
+   ]
+  },
+  "215-converge-destructive-client-actions-on-one.md": {
+   "coordinateWith": [
+    "054",
+    "260"
+   ],
+   "landBefore": [
+    "239"
+   ]
+  },
+  "216-route-npc-mutations-through-the-campaign.md": {},
+  "217-correct-the-architecture-plan-s-unsupported-level-up.md": {},
+  "218-replace-the-coverage-cadence-guide-s-deleted.md": {},
+  "219-give-repository-workflows-cwd-stable-scope-bearing.md": {
+   "coordinateWith": [
+    "085"
+   ]
+  },
+  "220-add-a-joined-explain-view-for-harness-control.md": {
+   "coordinateWith": [
+    "085",
+    "152"
+   ],
+   "preferAfter": [
+    "094"
+   ]
+  },
+  "221-rename-metamagic-slot-terminology-to-options-known.md": {
+   "coordinateWith": [
+    "029"
+   ]
+  },
+  "222-make-multiclass-prerequisite-table-states-exclusive.md": {
+   "coordinateWith": [
+    "250"
+   ]
+  },
+  "223-remove-the-fulfilled-shared-rules-mutation-gap-from.md": {
+   "coordinateWith": [
+    "101"
+   ]
+  },
+  "224-remove-lint-ratchet-compatibility-apis-used-only-by.md": {
+   "coordinateWith": [
+    "160",
+    "175"
+   ]
+  },
+  "225-use-the-canonical-markdown-table-escaper-in.md": {},
+  "226-signal-overflow-when-token-conditions-exceed-the.md": {},
+  "227-make-legal-license-and-srd-attribution-available.md": {
+   "coordinateWith": [
+    "051"
+   ]
+  },
+  "228-align-shared-export-guidance-with-adr-0005-s.md": {},
+  "229-standardize-datetimefield-backed-mapper-result.md": {
+   "coordinateWith": [
+    "006"
+   ],
+   "landAfter": [
+    "014"
+   ]
+  },
+  "230-single-source-edited-path-decoding-and-eslint-file.md": {},
+  "231-fail-closed-when-similarity-ts-output-no-longer.md": {
+   "coordinateWith": [
+    "255"
+   ]
+  },
+  "232-derive-drift-triage-reviewer-instructions-from-the.md": {},
+  "233-bulk-load-encounter-participants-before-character.md": {
+   "coordinateWith": [
+    "007"
+   ]
+  },
+  "234-route-manual-combat-logs-through-encounter-combat-s.md": {
+   "coordinateWith": [
+    "001"
+   ]
+  },
+  "235-preserve-gridtype-through-client-map-component.md": {},
+  "236-use-tanstack-router-for-the-campaign-homebrew.md": {},
+  "237-associate-homebrew-validation-errors-with-their.md": {
+   "coordinateWith": [
+    "195"
+   ]
+  },
+  "238-share-class-and-subclass-caster-selection-fields.md": {},
+  "239-extract-the-duplicated-homebrew-confirm-by-name.md": {
+   "landAfter": [
+    "215"
+   ]
+  },
+  "240-classify-the-below-low-trivial-encounter-tier-as.md": {},
+  "241-share-the-repeated-initiative-tracker-participant.md": {},
+  "242-derive-slow-test-project-roots-with-fileurltopath.md": {},
+  "243-correct-prototype-headers-that-deny-registered.md": {},
+  "244-let-multiclass-characters-choose-their-unarmored.md": {},
+  "245-reject-empty-fixture-and-smoke-discovery-sets.md": {
+   "coordinateWith": [
+    "167"
+   ]
+  },
+  "246-replace-the-eslint-cache-shell-to-typescript-text.md": {},
+  "247-unify-character-create-choice-chips-around.md": {},
+  "248-preserve-registered-route-typing-through.md": {
+   "coordinateWith": [
+    "184"
+   ]
+  },
+  "249-keep-charactertab-on-the-inferred-campaign-output.md": {},
+  "250-correct-two-shared-assertion-boundary-categories.md": {
+   "preferBefore": [
+    "025"
+   ],
+   "coordinateWith": [
+    "222"
+   ]
+  },
+  "251-remove-closed-implementation-residue-from-the-active.md": {
+   "preferBefore": [
+    "111"
+   ]
+  },
+  "252-expose-persisted-notification-history-beyond-the.md": {
+   "landAfter": [
+    "064"
+   ],
+   "coordinateWith": [
+    "196"
+   ]
+  },
+  "253-converge-typecheck-fan-out-on-the-shared-parallel.md": {
+   "coordinateWith": [
+    "204"
+   ]
+  },
+  "254-route-current-inventory-through-the-canonical-ignore.md": {},
+  "255-make-exact-token-collection-explicit-at-the.md": {
+   "coordinateWith": [
+    "173",
+    "231"
+   ]
+  },
+  "256-constrain-class-caster-metadata-with-database-enums.md": {},
+  "257-delete-the-no-op-auth-configuration-validator.md": {},
+  "258-share-inventory-draft-fields-between-add-and-edit.md": {},
+  "259-extract-a-one-pass-homebrew-item-read-adapter.md": {},
+  "260-rename-create-only-map-layer-actions-as-enable.md": {
+   "coordinateWith": [
+    "215"
+   ]
+  },
+  "261-debounce-notes-search-before-changing-its.md": {},
+  "262-single-source-the-class-and-subclass-feature-codec.md": {},
+  "263-preserve-closed-vocabularies-through-homebrew-form.md": {
+   "landAfter": [
+    "189"
+   ]
+  },
+  "264-make-ad-hoc-fastify-test-teardown-failure-safe.md": {},
+  "265-document-cross-worktree-status-modes.md": {
+   "coordinateWith": [
+    "198"
+   ]
+  },
+  "266-add-a-human-focused-contribution-entrypoint.md": {
+   "coordinateWith": [
+    "085",
+    "103"
+   ]
+  },
+  "267-require-current-rationale-on-durable-harness.md": {},
+  "268-type-dice-roll-metadata-as-rollresult-at-the.md": {
+   "landAfter": [
+    "001"
+   ]
+  },
+  "269-reset-createmapdialog-state-on-every-close-path.md": {},
+  "270-add-a-local-orientation-contract-for-the-client.md": {
+   "coordinateWith": [
+    "042",
+    "045"
+   ]
+  },
+  "271-route-verifylogs-wrapper-marker-reads-through-canonical-codec.md": {
+   "coordinateWith": [
+    "117"
+   ]
+  }
+ }
+}

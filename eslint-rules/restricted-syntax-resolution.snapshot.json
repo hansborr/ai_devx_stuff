@@ -5,8 +5,8 @@
       "severity": 2,
       "selectors": ["732b04b923702683"]
     },
-    "eslint-config/shared-policy.js": null,
-    "eslint-rules/all-local-rules.js": {
+    "eslint-config/path-glob-policy.js": null,
+    "eslint-rules/rule-module-shape.js": {
       "severity": 2,
       "selectors": ["732b04b923702683", "b0331a6254375631"]
     },

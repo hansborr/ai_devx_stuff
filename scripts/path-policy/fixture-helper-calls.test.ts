@@ -2,16 +2,35 @@ import { describe, expect, it } from "vitest";
 
 import {
   fixtureGroupKey,
+  type FixtureGroupMerge,
   type FixtureHelperCall,
-  mergeHelperCallSources,
-  type MutableFixtureCopyGroup,
+  type FixtureScopedGroup,
+  mergeHelperCallGroups,
   parseFixtureHelperCall,
 } from "./fixture-helper-calls.js";
 
 const LEAF_SOURCE = "scripts/lib/test-worker-count.sh";
 
-function leafGroupMap(): Map<string, MutableFixtureCopyGroup> {
-  const copiedByFixture = new Map<string, MutableFixtureCopyGroup>();
+interface MutableSourceGroup extends FixtureScopedGroup {
+  readonly sources: Set<string>;
+}
+
+const sourceMerge: FixtureGroupMerge<MutableSourceGroup> = {
+  create: (functionScope, fixtureRoot) => ({
+    functionScope,
+    fixtureRoot,
+    sources: new Set<string>(),
+  }),
+  absorb: (target, source) => {
+    const previousSize = target.sources.size;
+    for (const path of source.sources) target.sources.add(path);
+    return target.sources.size !== previousSize;
+  },
+  isEmpty: (group) => group.sources.size === 0,
+};
+
+function leafGroupMap(): Map<string, MutableSourceGroup> {
+  const copiedByFixture = new Map<string, MutableSourceGroup>();
   copiedByFixture.set(fixtureGroupKey(["copy_leaf"], "$repo"), {
     functionScope: ["copy_leaf"],
     fixtureRoot: "$repo",
@@ -48,7 +67,7 @@ describe("parseFixtureHelperCall", () => {
   });
 });
 
-describe("mergeHelperCallSources", () => {
+describe("mergeHelperCallGroups", () => {
   it("propagates leaf sources through a delegate-only helper chain", () => {
     // wrapper() only delegates to copy_leaf — it has no direct cp, so no
     // group is indexed under "wrapper" before propagation. The fixpoint must
@@ -60,7 +79,7 @@ describe("mergeHelperCallSources", () => {
       { callerScope: ["wrapper"], callee: "copy_leaf", targetRoot: "$repo" },
     ];
 
-    mergeHelperCallSources(copiedByFixture, calls);
+    mergeHelperCallGroups(copiedByFixture, calls, sourceMerge);
 
     const topLevel = copiedByFixture.get(fixtureGroupKey([], "$WRAPPER_REPO"));
     expect(topLevel).toBeDefined();
@@ -75,7 +94,7 @@ describe("mergeHelperCallSources", () => {
       { callerScope: ["inner_wrapper"], callee: "copy_leaf", targetRoot: "$repo" },
     ];
 
-    mergeHelperCallSources(copiedByFixture, calls);
+    mergeHelperCallGroups(copiedByFixture, calls, sourceMerge);
 
     const topLevel = copiedByFixture.get(fixtureGroupKey([], "$TOP_REPO"));
     expect([...(topLevel?.sources ?? [])]).toContain(LEAF_SOURCE);
@@ -92,7 +111,7 @@ describe("mergeHelperCallSources", () => {
       { callerScope: [], callee: "ping", targetRoot: "$MAIN_REPO" },
     ];
 
-    mergeHelperCallSources(copiedByFixture, calls);
+    mergeHelperCallGroups(copiedByFixture, calls, sourceMerge);
 
     const topLevel = copiedByFixture.get(fixtureGroupKey([], "$MAIN_REPO"));
     expect([...(topLevel?.sources ?? [])]).toContain(LEAF_SOURCE);

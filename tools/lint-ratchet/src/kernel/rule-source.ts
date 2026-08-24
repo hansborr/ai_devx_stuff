@@ -2,6 +2,8 @@ import { createHash } from "node:crypto";
 import { existsSync, readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 
+import ts from "typescript";
+
 import {
   computeCoreLintRatchetRuleSourceHash,
   LINT_RATCHET_CONFIG_HASH_PREFIX,
@@ -12,39 +14,14 @@ import type {
   LintRatchetConfig,
   LintRatchetThirdPartyPluginAllowlistEntry,
 } from "./config-types.js";
-import type { LintRatchetEngineBinding } from "./engine-context.js";
+import { type LintRatchetEngineBinding, localRulesRootFor } from "./engine-context.js";
 import { ConfigError } from "./metrics-types.js";
-import { assertScannableImports } from "./rule-source-import-guard.js";
 import { assertNever, ratchetParserProfile, ratchetSource } from "./runtime-config.js";
 
-// Static `import … from`, bare `import "./x"`, and `export … from` re-exports
-// all pull the referenced file into the rule's behavior, so all three belong
-// in the closure. Dynamic `import()`/`require()` cannot be resolved textually,
-// so they are not scanned here and are rejected outright by the import guard
-// (see `assertScannableImports`) rather than silently excluded. The two
-// patterns share their prefix and differ only in the
-// captured specifier: relative (`./`, `../`) vs. bare (an npm package). Both are
-// scanned over comment-stripped source (see `stripCommentsForImportScan`) so a
-// commented-out `import … from "./missing"` no longer raises a spurious
-// ConfigError and a commented bare import no longer over-covers versions.
-const RELATIVE_STATIC_IMPORT_PATTERN =
-  /^\s*(?:import(?:\s[^'"]+\sfrom\s+|\s*)|export\s[^'"]*?\sfrom\s+)["'](\.{1,2}\/[^"']+)["']/gmu;
-// Bare specifier: not relative (`.`), not absolute (`/`), not a quote. Protocol
-// specifiers like `node:fs` are captured here but filtered by
-// `bareSpecifierPackageRoot`, which only yields real npm package roots.
-const BARE_STATIC_IMPORT_PATTERN =
-  /^\s*(?:import(?:\s[^'"]+\sfrom\s+|\s*)|export\s[^'"]*?\sfrom\s+)["']([^./"'][^"']*)["']/gmu;
-
-// Blank out comments before import scanning. Block comments keep their newlines
-// so the `^\s*` line anchors of the import patterns stay aligned; line comments
-// are dropped to end-of-line. Naive by design — it only feeds import detection,
-// never re-emitted source — so mangling comment-like bytes inside a string
-// literal is harmless (such bytes never form a real import specifier).
-function stripCommentsForImportScan(source: string): string {
-  return source
-    .replaceAll(/\/\*[\s\S]*?\*\//gu, (block) => block.replaceAll(/[^\n]/gu, " "))
-    .replaceAll(/\/\/[^\n]*/gu, "");
-}
+// Static import declarations and re-exports all pull their module specifiers
+// into the rule's behavior, so the TypeScript parser supplies the closure edges.
+// Executable import()/require() cannot be resolved statically and is rejected
+// from the same parsed tree rather than silently omitted from the identity hash.
 
 // The versioned package root of a bare specifier: `@scope/name` for scoped
 // packages, the first segment otherwise. Protocol specifiers (`node:`, `data:`)
@@ -96,8 +73,11 @@ export function localRuleName(ruleId: string): string {
   return ruleId.slice(prefix.length);
 }
 
-export function localRulePath(ratchet: LintRatchetConfig, repoRoot: string): string {
-  return join(repoRoot, "eslint-rules", `${localRuleName(ratchet.ruleId)}.js`);
+export function localRulePath(
+  ratchet: LintRatchetConfig,
+  binding: LintRatchetEngineBinding,
+): string {
+  return join(localRulesRootFor(binding), `${localRuleName(ratchet.ruleId)}.js`);
 }
 
 export function thirdPartySupportFor(
@@ -158,17 +138,71 @@ function readTypescriptPackageVersion(repoRoot: string): string {
   return readPackageVersion("typescript", "TypeScript package", repoRoot);
 }
 
-function relativeStaticImportSpecifiers(source: string): readonly string[] {
-  return [...source.matchAll(RELATIVE_STATIC_IMPORT_PATTERN)].map((match) => match[1] ?? "");
+function javaScriptKindForPath(path: string): ts.ScriptKind.JS | ts.ScriptKind.JSX | undefined {
+  switch (extname(path)) {
+    case "":
+    case ".js":
+    case ".mjs":
+    case ".cjs":
+      return ts.ScriptKind.JS;
+    case ".jsx":
+      return ts.ScriptKind.JSX;
+    default:
+      return undefined;
+  }
 }
 
-function bareStaticImportPackageRoots(source: string): readonly string[] {
-  const roots: string[] = [];
-  for (const match of source.matchAll(BARE_STATIC_IMPORT_PATTERN)) {
-    const root = bareSpecifierPackageRoot(match[1] ?? "");
-    if (root !== undefined) roots.push(root);
+function parseJavaScriptSource(
+  path: string,
+  source: string,
+  scriptKind: ts.ScriptKind.JS | ts.ScriptKind.JSX,
+): ts.SourceFile {
+  const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, false, scriptKind);
+  const diagnosticFileName = extname(path) === "" ? `${path}.js` : path;
+  const [diagnostic] =
+    ts.transpileModule(source, { fileName: diagnosticFileName, reportDiagnostics: true })
+      .diagnostics ?? [];
+  if (diagnostic !== undefined) {
+    let location = "";
+    if (diagnostic.start !== undefined) {
+      const { line, character } = sourceFile.getLineAndCharacterOfPosition(diagnostic.start);
+      location = `:${String(line + 1)}:${String(character + 1)}`;
+    }
+    throw new ConfigError(
+      `local rule source ${path}${location} contains malformed JavaScript: ${ts.flattenDiagnosticMessageText(diagnostic.messageText, "\n")}`,
+    );
   }
-  return roots;
+  return sourceFile;
+}
+
+function staticModuleSpecifiers(sourceFile: ts.SourceFile): readonly string[] {
+  const specifiers: string[] = [];
+  for (const statement of sourceFile.statements) {
+    const moduleSpecifier =
+      ts.isImportDeclaration(statement) || ts.isExportDeclaration(statement)
+        ? statement.moduleSpecifier
+        : undefined;
+    if (moduleSpecifier !== undefined && ts.isStringLiteralLike(moduleSpecifier)) {
+      specifiers.push(moduleSpecifier.text);
+    }
+  }
+  return specifiers;
+}
+
+function assertStaticModuleLoading(path: string, sourceFile: ts.SourceFile): void {
+  function visit(node: ts.Node): void {
+    if (
+      ts.isCallExpression(node) &&
+      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+        (ts.isIdentifier(node.expression) && node.expression.text === "require"))
+    ) {
+      throw new ConfigError(
+        `local rule source ${path} uses dynamic import()/require(); rule-source closures must be static ES modules so every dependency is captured in the identity hash`,
+      );
+    }
+    ts.forEachChild(node, visit);
+  }
+  visit(sourceFile);
 }
 
 function resolveLocalRuleImport(
@@ -207,15 +241,17 @@ function collectLocalRuleSourceClosure(
   }
   const source = fileSystem.readFile(path);
   filesByPath.set(path, { path, source });
+  const scriptKind = javaScriptKindForPath(path);
+  if (scriptKind === undefined) return;
   const rawSource = source.toString("utf8");
-  // Guard on the raw source: the guard does its own literal-aware masking, and
-  // comment-stripping first would reintroduce the `//`-in-string blind spot it
-  // exists to close. Specifier extraction keeps using the comment-only strip so
-  // closure hashes are byte-stable.
-  assertScannableImports(path, rawSource);
-  const scannable = stripCommentsForImportScan(rawSource);
-  for (const root of bareStaticImportPackageRoots(scannable)) bareRoots.add(root);
-  for (const specifier of relativeStaticImportSpecifiers(scannable)) {
+  const sourceFile = parseJavaScriptSource(path, rawSource, scriptKind);
+  assertStaticModuleLoading(path, sourceFile);
+  for (const specifier of staticModuleSpecifiers(sourceFile)) {
+    if (!specifier.startsWith(".")) {
+      const root = bareSpecifierPackageRoot(specifier);
+      if (root !== undefined) bareRoots.add(root);
+      continue;
+    }
     collectLocalRuleSourceClosure(
       resolveLocalRuleImport(path, specifier, fileSystem),
       fileSystem,
@@ -277,9 +313,10 @@ export function computeLocalRuleSourceClosureHash(
 
 function computeLocalLintRatchetRuleSourceHash(
   ratchet: LintRatchetConfig,
-  repoRoot: string,
+  binding: LintRatchetEngineBinding,
 ): string {
-  const path = localRulePath(ratchet, repoRoot);
+  const { repoRoot } = binding;
+  const path = localRulePath(ratchet, binding);
   try {
     const closure = collectLocalRuleClosure({
       entryPath: path,
@@ -309,11 +346,18 @@ function computeLocalLintRatchetRuleSourceHash(
 function computeLintRatchetRuleSourceHash(
   ratchet: LintRatchetConfig,
   binding: LintRatchetEngineBinding,
+  localHashesByPath: Map<string, string>,
 ): string {
   const source = ratchetSource(ratchet);
   switch (source.kind) {
-    case "local":
-      return computeLocalLintRatchetRuleSourceHash(ratchet, binding.repoRoot);
+    case "local": {
+      const path = localRulePath(ratchet, binding);
+      const cached = localHashesByPath.get(path);
+      if (cached !== undefined) return cached;
+      const hash = computeLocalLintRatchetRuleSourceHash(ratchet, binding);
+      localHashesByPath.set(path, hash);
+      return hash;
+    }
     case "third-party": {
       const support = thirdPartySupportFor(ratchet, binding.thirdPartyPluginAllowlist);
       const sourceIdentity = {
@@ -349,8 +393,9 @@ export function buildRuleSourceHashesById(
   binding: LintRatchetEngineBinding,
 ): LintRatchetRuleSourceHashesById {
   const map = new Map<string, string>();
+  const localHashesByPath = new Map<string, string>();
   for (const ratchet of ratchets) {
-    map.set(ratchet.id, computeLintRatchetRuleSourceHash(ratchet, binding));
+    map.set(ratchet.id, computeLintRatchetRuleSourceHash(ratchet, binding, localHashesByPath));
   }
   return map;
 }

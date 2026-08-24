@@ -1,6 +1,13 @@
 # 57. Zero-baseline `exitPath` is validated as a non-empty string, and two ratchets point at a file that does not exist
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-30** on branch `fix/cq-57-65-vacuous-guards`, commit
+`cf0f85d34`, review follow-up `69360d873`. Ratchet registry validation now
+checks required exit paths through an adapter-supplied filesystem probe, so the
+checker remains input-driven and its regression test is hermetic. The two
+pointers to a deliberately pruned harness-review leaf now target that pack's
+surviving index, whose `Ratchet lifecycle follow-ups` section preserves both
+promotion decisions. This implements existence only; semantic ownership and
+anchor validation machinery remain out of scope as this leaf requires.
 Theme: Harness pointers that go stale silently · Area: harness (`scripts/`, `tools/`) · Severity: low · Size: XS
 
 Source: client-cluster pre-merge panel and adjudication, 2026-07-27 (surfaced

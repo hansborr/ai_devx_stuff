@@ -3,8 +3,8 @@
 Use this path only when a write has real lost-update risk. Start with the
 decision, not the lock.
 
-The enforced architectural boundary is ADR-0001:
-`docs/adr/0001-race-sensitive-writes.md`.
+The enforced architectural boundary is ADR-0007:
+`docs/adr/0007-runtime-guarded-mutation-boundaries.md`.
 
 1. Clear the three-bar gate in `docs/CONCURRENCY.md` §"Scope — when a gate is
    worth adding" before adding any concurrency control:
@@ -54,10 +54,27 @@ The enforced architectural boundary is ADR-0001:
    read/write anti-dependencies between serializable transactions and nowhere
    else, so a concurrent READ COMMITTED writer — which is every other path in
    this repo — is invisible to it. Against those you get only what repeatable
-   read gives you: a stable snapshot, plus first-updater-wins on rows you
-   *write*. If your invariant depends on a row you merely read, wrapping it in
-   Serializable does not protect it; say so instead of implying detection.
-   `utils/serializable-isolation.test.ts` pins both halves.
+   read gives you: a stable snapshot, plus first-updater-wins on rows that were
+   *in that snapshot* and that you then UPDATE. If your invariant depends on a
+   row you merely read, wrapping it in Serializable does not protect it; say so
+   instead of implying detection.
+   **"Rows you write" is not the same as "the rows your statement targets."**
+   First-updater-wins fires when your UPDATE reaches a row whose latest version
+   was committed after your snapshot. A row *inserted* after your snapshot is
+   not in it, your statement never reaches it, and you commit blind past it —
+   so a set-shaped `updateMany({ where: { parentId } })` over a to-many
+   relation buys you nothing against a concurrent INSERT into that relation.
+   That is exactly the shape a set-level invariant has, so the write you rely
+   on to be exclusive with the other path must be a row that *already exists*
+   for both of you — in practice a single owning row both paths UPDATE. On the
+   Serializable path, make it the first write immediately after the
+   snapshot-defining read, before any dependent write. A READ COMMITTED peer
+   has no equivalent snapshot rule; keep the row as the first write in its
+   post-validation write phase. `docs/CONCURRENCY.md`
+   §"Serializable isolation exception" works this through for long rest versus
+   level-up, where the barrier is the `CharacterStats` row and the class-row
+   `updateMany` is not one. `utils/serializable-isolation.test.ts` pins all of
+   it, INSERT case included.
 8. Preserve conflict semantics. Pattern A/B helpers throw `CONFLICT` when the
    CAS `updateMany` affects zero rows; `advanceTurnCompound` returns row count
    so callers can distinguish `BAD_REQUEST` from `CONFLICT`. See the rule for
@@ -68,15 +85,16 @@ The enforced architectural boundary is ADR-0001:
    `EncounterParticipant`. If you cannot follow that order, prove row-identity
    disjointness and update the writer list in `docs/CONCURRENCY.md`.
 10. Do not import `RawTxClient` outside `packages/server/src/utils/*-mutations.ts`.
-    `packages/server/src/utils/prisma-types.ts:13` documents the escape hatch,
-    and the restricted-import rule in
+    The `RawTxClient` declaration in
+    `packages/server/src/utils/prisma-types.ts` documents the escape hatch, and
+    the restricted-import rule in
     `eslint-config/package-boundary-configs.js` enforces the `RawTxClient`
     boundary.
-11. Do not call `.update`, `.updateMany`, or `.upsert` directly on gated
-    delegates from business code. `packages/server/src/utils/prisma-types.ts:9`
-    documents the restriction, and the delegate shims at
-    `packages/server/src/utils/prisma-types.ts:26` make those methods type
-    errors for `CharacterStats`, `EncounterParticipant`, `Encounter`,
+11. Do not call `.update`, `.updateMany`, `.updateManyAndReturn`, or `.upsert`
+    directly on gated delegates from business code.
+    The `RestrictedDelegates` and `ConcurrencyGatedWrite` declarations in
+    `packages/server/src/utils/prisma-types.ts` make those methods type errors
+    for `CharacterStats`, `EncounterParticipant`, `Encounter`,
     `CharacterSpellSlot`, and `CharacterClass`.
 12. Add invariant-style concurrency tests: run parallel writers and assert the
     final database state, not just response shape. Follow
@@ -89,7 +107,9 @@ The enforced architectural boundary is ADR-0001:
 13. Use `[200, 409]` response assertions only when the client sends a CAS token
     such as `expectedVersion`; otherwise assert state consistency after
     `Promise.all` or `Promise.allSettled` (`docs/CONCURRENCY.md` §"Testing").
-14. Run the focused test file while iterating, then run
+14. Run the focused test file while iterating. Use full foreground
+    `bun run verify` when the change touches the generated relation graph,
+    `prisma-types.ts`, or the ESLint rule; otherwise run
     `bun run verify:changed` before calling the change done.
 
 Useful checks:
@@ -97,13 +117,19 @@ Useful checks:
 - `local/concurrency-guard` catches direct gated delegate `.update`,
   `.updateMany`, `.updateManyAndReturn`, and `.upsert` calls outside
   `utils/*-mutations.ts` with the helper to use. Its second branch catches
-  *nested* relation writes (`character.update({ data: { stats: { update: … } }
-  })`), which reach a gated table through a non-gated parent and which the
-  branded delegate types cannot see. Write the parent and the gated rows as
-  separate statements, routing the gated one through its helper.
+  literal *nested* relation writes (`character.update({ data: { stats: {
+  update: … } } })`) as an early diagnostic. The mandatory Prisma query
+  extension is the closure mechanism and also rejects helper/spread-assembled
+  or multi-hop payloads at runtime. Write the parent and gated rows as separate
+  statements, routing the gated one through its helper.
+  `bun run codemod:concurrency-guard -- <file>` is a read-only scanner for
+  direct writes and sanctioned-helper shape drift. It reports suggested helper
+  boundaries but never rewrites source; nested diagnostics belong to ESLint
+  and the runtime guard rather than a second static scanner.
 - `RawTxClient` restricted import blocks new Prisma escape hatches outside
   `utils/*-mutations.ts`.
-- Typecheck catches restricted-delegate `.update`, `.updateMany`, and `.upsert`
+- Typecheck catches restricted-delegate `.update`, `.updateMany`,
+  `.updateManyAndReturn`, and `.upsert`
   calls on gated tables — and, because the delegates are not assignable to
   their raw Prisma counterparts, also catches attempts to escape the ban by
   forwarding `TxClient` / `DbClient` into a `Prisma.TransactionClient` binding.

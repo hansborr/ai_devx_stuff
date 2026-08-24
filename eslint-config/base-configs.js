@@ -4,14 +4,14 @@ import js from "@eslint/js";
 import eslintConfigPrettier from "eslint-config-prettier";
 import tseslint from "typescript-eslint";
 
+import { eslintRulesConfigReincludePatterns } from "./config-surfaces.js";
 import {
   codeFiles,
   configFileReincludePatterns,
   eslintConfigJsFiles,
-  eslintRulesConfigReincludePatterns,
-  scriptFixtureIgnores,
   typescriptFiles,
-} from "./shared-policy.js";
+} from "./path-glob-policy.js";
+import { scriptFixtureIgnores } from "./script-test-policy.js";
 
 export function createBaseConfigs() {
   return [

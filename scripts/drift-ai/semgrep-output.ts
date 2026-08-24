@@ -5,7 +5,8 @@
 // never reads the redacted `extra.lines` / `extra.fingerprint` fields (see
 // `semgrep-types.ts`).
 
-import { isRecord, type UnknownRecord } from "./config-readers.js";
+import { isRecord } from "../lib/records.js";
+import type { UnknownRecord } from "./config-readers.js";
 import { toPosix } from "./path-util.js";
 import type {
   SemgrepFinding,

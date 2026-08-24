@@ -1,0 +1,373 @@
+{
+  "contractVersion": 1,
+  "step": "1c-round-3",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "decisions": [
+    {
+      "promotionId": "R3B-001",
+      "ruling": "reject",
+      "title": "Require structured purpose metadata for script-parity exemptions",
+      "area": "harness",
+      "category": "dx",
+      "severity": "low",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The metadata pays for itself, but leaf 085 already schedules it across the complete command catalog.",
+      "rulingReason": "Leaf 085 explicitly includes all 31 scriptParityExemptions and requires purpose, audience, side-effect class, invocation form, optional owner documentation, and completeness enforcement at 085-specialist-package-script-surface-has-no.md:93-127.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement this material through leaf 085's catalog dataset and completeness rule.",
+      "authorConstraints": [
+        "Leaf 085's existing scope boundary remains binding: metadata may derive or cross-check exemptions, but must not change their semantics.",
+        "Coordinate leaf 085's manifest-shape edits with leaf 114's raw-control-model work rather than creating another manifest representation."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 085-specialist-package-script-surface-has-no.md:27-35,64-68,93-127,139-157 and 220-add-a-joined-explain-view-for-harness-control.md:74-87. Leaf 085 textually owns the candidate field-for-field; leaf 220 is only a downstream consumer.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3B-002",
+      "ruling": "new-leaf",
+      "title": "Replace the ESLint cache shell-to-TypeScript text protocol with one typed cache plan",
+      "area": "harness",
+      "category": "layering",
+      "severity": "low",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "A shared cache on the normal lint path justifies replacing its ambient globals and unchecked line protocol with one typed implementation.",
+      "rulingReason": "Leaf 141 owns only verify-state path discovery and deliberately keeps that protocol in Bash at 141-latest-log-discovery-mirrors-verify-state.md:94-114,140-156. CQ25-124 is measured precedent, not a refusal, and does not cover eslint-main-cache.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Create one importable TypeScript cache-plan module for fingerprinting and the typed cache result, with lint-agent calling it directly and eslint-main.sh using a thin adapter. Preserve the current identity inputs, pruning behavior, keyed locations, and correctness-first uncached fallback.",
+      "authorConstraints": [
+        "Honor CQ25-124's measured boundary: concentrate deterministic analysis in TypeScript while leaving genuinely shell-specific process glue in the adapter.",
+        "Do not retain parallel Bash and TypeScript implementations or replace the current line protocol with another weak textual protocol.",
+        "Preserve lint-agent's safe degradation to an uncached run on every preparation or protocol failure."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-124",
+          "residual": "The landed record supplies the Bash-facade/TypeScript-core precedent but does not schedule the ESLint cache identity, pruning, or argument boundary."
+        }
+      ],
+      "dedupBasis": "Opened 141-latest-log-discovery-mirrors-verify-state.md:10-25,94-114,140-156 and working/dedup-corpus.md:180, plus the live precedent boundary at ../code-quality-2026-07-25/CONSTRAINTS.md:66-73. None reaches scripts/lib/eslint-main-cache.sh or lint-agent's cache protocol.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "R3B-003",
+      "ruling": "augment-existing-leaf",
+      "title": "Classify socket rate limits with a stable error discriminator",
+      "area": "server",
+      "category": "hack",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A focused tag and payload assertion cheaply prevent genuine throttling from silently becoming INTERNAL_ERROR.",
+      "rulingReason": "This is the same machine-behavior-through-English-prose defect leaf 184 establishes at 184-human-readable-server-messages-act-client.md:10-14, but it is a bounded fourth flow outside that leaf's three located tRPC flows.",
+      "targetLeaf": "184-human-readable-server-messages-act-client.md",
+      "augmentInstruction": "Extend Problem, Evidence, Proposed direction, and Scope with the socket rate-limit flow at connection-handler.ts:14-19,36-39. Add a tagged/custom rate-limit error, map its stable discriminator to RATE_LIMIT while keeping message text presentational, and require the focused test to assert the emitted payload code; state explicitly that this local Socket.IO tag does not widen the shared tRPC reason-code vocabulary or generalize every socket error.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Treat socket throttling as one more bounded typed-error-contract flow inside leaf 184, using a local stable discriminator and an emitted-payload test.",
+      "authorConstraints": [
+        "Preserve leaf 184's rule that user-facing messages remain unchanged and presentation-only.",
+        "Do not turn the addition into a repository-wide Socket.IO error taxonomy."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 184-human-readable-server-messages-act-client.md:8-14,30-53. Its theme directly owns prose-as-protocol, while its current bounded scope leaves this socket instance available as a compact augmentation.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3B-004",
+      "ruling": "new-leaf",
+      "title": "Unify character-create choice chips around pressed-state semantics",
+      "area": "client",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The shared primitive removes three copies and fixes a current assistive-technology gap on a core creation path.",
+      "rulingReason": "No authored leaf owns the repeated skill/language/spell choice interaction. Leaf 238's extraction is confined to homebrew class/subclass caster selects at 238-share-class-and-subclass-caster-selection-fields.md:37-66, not character-create choice buttons.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Extract a character-create choice-chip primitive owning aria-pressed, selection/focus styling, disabled behavior, and guarded activation. Keep selection caps, domain labels, default-language rules, and spell badges in their callers, with semantic interaction tests.",
+      "authorConstraints": [
+        "Do not generalize this into a repository-wide button or form-control framework.",
+        "Preserve background-skill and universal-language disabled semantics while still exposing their selected state."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 238-share-class-and-subclass-caster-selection-fields.md:35-70 and screened the full leaf index. Leaf 238 is a distinct homebrew select extraction; no existing leaf reaches proficiencies-step.tsx:103-183 and spell-selection-step.tsx:34-63 together.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3B-005",
+      "ruling": "new-leaf",
+      "title": "Preserve registered-route typing through MobileNavLink",
+      "area": "client",
+      "category": "idiom",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small wrapper-type correction restores compile-time checking for five mobile-only navigation paths.",
+      "rulingReason": "Leaf 236 owns only the campaign-homebrew dialog's one raw anchor and explicitly forbids repository-wide navigation cleanup at 236-use-tanstack-router-for-the-campaign-homebrew.md:28-50; MobileNavLink is a distinct residual.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Type MobileNavLink from the registered TanStack Link destination props, or forward the relevant Link props generically, without widening the destination to string. Preserve menu-close behavior and existing presentation.",
+      "authorConstraints": [
+        "Do not broaden into a route-tree or repository-wide navigation migration.",
+        "Do not add a type assertion to recover the route type after accepting string."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 236-use-tanstack-router-for-the-campaign-homebrew.md:10-17,28-50. Its explicit single-link boundary excludes app-header.tsx:18-29 and the five MobileNavLink calls.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3B-006",
+      "ruling": "reject",
+      "title": "Give repeated homebrew checkboxes one shared UI primitive",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "M",
+      "worthIt": false,
+      "worthItReason": "Sweeping ten files for identical native-input styling adds abstraction churn without an evidenced semantic or accessibility defect.",
+      "rulingReason": "The candidate narrows CQ25-187's refused 49-site form sweep, but the inspected occurrences mix standalone booleans, repeated property lists, and capped groups and show only presentation duplication. Leaf 237 deliberately keeps checkbox-group interaction models local at 237-associate-homebrew-validation-errors-with-their.md:43-66.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Leave the native checkbox controls local. Reconsider a shared primitive only when a concrete, repeated semantic or accessibility contract—not common classes alone—requires synchronized behavior.",
+      "authorConstraints": [
+        "Do not reopen CQ25-187's broad Label/Input normalization sweep.",
+        "Leaf 237's error-association work must adapt to each existing control shape rather than force checkbox groups through a generic input abstraction."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-187",
+          "residual": "The candidate identifies a narrower 15-occurrence checkbox population, but supplies no concrete defect sufficient to overturn the permanent form-sweep refusal."
+        }
+      ],
+      "dedupBasis": "Opened working/dedup-corpus.md:258, ../code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md:230-235,263-264,489-497, and 237-associate-homebrew-validation-errors-with-their.md:36-76. The prior refusal and current shape-specific boundary decide the churn call.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "R3B-007",
+      "ruling": "new-leaf",
+      "title": "Keep CharacterTab on the inferred campaign output contract",
+      "area": "client",
+      "category": "hack",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Deleting one unnecessary assertion cheaply restores the intended client/server change signal.",
+      "rulingReason": "No authored leaf owns add-participant-dialog's replacement of inferred campaign.get data with a handwritten partial shape; the current pack's Prisma and narrow-rule-boundary leaves concern different layers.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Delete the asserted campaign projection and consume campaignQuery.data?.members directly. If a named projection remains useful, derive it from the inferred campaign output type without asserting the query result.",
+      "authorConstraints": [
+        "Preserve the existing participant filtering and character-option projection behavior.",
+        "Do not introduce a second handwritten campaign output interface."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Screened all 248 indexed pack files and opened the cited query boundary at packages/client/src/components/campaign/encounters/add-participant-dialog.tsx:148-169. No existing leaf reaches this local assertion.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-001",
+      "ruling": "new-leaf",
+      "title": "Correct two shared assertion-boundary categories",
+      "area": "shared",
+      "category": "comment",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Two comment-only corrections keep the enforced assertion inventory and its production examples truthful.",
+      "rulingReason": "Leaf 038 is explicitly parser-only at 038-dice-grammar-semantics-depend-positional.md:70-89. Leaf 025 carries the spellcasting marker through a file split but excludes further typing work at 025-spellcastingts-contains-five-independently.md:167-177, while leaf 222 does not own marker taxonomy.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Change only the multiclass-rules and spellcasting marker categories from framework to interop, retaining their concrete reasons and runtime behavior.",
+      "authorConstraints": [
+        "Land before or atomically with leaf 025's spellcasting split so the corrected marker travels to the new file.",
+        "Coordinate the multiclass-rules edit with leaf 222 and do not absorb its rule-state refactor.",
+        "Do not broaden into another assertion-marker census."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 038-dice-grammar-semantics-depend-positional.md:20-33,52-89, 025-spellcastingts-contains-five-independently.md:102-110,167-180, and 222-make-multiclass-prerequisite-table-states-exclusive.md:45-82. All are adjacent, but none schedules these two taxonomy corrections.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-101",
+      "ruling": "augment-existing-leaf",
+      "title": "Characterize SpellFilterBar's rendered select interactions",
+      "area": "client",
+      "category": "test-shape",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Three focused interactions provide direct safety for the SpellFilterBar call sites leaf 053 already changes.",
+      "rulingReason": "Leaf 053 updates all three SpellFilterBar FilterSelect call sites at 053-filterselect-erases-schema-derived-option.md:36-66 but currently pins only the shared sentinel test. The missing rendered coverage belongs with that type-boundary change rather than in a separate leaf.",
+      "targetLeaf": "053-filterselect-erases-schema-derived-option.md",
+      "augmentInstruction": "Add the rendered SpellFilterBar gap to Problem and Evidence, and require focused pre-refactor characterization for Level, School, and Status. Render controlled filters, exercise each select, assert representative labels and complete onFilterChange payloads, and retain those tests through the generic FilterSelect migration; clarify in Scope that this is caller-boundary coverage, not a broader sheet-filter refactor.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make the three rendered select interactions the characterization spine for leaf 053's SpellFilterBar call-site migration.",
+      "authorConstraints": [
+        "Write the rendered characterization before changing FilterSelect's generic contract.",
+        "Preserve leaf 053's numeric-level and domain-sentinel mappings.",
+        "Do not expand into unrelated sheet filtering behavior."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 053-filterselect-erases-schema-derived-option.md:25-49,51-89. Its production scope directly edits the uncovered controls, making augmentation more coherent than a standalone test leaf.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-271",
+      "ruling": "augment-existing-leaf",
+      "title": "State the lint-ratchet demo's actual debt-change invariant",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "One factual correction prevents the flagship demo from contradicting the accepted-increase workflow it just teaches.",
+      "rulingReason": "Leaf 090 already owns public-adoption accuracy in the same demo README, but its current Requirements-only edit and scope at 090-lint-ratchet-newcomer-docs-omit-prerequisite.md:77-93,118-145 do not reach the false monotonic conclusion. The residual belongs as a bounded third part.",
+      "targetLeaf": "090-lint-ratchet-newcomer-docs-omit-prerequisite.md",
+      "augmentInstruction": "Retitle and extend leaf 090 with Part C covering examples/lint-ratchet-demo/README.md:65-86. Replace the false claim that debt can only trend down with the actual invariant that debt cannot change silently: increases require --allow-worse plus a recorded reason, while decreases require a committed baseline update. Add the guide and harness-tour evidence, revise the adoption-recipe exclusion to permit exactly this correction, and apply the standing full-document factual-claim check.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add the invariant correction as a separate commit within leaf 090's public-adoption accuracy work.",
+      "authorConstraints": [
+        "Verify every factual claim in the edited demo README under ../code-quality-2026-07-25/CONSTRAINTS.md:31.",
+        "Preserve the explicitly supported accepted-increase workflow and do not rewrite debt governance policy.",
+        "Avoid concurrent edits with leaves 081 and 112, as leaf 090 already requires."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 090-lint-ratchet-newcomer-docs-omit-prerequisite.md:8-42,71-145 and 081-lint-ratchet-adoption-docs-mix-packaged.md:92-145. Leaf 090 owns the same README and accuracy theme; leaf 081 owns different guide architecture.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-272",
+      "ruling": "new-leaf",
+      "title": "Remove closed implementation residue from the active lint coverage map",
+      "area": "docs",
+      "category": "comment",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Cleaning the active policy map prevents redundant implementation work and restores trust in its real follow-up queue.",
+      "rulingReason": "Leaf 111 explicitly excludes changing map content at 111-lint-coverage-map-reverse-parses-generated.md:142-157, leaf 102 changes only the ownership README at 102-generated-doc-ownership-table-misclassifies.md:57-87, and CQ25-44 is only an atomic file-family relocation.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Audit the hand-maintained map prose and blocker/follow-up cells against live configuration and landed records. Remove obsolete leaf-era instructions and already-satisfied follow-ups, retaining only current policy and actionable work; leave chronology in historical records or git history.",
+      "authorConstraints": [
+        "Apply the full-document factual-claim rule from ../code-quality-2026-07-25/CONSTRAINTS.md:31.",
+        "Land before leaf 111 so its full-document renderer migrates corrected content rather than preserving stale prose.",
+        "Land before CQ25-44's slice 28.11 relocation, or fold the cleanup into that atomic move; never interleave the two.",
+        "Do not alter generated marker bytes manually; respect the current hybrid ownership boundary until leaf 111 changes it."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-44",
+          "residual": "CQ25-44 relocates the lint-coverage-map family atomically but does not audit or correct the document's policy prose."
+        }
+      ],
+      "dedupBasis": "Opened 111-lint-coverage-map-reverse-parses-generated.md:84-119,142-174, 102-generated-doc-ownership-table-misclassifies.md:57-89, working/dedup-corpus.md:60-66, and ../code-quality-2026-07-25/28-PLAN.md:121-150. Their explicit boundaries leave content truth unscheduled.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-301",
+      "ruling": "new-leaf",
+      "title": "Expose persisted notification history beyond the newest twenty rows",
+      "area": "client",
+      "category": "feature",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Users currently cannot inspect or individually clear persisted notifications beyond page one, while unread counts still include them.",
+      "rulingReason": "Leaf 064 explicitly excludes client cache and infinite-query work at 064-pagination-suites-systematically-avoid-tie.md:148-159, and leaf 196 owns click navigation rather than list retrieval at 196-make-notifications-navigate-campaign-context.md:10-18,43-79.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Convert the notification client to a cursor-backed infinite query and add a guarded load-more/history affordance. Preserve socket prepends and optimistic mark-read updates across loaded pages, with focused multi-page and socket-prepend coverage.",
+      "authorConstraints": [
+        "Sequence after leaf 064's server cursor correction so the client consumes the settled cursor contract.",
+        "Coordinate popover and optimistic-update edits with leaf 196's notification-navigation work.",
+        "Do not introduce a maxPages eviction rule or propagate gcTime: Infinity; CQ25-207 deliberately declined both as general cursor-list policy."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-207",
+          "residual": "The prior ruling constrains infinite-query cache policy but does not decline notification pagination itself; this leaf must avoid maxPages and gcTime scope."
+        }
+      ],
+      "dedupBasis": "Opened 064-pagination-suites-systematically-avoid-tie.md:91-98,102-159,171-173, 196-make-notifications-navigate-campaign-context.md:10-18,43-79, and working/dedup-corpus.md:281. Leaf 064's explicit exclusion is decisive evidence of a real residual.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "R3C-401",
+      "ruling": "reject",
+      "title": "Make debt-log variant dispatch uniformly discriminated and exhaustive",
+      "area": "harness",
+      "category": "layering",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The fix is worthwhile, but leaf 160 already specifies it across parsing, writing, reporting, and accounting.",
+      "rulingReason": "Leaf 160 fully owns the missing accepted-debt discriminator, legacy normalization, unknown-kind rejection, writer emission, and exhaustive downstream switches at 160-debt-log-union-uses-absence-discriminator.md:10-68.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement the uniformly discriminated debt-log protocol through leaf 160 and preserve its compatibility constraints.",
+      "authorConstraints": [
+        "Do not rewrite committed kind-less history.",
+        "Coordinate leaf 160 with leaf 224's compatibility-API removal as already recorded.",
+        "Preserve report wording, counts, append ordering, and mixed-vintage validation."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Opened 160-debt-log-union-uses-absence-discriminator.md:10-68,72-91 and 224-remove-lint-ratchet-compatibility-apis-used-only-by.md:92-107. Leaf 160 reaches the candidate's parser, writer, renderer, accounting, and unknown-kind material comprehensively.",
+      "confidence": "high"
+    }
+  ],
+  "summary": {
+    "totalDecisions": 13,
+    "newLeaf": 7,
+    "augmentExistingLeaf": 3,
+    "mergeWithPromotion": 0,
+    "rejected": 3,
+    "acceptedForAuthoring": 10,
+    "bySeverity": {
+      "high": 0,
+      "medium": 4,
+      "low": 9
+    },
+    "bySize": {
+      "S": 7,
+      "M": 6,
+      "L": 0,
+      "XL": 0
+    },
+    "notes": [
+      "New leaves begin at 246; none is XL and no new PLAN companion is required.",
+      "The three augmentation targets are 053-filterselect-erases-schema-derived-option.md, 090-lint-ratchet-newcomer-docs-omit-prerequisite.md, and 184-human-readable-server-messages-act-client.md; their existing header grades describe the hosts and must remain unchanged.",
+      "R3C-272 should precede leaf 111 and CQ25-44 slice 28.11; R3C-001 must coordinate with leaves 025 and 222; R3C-301 should follow leaf 064 and coordinate with leaf 196.",
+      "Ten accepted findings clear the written step-2c threshold. The owner must still settle the recorded round-limit question before S0 freezes, because 88 eligible cuts remain unsampled."
+    ]
+  }
+}

@@ -94,6 +94,31 @@ describe("smoke subject headers", () => {
     expect(definitions[0]?.subjects).toEqual(["generated/input.ts", "scripts/tests/test-alpha.sh"]);
   });
 
+  it("rejects a repo root with no scripts/tests tree, naming the root it scanned", () => {
+    rmSync(join(repoRoot, "scripts", "tests"), { recursive: true });
+
+    expect(() => collectSmokeSubjectDefinitions(repoRoot)).toThrow(
+      `scripts/tests does not exist under ${repoRoot}`,
+    );
+    expect(() => collectSmokeSubjectDefinitions(repoRoot)).toThrow(
+      "empty smoke registry and an empty all-smoke-tests fixture",
+    );
+  });
+
+  it("rejects an existing scripts/tests tree that holds no smoke scripts", () => {
+    writeFileSync(join(repoRoot, "scripts", "tests", "notes.md"), "not a smoke test\n");
+    // A shell script whose basename does not match `test-*.sh` is invisible to
+    // discovery, so the diagnostic must name the pattern rather than `*.sh`.
+    writeFileSync(join(repoRoot, "scripts", "tests", "smoke-alpha.sh"), "exit 0\n");
+
+    expect(() => collectSmokeSubjectDefinitions(repoRoot)).toThrow(
+      "scripts/tests exists but contains no test-*.sh smoke tests",
+    );
+    expect(() => collectSmokeSubjectDefinitions(repoRoot)).toThrow(
+      "empty smoke registry and an empty all-smoke-tests fixture",
+    );
+  });
+
   it("rejects a smoke file without a smoke-subjects header", () => {
     writeSmoke(
       "test-missing-header",

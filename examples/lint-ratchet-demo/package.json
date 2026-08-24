@@ -5,13 +5,15 @@
   "type": "module",
   "description": "Minimal example of adopting the @musi/lint-ratchet engine: a thin adapter binds the portable package to one neutral local rule, a committed per-file baseline, and the symmetric gate.",
   "scripts": {
-    "baseline:restore-stage": "bash scripts/git/restore-generated-baseline-stage.sh",
+    "baseline:restore-stage": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- restore-stage --usage-command \"bun run baseline:restore-stage --\" --allow-baseline lint-ratchet.baseline.json --",
     "lint:ratchet": "bun scripts/lint-ratchet.ts",
     "lint:ratchet:check-baseline": "bun scripts/lint-ratchet.ts --check-baseline",
     "lint:ratchet:check-registry": "bun scripts/lint-ratchet.ts --check-registry",
     "lint:ratchet:update": "bun scripts/lint-ratchet.ts --update",
-    "lint:ratchet:install-merge-driver": "bash scripts/git/install-lint-ratchet-merge-driver.sh",
-    "lint:ratchet:merge-driver:check": "bash scripts/git/check-lint-ratchet-merge-driver.sh",
+    "lint:ratchet:install-merge-driver": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- install --adapter scripts/lint-ratchet/adapter.ts --repair-command 'bun run lint:ratchet:install-merge-driver'",
+    "lint:ratchet:merge-driver:check": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- check --adapter scripts/lint-ratchet/adapter.ts --repair-command 'bun run lint:ratchet:install-merge-driver'",
+    "lint:ratchet:post-merge": "bun -e 'import(\"@musi/lint-ratchet/git-rail/executable-cli.js\").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- post-merge --adapter scripts/lint-ratchet/adapter.ts --",
+    "lint:ratchet:trend": "bun scripts/lint-ratchet.ts --trend",
     "smoke": "bash smoke.sh"
   },
   "dependencies": {

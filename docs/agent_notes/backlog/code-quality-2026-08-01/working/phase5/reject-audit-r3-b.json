@@ -1,0 +1,547 @@
+{
+  "contractVersion": 1,
+  "consult": "R3B",
+  "step": "1b-round-3",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[4]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened harness.controls.json:2-3, scripts/harness/harness-manifest-schema.ts:51-79, scripts/harness/generate-harness-controls.ts:132-158, and scripts/harness/control-field-validation.ts:113-145. The 51 omissions are exactly 32 lint-rule and 19 ratchet controls. They are deliberate: lint-rule principles are re-projected from each rule's meta.docs, ratchet principles come from the registry, and validation rejects manifest restatements or missing source principles. docs/generated/harness-controls.md:8-16 confirms the projected principles reach the public inventory. The title's premise does not survive the tree.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[5]",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reasoning": "Opened harness.controls.json:3-35, scripts/harness/harness-manifest-schema.ts:120-125, and scripts/harness/harness-gate-parity.ts:8-60. The 31 exemptions are bare strings; validation checks existence, prefix membership, alias nonredundancy, and completeness, but records no reason why each script is outside the control inventory. Authored leaf 085 proposes metadata for this population, but that is a dedup hint rather than a ruling, so the real structured-rationale gap is promoted.",
+      "promotionIds": [
+        "R3B-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[23]",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reasoning": "Opened scripts/lib/eslint-main-cache.sh in full and both production consumers. The shared shell library gathers a NUL-delimited path stream, writes it to a temporary file, launches embedded Node hashing logic, mutates global output arrays, and is sourced by scripts/eslint-main.sh. Its TypeScript consumer constructs a Bash program, sources the shell file synchronously, receives one argument per stdout line, and validates only the first token. The single-sourcing intent is sound, but the reusable boundary remains an untyped shell/global/stdout ABI around analysis already written in JavaScript.",
+      "promotionIds": [
+        "R3B-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[25]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/git/install-lint-ratchet-merge-driver.sh:4-22, install-baseline-merge-driver.sh:4-27, lint-ratchet-merge-driver-lib.sh:8-30, and check-baseline-merge-driver.sh:4-24. The ambient shell contract is explicitly documented and validated before the shared body runs, and it factors four small metric shims over common installer/check bodies. Standing ruling CQ25-83 expressly rejects parameterizing this already-parameterized family. No concrete drift or new impact justifies overturning that refusal.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[10]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened the ownership contract, aggregation, renderer, and operator documentation. scripts/drift-ai/ownership-types.ts:22-29 records total, authored, and co-authored changes; ownership-aggregation.ts:75-101 explicitly builds author, co-author, hand, and agent populations; ownership-format.ts:34-63 labels them separately; and scripts/drift-ai/docs/prototype-subcommands.md:332-339 defines the semantics. The vocabulary requires domain reading but is documented and not materially ambiguous enough to justify contract churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[11]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened every production ownership-family import. scripts/drift-ai/ownership-advisory.ts:1-28 deliberately assembles and re-exports the builder, formatter, identity helpers, types, and constants. The outer CLI adapters consume that public API, while ownership-analysis.ts:4-20 imports leaf modules directly. The facade does not import either adapter, so the graph is acyclic and the alleged inward dependency is actually outer code consuming the intended family API.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[12]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/code-intel/definition-query.ts:4-8,27-29, references-query.ts:4-6,31-33, and format.ts:1-20,158-160. The query modules import only the pure two-line formatLocation helper for actionable error messages. The formatter has no side effects and creates no cycle or presentation-dependent result contract. Moving two stable error-message calls would improve filename purity but not correct material layering harm.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[18]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened scripts/drift-triage/triage-report-types.ts:50-66, both constructors in triage-report-summary.ts:21-49,56-107, the text consumer, and the focused swarm assertions. The boolean is a convenience for filtering partial inputs, while the enum distinguishes complete from complete-with-inapplicable-checks. Both constructors derive the two fields from one local partial value, and tests pin the richer non-partial state. The redundancy is coherent and purpose-specific rather than an active drift source.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[14]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened packages/server/src/socket/connection-handler.ts:14-19,36-39 and connection-handler.test.ts:176-193. Packet middleware creates an ordinary Error with English text, then the error handler recovers the machine code through exact message equality. The categorization test does not assert the emitted code, so a one-sided wording edit can silently turn RATE_LIMIT into INTERNAL_ERROR.",
+      "promotionIds": [
+        "R3B-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[15]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/src/socket/auth-middleware.ts:8-27, services/auth-service.ts:79-94, and socket/auth-middleware.test.ts:14-119. The handshake value is asserted from Socket.io's unknown-valued auth record, but verifyAccessToken wraps jwtVerify in a catch-all and returns null for a non-string or otherwise malformed token. The middleware therefore fails closed and cannot attach a user. A typeof guard would be clearer, but the marker-documented framework assertion does not create a material correctness or security gap.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[17]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/src/utils/srd-query-helpers.ts:1-83, routers/srd.ts:47-51,252-413, and services/README.md:60-84. The module is explicitly SRD-named, contains one focused family of three procedure factories, and is reused repeatedly throughout the SRD router. The utils taxonomy is descriptive rather than exhaustive and already permits request/query helpers. With no cycle, behavioral leak, or clearly superior existing home, moving this tested 84-line module would be organization-only churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[19]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/src/seed/seed-srd.ts in full. The 253-line file separates four small foundational-family functions from a clear 13-step coordinator at lines 237-253; the inline work shares its JSON loader, compact source shapes, and reference-data constants. Extracting several small modules would add navigation and imports without changing validation, behavior, or an over-limit file. Nearby ruling CQ25-171 also warns against speculative seed-layout churn, although it governs different generated-output changes.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[13]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened the three toggle implementations in proficiencies-step.tsx and spell-selection-step.tsx. Class skills and languages repeat selected/disabled styling and guarded clicks, while SpellOptionButton implements the same model with aria-pressed. The proficiencies tests observe selection through counts or CSS, whereas spell-selection tests assert pressed state. Two visually selected toggle sets therefore fail to expose their state to assistive technology, demonstrating behavioral drift across the copies.",
+      "promotionIds": [
+        "R3B-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[14]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened class-step.tsx, background-step.tsx, and species-step.tsx. ClassStep derives endpoint output types because its leaf components consume complete transport records; BackgroundGrid and SpeciesCard declare narrower component-owned projections. Actual query results are passed directly into those props at background-step.tsx:181-185 and species-step.tsx:165-179, so TypeScript still checks every required field. There is no assertion or untyped adapter, and the differing ownership choices do not create a demonstrated drift escape.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[17]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened death-save-dots.tsx and both production callers. The component already centralizes dot count, pressed semantics, disabled behavior, labels, and toggling. Its callers intentionally render a large character-sheet control at death-saves-interactive.tsx:121-137 and a compact combat-row control at combat-death-saves.tsx:45-59. The structural class slots let those layouts vary without duplicating interaction logic; named variants would mostly relocate the same two style bundles.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[19]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened app-header.tsx and the registered route tree. MobileNavLink declares its destination as unrestricted string before passing it to TanStack Link, so five mobile destinations lose registered-route checking. The same file's desktop links pass literals directly to Link and preserve that check. A typo or stale mobile-only destination can therefore compile and ship as broken navigation.",
+      "promotionIds": [
+        "R3B-005"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[40]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened every homebrew production TSX file containing a native checkbox. There are 15 occurrences in 10 files, and all repeat the exact h-4 w-4 rounded border-input class while rebuilding checked/change plumbing around raw inputs. The UI directory has no checkbox primitive, although the homebrew module explicitly directs shared entity helpers into homebrew/shared. Checkbox styling, focus, disabled, and accessibility conventions therefore require a ten-file sweep.",
+      "promotionIds": [
+        "R3B-006"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[43]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened CharacterTab and the campaign.get router. useQuery already infers campaignDetailSchema from campaign.get, but CharacterTab immediately asserts the result to a handwritten partial members shape before reading it. The published CampaignMemberDetail projection already includes character id and name. The cast is unnecessary and substitutes a manually maintained promise for the generated client contract.",
+      "promotionIds": [
+        "R3B-007"
+      ]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R3B-001",
+      "title": "Require structured purpose metadata for script-parity exemptions",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "harness.controls.json",
+          "line": 3,
+          "endLine": 35,
+          "measurement": null,
+          "note": "The exemption population is represented only as script-name strings, with no per-entry purpose or ownership metadata."
+        },
+        {
+          "path": "scripts/harness/harness-manifest-schema.ts",
+          "line": 120,
+          "endLine": 125,
+          "measurement": null,
+          "note": "The typed manifest contract permits only an array of nonblank strings for scriptParityExemptions."
+        },
+        {
+          "path": "scripts/harness/harness-gate-parity.ts",
+          "line": 22,
+          "endLine": 60,
+          "measurement": null,
+          "note": "Parity validates existence, naming convention, alias nonredundancy, and completeness but cannot validate why an exemption remains appropriate."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "31 exemptions (`jq '.scriptParityExemptions | length' harness.controls.json`)",
+          "note": "Thirty-one operational scripts cross this rationale-free exception boundary."
+        }
+      ],
+      "problem": "Scripts exempted from the harness control inventory carry only their names. Reviewers can verify that an exemption refers to a real, convention-matching, nonredundant script, but cannot determine from the machine-readable source why it is an operational utility rather than an enforcement control or detect when that reason stops being true.",
+      "proposedDirection": "Associate every exemption with structured purpose, audience/function, side-effect class, invocation form, and optional owning documentation, and completeness-check that metadata. This can merge into the command-catalog direction already proposed by leaf 085.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[5]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "scriptParity exemptions lack a structured rationale requirement.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 085 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-002",
+      "title": "Give ESLint cache policy a typed reusable boundary",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/lib/eslint-main-cache.sh",
+          "line": 60,
+          "endLine": 117,
+          "measurement": null,
+          "note": "The shell helper writes its NUL-delimited path input to a temporary file, then embeds a Node program in a heredoc to hash paths and contents."
+        },
+        {
+          "path": "scripts/lib/eslint-main-cache.sh",
+          "line": 148,
+          "endLine": 187,
+          "measurement": null,
+          "note": "Cache preparation, stale-directory pruning, and argument construction communicate through ambient MUSI_ESLINT_MAIN_CACHE_DIR and MUSI_ESLINT_MAIN_CACHE_ARGS globals."
+        },
+        {
+          "path": "scripts/lint-agent.ts",
+          "line": 38,
+          "endLine": 72,
+          "measurement": null,
+          "note": "The TypeScript consumer constructs inline Bash that sources the shell library, splits stdout into argument lines, and checks only the first token before forwarding the remainder."
+        }
+      ],
+      "problem": "Cache identity correctness determines whether rule, configuration, and type-graph edits can be masked by stale ESLint diagnostics. The policy is single-sourced but trapped behind sourced shell, ambient globals, an embedded Node heredoc, and a line-oriented subprocess protocol. Tests cover current behavior and overt failures degrade safely to no cache, but the compiler cannot connect either consumer to the returned argument shape.",
+      "proposedDirection": "Extract cache identity, directory selection, pruning, and argument construction into an importable TypeScript module. Let lint-agent call it directly and retain a thin shell adapter with an explicit machine protocol for eslint-main.sh.",
+      "leafability": "single-leaf",
+      "confidence": "medium",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[23]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "ESLint cache policy mixes shell sourcing, embedded JavaScript, and textual protocols.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-124",
+          "residual": "CQ25-124 records the measured Bash-facade/TypeScript-analytical-core precedent. This candidate applies that boundary narrowly to analysis already embedded as Node and needed by a TypeScript consumer; it does not reopen a general Bash migration."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 141 — hint only; leaf 141 owns duplicated verify log-state discovery, not ESLint cache identity or argument transport"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-003",
+      "title": "Make socket rate-limit classification independent of human-readable text",
+      "area": "server",
+      "category": "hack",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/socket/connection-handler.ts",
+          "line": 14,
+          "endLine": 19,
+          "measurement": null,
+          "note": "The per-packet middleware represents rate-limit rejection only as an ordinary Error with an English message."
+        },
+        {
+          "path": "packages/server/src/socket/connection-handler.ts",
+          "line": 36,
+          "endLine": 39,
+          "measurement": null,
+          "note": "The error handler derives the client-facing RATE_LIMIT code by comparing err.message to that exact text."
+        },
+        {
+          "path": "packages/server/src/socket/connection-handler.test.ts",
+          "line": 176,
+          "endLine": 193,
+          "measurement": null,
+          "note": "The test named for RATE_LIMIT categorization describes the string mapping but does not assert the emitted error code."
+        }
+      ],
+      "problem": "A presentation string is also an undocumented sentinel between two branches. Editing or wrapping only the producer text makes genuine throttling errors reach clients as INTERNAL_ERROR, and the existing categorization test does not inspect the emitted payload. Nothing structurally connects the rejection cause to its protocol code.",
+      "proposedDirection": "Represent rate-limit rejection with a tagged or custom error, map that stable discriminator to RATE_LIMIT while keeping message text presentational, and assert the emitted error payload in a focused test.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[14]",
+          "lane": "lane-03-server",
+          "originalTitle": "Socket rate-limiter wiring couples machine behavior to an English error string.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-004",
+      "title": "Unify character-create choice chips and restore pressed-state semantics",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.tsx",
+          "line": 103,
+          "endLine": 134,
+          "measurement": null,
+          "note": "Class-skill chips independently implement capped selection, disabled handling, and selected styling but expose no aria-pressed state."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.tsx",
+          "line": 154,
+          "endLine": 183,
+          "measurement": null,
+          "note": "Language chips repeat the interaction and style branches, again without aria-pressed."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/spell-selection-step.tsx",
+          "line": 34,
+          "endLine": 63,
+          "measurement": null,
+          "note": "SpellOptionButton implements the same choice-chip model but exposes isSelected through aria-pressed."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/proficiencies-step.test.tsx",
+          "line": 101,
+          "endLine": 112,
+          "measurement": null,
+          "note": "The language-selection test observes selected state only through the border-primary CSS class."
+        },
+        {
+          "path": "packages/client/src/components/character-create/steps/spell-selection-step.test.tsx",
+          "line": 52,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The corresponding spell-choice test asserts semantic aria-pressed state, demonstrating the drift."
+        }
+      ],
+      "problem": "Three character-creation choice-chip implementations maintain selected, disabled, focus, and click semantics separately. They have already diverged: spell choices communicate pressed state, but class-skill and language choices communicate it only visually. Screen-reader users cannot determine which skills or languages are selected, and interaction changes require synchronized edits.",
+      "proposedDirection": "Extract a small character-create choice-chip primitive that owns aria-pressed, common focus/selection styling, disabled behavior, and click guards. Keep domain labels, cap calculations, and spell badges in callers.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[13]",
+          "lane": "lane-05-client",
+          "originalTitle": "Three character-create choice chips duplicate one interaction model.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-005",
+      "title": "Preserve TanStack route types through MobileNavLink",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 18,
+          "endLine": 29,
+          "measurement": null,
+          "note": "MobileNavLink widens its destination to string before forwarding it to the typed TanStack Link."
+        },
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 62,
+          "endLine": 77,
+          "measurement": null,
+          "note": "Five mobile-only destinations cross the widened wrapper boundary."
+        },
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 95,
+          "endLine": 118,
+          "measurement": null,
+          "note": "Adjacent desktop navigation passes route literals directly to Link and retains route validation."
+        },
+        {
+          "path": "packages/client/src/routes/router.ts",
+          "line": 5,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The application router is registered with TanStack React Router, supplying the route type information discarded by the wrapper."
+        }
+      ],
+      "problem": "MobileNavLink accepts any string rather than a registered TanStack destination, creating an untyped hole around five navigation links. Mobile-only route typos or stale paths lose compile-time protection and can surface only when a user opens the mobile menu.",
+      "proposedDirection": "Type the wrapper from TanStack Link's registered-router destination props, or accept and forward the relevant Link props without widening to string.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[19]",
+          "lane": "lane-05-client",
+          "originalTitle": "MobileNavLink widens typed routes to string.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 236 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-006",
+      "title": "Give repeated homebrew checkboxes one shared UI primitive",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/spell/spell-form-fields.tsx",
+          "line": 140,
+          "endLine": 163,
+          "measurement": null,
+          "note": "One form repeats two raw labeled checkbox assemblies with identical input styling."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/shared/capped-checkbox-group.tsx",
+          "line": 51,
+          "endLine": 65,
+          "measurement": null,
+          "note": "Even the existing shared checkbox group reconstructs the same raw styled input internally."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/MODULE.md",
+          "line": 29,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The module guide directs helpers shared by existing entity modules into homebrew/shared."
+        },
+        {
+          "path": "packages/client/src/components/homebrew",
+          "line": null,
+          "endLine": null,
+          "measurement": "15 checkbox occurrences across 10 files (`rg -n 'type=\"checkbox\"' packages/client/src/components/homebrew --glob '*.tsx' | wc -l; rg -l 'type=\"checkbox\"' packages/client/src/components/homebrew --glob '*.tsx' | wc -l`)",
+          "note": "The same native checkbox surface is spread across ten homebrew production files."
+        }
+      ],
+      "problem": "Homebrew entity forms repeat 15 raw native checkbox controls across 10 files, all copying the same input class and locally assembling labeling and change behavior. With no shared checkbox primitive, visual, focus, disabled, or accessibility convention changes require a broad manual sweep and can drift between editors.",
+      "proposedDirection": "Add a focused checkbox presentation primitive in the existing homebrew shared area or client UI primitives, owning native input styling and label association while forwarding normal checked, disabled, id, and change props.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[40]",
+          "lane": "lane-05-client",
+          "originalTitle": "Homebrew repeats one raw checkbox primitive across ten files.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3B-007",
+      "title": "Keep CharacterTab on the inferred campaign output contract",
+      "area": "client",
+      "category": "hack",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx",
+          "line": 148,
+          "endLine": 155,
+          "measurement": null,
+          "note": "CharacterTab obtains inferred query data, then replaces it with a handwritten partial shape through a framework assertion."
+        },
+        {
+          "path": "packages/client/src/components/campaign/encounters/add-participant-dialog.tsx",
+          "line": 157,
+          "endLine": 169,
+          "measurement": null,
+          "note": "All downstream character filtering and projection is performed from the asserted members value."
+        },
+        {
+          "path": "packages/server/src/routers/campaign.ts",
+          "line": 145,
+          "endLine": 168,
+          "measurement": null,
+          "note": "campaign.get publishes campaignDetailSchema as its output and returns the mapped CampaignDetail contract."
+        },
+        {
+          "path": "packages/server/src/routers/campaign.ts",
+          "line": 63,
+          "endLine": 81,
+          "measurement": null,
+          "note": "The canonical member mapper supplies character id and name, the fields CharacterTab needs."
+        }
+      ],
+      "problem": "CharacterTab discards the generated campaign.get result type in favor of an asserted handwritten members projection even though useQuery already carries the output schema. The duplicate shape can lag behind transport changes, weakening the client/server change signal at the query boundary meant to provide it.",
+      "proposedDirection": "Delete the assertion and read campaignQuery.data?.members directly. If a named projection helps readability, derive it from the inferred campaign output rather than asserting the query result.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[43]",
+          "lane": "lane-05-client",
+          "originalTitle": "CharacterTab replaces inferred tRPC output with a handwritten assertion.",
+          "rejectionReason": "coverage.cut — omitted for lane budget; no recorded rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly the 18 assigned consult-B rows across lanes 01, 02, 03, and 05. No tests or builds were run, and no files were modified.",
+    "Validated the cited source tree against AUDIT_TARGET_SHA with a read-only git diff; the relevant source paths are identical to the pin.",
+    "The homebrew checkbox population was exhaustively enumerated under packages/client/src/components/homebrew: 15 production TSX occurrences in 10 files, not a sample.",
+    "Authored-leaf overlap was treated only as a hint: script-parity rationale was promoted despite its close fit with leaf 085."
+  ]
+}

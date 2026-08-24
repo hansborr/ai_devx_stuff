@@ -1,0 +1,134 @@
+{
+  "step": "2a-r5",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "numberingBase": 267,
+  "entries": [
+    {
+      "promotionId": "R5B-L01-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "163-ratchet-driven-file-boundaries-strand.md",
+      "leafNumber": "163",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L02-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "133-code-intel-daemon-guards-promise-wire-types.md",
+      "leafNumber": "133",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L02-002",
+      "ruling": "new-leaf",
+      "leafFile": "267-require-current-rationale-on-durable-harness.md",
+      "leafNumber": "267",
+      "mergedPromotionIds": [
+        "R5C-005"
+      ]
+    },
+    {
+      "promotionId": "R5B-L02-003",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "232-derive-drift-triage-reviewer-instructions-from-the.md",
+      "leafNumber": "232",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L02-004",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "209-remove-the-unused-repository-root-parameter-from.md",
+      "leafNumber": "209",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L03-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "203-add-previewapply-safety-boundary-srd.md",
+      "leafNumber": "203",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L03-002",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "205-rename-auth-service-to-reflect-its.md",
+      "leafNumber": "205",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L03-003",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "009-all-four-seed-generators-can-overwrite.md",
+      "leafNumber": "009",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L05-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "057-character-sheettesttsx-no-longer-tests.md",
+      "leafNumber": "057",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L05-002",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "047-toolhandler-erases-coordinate-domains.md",
+      "leafNumber": "047",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L05-021",
+      "ruling": "new-leaf",
+      "leafFile": "268-type-dice-roll-metadata-as-rollresult-at-the.md",
+      "leafNumber": "268",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L05C-002",
+      "ruling": "new-leaf",
+      "leafFile": "269-reset-createmapdialog-state-on-every-close-path.md",
+      "leafNumber": "269",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5B-L05D-001",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "248-preserve-registered-route-typing-through.md",
+      "leafNumber": "248",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5C-002",
+      "ruling": "new-leaf",
+      "leafFile": "270-add-a-local-orientation-contract-for-the-client.md",
+      "leafNumber": "270",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5C-003",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "094-two-documents-both-claim-be-authoritative.md",
+      "leafNumber": "094",
+      "mergedPromotionIds": [
+        "R5C-004"
+      ]
+    },
+    {
+      "promotionId": "R5C-006",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "152-path-policy-query-core-closed-over-musis.md",
+      "leafNumber": "152",
+      "mergedPromotionIds": []
+    },
+    {
+      "promotionId": "R5C-007",
+      "ruling": "augment-existing-leaf",
+      "leafFile": "149-generic-codemod-infrastructure-hidden-behind.md",
+      "leafNumber": "149",
+      "mergedPromotionIds": []
+    }
+  ],
+  "rejected": [
+    "R5B-L05C-001",
+    "R5C-001"
+  ]
+}

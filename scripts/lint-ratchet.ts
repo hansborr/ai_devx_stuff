@@ -7,7 +7,7 @@ import { WorseBaselineError } from "@musi/lint-ratchet/governance/errors.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
 
 import { parseArgs, PROCESS_ARG_OFFSET, usage, UsageError } from "./lint-ratchet/cli.js";
-import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/modes.js";
+import { type LintRatchetRuntimeOptions, runLintRatchetCli } from "./lint-ratchet/cli-dispatch.js";
 import { repoRoot } from "./lint-ratchet/paths.js";
 import { LINT_RATCHET_REPORT_ARTIFACT_URL_ENV } from "./lint-ratchet/report.js";
 
@@ -20,6 +20,12 @@ export {
 const DECIMAL_RADIX = 10;
 const MIN_EDIT_CHECK_CONCURRENCY = 1;
 const MIN_COLLECT_CONCURRENCY = 1;
+// WorseBaselineError verdict contract: 3 covers every mode that throws this
+// domain error, including a check-baseline mismatch, a refused worse update,
+// and a debt-accounting mismatch. Truth-up consumers classify by this code
+// only; stderr remains human-facing presentation. Default envelope mode retains
+// its generic nonzero gate status and is not a truth-up classification input.
+const WORSE_BASELINE_EXIT_CODE = 3;
 
 function nonEmptyEnvValue(name: string): string | undefined {
   const value = process.env[name];
@@ -154,7 +160,7 @@ if (entryDisposition === "mismatch") {
       process.exitCode = 2;
     } else if (error instanceof WorseBaselineError) {
       console.error(`lint:ratchet: ${error.message}`);
-      process.exitCode = 1;
+      process.exitCode = WORSE_BASELINE_EXIT_CODE;
     } else {
       throw error;
     }

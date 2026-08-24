@@ -1,0 +1,582 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-06-tests",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L06-101",
+      "title": "Eleven non-encounter E2E suites present shared-state narratives as 77 separate tests",
+      "area": "e2e",
+      "category": "test-shape",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "e2e/campaign-lifecycle.spec.ts",
+          "line": 8,
+          "endLine": 74,
+          "measurement": null,
+          "note": "Seven ordered tests mutate one shared campaign from empty state through creation, rename, and deletion."
+        },
+        {
+          "path": "e2e/character-data-integrity.spec.ts",
+          "line": 8,
+          "endLine": 75,
+          "measurement": null,
+          "note": "Character creation and navigation occur in the first tests; six later tests consume the shared page object initialized at line 39."
+        },
+        {
+          "path": "e2e/inventory.spec.ts",
+          "line": 8,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Seven tests progressively create, edit, equip, attune, and delete one inventory."
+        },
+        {
+          "path": "e2e",
+          "line": null,
+          "endLine": null,
+          "measurement": "12 specs use whole-describe serial mode; excluding encounter-combat, 11 groups contain 77 tests, and wizard-validation.spec.ts adds two scoped serial tests",
+          "note": "The count was measured from pinned serial directives and per-file test declarations."
+        }
+      ],
+      "problem": "Many named tests are dependent workflow steps: later cases cannot run alone, earlier failures suppress the remaining contracts, and prerequisites are communicated only by source order. This weakens the suites as executable documentation and makes focused retries and refactors expensive.",
+      "proposedDirection": "Represent genuinely sequential workflows as scenarios with named test steps. Independently seed contracts through fixtures or API helpers before removing serialization; leave encounter-combat unchanged under the prior constraint.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-162",
+        "novelty": "CQ25-162 closes de-serialization of encounter-combat; this finding excludes that lifecycle and covers the eleven other whole-file serial groups."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-102",
+      "title": "Pagination suites systematically avoid the tie cases their cursors must disambiguate",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/test/notification-test-helper.ts",
+          "line": 22,
+          "endLine": 31,
+          "measurement": null,
+          "note": "The notification pagination fixture deliberately spaces every createdAt value by one second, preventing equal-timestamp boundaries."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/combat-log.test.ts",
+          "line": 175,
+          "endLine": 192,
+          "measurement": null,
+          "note": "The combat-log helper explicitly produces strictly increasing timestamps."
+        },
+        {
+          "path": "packages/server/src/routers/chat.test.ts",
+          "line": 165,
+          "endLine": 205,
+          "measurement": null,
+          "note": "The sole pagination case posts sequentially and checks sizes and two content positions without forcing equal timestamps or asserting the complete ID set."
+        },
+        {
+          "path": "packages/server/src/routers/magic-item.test.ts",
+          "line": 85,
+          "endLine": 112,
+          "measurement": null,
+          "note": "The case uses the convenient seed corpus and checks only non-emptiness and page non-overlap; monster.test.ts:101 has the same shape for challenge-rating/name ordering."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "5 pagination authorities totaling 1,385 lines contain 0 intentional equal-order-key page-boundary cases",
+          "note": "Measured by full review of pagination blocks in chat, notification, magic-item, monster, and combat-log suites plus pin-scoped equality searches."
+        }
+      ],
+      "problem": "The fixtures make cursor keys unique by construction, so the tests document pagination only under the condition that makes tie-breaking unnecessary. Ordering or cursor composition can change while all current assertions remain green even when equal-key records are skipped or duplicated.",
+      "proposedDirection": "For each endpoint, seed more than one page with several rows sharing the boundary timestamp or sort tuple, traverse until nextCursor is null, and assert the exact expected ID set without omissions or duplicates.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-103",
+      "title": "Three mutation-test lanes can strand live source mutations after interruption",
+      "area": "tests",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "stryker.config.server.mjs",
+          "line": 14,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The server lane enables inPlace and explicitly acknowledges that a hard kill can leave mutated sources on disk."
+        },
+        {
+          "path": "scripts/stryker-scripts.mjs",
+          "line": 5,
+          "endLine": 11,
+          "measurement": null,
+          "note": "The scripts lane repeats the same acknowledged live-worktree failure mode."
+        },
+        {
+          "path": "tools/stryker-lint-ratchet.mjs",
+          "line": 5,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The lint-ratchet lane is the third in-place lane with the same risk."
+        },
+        {
+          "path": "package.json",
+          "line": 53,
+          "endLine": 56,
+          "measurement": null,
+          "note": "All mutation scripts trap only removal of stryker-setup files; none detects or restores mutated tracked sources."
+        }
+      ],
+      "problem": "Long-running mutation audits write mutants into the contributor's active worktree. A kill, crash, or restart can mix stranded mutations with legitimate uncommitted work, while the command surface supplies no stale-state detection or safe recovery rail.",
+      "proposedDirection": "Run in-place lanes inside automatically provisioned disposable worktrees, or add a shared supervised runner that snapshots validated targets outside Stryker's lifetime, detects stale backups, and restores safely.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-221",
+        "novelty": "CQ25-221 landed shared Stryker configuration construction; this concerns interruption recovery and live-worktree safety, not configuration duplication."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-104",
+      "title": "Multi-artifact harness generators lack a failure-and-recovery test contract",
+      "area": "harness",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/harness/generate-hook-wiring.ts",
+          "line": 276,
+          "endLine": 284,
+          "measurement": null,
+          "note": "The hook generator updates three JSON files and then an arbitrary number of shims through separate sequential replacements."
+        },
+        {
+          "path": "scripts/harness/generate-hook-wiring.test.ts",
+          "line": 64,
+          "endLine": 107,
+          "measurement": null,
+          "note": "The write-orchestration coverage exercises only an all-success path."
+        },
+        {
+          "path": "scripts/harness/generate-verify-steps.ts",
+          "line": 402,
+          "endLine": 433,
+          "measurement": null,
+          "note": "One command invokes the shared generator scaffold four times sequentially for four committed artifacts."
+        },
+        {
+          "path": "scripts/harness/generate-verify-steps.test.ts",
+          "line": 1,
+          "endLine": 8,
+          "measurement": null,
+          "note": "The suite imports only the renderer rather than the four-output write/check orchestration."
+        },
+        {
+          "path": "scripts/harness/generate-verify-steps.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "30 cases cover rendered bytes and policy; 0 invoke multi-output orchestration or simulate a write failure",
+          "note": "The mixed-generation recovery contract is undocumented."
+        }
+      ],
+      "problem": "The tests prove final bytes when every write succeeds but do not define what happens when a later artifact fails. Contributors cannot tell whether earlier outputs may remain updated, how check mode should report mixed generations, or whether rerunning must repair them.",
+      "proposedDirection": "Put batch orchestration behind an injectable writer and add boundary-failure cases that assert error propagation, stale-output detection, scratch cleanup, and successful repair on rerun.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-105",
+      "title": "Coverage gates count 490 lines of test scaffolding as product code",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "vitest.config.ts",
+          "line": 43,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Root thresholds are presented as coverage floors for production package and scripts areas."
+        },
+        {
+          "path": "packages/shared/vitest.config.ts",
+          "line": 17,
+          "endLine": 20,
+          "measurement": null,
+          "note": "Coverage excludes test filenames but not src/test/parse-helpers.ts."
+        },
+        {
+          "path": "packages/client/vitest.config.ts",
+          "line": 25,
+          "endLine": 27,
+          "measurement": null,
+          "note": "Coverage excludes *.test files and src/test but not colocated *.test-helper files."
+        },
+        {
+          "path": "scripts/vitest.config.ts",
+          "line": 21,
+          "endLine": 37,
+          "measurement": null,
+          "note": "Covered script families exclude *.test.ts and fixtures but not *.test-helper.ts."
+        },
+        {
+          "path": "stryker.config.mjs",
+          "line": 20,
+          "endLine": 21,
+          "measurement": null,
+          "note": "Mutation configuration explicitly classifies shared/src/test as test-only scaffolding, unlike ordinary coverage."
+        },
+        {
+          "path": "packages",
+          "line": null,
+          "endLine": null,
+          "measurement": "9 included test-support modules totaling 490 physical lines: shared 1/53 lines, client 3/126 lines, scripts 5/311 lines",
+          "note": "Measured by statically applying the pinned coverage include/exclude patterns."
+        }
+      ],
+      "problem": "Assertion helpers, fixture runners, and UI harnesses contribute to both the denominator and an easily exercised numerator. Coverage can therefore rise or remain stable without more production behavior being covered, making the advertised package thresholds difficult to interpret.",
+      "proposedDirection": "Exclude test-helper files consistently and exclude packages/shared/src/test, then recalculate thresholds from a production-only baseline.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-106",
+      "title": "Logs-audit policy tests encode 50 scenarios as two positional JSONL blobs",
+      "area": "harness",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/logs-audit/logs-audit.test.ts",
+          "line": 492,
+          "endLine": 717,
+          "measurement": null,
+          "note": "One test combines request-ID extraction, malformed fields, disagreement, exemptions, request-log recognition, and matching semantics; expected results identify scenarios through global JSONL line numbers."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit.test.ts",
+          "line": 719,
+          "endLine": 999,
+          "measurement": null,
+          "note": "A second test combines event syntax, outcome, reason, actor, authorization, socket-event, and exemption policies in one input and one 177-line expected array."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "50 inline JSON.stringify rows and 40 full expected diagnostic objects across lines 492-999",
+          "note": "Measured as 22+28 inputs and 15+25 expected objects in the pinned ranges."
+        }
+      ],
+      "problem": "Independent policy boundaries are hidden behind positional line numbers, while unrelated insertions force broad expectation renumbering. Contributors must decode large aggregate diffs to determine which request-correlation or event-field rule regressed.",
+      "proposedDirection": "Use named, typed scenario tables grouped by policy family. Keep small multi-record groups where correlation is the subject, derive local line numbers, and retain one compact cross-record integration case.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-11",
+        "novelty": "CQ25-11's remaining analyzer work concerns CodeIntel production structure; this finding covers the previously unreported logs-audit test corpus."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-107",
+      "title": "daemon-query.test.ts combines daemon integration, client protocol, and cache unit suites",
+      "area": "harness",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/code-intel/daemon-query.test.ts",
+          "line": 39,
+          "endLine": 827,
+          "measurement": null,
+          "note": "One describe owns a 190-line disk-workspace fixture plus resident-daemon integration, daemon-client fallback/protocol behavior, GraphCache behavior, manifest hashing, and state preservation."
+        },
+        {
+          "path": "scripts/code-intel/daemon-query.test.ts",
+          "line": 472,
+          "endLine": 722,
+          "measurement": null,
+          "note": "Eight cases directly exercise requestDaemonQuery readiness, protocol validation, malformed responses, and timeout policy rather than query-route integration."
+        },
+        {
+          "path": "scripts/code-intel/daemon-query.test.ts",
+          "line": 775,
+          "endLine": 804,
+          "measurement": null,
+          "note": "Two cases instantiate GraphCache or computeWorkspaceManifest without starting or querying a daemon."
+        },
+        {
+          "path": "scripts/code-intel/graph-cache.test.ts",
+          "line": 7,
+          "endLine": 71,
+          "measurement": null,
+          "note": "The subject-named suite omits GraphCache.ensure and manifest-content invalidation."
+        },
+        {
+          "path": "scripts/code-intel/daemon-query.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "18 top-level cases: 8 daemon integration, 8 daemon-client, and 2 graph-cache/manifest cases",
+          "note": "More than half do not test the route named by the file."
+        }
+      ],
+      "problem": "Three subject suites share one large fixture rail. A GraphCache contributor can run graph-cache.test.ts and miss central rebuild contracts, while a daemon-client change requires the full resident-daemon suite.",
+      "proposedDirection": "Keep route and resident-project integration here; move daemon-client readiness/protocol/timeout cases into daemon-client.test.ts and cache cases into graph-cache.test.ts with a minimal filesystem fixture.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-66",
+        "novelty": "CQ25-66 extracts production ManifestGatedCache plumbing; this finding reorganizes existing test ownership so focused suites cover their actual contracts."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-108",
+      "title": "The duplicates suite is an umbrella for four production-module test authorities",
+      "area": "harness",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/duplicates.test.ts",
+          "line": 7,
+          "endLine": 39,
+          "measurement": null,
+          "note": "The imports span configuration, duplicates core, runner orchestration, plugin wiring, binary resolution, CLI behavior, and scope."
+        },
+        {
+          "path": "scripts/drift-ai/duplicates.test.ts",
+          "line": 94,
+          "endLine": 472,
+          "measurement": null,
+          "note": "Report parsing, finding construction, configuration, and scope mapping form one authority."
+        },
+        {
+          "path": "scripts/drift-ai/duplicates.test.ts",
+          "line": 474,
+          "endLine": 927,
+          "measurement": null,
+          "note": "Runner orchestration and subprocess behavior form a second authority."
+        },
+        {
+          "path": "scripts/drift-ai/duplicates.test.ts",
+          "line": 929,
+          "endLine": 1030,
+          "measurement": null,
+          "note": "Plugin wiring and binary resolution test two further production modules."
+        },
+        {
+          "path": "scripts/drift-ai/duplicates.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "1,039 lines, 11 describe blocks, 53 tests, and 10 distinct local-module imports",
+          "note": "Measured from the pinned file using line and declaration/import inventories."
+        }
+      ],
+      "problem": "Contributors changing duplicates-runner.ts, duplicates-check.ts, or jscpd-bin.ts must discover that their authoritative tests all live under duplicates.test.ts. The filename no longer communicates ownership, and unrelated setup accumulates in focused runs and reviews.",
+      "proposedDirection": "Keep parsing and finding contracts in duplicates.test.ts; move runner, plugin, and binary-resolution blocks into production-module-matched sibling suites without reorganizing the directory.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-155",
+        "novelty": "CQ25-155 declines splitting the root scripts/drift-ai.test.ts; this targets independently named modules hidden inside scripts/drift-ai/duplicates.test.ts."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L06-109",
+      "title": "Fog overlay component tests assert only that Konva stand-ins exist",
+      "area": "client",
+      "category": "test-shape",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/fog-overlay.test.tsx",
+          "line": 18,
+          "endLine": 64,
+          "measurement": null,
+          "note": "Five FogOverlay cases check only a truthy root, Shape existence, or Rect count rather than transformed geometry or viewer presentation."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/fog-overlay.test.tsx",
+          "line": 245,
+          "endLine": 268,
+          "measurement": null,
+          "note": "Both FogDrawPreview cases assert only Rect existence, so the reversed-coordinate case does not prove its named behavior."
+        },
+        {
+          "path": "packages/client/src/test/mock-react-konva.tsx",
+          "line": 84,
+          "endLine": 91,
+          "measurement": null,
+          "note": "The shared stand-in preserves x, y, width, height, fill, and opacity props, so meaningful assertions require no infrastructure change."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/fog-overlay.test.tsx",
+          "line": null,
+          "endLine": null,
+          "measurement": "7 component-level cases contain 7 assertions, all over existence, truthiness, or element count and 0 over geometry, fill, or opacity",
+          "note": "The separate paintHideAllFog cases have meaningful oracles and are excluded."
+        }
+      ],
+      "problem": "The suite names coordinate reversal, cell scaling, fog modes, and DM/player rendering as contracts without observing those outputs. Component-to-Konva calculations can regress while every component-level case remains green.",
+      "proposedDirection": "Replace crash and existence cases with a compact mode table asserting retained Konva attributes for region scaling, DM/player opacity, and reversed preview bounds.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L06-110",
+      "title": "The live message-identity golden is a stale machine capture",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/fixtures/message-identity-golden.json",
+          "line": 2,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The corpus labels itself a live collector run while pinning a developer-specific former worktree root."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/fixtures/message-identity-golden.json",
+          "line": 146,
+          "endLine": 150,
+          "measurement": null,
+          "note": "One supposedly live captured path, packages/client/src/hooks/use-debounced-cursor-list.ts, no longer exists at the audit pin."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/fixtures/message-identity-golden.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "45,113 bytes and 25 records; the former worktree root occurs 50 times and the same React diagnostic sentence occurs 42 times",
+          "note": "Measured from pinned git content with byte, record, and literal counts."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/message-identity.test.ts",
+          "line": 7,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The test calls the artifact a live corpus but has no regeneration or freshness path; it consumes it only as static normalization input."
+        }
+      ],
+      "problem": "A portable package documents normalization through a 45 KB historical capture tied to a deleted machine and worktree. It still executes, but its live label implies freshness that is not maintained, while repeated diagnostics obscure the actual semantic cases.",
+      "proposedDirection": "Replace the capture with a compact builder using a synthetic root, relative case data, and one shared diagnostic template; retain one clearly named raw historical sample only if byte fidelity is necessary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Shared generated-file scaffold can truncate a tracked artifact on interruption",
+      "paths": [
+        "scripts/lib/doc-generator.ts",
+        "scripts/harness/generate-verify-steps.ts"
+      ],
+      "whySuspectedBug": "doc-generator.ts:90 writes directly with writeFileSync while generate-verify-steps invokes it four times sequentially; interruption can leave a truncated artifact and mixed generations.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Slow-test config treats a file URL pathname as a decoded filesystem path",
+      "paths": [
+        "vitest.slow.config.ts"
+      ],
+      "whySuspectedBug": "Line 22 uses new URL(import.meta.url).pathname, which preserves URL escaping and has platform-specific semantics; paths containing spaces, non-ASCII characters, or Windows drive letters can derive the wrong root.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Type-aware single-flight test contains only one type-aware task",
+      "paths": [
+        "tools/lint-ratchet/src/kernel/current-collector.test.ts"
+      ],
+      "whySuspectedBug": "The fixture has exactly one type-aware entry, so maxTypeAwareInFlight cannot exceed one even if the single-flight cap is removed; the named guard is vacuous.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Absent debt-log test uses a shared fixed temporary pathname",
+      "paths": [
+        "tools/lint-ratchet/src/governance/debt-log.test.ts"
+      ],
+      "whySuspectedBug": "The case assumes a fixed file under the system temp directory is absent without creating an isolated root; stale or concurrent files can invert the assertion.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "Wave-1 lane results, finding contract, and relevant CQ25 dedup records",
+      "scripts/logs-audit/** test files and fixtures — pointer 2 produced L06-106",
+      "scripts/drift-triage/triage-report.test.ts and scripts/code-intel/{overview-query,daemon-query,graph-cache}.test.ts plus test-fixtures.test-helper.ts — pointer 3 folded into banked L06-013; pointers 4/5 fully reviewed",
+      "scripts/drift-ai/{duplicates,ghost-files,near-duplicates}.test.ts — pointer 5 produced L06-108; ghost-files was large but coherent",
+      "Harness generator, shim, generated-surface, manifest-reader, worktree-seed, and worktree-db pointer subjects — pointer 1 produced L06-104; pointer 12's remaining contract tests were purposeful and dismissed",
+      "All 13 E2E specs containing serial directives or blocks plus e2e/a11y.spec.ts and e2e/MODULE.md — pointer 12's selector aspect folded into L06-019; pointer 14's masking bug was already banked; pointer 16 produced L06-101",
+      "Root/package Vitest, Playwright, and Stryker configs; test-related package scripts, dependencies, and exports — pointers 9/13 were dismissed or folded into banked L04-001; pointer 15 produced L06-103",
+      "packages/shared schema hotspots, src/test/**, manifests, and parse-helper consumers — pointer 8's homebrew work is CQ25-49; encounter payload rewriting is declined by CQ25-158",
+      "Client fog-overlay, RollModeToggle, Konva test support, and neighboring map/combat files — pointers 10/11 produced L06-109 and a named cut",
+      "Server test-only seam consumers and all five pagination authorities — pointer 6 produced a named cut; pointer 7 produced L06-102",
+      "ESLint Dolos top-40 pair endpoints, message-identity corpus/tests, current-collector tests, and lint-ratchet helpers — pointer 17 folded into L06-015; pointer 18 produced L06-110",
+      "scripts/{codemods,path-policy,lint-ratchet}/** candidate-bearing test files and fixture helpers — pointer 12's manifest-reader cases were reviewed and dismissed"
+    ],
+    "sampled": [
+      "scripts harness/root test slice — all 156 assigned test/support files inventoried by path and line count; semantic review prioritized routed matches, generators, parity checks, and files over 650 lines",
+      "scripts/drift-ai/** — 155 test/helper/fixture files inventoried; non-full reads received import, subject, assertion, fixture, and concern-boundary scans",
+      "scripts/{drift-triage,code-intel}/** — smaller suites read fully; remaining giant suites sampled through complete helper/test inventories and head, midpoint, tail concern ranges",
+      "packages/server test slice — pointer modules and pagination blocks fully inspected; remaining tests retain wave-1 structural or focused sampling",
+      "packages/shared test slice — all 73 files and 21,638 lines inventoried; hotspots and suite-ownership boundaries inspected, with lower-signal bodies retaining wave-1 sampling",
+      "packages/client test slice — all 341 files and 52,234 lines inventoried through disabled-test, weak-assertion, selector, mock, fixture, and import-consumer scans; campaign/VTT pointer files received full reads",
+      "e2e/** — all 51 files inventoried; serial and a11y subjects reread fully, with remaining specs/helpers/page objects sampled through selector and authentication scans",
+      "eslint-rules, eslint-config, and tools/lint-ratchet test slice — 50 ESLint/config and 44 lint-ratchet files inventoried; every Dolos pair inspected and large non-pointer bodies sampled by setup and section boundaries",
+      "scripts/{codemods,path-policy,lint-ratchet,lint-message-eval}/** — candidate-bearing files read fully; all 90 codemod metadata records and remaining suites sampled across each fixture family and concern boundary",
+      "Test config surface — e2e specs were statically classified as serial, parallel, or inherited scheduling; per-spec necessity was handled by the E2E shard"
+    ],
+    "skipped": [
+      "Full semantic reread of lower-signal package tests already covered or structurally sampled in wave 1",
+      "Lower-signal harness and shell suites without routed-pointer matches were not semantically reopened",
+      "Full bodies of remaining large lint-ratchet suites after complete outline and suspicious-pattern sampling",
+      "Build artifacts, generated server code, lockfiles, and excluded audit-pack contents remained outside lane scope"
+    ],
+    "pointers": [
+      "Lane 07: packages/shared schema tests contain contextless bare finding/backlog references, including encounter-inputs.test.ts:95,314,374,485,540,594,823,890.",
+      "Lane 07: docs/agent_notes/backlog/mutation-testing-stryker.md:53 retains a sandbox/no-live-worktree premise while three landed configs now require inPlace; docs/ai-harness.md documents only part of the recovery risk."
+    ],
+    "cut": [
+      "Accessibility debt baseline has no retirement contract",
+      "The overview suite forks code-intel's canonical fixture harness",
+      "Near-duplicate sensor gate tests are buried in the detector suite",
+      "Server tests enlarge production APIs with seven test-only seams",
+      "RollModeToggle's test suite disguises a production-dead component",
+      "Paired shared schema suites split request contracts across entity-named files",
+      "Harness generator scenarios repeat 53 inline control envelopes",
+      "The worktree shell suite is four suites hidden in one 1,986-line script",
+      "Lint-ratchet acceptance fixtures emit a stale copy of the package type contract",
+      "One lint-ratchet acceptance file serializes 32 synchronous CLI runs",
+      "Smoke discovery tests manipulate global cwd to reach a private import-time function",
+      "Codemod suites retain four near-identical fixture drivers beside their shared helper",
+      "Collector scheduler tests coordinate through real time"
+    ]
+  }
+}

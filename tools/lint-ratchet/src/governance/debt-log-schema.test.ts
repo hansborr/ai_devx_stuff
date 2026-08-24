@@ -5,6 +5,7 @@ import { type LintRatchetDebtLogEntry, parseLintRatchetDebtLogEntry } from "./de
 
 const validEntry: LintRatchetDebtLogEntry = {
   version: "1",
+  kind: "accepted-debt",
   acceptanceReason: "legacy module slated for rewrite next quarter",
   regressions: [
     {
@@ -58,6 +59,29 @@ describe("parseLintRatchetDebtLogEntry", () => {
 
     expect(result.failures).toEqual([]);
     expect(result.entry).toEqual(validEntry);
+  });
+
+  it("normalizes a legacy kind-less accepted-debt entry", () => {
+    const legacyEntry = {
+      version: "1",
+      acceptanceReason: "legacy module slated for rewrite next quarter",
+      regressions: validEntry.regressions,
+      orphansRemoved: [],
+    };
+
+    expect(parseLintRatchetDebtLogEntry(asJson(legacyEntry))).toEqual({
+      entry: { ...legacyEntry, kind: "accepted-debt" },
+      failures: [],
+    });
+  });
+
+  it("rejects an unknown defined kind with a kind-level diagnostic", () => {
+    const result = parseLintRatchetDebtLogEntry(
+      asJson({ ...validEntry, kind: "future-debt-kind" }),
+    );
+
+    expect(result.entry).toBeUndefined();
+    expect(result.failures).toEqual(["unknown debt-log entry kind: future-debt-kind"]);
   });
 
   it("accepts a proven retirement record", () => {
@@ -138,6 +162,7 @@ describe("parseLintRatchetDebtLogEntry", () => {
   it("accepts complexity orphan snapshots with perFunction rows", () => {
     const entry: LintRatchetDebtLogEntry = {
       version: "1",
+      kind: "accepted-debt",
       acceptanceReason: "rename ratchet/old-complexity to ratchet/new-complexity",
       regressions: [],
       orphansRemoved: [
@@ -166,6 +191,7 @@ describe("parseLintRatchetDebtLogEntry", () => {
   it("accepts effective-line-count orphan snapshots", () => {
     const entry: LintRatchetDebtLogEntry = {
       version: "1",
+      kind: "accepted-debt",
       acceptanceReason: "remove ratchet/old-lines",
       regressions: [],
       orphansRemoved: [
@@ -224,6 +250,7 @@ describe("parseLintRatchetDebtLogEntry", () => {
     const result = parseLintRatchetDebtLogEntry(
       asJson({
         version: "1",
+        kind: "accepted-debt",
         acceptanceReason: "looks intentional but records no accepted debt",
         regressions: [],
         orphansRemoved: [],

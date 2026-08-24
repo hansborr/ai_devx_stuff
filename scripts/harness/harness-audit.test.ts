@@ -2,9 +2,9 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { harnessDiagnosticsSchema } from "@musi/harness-diagnostics/schema.js";
 import { describe, expect, it } from "vitest";
 
-import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import {
   buildAuditReport,
   formatJson,

@@ -1,0 +1,1282 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-03-server",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L03-001",
+      "title": "The auth router is the request-facing auth service in everything but name",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 42,
+          "endLine": 98,
+          "measurement": null,
+          "note": "Router-local helpers combine cookie handling, session persistence, token generation, request metadata, and response construction."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 100,
+          "endLine": 238,
+          "measurement": null,
+          "note": "Registration, login, and refresh directly sequence persistence, credential logic, session rotation, cookies, logging, and output mapping."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 271,
+          "endLine": 330,
+          "measurement": null,
+          "note": "Password change and account deletion retain multi-step account and session workflows in the transport module."
+        },
+        {
+          "path": "packages/server/src/services/auth-service.ts",
+          "line": 23,
+          "endLine": 114,
+          "measurement": null,
+          "note": "The file named auth-service contains cryptographic, password, and token primitives rather than the account lifecycle."
+        }
+      ],
+      "problem": "A newcomer following the service name lands on low-level primitives while the 342-line router owns the actual account and session lifecycle. Auth changes therefore require understanding tRPC, Fastify cookies, Prisma sessions, credential policy, and logging in one transport file.",
+      "proposedDirection": "Keep cookie access in a narrow transport adapter and move registration, login, refresh rotation, password change, and deletion orchestration into request-facing auth services, staged by workflow.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-002",
+      "title": "Chat persistence and delivery policy are reimplemented across routers and services",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/chat.ts",
+          "line": 24,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The chat router owns presence scanning, DM lookup, recipient routing, preview truncation, and offline-notification creation."
+        },
+        {
+          "path": "packages/server/src/routers/chat.ts",
+          "line": 120,
+          "endLine": 154,
+          "measurement": null,
+          "note": "The send procedure persists, maps, broadcasts, and conditionally notifies using router-local coordination."
+        },
+        {
+          "path": "packages/server/src/routers/dice.ts",
+          "line": 55,
+          "endLine": 73,
+          "measurement": null,
+          "note": "Dice rolls independently implement chat-row persistence, mapping, socket lookup, and broadcast."
+        },
+        {
+          "path": "packages/server/src/routers/cast-spell.ts",
+          "line": 55,
+          "endLine": 98,
+          "measurement": null,
+          "note": "Non-combat casting independently reloads display data, formats content, persists a chat row, maps it, broadcasts it, and applies a separate failure policy."
+        },
+        {
+          "path": "packages/server/src/utils/combat-chat.ts",
+          "line": 46,
+          "endLine": 95,
+          "measurement": null,
+          "note": "Combat chat provides a fourth persistence and broadcast policy."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "6 production chatMessage.create sites, measured with pinned git grep after excluding test-shaped paths",
+          "note": "Writers exist in cast-spell, chat, dice, character-live-state/feature, rest-service, and combat-chat."
+        }
+      ],
+      "problem": "There is no coherent chat-message application boundary. Multiple callers separately decide how to construct, persist, map, broadcast, log, and recover from delivery, while the main chat router additionally reaches into presence and notification domains.",
+      "proposedDirection": "Introduce a typed chat-message coordination surface for ordinary chat, whispers, rolls, combat, and best-effort post-commit messages. Keep domain-specific content construction with callers while centralizing persistence, mapping, recipient resolution, broadcast, and failure policy.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-75",
+        "novelty": "CQ25-75 covers only the utils taxonomy of character-campaign and combat-chat; this finding adds three router pipelines, six total writers, and the presence/notification coupling."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-003",
+      "title": "Homebrew import is split at an awkward validation-versus-persistence seam",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/homebrew.ts",
+          "line": 52,
+          "endLine": 129,
+          "measurement": null,
+          "note": "The router owns import byte accounting, Zod issue rendering, per-entry parsing, failure aggregation, preview limiting, and message budgeting."
+        },
+        {
+          "path": "packages/server/src/routers/homebrew.ts",
+          "line": 389,
+          "endLine": 406,
+          "measurement": null,
+          "note": "The procedure completes validation orchestration before handing pre-parsed rows to the service."
+        },
+        {
+          "path": "packages/server/src/services/homebrew-import-service.ts",
+          "line": 9,
+          "endLine": 37,
+          "measurement": null,
+          "note": "The dedicated service assumes router-validated entries and owns persistence only."
+        }
+      ],
+      "problem": "Roughly 78 lines of import-specific behavior remain in the router despite a dedicated import service. Understanding or changing one import request requires following an arbitrary validation/persistence split across both modules.",
+      "proposedDirection": "Have the import service own the untrusted-envelope workflow end to end: size checks, parsing, bounded failure construction, and atomic persistence. Leave the router as input/output wiring.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-004",
+      "title": "Invite lifecycle ownership is split between the router and invite service",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/invite.ts",
+          "line": 31,
+          "endLine": 59,
+          "measurement": null,
+          "note": "Invite-code generation and transport mapping are router-local domain helpers."
+        },
+        {
+          "path": "packages/server/src/routers/invite.ts",
+          "line": 65,
+          "endLine": 147,
+          "measurement": null,
+          "note": "Create, list, revoke, collision retries, and expiry computation are implemented inline."
+        },
+        {
+          "path": "packages/server/src/services/invite-service.ts",
+          "line": 54,
+          "endLine": 97,
+          "measurement": null,
+          "note": "The existing service owns only preview and join, leaving one aggregate with two ownership models."
+        }
+      ],
+      "problem": "Capacity-sensitive invitee operations live in the service while administrative lifecycle, code generation, expiry, retries, and mapping live in the router. The service name therefore suggests broader ownership than it provides.",
+      "proposedDirection": "Move administrative invite operations into invite-service.ts or a clearly named invite-admin service, including a total code-generation and retry helper.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-005",
+      "title": "Note and NPC routers contain their domain services",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/note.ts",
+          "line": 35,
+          "endLine": 159,
+          "measurement": null,
+          "note": "Router-local code implements edit ownership, dmOnly policy, player visibility, compound cursors, search filtering, mapping, and update payload construction."
+        },
+        {
+          "path": "packages/server/src/routers/note.ts",
+          "line": 165,
+          "endLine": 249,
+          "measurement": null,
+          "note": "All note procedures combine authorization, persistence, mapping, and pagination directly."
+        },
+        {
+          "path": "packages/server/src/routers/npc.ts",
+          "line": 41,
+          "endLine": 95,
+          "measurement": null,
+          "note": "NPC helpers implement notes redaction, player visibility, search semantics, mapping, and mutation field selection."
+        },
+        {
+          "path": "packages/server/src/routers/npc.ts",
+          "line": 102,
+          "endLine": 195,
+          "measurement": null,
+          "note": "The NPC router performs the complete authorized CRUD lifecycle."
+        }
+      ],
+      "problem": "These transport modules own domain visibility, redaction, filtering, mutation policy, persistence, and mapping. Contributors must discover policy split between routers and auth utilities, and transport changes risk modifying domain rules.",
+      "proposedDirection": "Introduce focused flat note and NPC services with request-facing operations, leaving schemas and procedure selection in the routers.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-006",
+      "title": "Character creation is a large pseudo-module left loose in the services root",
+      "area": "server",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/",
+          "line": null,
+          "endLine": null,
+          "measurement": "640 lines across character-create.ts, character-create-spells.ts, character-create-helpers.ts, and starting-equipment-service.ts",
+          "note": "One workflow is already physically split across four substantial flat files."
+        },
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 11,
+          "endLine": 13,
+          "measurement": null,
+          "note": "The nominal entry file coordinates the three sibling implementation files."
+        },
+        {
+          "path": "packages/server/src/services/character-create-helpers.ts",
+          "line": 10,
+          "endLine": null,
+          "measurement": null,
+          "note": "A helper imports ValidatedSrdRefs back from the entry file, creating a type-only dependency cycle."
+        },
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 230,
+          "endLine": 248,
+          "measurement": null,
+          "note": "Starting-equipment persistence is an internal stage of the character-creation transaction."
+        }
+      ],
+      "problem": "The workflow has outgrown a discoverable flat service but lacks a module boundary, shared types file, or local ownership document. Contributors must reconstruct the four-file unit through imports, and the entry file is simultaneously facade and dependency of its helper.",
+      "proposedDirection": "Group character creation under services/character-create/ with one logic-bearing facade, focused internals, a shared types file, and a short MODULE.md. This intentionally flags a conflict with the existing one-mutation flat-service rubric.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-007",
+      "title": "Spell eligibility bypasses the module facade and contradicts the documented boundary",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/spell-casting/MODULE.md",
+          "line": 29,
+          "endLine": 35,
+          "measurement": null,
+          "note": "The module names three external entry points and instructs external callers to import through the facade."
+        },
+        {
+          "path": "packages/server/src/routers/character-spell.ts",
+          "line": 16,
+          "endLine": null,
+          "measurement": null,
+          "note": "The character-spell router imports resolveCombatEligibility directly from an internal implementation file."
+        },
+        {
+          "path": "packages/server/src/routers/character-spell.ts",
+          "line": 94,
+          "endLine": 98,
+          "measurement": null,
+          "note": "One of two production router call sites invokes the internal helper directly; the other is at line 213."
+        }
+      ],
+      "problem": "The documented deep-module boundary and actual dependency graph disagree. Internal spell-casting code cannot be reorganized behind its facade without discovering an unrelated router dependency.",
+      "proposedDirection": "Either make eligibility an explicit facade entry point or move the reusable pure projection to a named utility used by both the router and spell module.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-118",
+        "novelty": "The landed module-contract work did not account for the production router's direct import of combat-eligibility.ts."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-008",
+      "title": "Spell participant loading discards Prisma inference behind an unchecked mirror",
+      "area": "server",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/spell-casting/load-participants.ts",
+          "line": 10,
+          "endLine": 20,
+          "measurement": null,
+          "note": "CASTER_INCLUDE defines the relation payload selected for the caster."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/load-participants.ts",
+          "line": 41,
+          "endLine": 43,
+          "measurement": null,
+          "note": "The inferred query result is routed through unknown and asserted as CasterRaw."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/resolve-spell.ts",
+          "line": 31,
+          "endLine": 48,
+          "measurement": null,
+          "note": "CasterRaw manually mirrors the selected tree and weakens always-selected spell source, prepared state, and slots to optional fields."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/resolve-character-spell.ts",
+          "line": 144,
+          "endLine": 163,
+          "measurement": null,
+          "note": "Resolution consequently carries fallback handling for states the fixed include does not produce."
+        }
+      ],
+      "problem": "The query and consumer contract can drift independently while still compiling. The assertion also manufactures optional states, obscuring real persisted-data absence from artifacts of the mirror type.",
+      "proposedDirection": "Derive the caster payload from a Prisma include/select type or use a narrow select whose inferred result is accepted directly by the resolver.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-22",
+        "novelty": "CQ25-22 names other spell-casting fidelity changes but not narrowCasterRaw, this assertion, or CasterRaw's optional fields."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-009",
+      "title": "Server mappers maintain parallel handwritten shadows of Prisma payloads",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/encounter-query.ts",
+          "line": 44,
+          "endLine": 138,
+          "measurement": null,
+          "note": "Four row interfaces are maintained separately from the participant and encounter include constants."
+        },
+        {
+          "path": "packages/server/src/utils/homebrew-helpers.ts",
+          "line": 25,
+          "endLine": 94,
+          "measurement": null,
+          "note": "Collection, entry, and ownership query shapes manually repeat Prisma fields."
+        },
+        {
+          "path": "packages/server/src/utils/map-types.ts",
+          "line": 16,
+          "endLine": 95,
+          "measurement": null,
+          "note": "Map token, layer, detail, summary, relation, and context shapes are manually transcribed."
+        },
+        {
+          "path": "packages/server/src/utils/character-mapping.ts",
+          "line": 25,
+          "endLine": 27,
+          "measurement": null,
+          "note": "Character mapping demonstrates the local lower-drift convention using Prisma.CharacterGetPayload."
+        },
+        {
+          "path": "packages/server/src/utils",
+          "line": null,
+          "endLine": null,
+          "measurement": "14 handwritten row or selection shapes across encounter-query.ts, homebrew-helpers.ts, and map-types.ts",
+          "note": "These contracts duplicate generated fields or exact local select/include payloads."
+        }
+      ],
+      "problem": "Generated Prisma types and local include/select declarations are not authoritative for several mapping boundaries. Query changes therefore require synchronized edits to structural shadows whose permissive compatibility can hide relation-shape differences.",
+      "proposedDirection": "Derive exact payloads with Prisma.*GetPayload and named satisfies-constrained include/select constants. Keep structural inputs only where a mapper intentionally accepts multiple projections.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "medium"
+    },
+    {
+      "id": "L03-010",
+      "title": "Map-layer responses are mapped twice with divergent JSON and date contracts",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/map-helpers.ts",
+          "line": 106,
+          "endLine": 115,
+          "measurement": null,
+          "note": "The map-detail mapper uses unchecked fromJson and returns Date objects through a schema-input result type."
+        },
+        {
+          "path": "packages/server/src/routers/map-layer.ts",
+          "line": 20,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Layer CRUD independently maps the same fields, validates JSON with a local schema, and converts dates to ISO strings."
+        },
+        {
+          "path": "packages/server/src/utils/prisma-json.ts",
+          "line": 8,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The JSON-boundary convention says record-shaped JSON should use fromJsonValidated."
+        }
+      ],
+      "problem": "Two implementations own the same database-to-contract conversion and already disagree on malformed JSON handling and timestamp representation. Contract changes must be repeated in both places.",
+      "proposedDirection": "Export one MapLayer mapper from a focused mapping module, validate data there, normalize timestamps, and use it from map-detail and layer CRUD paths.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-011",
+      "title": "Participant create-data helpers erase their discriminated type and force downstream casts",
+      "area": "server",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/encounter-participant-helpers.ts",
+          "line": 7,
+          "endLine": 40,
+          "measurement": null,
+          "note": "A builder over discriminated AddParticipantInput branches returns Record<string, unknown>."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 205,
+          "endLine": 230,
+          "measurement": null,
+          "note": "The caller mutates the opaque record through an unknown[] assertion and then re-stamps the whole value as Prisma create data."
+        }
+      ],
+      "problem": "The helper centralizes branch-specific construction but discards the type information it establishes. The service must treat a known payload as an arbitrary record and assertions replace compiler checks for future required fields.",
+      "proposedDirection": "Return a Prisma-compatible discriminated create type and either assemble persistent conditions behind the same typed boundary or expose a payload the service can extend without whole-object assertions.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-012",
+      "title": "Opposite spell-slot operations duplicate the entire Pattern B protocol",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/spell-slot-mutations.ts",
+          "line": 43,
+          "endLine": 71,
+          "measurement": null,
+          "note": "consumeSpellSlot performs lookup, bound checks, counter CAS, zero-row conflict handling, and refetch."
+        },
+        {
+          "path": "packages/server/src/utils/spell-slot-mutations.ts",
+          "line": 79,
+          "endLine": 107,
+          "measurement": null,
+          "note": "recoverSpellSlot repeats the same 29-line protocol with reversed bounds, delta, and messages."
+        },
+        {
+          "path": "packages/server/src/services/character-live-state/spell-slot.ts",
+          "line": 8,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The utility name also collides with the request-facing service export, forcing an InTx alias."
+        }
+      ],
+      "problem": "Pattern B's load, check, CAS, conflict, and refetch protocol has two hand-maintained copies. Changes to affected-row handling, return shape, or locking can update one direction and miss the other.",
+      "proposedDirection": "Extract a private table-local used-counter CAS primitive parameterized by direction and bounds, retaining small consume/recover wrappers with depth-signalling names.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-013",
+      "title": "Two narrow operations receive the unrestricted generated Prisma client type",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/presence-service.ts",
+          "line": 5,
+          "endLine": null,
+          "measurement": null,
+          "note": "Presence imports PrismaClient directly from generated code."
+        },
+        {
+          "path": "packages/server/src/services/presence-service.ts",
+          "line": 72,
+          "endLine": 83,
+          "measurement": null,
+          "note": "The factory accepts the raw client although it needs only campaignMember.updateMany."
+        },
+        {
+          "path": "packages/server/src/utils/session-cleanup.ts",
+          "line": 1,
+          "endLine": 4,
+          "measurement": null,
+          "note": "Session cleanup accepts the raw client although it needs only session.deleteMany."
+        },
+        {
+          "path": "packages/server/src/utils/prisma-types.ts",
+          "line": 163,
+          "endLine": 180,
+          "measurement": null,
+          "note": "DbClient is the declared business boundary and removes raw-returning or race-sensitive capabilities."
+        }
+      ],
+      "problem": "Two one-delegate operations are statically granted every raw Prisma delegate plus $extends. The runtime guard remains installed, but the compile-time business boundary is absent and the exceptions are easy for contributors to copy.",
+      "proposedDirection": "Accept DbClient or minimal structural ports such as Pick<DbClient, \"campaignMember\"> and Pick<DbClient, \"session\">.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-102",
+        "novelty": "CQ25-102 protects narrow request/socket ports; this identifies an analogous database-port widening in two new production paths."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-014",
+      "title": "Cascade deleters duplicate a load-bearing turn-origin cleanup protocol",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/map-tokens/map-cascade.ts",
+          "line": 50,
+          "endLine": 66,
+          "measurement": null,
+          "note": "Map deletion snapshots linked participants, performs the cascade delete, then clears surviving turn origins in one transaction."
+        },
+        {
+          "path": "packages/server/src/services/character-delete.ts",
+          "line": 36,
+          "endLine": 58,
+          "measurement": null,
+          "note": "Character deletion independently implements the same read-before-cascade, delete, then batch-clear sequence."
+        }
+      ],
+      "problem": "Two services manually preserve the same concurrency-sensitive ordering. Changes depend on maintainers noticing a distant twin, with comments acting as the synchronization mechanism for executable behavior.",
+      "proposedDirection": "Introduce one transaction-local cascade-origin cleanup coordinator used by both deleters while keeping each selector and delete operation explicit.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-015",
+      "title": "The chat broadcast facade bypasses registry-owned room and socket-optional policies",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/socket/chat-broadcast.ts",
+          "line": 27,
+          "endLine": 44,
+          "measurement": null,
+          "note": "Unlike other family facades, broadcastChatMessage requires a concrete socket server and caller-resolved room."
+        },
+        {
+          "path": "packages/server/src/socket/broadcast-registry.ts",
+          "line": 139,
+          "endLine": 143,
+          "measurement": null,
+          "note": "The shared chat contract already derives the authoritative campaign room."
+        },
+        {
+          "path": "packages/server/src/socket/broadcast-registry.ts",
+          "line": 296,
+          "endLine": 337,
+          "measurement": null,
+          "note": "Both registry entry points accept null Socket.IO and own skipped-outcome logging."
+        },
+        {
+          "path": "packages/server/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "7 production broadcastChatMessage call expressions across 6 caller functions; all pass a room and all callers screen out absent Socket.IO",
+          "note": "The facade propagates redundant policy to every caller."
+        }
+      ],
+      "problem": "The registry owns room resolution, nullable Socket.IO handling, and boundary logging, but the chat facade makes callers repeat the first two decisions and bypasses skipped logging when sockets are disabled.",
+      "proposedDirection": "Accept AppSocketServer | null, remove the room parameter, derive the room from the payload, and remove caller-side socket guards.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-118",
+        "novelty": "The landed registry split established the fallback and logging boundary but left seven redundant facade call sites."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-016",
+      "title": "Request and socket boundaries capture production globals outside composition roots",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/routes/upload-routes.ts",
+          "line": 34,
+          "endLine": 43,
+          "measurement": null,
+          "note": "The upload module imports the Prisma singleton and creates its DbClient binding at module load."
+        },
+        {
+          "path": "packages/server/src/trpc/context.ts",
+          "line": 3,
+          "endLine": 5,
+          "measurement": null,
+          "note": "The tRPC context module independently captures the Prisma singleton and auth service."
+        },
+        {
+          "path": "packages/server/src/socket/campaign-room-handler.ts",
+          "line": 14,
+          "endLine": 42,
+          "measurement": null,
+          "note": "The room handler injects its presence collaborator but hides membership database access behind the global Prisma client."
+        },
+        {
+          "path": "packages/server/src/app.ts",
+          "line": 153,
+          "endLine": 159,
+          "measurement": null,
+          "note": "BuildServerOptions cannot provide the dependencies used by routes or context."
+        },
+        {
+          "path": "packages/server/src/socket/index.ts",
+          "line": 58,
+          "endLine": 72,
+          "measurement": null,
+          "note": "Socket composition already occurs here, but only the presence dependency is passed into the room handler."
+        }
+      ],
+      "problem": "Server assembly appears configurable, but core request and socket boundaries select production database and auth dependencies before composition. Function signatures do not describe their real dependencies, and alternate construction requires module replacement.",
+      "proposedDirection": "Give buildServer and setupSocketIO explicit dependency bundles with production defaults, and construct route registration, tRPC context, and room membership ports at their composition roots.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-118",
+        "novelty": "The socket cleanup established injected socket ports but left the room handler's database global; this finding adds the analogous upload and tRPC paths."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-017",
+      "title": "All four seed generators can overwrite committed artifacts after incomplete parsing",
+      "area": "server",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/seed/generate-srd-spells.ts",
+          "line": 33,
+          "endLine": 52,
+          "measurement": null,
+          "note": "Per-spell failures become warnings, but the successfully parsed subset is still written."
+        },
+        {
+          "path": "packages/server/src/seed/generate-srd-rules-glossary.ts",
+          "line": 64,
+          "endLine": 82,
+          "measurement": null,
+          "note": "Glossary parse exceptions become warnings and the partial entries array is written."
+        },
+        {
+          "path": "packages/server/src/seed/generate-subclasses.ts",
+          "line": 116,
+          "endLine": 158,
+          "measurement": null,
+          "note": "Missing subclasses warn before generation overwrites the module with a reduced set."
+        },
+        {
+          "path": "packages/server/src/seed/generate-class-features.ts",
+          "line": 169,
+          "endLine": 205,
+          "measurement": null,
+          "note": "Missing descriptions warn but are emitted as empty strings."
+        },
+        {
+          "path": "packages/server/src/seed/generate-*.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "4 of 4 generator entry points have a non-fatal warning path followed by an output write",
+          "note": "This is the directory-wide generator error policy."
+        }
+      ],
+      "problem": "A normal regeneration can exit successfully after dropping records or blanking descriptions, then overwrite attested files. Reviewers must detect completeness loss in large generated diffs.",
+      "proposedDirection": "Parse and validate the complete corpus before writing; fail by default on rejected or missing records, staging output in memory or temporary files. Reserve partial generation for an explicit diagnostic mode.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-172",
+        "novelty": "This does not propose a regenerate-and-diff gate; it addresses fail-open overwrite behavior inside manual generator runs."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L03-018",
+      "title": "Seed JSON boundaries alternate between schemas and unchecked assertion chains",
+      "area": "server",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/seed/seed-data-loader.ts",
+          "line": 27,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The shared loader returns unknown and delegates narrowing policy to every caller."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-backgrounds.ts",
+          "line": 117,
+          "endLine": 120,
+          "measurement": null,
+          "note": "Background data is parsed through a file-specific Zod schema."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-reference-tables.ts",
+          "line": 47,
+          "endLine": 50,
+          "measurement": null,
+          "note": "Reference-table data uses a generic assertion that explicitly opts out of runtime validation."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-monsters.ts",
+          "line": 175,
+          "endLine": 201,
+          "measurement": null,
+          "note": "Monster data asserts the whole corpus and later double-asserts nested spellcasting records."
+        },
+        {
+          "path": "packages/server/src/seed/",
+          "line": null,
+          "endLine": null,
+          "measurement": "9 production modules consume seed JSON: 3 schema-parse the corpus and 6 rely on type assertions",
+          "note": "Source provenance does not explain one consistent policy."
+        }
+      ],
+      "problem": "There is no directory-level rule for what a seed-data boundary guarantees. Contributors must inspect each consumer to learn whether malformed input fails during loading, mapping, nested assertion, or Prisma persistence.",
+      "proposedDirection": "Add a schema-aware loader form and define an explicit validation level per corpus, deriving TypeScript types from those schemas. Large corpora can validate only consumed fields, but narrowing should occur at one named boundary.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-019",
+      "title": "tRPC error sanitization depends on unstable internals and assertion-heavy recursive surgery",
+      "area": "server",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/trpc/trpc.ts",
+          "line": 2,
+          "endLine": 3,
+          "measurement": null,
+          "note": "The boundary imports DefaultErrorShape from unstable-core-do-not-import and Zod core internals."
+        },
+        {
+          "path": "packages/server/src/trpc/trpc.ts",
+          "line": 19,
+          "endLine": 45,
+          "measurement": null,
+          "note": "Sanitization manually traverses variant-specific errors and issues, casts sanitized children back to Zod issue types, and casts the rebuilt record again."
+        },
+        {
+          "path": "packages/server/src/trpc/trpc.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "5 type-assertion-boundary markers in the 16-line variant-rewrite block",
+          "note": "The density reflects the framework-type mismatch carried by the adapter."
+        }
+      ],
+      "problem": "Framework or Zod upgrades can change private issue variants or error shapes while the important sanitization policy remains represented through unsafe framework types. The recursive adapter is difficult to reason about and assertion growth is the likely maintenance path.",
+      "proposedDirection": "Isolate sanitization behind a transport-owned recursive issue type and a narrow compatibility seam; keep sanitized children in the safe type rather than repeatedly casting them back to framework internals.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L03-020",
+      "title": "Participant mutation comments misstate expected-version helper usage",
+      "area": "server",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/participant-stats-mutations.ts",
+          "line": 26,
+          "endLine": 40,
+          "measurement": null,
+          "note": "The header says the expected-version helper closes visibility edits, then classifies isVisible as blind non-racing metadata."
+        },
+        {
+          "path": "packages/server/src/utils/participant-stats-mutations.ts",
+          "line": 168,
+          "endLine": 174,
+          "measurement": null,
+          "note": "The field contract says encounter.updateParticipant writes conditions through updateParticipantStatsLocked."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 121,
+          "endLine": 142,
+          "measurement": null,
+          "note": "The implementation routes versioned writes through updateParticipantStatsLockedWithExpectedVersion and visibility through blindUpdateParticipant."
+        }
+      ],
+      "problem": "The sanctioned write boundary's guidance contradicts its implementation: visibility is blind-written, while the DM conditions path uses the expected-version variant. A maintainer following the header can choose or describe the wrong helper.",
+      "proposedDirection": "Correct the two field/helper statements while preserving the load-bearing concurrency header and its rationale.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-103",
+        "novelty": "The ruling requires mutation headers to remain; this finding identifies concrete false statements to repair rather than proposing a trim."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Convert assertCharacterOwner calls to AuthzCallerContext objects",
+      "ref": "CQ25-68",
+      "reason": "This is exactly optional S17."
+    },
+    {
+      "title": "Converge campaign and note authorization on object callers",
+      "ref": "CQ25-69",
+      "reason": "This is exactly optional S18."
+    },
+    {
+      "title": "Rename combat-chat and SRD short identifiers",
+      "ref": "CQ25-70",
+      "reason": "These names are exactly optional S19."
+    },
+    {
+      "title": "Move character-campaign and combat-chat orchestration out of utils",
+      "ref": "CQ25-75",
+      "reason": "The exact taxonomy question for those two files is already recorded."
+    },
+    {
+      "title": "Remove WEAPON_MASTERY_MAP's null fallback",
+      "ref": "CQ25-84",
+      "reason": "The fallback is explicitly retained under noUncheckedIndexedAccess."
+    },
+    {
+      "title": "Add CharacterSpell to the restricted delegate set",
+      "ref": "CQ25-97",
+      "reason": "The table-wide gate was refused without a full writer inventory."
+    },
+    {
+      "title": "Simplify serialization failures to P2034 checks",
+      "ref": "CQ25-98",
+      "reason": "Both P2034 and commit-time DriverAdapterError shapes are deliberately required."
+    },
+    {
+      "title": "Expand the nested-write runtime guard to create, delete, or connect operators",
+      "ref": "CQ25-101",
+      "reason": "These operators and new bypass/config surfaces are deliberate v1 exclusions."
+    },
+    {
+      "title": "Widen narrow service contexts to FastifyInstance",
+      "ref": "CQ25-102",
+      "reason": "The narrow port shape is a standing decision."
+    },
+    {
+      "title": "Trim mutation-helper concurrency headers",
+      "ref": "CQ25-103",
+      "reason": "The headers are an explicitly retained altitude of the concurrency contract."
+    },
+    {
+      "title": "Replace encounter transition casts with a type guard",
+      "ref": "CQ25-105",
+      "reason": "The casts are explicitly retained because the predicate cannot narrow input.to."
+    },
+    {
+      "title": "Add character:associationChanged without new product evidence",
+      "ref": "CQ25-111",
+      "reason": "The residual invalidation tradeoff is recorded and accepted."
+    },
+    {
+      "title": "Extract the campaign-room exit tail",
+      "ref": "CQ25-166",
+      "reason": "The extraction was explicitly dropped."
+    },
+    {
+      "title": "Promote rest-service into a deep rest module",
+      "ref": "CQ25-167",
+      "reason": "The prior plan explicitly dropped this direction under the module rubric."
+    },
+    {
+      "title": "Split routers/srd.ts by content family",
+      "ref": "CQ25-167",
+      "reason": "The 561-line router split was explicitly dropped."
+    },
+    {
+      "title": "Merge the two assertTurnLock branches",
+      "ref": "CQ25-167",
+      "reason": "The branches are explicitly retained verbatim."
+    },
+    {
+      "title": "Rename rest-service locals or srd-query item/fetch fields",
+      "ref": "CQ25-169",
+      "reason": "These rename directions were explicitly dropped."
+    },
+    {
+      "title": "Make AuthzCallerContext.logger required",
+      "ref": "CQ25-170",
+      "reason": "The optional logger contract was explicitly retained."
+    },
+    {
+      "title": "Table-drive, rename, or reformat the parked seed families",
+      "ref": "CQ25-171",
+      "reason": "These generator and seeder restructures are parked pending external references."
+    },
+    {
+      "title": "Add a byte-identical seed regeneration check",
+      "ref": "CQ25-172",
+      "reason": "Generated headers remain an attestation and no check command is scheduled."
+    },
+    {
+      "title": "Normalize persisted Spell.classes during mapping",
+      "ref": "CQ25-178",
+      "reason": "Partial normalization without a complete migration was refused."
+    },
+    {
+      "title": "Unify upload byte-per-megabyte constants",
+      "ref": "CQ25-180",
+      "reason": "Decimal and binary byte constants are deliberately distinct."
+    },
+    {
+      "title": "Normalize characterSpell duplicate insertion through global P2002 middleware",
+      "ref": "CQ25-210",
+      "reason": "Global middleware and the adjacent P2025 expansion were explicitly declined."
+    },
+    {
+      "title": "Move prepared-spell-toggle into services",
+      "ref": "CQ25-217",
+      "reason": "Its utility placement is a recorded exception."
+    },
+    {
+      "title": "Re-export AppSocketServer from socket/index.ts",
+      "ref": "CQ25-222",
+      "reason": "The no-barrel decision requires importers to use socket-types.ts."
+    },
+    {
+      "title": "Treat affected-character ordering comments as new work",
+      "ref": "CQ25-21",
+      "reason": "The spell ordering comment and MODULE corrections are already scheduled."
+    },
+    {
+      "title": "Report the scheduled spell combat-context and target-input narrowing",
+      "ref": "CQ25-22",
+      "reason": "Those exact type-fidelity changes are already scheduled."
+    },
+    {
+      "title": "Report ASI assertion cleanup",
+      "ref": "CQ25-24",
+      "reason": "ReadonlyMap conversion and assertion removal are already scheduled."
+    },
+    {
+      "title": "Report LevelUpContext newClassLevel and HpMethod widening",
+      "ref": "CQ25-25",
+      "reason": "Those exact changes are already scheduled."
+    },
+    {
+      "title": "Extract castWithoutSlot before the pending rules decision",
+      "ref": "CQ25-149",
+      "reason": "The extraction was explicitly dropped pending characterization."
+    },
+    {
+      "title": "Restyle the combat spell transaction return",
+      "ref": "CQ25-150",
+      "reason": "The concurrency-sensitive style change was permanently dropped."
+    },
+    {
+      "title": "Break the alleged spell-casting type-only cycle",
+      "ref": "CQ25-152",
+      "reason": "The prior premise was false and the direction was dropped."
+    },
+    {
+      "title": "Rename the non-combat facade or split level-up core.ts",
+      "ref": "CQ25-153",
+      "reason": "Both directions were explicitly dropped."
+    },
+    {
+      "title": "Change initiative ordering at the two scheduled sites",
+      "ref": "CQ25-58",
+      "reason": "The exact PARTICIPANT_ORDER changes are already scheduled."
+    },
+    {
+      "title": "Deduplicate the runtime and lint nested-write walkers",
+      "ref": "CQ25-19",
+      "reason": "That cross-lane simplification is already scheduled."
+    },
+    {
+      "title": "Reopen the refused Prisma type-closure alternative",
+      "ref": "CQ25-204",
+      "reason": "The broader closure direction was explicitly refused."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "campaign.get bypasses documented campaign-member error semantics",
+      "paths": [
+        "packages/server/src/routers/campaign.ts:145",
+        "packages/server/src/routers/campaign.ts:149",
+        "packages/server/src/routers/campaign.ts:155",
+        "packages/server/src/utils/campaign-auth.ts"
+      ],
+      "whySuspectedBug": "The router returns NOT_FOUND for every missing membership, while the authorization policy says an existing-campaign non-member receives FORBIDDEN.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Whisper online detection and delivery use different socket scopes",
+      "paths": [
+        "packages/server/src/routers/chat.ts:24",
+        "packages/server/src/routers/chat.ts:72",
+        "packages/server/src/socket/broadcast-registry.ts:234"
+      ],
+      "whySuspectedBug": "Online detection scans every socket, but whisper delivery considers only sockets in the campaign room, potentially suppressing both delivery and the offline notification.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "A whisper without a recipient falls through to whole-campaign broadcast",
+      "paths": [
+        "packages/server/src/socket/chat-broadcast.ts",
+        "packages/shared/src/schemas/chat-inputs.ts"
+      ],
+      "whySuspectedBug": "The schema permits whisper with recipientId null, while the broadcaster enters targeted delivery only when recipientId is truthy.",
+      "suggestedOwner": "security-review"
+    },
+    {
+      "title": "Timestamp-only chat pagination can skip equal-createdAt rows",
+      "paths": [
+        "packages/server/src/routers/chat.ts:170",
+        "packages/server/src/routers/chat.ts:185",
+        "packages/server/src/routers/chat.ts:188"
+      ],
+      "whySuspectedBug": "The cursor contains only createdAt, the next page uses a strict comparison, and ordering has no id tie-breaker.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Monster and magic-item cursors do not match their sort orders",
+      "paths": [
+        "packages/server/src/routers/monster.ts",
+        "packages/server/src/routers/magic-item.ts"
+      ],
+      "whySuspectedBug": "Both lists use an id cursor while ordering by non-unique name or challengeRating/name without an id tie-breaker.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Notification pagination can drop rows sharing the boundary timestamp",
+      "paths": [
+        "packages/server/src/routers/notification.ts"
+      ],
+      "whySuspectedBug": "The next page filters createdAt strictly below the last timestamp and has no id tie-breaker.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Combat-log pagination can skip rows sharing createdAt",
+      "paths": [
+        "packages/server/src/services/encounter-combat/combat-log.ts"
+      ],
+      "whySuspectedBug": "Pagination resumes with a strict createdAt comparison and no id tie-breaker.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Map update deletes the old image before the database update succeeds",
+      "paths": [
+        "packages/server/src/routers/map.ts"
+      ],
+      "whySuspectedBug": "Image deletion starts fire-and-forget before the Prisma update; a failed update may leave the persisted map referencing a removed image.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Map cascade image cleanup starts before database deletion commits",
+      "paths": [
+        "packages/server/src/services/map-tokens/map-cascade.ts"
+      ],
+      "whySuspectedBug": "Background asset deletion starts before the database transaction, so a failed delete can leave a persisted map referencing a removed image.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Rejected shared-note edits are logged as authorized",
+      "paths": [
+        "packages/server/src/utils/note-auth.ts",
+        "packages/server/src/routers/note.ts"
+      ],
+      "whySuspectedBug": "loadNoteForMutation logs allow before note.ts performs the author-specific edit check.",
+      "suggestedOwner": "security-review"
+    },
+    {
+      "title": "Multiclassing into a level-1-subclass class may not apply the subclass choice",
+      "paths": [
+        "packages/server/src/services/level-up/core.ts:162",
+        "packages/server/src/services/level-up/level-up.ts:81",
+        "packages/server/src/services/level-up/subclass.ts:94"
+      ],
+      "whySuspectedBug": "The new-class subclassLevel is loaded but not passed to subclass resolution, which substitutes level zero when targetClass is absent.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Homebrew character creation may under-prepare spells",
+      "paths": [
+        "packages/server/src/services/character-create-spells.ts:168"
+      ],
+      "whySuspectedBug": "getMaxPreparedSpells receives abilityMod zero even though the non-SRD fallback formula consumes that modifier.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Unknown starting-equipment ids become synthetic SRD inventory rows",
+      "paths": [
+        "packages/server/src/services/starting-equipment-service.ts:42",
+        "packages/server/src/services/starting-equipment-service.ts:68"
+      ],
+      "whySuspectedBug": "Missing references fall back to the submitted id, zero weight, generic properties, and sourceType srd rather than being rejected.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Malformed percent escapes can escape cookie parsing",
+      "paths": [
+        "packages/server/src/utils/cookie.ts",
+        "packages/server/src/routers/auth.ts"
+      ],
+      "whySuspectedBug": "parseCookies calls decodeURIComponent without handling malformed percent escapes.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Malformed participant conditions may be replaced with an empty list during turn advance",
+      "paths": [
+        "packages/server/src/services/combat-actions/turn-transaction.ts"
+      ],
+      "whySuspectedBug": "A failed whole-array parse falls back to an empty array that is then written through the locked update.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "generate-subclasses emits a structurally incomplete output contract",
+      "paths": [
+        "packages/server/src/seed/generate-subclasses.ts",
+        "packages/server/src/seed/seed-srd-subclass-data.ts",
+        "packages/server/src/seed/seed-srd-classes-and-features.ts"
+      ],
+      "whySuspectedBug": "The generator omits casterType and spellcastingAbility that the committed output declares and the seeder consumes.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Magic-item reseeding does not converge corrected source rows",
+      "paths": [
+        "packages/server/src/seed/seed-srd-magic-items.ts"
+      ],
+      "whySuspectedBug": "createMany with skipDuplicates never applies regenerated or corrected committed data to existing rows.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Seed failure handlers may exit before asynchronous cleanup completes",
+      "paths": [
+        "packages/server/prisma/seed.ts",
+        "packages/server/prisma/seed-template.ts"
+      ],
+      "whySuspectedBug": "Both catch handlers call process.exit before the asynchronous finally can await Prisma disconnection and logger flushing.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "packages/server/src/routers/[a-h]*.ts excluding test-shaped files — all 14 production router files",
+      "packages/server/src/routers/[i-z]*.ts excluding test-shaped files — all 15 production router files",
+      "packages/server/src/services/*.ts excluding test-shaped files — all 16 direct-child production files",
+      "packages/server/src/services/{character-live-state,combat-actions,encounter-combat,map-tokens}/**/*.ts excluding test-shaped files — all 35 production files",
+      "packages/server/src/services/{level-up,spell-casting}/**/*.ts excluding test-shaped files — all 15 production files",
+      "packages/server/src/utils/[a-m]*.ts excluding test-shaped and __type-tests__ files — all 27 production files",
+      "packages/server/src/utils/[n-z]*.ts excluding test-shaped and __type-tests__ files — all 19 production files",
+      "packages/server/src/socket/**/*.ts excluding test-shaped and __type-tests__ files — all 12 production files",
+      "packages/server/src/seed/*.ts and production parser subdirectories — all hand-authored orchestration, seeder, generator, backfill, loader, and parser files",
+      "packages/server/src/{app.ts,main.ts,config/**,prisma/**,routes/**,trpc/**} excluding test-shaped files",
+      "packages/server/prisma/schema.prisma and every migration/config/seed production file",
+      "packages/server/scripts/** and packages/server/{package.json,prisma.config.ts,tsconfig.json,tsconfig.scripts.json,.gitignore}",
+      "docs/authorization.md, docs/CONCURRENCY.md, services/README.md, routers-MODULE.md, routes/MODULE.md, socket/MODULE.md, and every service MODULE.md relevant to the audited slices"
+    ],
+    "sampled": [
+      "packages/server/src/seed/class-features/*.ts — headers of all 12 files plus full barbarian, monk, and wizard bodies",
+      "packages/server/src/seed/subclass-features/{a,b}.ts — both files read fully",
+      "packages/server/src/seed/data/**/*.json — provenance, sizes, and representative first/last small and large record shapes; content correctness not audited",
+      "packages/server/src/prisma/concurrency-relation-graph.generated.json — complete structure parsed; representative relation maps visually inspected",
+      "Production callers outside each shard were exhaustively inventoried with pinned git grep and opened only where required to validate ownership, duplication, or type-boundary claims"
+    ],
+    "skipped": [
+      "packages/server/src/generated/** — explicitly excluded generated Prisma client",
+      "All *.test.*, *.spec.*, and *.test-helper.* files — lane 06 ownership",
+      "packages/server/src/test/** and all __type-tests__/** — lane 06 shared test substrate and type tests",
+      "packages/server/vitest*.ts — lane 06 test configuration ownership",
+      "Remaining generated class-feature bodies and unsampled JSON interiors — sampled by the stated seed consistency rule",
+      "SRD content correctness — explicitly excluded"
+    ],
+    "pointers": [
+      "Lane 06: several production APIs expose hooks or exports solely for deterministic tests, including prepared-spell-toggle hooks, spell transaction probes, homebrew import size helpers, and broadcast-registry internals.",
+      "Lane 06: pagination bug follow-up would need equal-sort-key and equal-timestamp coverage across chat, notifications, content lists, and combat logs.",
+      "Lane 07: homebrew-import-MODULE.md assigns validation to the router while routers-MODULE.md says routers stay thin; whichever boundary wins should leave one rule.",
+      "Lane 07: docs/CONCURRENCY.md still locates updateParticipant and PARTICIPANT_FIELD_KIND in routers/encounter.ts and repeatedly calls UTF-16 code-unit ordering code-point ordering.",
+      "Lane 07: socket/MODULE.md omits campaign-room-handler's direct Prisma dependency.",
+      "Lane 07: packages/server/src/seed has no nearby contributor-oriented MODULE.md or README describing generator ownership and seed ordering.",
+      "Lane 08: routers/srd.ts getAll is explicitly shaped around a client hook and its consumers.",
+      "Lane 08: spell-slot-sync.ts redeclares the value 9 rather than using shared MAX_SPELL_LEVEL.",
+      "Lane 08: combat attack loading requires assertions because shared attack helpers accept substantially broader contracts than the server fields they consume."
+    ],
+    "cut": [
+      "Metamagic applicability is split between level-up orchestration and sorcerer validation.",
+      "characterSpell.add maps the same spell DTO twice.",
+      "Map-layer create/update/delete repeat their authorization and broadcast envelope.",
+      "Note/NPC-specific mapper type cleanup was folded into the broader Prisma-payload-shadow finding.",
+      "Character creation loads class and subclass references twice.",
+      "Starting-equipment persistence advertises an unused autocommit mode.",
+      "Character deletion uses one participant-list query per active encounter.",
+      "Inventory service mixes mapping, raw reporting SQL, and mutation orchestration.",
+      "Inventory's concurrency header makes incompatible atomicity and race-prevention claims.",
+      "Generic homebrew, map, and encounter helper buckets span several responsibilities.",
+      "Manual combat logs bypass encounter-combat's standard fan-out path.",
+      "Initiative orchestration uses three overlapping depth names.",
+      "Auto-link builds pairs through a stateful filter and empty-string sentinel.",
+      "Live-state side-effect plans model multiplicity no current producer has.",
+      "Socket rate-limiter wiring couples machine behavior to an English error string.",
+      "Socket authentication asserts rather than narrows the handshake token.",
+      "Mutation log events and reasons remain open strings.",
+      "Router-only SRD tRPC factories live under generic utils.",
+      "Utility sibling imports use ../utils instead of direct sibling paths.",
+      "The seed root mixes orchestration with four inline data-family seeders.",
+      "Both SRD backfills contain tautological allowlist-looking guards.",
+      "Caster metadata remains comment-constrained TEXT rather than Prisma enums.",
+      "app.ts embeds the complete logger and redaction policy.",
+      "The 1,479-line Prisma schema remains a single-file cross-domain catalog.",
+      "Bearer-token parsing is duplicated between tRPC and upload boundaries.",
+      "Seed command configuration and entrypoint lifecycle are duplicated.",
+      "validateAuthConfig is a misleading no-op."
+    ]
+  }
+}

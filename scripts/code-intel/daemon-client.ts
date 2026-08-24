@@ -3,13 +3,14 @@ import { existsSync } from "node:fs";
 import { createConnection, type Socket } from "node:net";
 
 import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
 import { isDaemonRoutableExecutableCommand } from "./daemon-commands.js";
 import { isProcessAlive } from "./daemon-process.js";
 import {
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   type CodeIntelDaemonRequest,
-  type CodeIntelDaemonResponse,
   DAEMON_FALLBACK_ERROR_NAME,
+  isDaemonQueryResult,
 } from "./daemon-protocol.js";
 import {
   type DaemonStateOptions,
@@ -18,7 +19,6 @@ import {
   resolveDaemonStatePaths,
 } from "./daemon-state.js";
 import { CodeIntelError } from "./errors.js";
-import { isRecord } from "./json-utils.js";
 import type { CodeIntelQueryResult, ExecutableCliCommand } from "./types.js";
 
 const DEFAULT_REQUEST_TIMEOUT_MS = 5000;
@@ -72,7 +72,7 @@ export async function requestDaemonQuery(
     return transportFailureOutcome(command, timeoutMs, error);
   }
 
-  return interpretResponse(raw, requestId);
+  return interpretResponse(raw, requestId, command);
 }
 
 function transportFailureOutcome(
@@ -107,7 +107,11 @@ function checkDaemonReady(
   return { kind: "ok" };
 }
 
-function interpretResponse(raw: string, expectedId: string): DaemonOutcome {
+function interpretResponse(
+  raw: string,
+  expectedId: string,
+  command: ExecutableCliCommand,
+): DaemonOutcome {
   let parsed: unknown;
   try {
     parsed = JSON.parse(raw);
@@ -124,9 +128,14 @@ function interpretResponse(raw: string, expectedId: string): DaemonOutcome {
   }
   if (parsed.id !== expectedId) return { kind: "fallback", reason: "response id mismatch" };
   if (parsed.ok === true) {
-    // type-assertion-boundary: json - daemon stdin response already discriminated by `ok: true` above; widening to the success variant
-    const response = parsed as Extract<CodeIntelDaemonResponse, { ok: true }>;
-    return { kind: "result", result: response.result };
+    if (!isDaemonQueryResult(parsed.result, command)) {
+      throw new CodeIntelError(
+        `Daemon returned a malformed success response for ${command.kind}. Run \`bun run code:intel:server -- restart\` and retry.`,
+      );
+    }
+    // type-assertion-boundary: json - the same-repo daemon response is protocol-versioned and discriminator-checked above; result-arm interiors deliberately remain compiler-owned to keep the latency path shallow
+    const result = parsed.result as CodeIntelQueryResult;
+    return { kind: "result", result };
   }
   return interpretErrorResponse(parsed);
 }

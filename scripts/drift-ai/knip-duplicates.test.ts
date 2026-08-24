@@ -116,6 +116,17 @@ describe("parseKnipDuplicates", () => {
     expect(parseKnipDuplicates('{"issues":[]}')).toEqual({ ok: true, groups: [] });
   });
 
+  it("rejects a non-object report envelope", () => {
+    expect(parseKnipDuplicates("[]")).toEqual({
+      ok: false,
+      error: "expected a JSON object with an 'issues' array",
+    });
+  });
+
+  it("treats a non-array issues field as a successful report with no rows", () => {
+    expect(parseKnipDuplicates('{"issues":{}}')).toEqual({ ok: true, groups: [] });
+  });
+
   it("tolerates rows with a missing duplicates category", () => {
     const result = parseKnipDuplicates(
       '{"issues":[{"file":"src/a.ts","exports":[{"name":"x","line":1,"col":1}]}]}',

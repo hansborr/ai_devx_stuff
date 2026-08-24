@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { collectTriageVerdicts } from "./triage-verdict-collect.js";
 import { parsePacketManifest, parseVerdictFile } from "./triage-verdict-input.js";
 import { formatVerdictCollectionText } from "./triage-verdict-text.js";
-import type { NamedTriageVerdictFile } from "./triage-verdict-types.js";
+import type { NamedTriageVerdictFile, TriageVerdict } from "./triage-verdict-types.js";
 
 const MANIFEST = parsePacketManifest({
   schemaVersion: 1,
@@ -177,6 +177,26 @@ describe("collectTriageVerdicts", () => {
 });
 
 describe("verdict contract parsing", () => {
+  const validVerdict = {
+    itemId: "item-a",
+    verdict: "confirmed",
+    severity: "high",
+    confidence: "high",
+    rationale: "Checked the implementation.",
+    verifiedLocations: ["src/a.ts:1-2"],
+    recommendedAction: null,
+    canonicalItemId: null,
+  } as const;
+
+  function parseSingleVerdict(overrides: Record<string, unknown> = {}): TriageVerdict | undefined {
+    return parseVerdictFile({
+      schemaVersion: 1,
+      kind: "drift-triage-verdicts",
+      packetId: "packet-001",
+      verdicts: [{ ...validVerdict, ...overrides }],
+    }).verdicts[0];
+  }
+
   it("rejects malformed manifests and incomplete verdict fields", () => {
     expect(() =>
       parsePacketManifest({ kind: "drift-triage-packet-manifest", packets: [] }),
@@ -189,6 +209,39 @@ describe("verdict contract parsing", () => {
         verdicts: [{ itemId: "item-a", verdict: "confirmed" }],
       }),
     ).toThrow(/malformed verdict at index 0/u);
+  });
+
+  it.each([
+    ["itemId", ""],
+    ["verdict", "not-a-verdict"],
+    ["severity", "critical"],
+    ["confidence", "certain"],
+    ["rationale", ""],
+    ["verifiedLocations", null],
+    ["recommendedAction", undefined],
+    ["canonicalItemId", undefined],
+  ])("rejects the current invalid boundary for %s", (field, invalidValue) => {
+    expect(() => parseSingleVerdict({ [field]: invalidValue })).toThrow(
+      /malformed verdict at index 0/u,
+    );
+  });
+
+  it("preserves nullable actions and canonical IDs plus string-array validation", () => {
+    expect(parseSingleVerdict()).toMatchObject({
+      recommendedAction: null,
+      canonicalItemId: null,
+      verifiedLocations: ["src/a.ts:1-2"],
+    });
+    expect(
+      parseSingleVerdict({
+        recommendedAction: "",
+        canonicalItemId: "",
+        verifiedLocations: [],
+      }),
+    ).toMatchObject({ recommendedAction: "", canonicalItemId: "", verifiedLocations: [] });
+    expect(() => parseSingleVerdict({ verifiedLocations: [null] })).toThrow(
+      /malformed verdict at index 0/u,
+    );
   });
 
   it("formats completion, missing work, and source warnings for handoff", () => {

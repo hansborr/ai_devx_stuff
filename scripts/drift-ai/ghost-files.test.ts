@@ -2,7 +2,6 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ChangedFile } from "../drift-ai.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   DEFAULT_DEPENDENTS_HINT,
@@ -21,8 +20,9 @@ import {
   singularize,
   tokenize,
 } from "./ghost-files.js";
-import type { DetectorScope } from "./scope.js";
+import type { ChangedDetectorScope, CurrentDetectorScope } from "./scope.js";
 import { buildSourceExtensions, toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+import type { ChangedFile } from "./types.js";
 
 // Inline directory fixtures: each test builds the smallest peer set that
 // exercises one rule, then injects a listDirectory that returns those names
@@ -33,7 +33,7 @@ function makeListing(directories: Record<string, readonly string[]>): DirectoryL
 
 function changed(
   items: ReadonlyArray<{ path: string; status?: ChangedFile["status"] }>,
-): DetectorScope {
+): ChangedDetectorScope {
   const files: ChangedFile[] = items.map(({ path: p, status }) => ({
     path: p,
     status: status ?? "added",
@@ -41,7 +41,7 @@ function changed(
   return { scopeMode: "changed", files: files.map(toChangedScopeFile) };
 }
 
-function current(paths: readonly string[]): DetectorScope {
+function current(paths: readonly string[]): CurrentDetectorScope {
   return { scopeMode: "current", files: paths.map(toCurrentScopeFile) };
 }
 
@@ -630,7 +630,13 @@ describe("runGhostFilesCheck", () => {
     const findings = runGhostFilesCheck({
       detectorScope: current(paths),
       inventoryByDir: inventoryByDir(paths),
-      currentAllowedPairs: [{ files: ["src/foo/bar-helper.ts", "src/foo/bar.ts"] }],
+      currentAllowedPairs: [
+        {
+          files: ["src/foo/bar-helper.ts", "src/foo/bar.ts"],
+          rationale:
+            "The helper remains a focused seam for bar; remove when its logic is consolidated.",
+        },
+      ],
     });
     expect(findings).toEqual([
       {
@@ -650,7 +656,14 @@ describe("runGhostFilesCheck", () => {
       listDirectory: makeListing({
         [dir]: ["foo-helper.ts", "foo.ts"],
       }),
-      currentAllowedPairs: [{ files: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`] }],
+      // @ts-expect-error -- changed scope must not accept current-only allowed pairs
+      currentAllowedPairs: [
+        {
+          files: [`${dir}/foo-helper.ts`, `${dir}/foo.ts`],
+          rationale:
+            "The helper remains a focused seam for foo; remove when its logic is consolidated.",
+        },
+      ],
     });
     expect(findings).toEqual([
       {
@@ -725,6 +738,7 @@ describe("runGhostFilesCheck", () => {
   });
 
   it("changed-mode ignores configured role-marker tokens", () => {
+    // @ts-expect-error -- changed scope must not accept current-only role markers
     const findings = runGhostFilesCheck({
       detectorScope: changed([{ path: `${dir}/foo-helper.ts` }]),
       listDirectory: makeListing({
@@ -749,6 +763,7 @@ describe("runGhostFilesCheck", () => {
 
   it("current-mode peers come from inventoryByDir without calling listDirectory", () => {
     const paths = ["src/foo/bar.ts", "src/foo/bar-helper.ts"];
+    // @ts-expect-error -- current scope must not accept changed-only directory listing
     const findings = runGhostFilesCheck({
       detectorScope: current(paths),
       inventoryByDir: inventoryByDir(paths),
@@ -895,10 +910,20 @@ describe("runGhostFilesCheck", () => {
 
   it("current-mode requires inventoryByDir", () => {
     expect(() =>
+      // @ts-expect-error -- runtime boundary must reject untyped current calls without inventory
       runGhostFilesCheck({
         detectorScope: current([`${dir}/character-auth-utils.ts`]),
       }),
     ).toThrow(/requires inventoryByDir for current scope/u);
+  });
+
+  it("changed-mode requires listDirectory", () => {
+    expect(() =>
+      // @ts-expect-error -- runtime boundary must reject untyped changed calls without listing
+      runGhostFilesCheck({
+        detectorScope: changed([{ path: `${dir}/character-auth-utils.ts` }]),
+      }),
+    ).toThrow(/requires listDirectory for changed scope/u);
   });
 
   it("current-mode ignores extensions outside sourceExtensions from inventoryByDir", () => {

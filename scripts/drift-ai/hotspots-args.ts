@@ -1,40 +1,43 @@
-import { parseWindowDays } from "./advisory-common.js";
-import { readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { windowDaysValue } from "./advisory-common.js";
+import { positiveIntValue } from "./arg-readers.js";
 import { DriftAiError } from "./errors.js";
-import type { HotspotLens } from "./hotspots-format.js";
+import type { ConcreteHotspotLens, HotspotLens } from "./hotspots-format.js";
 import { DEFAULT_WINDOW_DAYS } from "./hotspots-history.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import { CONCRETE_HOTSPOT_LENSES } from "./hotspots-lens-registry.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const DEFAULT_TOP_N = 20;
 
-export type ConcreteHotspotLens = Exclude<HotspotLens, "all">;
+// Resolve a parsed `--lens` to the concrete lenses it selects: `all` fans out
+// to every registered lens in registry order, each concrete lens to itself.
+// Derived (not tabulated), so a registered lens cannot drop out of the fan-out.
+export function lensSelection(lens: HotspotLens): readonly ConcreteHotspotLens[] {
+  return lens === "all" ? CONCRETE_HOTSPOT_LENSES : [lens];
+}
 
-const CONCRETE_LENSES: readonly ConcreteHotspotLens[] = [
-  "churn",
-  "coupling",
-  "fragmentation",
-  "suppression-churn",
-  "thrash",
-];
-
-export const LENS_SELECTIONS: Record<HotspotLens, readonly ConcreteHotspotLens[]> = {
-  churn: ["churn"],
-  coupling: ["coupling"],
-  fragmentation: ["fragmentation"],
-  "suppression-churn": ["suppression-churn"],
-  thrash: ["thrash"],
-  all: CONCRETE_LENSES,
-};
+// Every accepted `--lens` value, `<choice|choice|...>` style, for the usage and
+// error prose — derived from the registry so the prose cannot omit a lens.
+const LENS_CHOICES = [...CONCRETE_HOTSPOT_LENSES, "all"].join("|");
 
 const HOTSPOT_LENS_VALUES: ReadonlyMap<string, HotspotLens> = new Map<string, HotspotLens>([
-  ...CONCRETE_LENSES.map((lens): [string, HotspotLens] => [lens, lens]),
+  ...CONCRETE_HOTSPOT_LENSES.map((lens): [string, HotspotLens] => [lens, lens]),
   ["all", "all"],
 ]);
 
 const HOTSPOTS_USAGE = [
   "Usage:",
   "  bun run drift:ai hotspots",
-  "  bun run drift:ai hotspots --lens <churn|coupling|fragmentation|suppression-churn|thrash|all>",
+  `  bun run drift:ai hotspots --lens <${LENS_CHOICES}>`,
   "  bun run drift:ai hotspots --window <days> --top <N>",
   "  bun run drift:ai hotspots --lens coupling --min-support <N>",
   "  bun run drift:ai hotspots --baseline <prev.json>",
@@ -42,7 +45,7 @@ const HOTSPOTS_USAGE = [
   "  bun run drift:ai hotspots --config <path>",
   "",
   "Report-only advisory (exit 0). Areas to check, not defects. Whole-repo (no",
-  "--scope). Git-only lenses: churn, coupling, fragmentation, suppression-churn, thrash.",
+  `--scope). Git-only lenses: ${CONCRETE_HOTSPOT_LENSES.join(", ")}.`,
 ].join("\n");
 
 export type ParsedHotspotsArgs = {
@@ -54,41 +57,48 @@ export type ParsedHotspotsArgs = {
   readonly baselinePath: string | null;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--lens", kind: "value" },
+  { name: "--window", kind: "value" },
+  { name: "--top", kind: "value" },
+  { name: "--min-support", kind: "value" },
+  { name: "--baseline", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--lens": z
+    .string()
+    .transform((value) => parseLens(value))
+    .default("churn"),
+  "--window": windowDaysValue(DEFAULT_WINDOW_DAYS).default(DEFAULT_WINDOW_DAYS),
+  "--top": positiveIntValue("--top").default(DEFAULT_TOP_N),
+  "--min-support": positiveIntValue("--min-support").optional(),
+  "--baseline": z.string().optional(),
+});
+
 export function parseHotspotsArgs(argv: readonly string[]): ParsedHotspotsArgs {
-  let lens: HotspotLens = "churn";
-  let windowDays = DEFAULT_WINDOW_DAYS;
-  let top = DEFAULT_TOP_N;
-  let minSupport: number | null = null;
-  let baselinePath: string | null = null;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: HOTSPOTS_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--lens": (value) => {
-        lens = parseLens(value);
-      },
-      "--window": (value) => {
-        windowDays = parseWindowDays(value, DEFAULT_WINDOW_DAYS);
-      },
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--min-support": (value) => {
-        minSupport = readPositiveInt(value, "--min-support");
-      },
-      "--baseline": (value) => {
-        if (!value) throw new DriftAiError("--baseline requires a path.");
-        baselinePath = value;
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, lens, windowDays, top, minSupport, baselinePath };
+  return {
+    base: subcommandBaseFromOptions(options),
+    lens: options["--lens"],
+    windowDays: options["--window"],
+    top: options["--top"],
+    minSupport: options["--min-support"] ?? null,
+    baselinePath: options["--baseline"] ?? null,
+  };
 }
 
 function parseLens(value: string): HotspotLens {
   const lens = HOTSPOT_LENS_VALUES.get(value);
   if (lens !== undefined) return lens;
-  throw new DriftAiError(
-    `--lens requires one of churn|coupling|fragmentation|suppression-churn|thrash|all (got '${value}').`,
-  );
+  throw new DriftAiError(`--lens requires one of ${LENS_CHOICES} (got '${value}').`);
 }

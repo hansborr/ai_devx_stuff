@@ -16,6 +16,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 
 # shellcheck source=common.sh
 . "$SCRIPT_DIR/common.sh"
+# shellcheck source=claude-adapter.sh
+. "$SCRIPT_DIR/claude-adapter.sh"
 # shellcheck source=policy.sh
 . "$SCRIPT_DIR/policy.sh"
 
@@ -670,6 +672,51 @@ fi
 
 FAILED_SUMMARY=$(ai_bun_failure_summary "test:changed" "$AI_BUN_LOG_DIR/test_changed.log" "1" "3" "failed")
 grep -qF "$AI_FLAKY_NOTE" <<< "$FAILED_SUMMARY" || fail "test failure summary missing flaky note"
+
+# --- wrapped `bun run` exit code inferred from output text -------------------
+# The post-tool-use aggregate reaches for these when the vendor payload carries
+# no usable exit code, and they answer two different questions: the inference
+# reads a code out of the text, while the footer probe decides whether "no code
+# found" means the run succeeded or the outcome is unknown. Both do already run
+# end-to-end, through the Codex post hook cases above, whose raw responses carry
+# no exit code at all: assert_codex_bun_post_failure_keeps_bounded_block reaches
+# the inference, and assert_codex_bun_post_success_is_non_blocking falls past it
+# into the probe. Each pins one shape and discriminates against nothing, and the
+# Copilot wiring case that looks like a third (test-copilot-wiring.sh:246-249)
+# reaches neither reader: its trailing `<shellId: N completed with exit code M>`
+# marker becomes tool_response.exit_code, so the caller's guard never falls
+# through. Pin both directly, each as a positive plus the negatives it
+# discriminates against: the positives are what make the negatives mean
+# anything, since a reader that returned nothing at all would satisfy every
+# negative here on its own.
+BUN_FOOTER_OUTPUT=$(printf '%s\n' \
+  'some lint failure output' \
+  'error: script "lint:changed" exited with code 3')
+[ "$(ai_bun_exit_code_from_output "lint:changed" "$BUN_FOOTER_OUTPUT")" = "3" ] \
+  || fail "bun exit inference should read the code out of its own script's footer"
+[ -z "$(ai_bun_exit_code_from_output "other:script" "$BUN_FOOTER_OUTPUT")" ] \
+  || fail "bun exit inference must not read another script's footer"
+
+# bun's footer only counts at the start of a line: an indented or quoted mention
+# is the script's own output, not bun reporting the script's exit.
+BUN_INDENTED_FOOTER='  error: script "lint:changed" exited with code 3'
+[ -z "$(ai_bun_exit_code_from_output "lint:changed" "$BUN_INDENTED_FOOTER")" ] \
+  || fail "an indented footer mention is output text, not bun's own report"
+
+# The wrapper spelling matches anywhere in the line, and the LAST reading in the
+# output wins so a re-run's tail is what gets recorded.
+BUN_PROCESS_EXIT=$(printf '%s\n' \
+  'Process exited with code 1' \
+  'Process exited with code 2')
+[ "$(ai_bun_exit_code_from_output "lint:changed" "$BUN_PROCESS_EXIT")" = "2" ] \
+  || fail "the last exit-code reading in the output must win"
+
+ai_bun_output_has_error_footer "lint:changed" 'error: script "lint:changed" interrupted' \
+  || fail "footer probe should match its own script's footer even without a code"
+! ai_bun_output_has_error_footer "lint:changed" 'error: script "test:shared" exited with code 1' \
+  || fail "footer probe must not match another script's error footer"
+! ai_bun_output_has_error_footer "lint:changed" 'all files pass linting' \
+  || fail "clean output must not read as a bun error footer"
 
 # --- ai_claude_result_command: shell-safe temp-path quoting ------------------
 # The rewritten `cat …; rm -f …` command is re-evaluated by the shell when the

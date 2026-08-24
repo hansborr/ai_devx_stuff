@@ -1,6 +1,24 @@
 # 03. Authorization helpers take the caller three different ways, so every helper needs its own unwrap dance
 
-Status: Proposed — not promoted
+Status: **Partially delivered 2026-07-29 — stays open on the optional S17/S18.**
+[SERVER-COMMENTS-PLAN.md](./SERVER-COMMENTS-PLAN.md)
+slice **S8** landed steps 1, 2, 3, 5 and 7 on branch
+`feat/cq-server-authz-and-spell-rule`, merge `48ff021ed`; see
+[Landed](./00-index.md#landed). `AuthzCallerContext` is exported from
+`utils/request-logger.ts`, the
+`string | AuthzCallerContext` union is deleted rather than narrowed, all 23
+string-arm test call sites pass the object, `getAuthzUserId` and
+`getAuthzLogContext` are gone with their four sites inlined, and `MutableNote`
+is `NoteMutationAccess`. **No production helper signature changed — that is
+deliberately S17/S18's scope, not an omission.** **Steps 4 and 6
+remain optional** (S17 and S18) and buy only the last re-split at
+`character-auth.ts:205-207` — now one line, not three — and consistency across
+two more files. **Do not re-schedule steps 1, 2, 3, 5 or 7 from this leaf.**
+See [Third landing outcome](./SERVER-COMMENTS-PLAN.md#third-landing-outcome)
+for the recorded decisions — why the plan's standalone export commit
+cannot exist under the `knip-unused-exports` gate (durable form in
+[CONSTRAINTS.md](./CONSTRAINTS.md)), why the inlining also deleted the
+`logContext` locals, and why `AuthzCallerContext.logger` stays optional.
 Theme: Authorization API surface · Area: server · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

@@ -6,7 +6,7 @@ import { pathToFileURL } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { maxLinesPolicy } from "../eslint-config/shared-policy.js";
+import { maxLinesPolicy } from "../eslint-config/max-lines-policy.js";
 import { maxLinesPolicy as validatedMaxLinesPolicy } from "./lib/max-lines-policy.js";
 import { computeEffectiveLineCount } from "./max-lines-effective-lines.js";
 import { runMaxLinesExceptionsCli, type SourceRead } from "./max-lines-exceptions.js";
@@ -31,26 +31,18 @@ const CONFLICT_MARKER_TRIPWIRE =
   "eslint-config/max-lines-exceptions.baseline.json is generated; Git conflict markers mean its semantic merge driver was not installed. Run `bun run lint:max-lines-exceptions:install-merge-driver`, restore a parseable side with `bun run baseline:restore-stage -- --ours eslint-config/max-lines-exceptions.baseline.json` (always use stage 2/`--ours`; during rebase stage 2 is the upstream base, not the branch being rebased; if the markers were already committed, restore that side from a parent commit first), then reconcile entries from both sides and normalize with `bun run lint:max-lines-exceptions:update`; never hand-merge conflict markers in this file. Inspect the resulting baseline against both sides before staging; preserve any lower floor from the other side or explicitly accept the regression.";
 const SUPPRESS_DRIVER_WARN_ENV = "MUSI_SUPPRESS_MERGE_DRIVER_WARN";
 
-function loadSharedPolicyWithBaseline(text: string): SpawnSyncReturns<string> {
-  const root = tmpRepo.makeTempRepo("shared-policy-baseline-");
+function loadMaxLinesPolicyWithBaseline(text: string): SpawnSyncReturns<string> {
+  const root = tmpRepo.makeTempRepo("max-lines-policy-baseline-");
   tmpRepo.writeRepoFile(root, "eslint-config/max-lines-exceptions.baseline.json", text);
   copyFileSync(
-    resolve(repoRoot, "eslint-config/shared-policy.js"),
-    resolve(root, "eslint-config/shared-policy.js"),
-  );
-  copyFileSync(
-    resolve(repoRoot, "eslint-config/config-surfaces.js"),
-    resolve(root, "eslint-config/config-surfaces.js"),
+    resolve(repoRoot, "eslint-config/max-lines-policy.js"),
+    resolve(root, "eslint-config/max-lines-policy.js"),
   );
   copyFileSync(
     resolve(repoRoot, "eslint-config/max-lines-exceptions-codec.js"),
     resolve(root, "eslint-config/max-lines-exceptions-codec.js"),
   );
-  copyFileSync(
-    resolve(repoRoot, "eslint-config/config-surface-manifest.json"),
-    resolve(root, "eslint-config/config-surface-manifest.json"),
-  );
-  const moduleUrl = pathToFileURL(resolve(root, "eslint-config/shared-policy.js")).href;
+  const moduleUrl = pathToFileURL(resolve(root, "eslint-config/max-lines-policy.js")).href;
   return spawnSync(
     "bun",
     [
@@ -352,14 +344,14 @@ describe("checkMaxLinesExceptionsBaseline / --update", () => {
     }
   });
 
-  it("makes shared-policy parse failures actionable without changing fail-loud behavior", () => {
-    const conflict = loadSharedPolicyWithBaseline(
+  it("makes max-lines-policy parse failures actionable without changing fail-loud behavior", () => {
+    const conflict = loadMaxLinesPolicyWithBaseline(
       '<<<<<<< ours\n{"version":2}\n=======\n{"version":2}\n>>>>>>> theirs\n',
     );
     expect(conflict.status).toBe(1);
     expect(conflict.stderr.trim()).toBe(CONFLICT_MARKER_TRIPWIRE);
 
-    const malformed = loadSharedPolicyWithBaseline("{");
+    const malformed = loadMaxLinesPolicyWithBaseline("{");
     expect(malformed.status).toBe(1);
     expect(malformed.stderr.trim()).toBe(
       "Could not read or parse eslint-config/max-lines-exceptions.baseline.json; regenerate with `bun run lint:max-lines-exceptions:update`.",
@@ -392,7 +384,7 @@ describe("checkMaxLinesExceptionsBaseline / --update", () => {
       null,
       2,
     );
-    const loaded = loadSharedPolicyWithBaseline(badLifecycle);
+    const loaded = loadMaxLinesPolicyWithBaseline(badLifecycle);
     expect(loaded.status).toBe(1);
     expect(loaded.stderr).toContain("lifecycle is invalid");
   });
@@ -671,6 +663,7 @@ describe("generated-file exemption guard", () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("is unreachable (no file exists on disk)");
+    expect(result.stdout).toContain("eslint-config/max-lines-policy.js");
   });
 
   it("fails when an exempt path also carries a redundant baseline cap entry", () => {
@@ -683,6 +676,7 @@ describe("generated-file exemption guard", () => {
     });
     expect(result.exitCode).toBe(2);
     expect(result.stdout).toContain("must not also carry a cap entry");
+    expect(result.stdout).toContain("eslint-config/max-lines-policy.js");
   });
 
   it("runs the guard in --update mode too", () => {
@@ -715,11 +709,11 @@ describe("committed baseline", () => {
     });
   });
 
-  it("carries exactly the caps shared-policy.js exposes to eslint", () => {
+  it("carries exactly the caps max-lines-policy.js exposes to eslint", () => {
     const parsed = readMaxLinesExceptionsBaseline(readFileSync(committedBaselinePath, "utf8"));
     expect(parsed.ok).toBe(true);
     if (!parsed.ok) return;
-    // shared-policy.js is JS, so its exceptions array widens to any[] on import.
+    // max-lines-policy.js is JS, so its exceptions array widens to any[] on import.
     const policyExceptions = maxLinesPolicy.exceptions as ReadonlyArray<
       Parameters<typeof makeMaxLinesExceptionEntry>[0]
     >;

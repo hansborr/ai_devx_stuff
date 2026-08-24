@@ -36,13 +36,36 @@ function parseSource(path: string): ts.SourceFile {
   return ts.createSourceFile(path, readFileSync(path, "utf8"), ts.ScriptTarget.Latest, true, kind);
 }
 
+/**
+ * Whether the generated `local` plugin registers `name` in its `rules` object.
+ *
+ * Read STRUCTURALLY, never as bytes. scripts/harness/generate-local-plugin.ts
+ * quotes a plugin key only when the rule id is not already an identifier — a
+ * single-word id such as `complexity` is emitted bare, because the rendered
+ * bytes must also be a prettier fixed point (`quoteProps: as-needed`). Matching
+ * a `"<name>"` byte pattern would therefore report a correctly generated
+ * registration as unresolved, and would have to be kept in lockstep with that
+ * formatting decision. A property name covers both key forms by construction.
+ */
+function pluginRegistersRule(pluginPath: string, name: string): boolean {
+  return descendants(parseSource(pluginPath)).some(
+    (node) =>
+      ts.isPropertyAssignment(node) &&
+      propertyName(node.name) === "rules" &&
+      ts.isObjectLiteralExpression(node.initializer) &&
+      node.initializer.properties.some(
+        (property) => ts.isPropertyAssignment(property) && propertyName(property.name) === name,
+      ),
+  );
+}
+
 function eslintRuleFailure(root: string, value: string): string | undefined {
   if (!value.startsWith("local/")) return "only local/* ESLint rules are supported";
   const name = value.slice("local/".length);
   if (!isFile(resolve(root, `eslint-rules/${name}.js`)))
     return "local ESLint rule file does not resolve";
-  const pluginPath = resolve(root, "eslint-config/local-plugin.js");
-  if (!isFile(pluginPath) || !readFileSync(pluginPath, "utf8").includes(`"${name}"`)) {
+  const pluginPath = resolve(root, "eslint-config/local-plugin.generated.js");
+  if (!isFile(pluginPath) || !pluginRegistersRule(pluginPath, name)) {
     return "local plugin registration does not resolve";
   }
   const enabled = [resolve(root, "eslint.config.js"), ...walkFiles(resolve(root, "eslint-config"))]

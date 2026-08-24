@@ -2,7 +2,7 @@
 
 Status: Task index
 Created: 2026-07-19
-Updated: 2026-07-25
+Updated: 2026-07-29
 
 Source: 2026-07-19 whole-backlog readiness sweep, drained through 2026-07-20.
 Standalone ready notes were **moved into this pack** (leaves 01–10);
@@ -83,6 +83,14 @@ rows moved because their recorded state was wrong — **C3 already landed**, **C
 is in flight, not unstarted**, and **C8's blocker is its own design forks, not
 C7**. Four follow-ups (`F1`–`F4`) were re-filed out of trimmed rows that had
 carried residual scope.
+
+**2026-07-29 C8 ownership decision.** The owner carved the immediate
+producer-footer Bash compatibility repair out of the C8 rider as
+[`../pain-points-2026-07-29/02-parallel-verify-lane-isolation-plan.md`](../pain-points-2026-07-29/02-parallel-verify-lane-isolation-plan.md).
+C8 S4 remains the later typed command-policy owner of target classification
+and adapter state-path propagation; when it eventually lands, it must preserve
+the producer-authoritative failure-evidence behavior leaf 02 establishes
+rather than reintroducing hook-checkout defaults.
 
 ## Working model
 

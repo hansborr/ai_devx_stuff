@@ -28,8 +28,8 @@ export function markdownCode(value: string): string {
 
 /**
  * Escape prose that intentionally contains inline-code spans. Finding `why` /
- * `howToFix` strings are authored with backticked commands (`` Run `bun run
- * lint:fix` ``); running {@link escapeMarkdownText} over the whole string would
+ * `howToFix` strings are authored with backticked workflow commands; running
+ * {@link escapeMarkdownText} over the whole string would
  * backslash-escape those backticks and render the commands as literal text.
  * This preserves single-backtick code spans — re-emitting them through
  * {@link markdownCode} so their fencing stays safe — and escapes only the prose

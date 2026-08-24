@@ -72,6 +72,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       includeCategories: resolveKnipIncludeCategories(parseArgs(argv).checks),
       knipBin: "/bin/knip",
       spawn,
@@ -106,6 +107,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       spawn,
     });
@@ -136,6 +138,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "caller:knip",
       knipBin: "/bin/knip",
       spawn,
       timeoutMs: 180 * 1000,
@@ -144,7 +147,7 @@ describe("defaultKnipRunner", () => {
 
     expect(runner({ configPath: null })).toMatchObject({ ok: true });
     // Banner first, then the spawn — it must be observable before the blocking call.
-    expect(events).toEqual(["warn:drift:ai: running knip self-scan (budget 180s)…", "spawn"]);
+    expect(events).toEqual(["warn:caller:knip: running knip self-scan (budget 180s)…", "spawn"]);
   });
 
   it("explains a timed-out knip self-scan on stderr instead of staying silent", () => {
@@ -162,6 +165,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "caller:knip",
       knipBin: "/bin/knip",
       spawn,
       timeoutMs: 180 * 1000,
@@ -175,8 +179,8 @@ describe("defaultKnipRunner", () => {
     });
     // Start banner plus an explicit timeout notice — never silence on a skip.
     expect(warnings).toEqual([
-      "drift:ai: running knip self-scan (budget 180s)…",
-      "drift:ai: knip self-scan timed out after 180s; skipping knip-backed checks for this run.",
+      "caller:knip: running knip self-scan (budget 180s)…",
+      "caller:knip: knip self-scan timed out after 180s; skipping knip-backed checks for this run.",
     ]);
   });
 
@@ -191,6 +195,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       spawn,
     });
@@ -213,6 +218,7 @@ describe("defaultKnipRunner", () => {
 
     const runner = defaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       spawn,
       timeoutMs: 1234,
@@ -278,12 +284,14 @@ describe("memoizingDefaultKnipRunner", () => {
 
     const fileOnlyRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       includeCategories: KNIP_FILE_INCLUDE_CATEGORIES,
       knipBin: "/bin/knip",
       underlyingRunner,
     });
     const fullRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       includeCategories: KNIP_INCLUDE_CATEGORIES,
       knipBin: "/bin/knip",
       underlyingRunner,
@@ -305,12 +313,14 @@ describe("memoizingDefaultKnipRunner", () => {
 
     const oneSecondRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       timeoutMs: 1000,
       underlyingRunner,
     });
     const twoSecondRunner = memoizingDefaultKnipRunner({
       analyzedRepoRoot: "/repo/target",
+      commandLabel: "drift:ai",
       knipBin: "/bin/knip",
       timeoutMs: 2000,
       underlyingRunner,

@@ -148,6 +148,7 @@ function requireCurrentBaseline(
   paths: AccountingPaths,
   source: "index" | "worktree",
   deps: BaselineDebtAccountingGitDeps,
+  context: LintRatchetEngineContext,
 ): string {
   const text = currentFileText(
     { repoRoot: paths.repoRoot, relPath: paths.baselineRelPath, absPath: paths.baselinePath },
@@ -158,7 +159,7 @@ function requireCurrentBaseline(
   throw new ConfigError(
     source === "index"
       ? `${paths.baselineRelPath} is absent from the staged index`
-      : `${paths.baselineRelPath} does not exist; run bun run lint:ratchet:update`,
+      : `${paths.baselineRelPath} does not exist; run ${context.workflowVocabulary.updateCommand}`,
   );
 }
 
@@ -189,7 +190,12 @@ export function runBaselineDebtAccountingCheck(
     );
     return;
   }
-  const currentBaselineText = requireCurrentBaseline(paths, resolvedOptions.currentSource, deps);
+  const currentBaselineText = requireCurrentBaseline(
+    paths,
+    resolvedOptions.currentSource,
+    deps,
+    context,
+  );
   const result = checkBaselineDebtAccounting({
     baseBaselineText,
     currentBaselineText,
@@ -202,11 +208,13 @@ export function runBaselineDebtAccountingCheck(
       ) ?? "",
     baselineDisplayName: paths.baselineRelPath,
     debtLogDisplayName: paths.debtLogRelPath,
+    workflowVocabulary: context.workflowVocabulary,
   });
   if (result.failures.length > 0) {
     throw new WorseBaselineError(
       formatBaselineDebtAccountingFailures(
         result.failures,
+        context.workflowVocabulary,
         paths.baselineRelPath,
         paths.debtLogRelPath,
       ),

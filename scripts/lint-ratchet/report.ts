@@ -1,6 +1,13 @@
 import { readFileSync } from "node:fs";
 
 import {
+  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+  type HarnessDiagnostics,
+  harnessDiagnosticsSchema,
+  type HarnessFinding,
+  type HarnessFindingSeverity,
+} from "@musi/harness-diagnostics/schema.js";
+import {
   LOWER_COMPLEXITY_REASON,
   LOWER_COUNT_REASON,
   LOWER_LINES_REASON,
@@ -11,19 +18,10 @@ import {
   markdownCode,
 } from "@musi/lint-ratchet/kernel/markdown-escape.js";
 import { ConfigError } from "@musi/lint-ratchet/kernel/metrics-types.js";
-import {
-  RATCHET_UPDATE_COMMAND,
-  REGRESSION_RECOVERY_FOOTER,
-} from "@musi/lint-ratchet/kernel/recovery-command.js";
+import { regressionRecoveryFooter } from "@musi/lint-ratchet/kernel/recovery-command.js";
 import { REMOVED_PATH_REASON } from "@musi/lint-ratchet/kernel/removed-path-improvements.js";
 
-import {
-  HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-  type HarnessDiagnostics,
-  harnessDiagnosticsSchema,
-  type HarnessFinding,
-  type HarnessFindingSeverity,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 
 const DEFAULT_MAX_FINDINGS_PER_CONTROL = 10;
 const JSON_INDENT_SPACES = 2;
@@ -144,10 +142,11 @@ function recoveryLineFor(group: readonly HarnessFinding[]): string | undefined {
   if (improvement === undefined) return undefined;
   // Both branches render intentional inline code: the builder's howToFix carries
   // a backticked command, and the fallback authors one directly.
-  if (improvement.howToFix.includes(RATCHET_UPDATE_COMMAND)) {
+  const updateCommand = musiLintRatchetWorkflowVocabulary.updateCommand;
+  if (improvement.howToFix.includes(updateCommand)) {
     return escapeMarkdownProse(improvement.howToFix);
   }
-  return `Run \`${RATCHET_UPDATE_COMMAND}\` to lock in the improvement.`;
+  return `Run \`${updateCommand}\` to lock in the improvement.`;
 }
 
 function maxFindingsPerControl(options: FormatHarnessDiagnosticsReportOptions | undefined): number {
@@ -185,11 +184,11 @@ function footerRecoveryLine(findings: readonly HarnessFinding[]): string {
   const hasRegression = findings.some(
     (finding) => finding.severity === "block" && !isImprovement(finding),
   );
-  if (hasRegression) return REGRESSION_RECOVERY_FOOTER;
+  if (hasRegression) return regressionRecoveryFooter(musiLintRatchetWorkflowVocabulary);
   if (findings.every((finding) => finding.severity !== "block")) {
     return "Recovery: review informational findings.";
   }
-  return `Recovery: \`${RATCHET_UPDATE_COMMAND}\``;
+  return `Recovery: \`${musiLintRatchetWorkflowVocabulary.updateCommand}\``;
 }
 
 function artifactLine(artifactName: string): string {

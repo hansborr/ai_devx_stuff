@@ -3,7 +3,7 @@ import path from "node:path";
 import type { CallExpression, Project, SourceFile } from "ts-morph";
 import { Node, SyntaxKind, VariableDeclarationKind } from "ts-morph";
 
-import { ensureNamedImport, sortImportBlocks } from "./lib/trpc-shared-schema.js";
+import { ensureNamedImport } from "./lib/codemod-imports.js";
 import {
   consoleLevel,
   objectLiteralHasProperty,
@@ -325,5 +325,5 @@ export function transformFile(
   const text = changed
     ? removeNoConsoleDisable(sourceFile.getFullText())
     : sourceFile.getFullText();
-  return { text: sortImportBlocks(text, path.join(root, relativePath)), changed, unsupported };
+  return { text, changed, unsupported };
 }

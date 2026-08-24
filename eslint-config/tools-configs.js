@@ -1,6 +1,8 @@
 // @ts-check
 
-// Reach + boundary policy for the portable `tools/lint-ratchet` package.
+import { restrictedImportsRule } from "./package-boundary-policy.js";
+
+// Reach + boundary policy for the portable tooling packages.
 //
 // The package sources live outside the root package tsconfigs and outside
 // tsconfig.scripts.json, so — exactly like maintained `scripts/` TypeScript —
@@ -11,16 +13,19 @@
 export function createToolsProjectConfigs(repoRoot) {
   return [
     {
-      files: ["tools/lint-ratchet/**/*.ts"],
+      files: ["tools/{lint-ratchet,harness-diagnostics}/**/*.ts"],
       // The package's own `*.config.ts` (its Vitest project config) is a
       // registered config surface parsed by the tsconfig.configs.json project
       // service (createTsConfigFileConfigs); it is not part of the package's
       // own tsconfig include, so leave it out of this reach block.
-      ignores: ["tools/lint-ratchet/**/*.config.ts"],
+      ignores: ["tools/{lint-ratchet,harness-diagnostics}/**/*.config.ts"],
       languageOptions: {
         parserOptions: {
           projectService: false,
-          project: "./tools/lint-ratchet/tsconfig.json",
+          project: [
+            "./tools/lint-ratchet/tsconfig.json",
+            "./tools/harness-diagnostics/tsconfig.json",
+          ],
           tsconfigRootDir: repoRoot,
         },
       },
@@ -37,29 +42,52 @@ export function createToolsProjectConfigs(repoRoot) {
       files: ["tools/lint-ratchet/**/*.ts"],
       ignores: ["tools/lint-ratchet/**/*.config.ts"],
       rules: {
-        "@typescript-eslint/no-restricted-imports": [
-          "error",
+        "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
           {
-            patterns: [
-              {
-                group: [
-                  "@musi/shared",
-                  "@musi/shared/**",
-                  "@musi/server",
-                  "@musi/server/**",
-                  "@musi/client",
-                  "@musi/client/**",
-                  "**/packages/**",
-                  "**/scripts/**",
-                  "**/eslint-config/**",
-                  "**/eslint-rules/**",
-                ],
-                message:
-                  "tools/lint-ratchet is a portable package: import only in-package paths, node:/bun: built-ins, or one of its declared dependencies. See tools/lint-ratchet/test/boundary.",
-              },
+            group: [
+              "@musi/shared",
+              "@musi/shared/**",
+              "@musi/server",
+              "@musi/server/**",
+              "@musi/client",
+              "@musi/client/**",
+              "@musi/harness-diagnostics",
+              "@musi/harness-diagnostics/**",
+              "**/packages/**",
+              "**/scripts/**",
+              "**/eslint-config/**",
+              "**/eslint-rules/**",
             ],
+            message:
+              "tools/lint-ratchet is a portable package: import only in-package paths, node:/bun: built-ins, or one of its declared dependencies. See tools/lint-ratchet/test/boundary.",
           },
-        ],
+        ]),
+      },
+    },
+    {
+      files: ["tools/harness-diagnostics/**/*.ts"],
+      ignores: ["tools/harness-diagnostics/**/*.config.ts"],
+      rules: {
+        "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
+          {
+            group: [
+              "@musi/shared",
+              "@musi/shared/**",
+              "@musi/server",
+              "@musi/server/**",
+              "@musi/client",
+              "@musi/client/**",
+              "@musi/lint-ratchet",
+              "@musi/lint-ratchet/**",
+              "**/packages/**",
+              "**/scripts/**",
+              "**/eslint-config/**",
+              "**/eslint-rules/**",
+            ],
+            message:
+              "tools/harness-diagnostics is a portable package: import only in-package paths, node:/bun: built-ins, or its declared dependencies.",
+          },
+        ]),
       },
     },
   ];

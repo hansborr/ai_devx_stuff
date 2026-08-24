@@ -1,0 +1,1449 @@
+{
+  "contractVersion": 1,
+  "consult": "C",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "itemDispositions": [
+    {
+      "sourceItemId": "triage/batch2-directions.json::refuteReviews[1]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "The kill mistakes a present-tense rollback claim for data-model rationale: the recorded row captures only part of a ten-write level-up transaction, and the router exposes no inverse operation.",
+      "promotionIds": ["C-001"]
+    },
+    {
+      "sourceItemId": "triage/batch2-directions.json::refuteReviews[2]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "The old metrics are recoverable from Git, but the rejection concedes the live defect: the guide points to nonexistent LOG entries and supplies neither the deleted path nor baseline commit.",
+      "promotionIds": ["C-002"]
+    },
+    {
+      "sourceItemId": "triage/batch2-directions.json::refuteReviews[5]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reason": "The opaque read shape and per-editor projection pattern are explicit, and prior leaf 24 expressly refused typed {type,data} wire variants so partial rows remain readable.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-directions.json::refuteReviews[6]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "CQ25-64/H15 still owns lazy or root-parameterized smoke discovery; the cwd/resetModules test choreography disappears with that already-scheduled seam.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[0]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reason": "The catalog and mechanics form one cohesive sorcery domain, frozen SRD text has no independent recurring change path, and the sole production catalog importer does not substantiate conflict cost.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[1]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reason": "Shared deliberately pairs schemas with inferred aliases; mass-pruning 122 aliases would reopen CQ25-115 for broad churn, while selective redundant-type cleanup remains available.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[3]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "The tree has eight rather than eleven clone-corpus evaluations, while six Git fixtures mutate independently after baseline; without timing evidence, sharing them remains unproven churn.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[4]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "Each output replacement is reader-atomic, check mode enumerates mixed stale outputs, and a deterministic rerun rewrites every artifact; no observed failure justifies injectable-writer machinery.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[5]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "The seams remain documented deterministic-injection or defense-in-depth contracts; hiding them behind internal facades adds indirection on race-sensitive code without changing production capability.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[6]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "The helper records a deliberate extraction boundary, and the remaining drivers materially diverge in failure handling, rerun policy, and two-kind parameterization.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[7]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "The exclusion is verified for 127 declared-workspace TypeScript files; absorption into authored leaf 109 is a dedup hint, not a rejection this consult may uphold.",
+      "promotionIds": ["C-003"]
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[8]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "The kill concedes cwd-dependent command ambiguity and rejects only its dispatcher sketch; root and package manifests still assign different meanings to dev/build.",
+      "promotionIds": ["C-004"]
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[9]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "The cited substitutes are not a joined provenance view: path policy returns smoke names, registration check returns validation state, and the generated inventory is not queryable by path.",
+      "promotionIds": ["C-005"]
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[10]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reason": "The builder still enforces non-clobbering family and disjointness guarantees; the rejected rewrite supplied no simpler design preserving those guarantees outside a snapshot corpus.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[11]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reason": "The registry feeds a non-vacuous meta-contract sweep, while repeated schema fields are standard ESLint anatomy; the minor count correction does not change the rejection economics.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[12]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reason": "The tree already shares and injects the normal-lint probe; residual option extraction has different semantics, and the finding cited two nonexistent filenames.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "triage/batch2-rejected.json::rejected[13]",
+      "sourceClass": "structured-kill",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reason": "Each expand-barrel run plans before writing and the shared-schema engine preflights discovery failures; no observed failure or measured cold-path cost supports the refactor.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[2]",
+      "sourceClass": "cut",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reason": "The reference-row header and public output say weapon-mastery properties, but srdWeaponMasterySchema/SrdWeaponMastery omit Property beside the distinct vocabulary schema.",
+      "promotionIds": ["C-006"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[3]",
+      "sourceClass": "cut",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reason": "The long names form the external TemplateParams contract, while one explicit boundary conversion consistently uses compact mapW/mapH geometry internals.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[5]",
+      "sourceClass": "cut",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reason": "The JSDoc says the function counts known metamagic options, yet its export and sole production caller call that count slots.",
+      "promotionIds": ["C-007"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[6]",
+      "sourceClass": "cut",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reason": "MulticlassPrerequisite admits empty, mixed, and empty-group configurations absent from the table, and the evaluator assigns them vacuous-pass, malformed-failure, or implicit-AND semantics.",
+      "promotionIds": ["C-008"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[1]",
+      "sourceClass": "cut",
+      "lane": "lane-06-tests",
+      "disposition": "promote",
+      "reason": "The cantrip fallback tables are explicitly Musi non-SRD policy, but their policy-protecting tests use generic caster-progression names contrary to the standing provenance rule.",
+      "promotionIds": ["C-009"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[2]",
+      "sourceClass": "cut",
+      "lane": "lane-06-tests",
+      "disposition": "promote",
+      "reason": "The attack and spell participant-loader suites are parallel 111-line files sharing 92 byte-identical lines, including fixture setup, invariant prose, and three target-type cases.",
+      "promotionIds": ["C-010"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[5]",
+      "sourceClass": "cut",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "The 808-line store suite is already partitioned into seven cohesive nested domains and includes cross-domain contracts; the title identifies no defect a file split would fix.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[8]",
+      "sourceClass": "cut",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reason": "The fixture intentionally preserves a real logged-out Semgrep envelope to pin redacted-field tolerance and scanned-path counting; no recurring churn justifies replacing it.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[0]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "The Current Gaps list still names scoped shared-rules mutation testing as missing although the same document and scheduled workflow show it running weekly.",
+      "promotionIds": ["C-011"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[4]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "A direct inventory confirms that the living backlog index omits seven of 54 immediate children, including genuinely open work.",
+      "promotionIds": ["C-012"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[5]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reason": "The unlisted files are mostly fine-grained delivery notes summarized by indexed umbrellas, and the README defines finished_work as intentionally pruned rather than exhaustive.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[6]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "LOG promises newest-first ordering but places May 29 and 31 sections below May 20, and it repeats the same ratchet-regression paragraph.",
+      "promotionIds": ["C-013"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[7]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reason": "The README declares all agent notes on-demand archaeology and reserves the task lifecycle for task state; the research, completed-review, and eval collections are reference artifacts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[9]",
+      "sourceClass": "cut",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reason": "The image installs start-servers.sh, but container-entrypoint.sh independently starts the same command and no tracked runtime or documentation invokes the helper.",
+      "promotionIds": ["C-014"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[0]",
+      "sourceClass": "cut",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "Shared exports MAX_SPELL_LEVEL = 9, but server spell-slot synchronization independently declares SPELL_LEVEL_COUNT = 9 as its loop bound.",
+      "promotionIds": ["C-015"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[11]",
+      "sourceClass": "cut",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reason": "This is a routing note aggregating three unrelated client-only themes, not a reconstructible cross-cutting finding; lane 05 separately evaluated the identifiable candidates.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[7]",
+      "sourceClass": "cut",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reason": "Two exported singular/report-only governance wrappers now have zero non-test adopters while their batch/result replacements serve production.",
+      "promotionIds": ["C-016"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[8]",
+      "sourceClass": "cut",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reason": "Registry validation retains a duck-typed ReadonlySet compatibility union although every non-test caller uses the options object and the lone old-form caller is a test.",
+      "promotionIds": ["C-017"]
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[9]",
+      "sourceClass": "cut",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reason": "The six definitions are identical three-line predicates in low-level parser modules; no semantic drift or impact justifies introducing a shared boundary.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[15]",
+      "sourceClass": "cut",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reason": "The zero-baseline report bypasses the package's canonical Markdown table escaper with a weaker private implementation.",
+      "promotionIds": ["C-018"]
+    },
+    {
+      "sourceItemId": "wave-2/lane-08-topup.json::coverage.cut[1]",
+      "sourceClass": "cut",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "TokenConditionIcons slices conditions to four and renders no count or overflow marker, so every fifth and later condition disappears from token presentation.",
+      "promotionIds": ["C-019"]
+    },
+    {
+      "sourceItemId": "wave-2/lane-08-topup.json::coverage.cut[2]",
+      "sourceClass": "cut",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reason": "The static legal page is wrapped in AuthGuard, which redirects unauthenticated visitors to login, while Legal navigation is hidden with the authenticated header.",
+      "promotionIds": ["C-020"]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "C-001",
+      "title": "Architecture plan overstates level-choice audit rows as rollback support",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/architecture-plan.md",
+          "line": 75,
+          "endLine": 77,
+          "measurement": null,
+          "note": "States in the present tense that CharacterLevelChoice records let recent decisions be reviewed and rolled back."
+        },
+        {
+          "path": "packages/server/src/services/level-up/apply-level-up.ts",
+          "line": 16,
+          "endLine": 26,
+          "measurement": null,
+          "note": "The level-up transaction performs ten classes of writes, including stats, class rows, features, sorcery state, subclass state, and spell slots."
+        },
+        {
+          "path": "packages/shared/src/schemas/character.ts",
+          "line": 206,
+          "endLine": 213,
+          "measurement": null,
+          "note": "The generic audit row records only HP method/gain, roll, and class ID, not complete pre-state or inverse operations."
+        },
+        {
+          "path": "packages/server/src/routers/character.ts",
+          "line": 121,
+          "endLine": 149,
+          "measurement": null,
+          "note": "The router exposes levelUp but no undo, downgrade, or rollback mutation."
+        }
+      ],
+      "problem": "The stable architecture guide says persisted choice rows support rollback, but those rows are partial read-only history rather than a reversible mutation manifest. Contributors can design around an inverse workflow the data and router do not provide.",
+      "proposedDirection": "Describe CharacterLevelChoice as read-only audit/history data and state that rollback or downgrade requires a separate product and data-contract decision.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "triage/batch2-directions.json::refuteReviews[1]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "Architecture documentation promises level-up review and rollback that the product does not expose",
+          "rejectionReason": "All three evidence defects verify: pinned client grep shows 2 levelChoices matches (sheet-helpers.test.ts, test/fixtures-character.ts), both non-production, not the finding's claimed 3; architecture-plan.md is a stable-architecture rationale doc that routes execution status elsewhere, and the sentence is data-model enablement rationale, not a shipped-workflow promise; character-mapping.ts:19,101 includes and maps levelChoices into CharacterDetail, so character.get does expose the review data. The finding materially overreads."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaf 192 treats levelChoices as read-only history and leaves the architecture-plan wording correction outside that feature leaf."
+      ],
+      "overturnsRuling": "Overturns batch2-directions.json /refuteReviews/1: exposing partial history supports review but not the document's separate rollback claim, and the level-up transaction has no recorded inverse."
+    },
+    {
+      "promotionId": "C-002",
+      "title": "Coverage cadence points operators at deleted baseline records",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/coverage-cadence.md",
+          "line": 14,
+          "endLine": 23,
+          "measurement": null,
+          "note": "Points to AUD-COV entries allegedly in LOG.md, admits the original notes were deleted, and tells operators to use Git without naming the deleted path or commit."
+        },
+        {
+          "path": "docs/agent_notes/LOG.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 matches for `AUD-COV|2026-05-13`, reproduced with `rg -n 'AUD-COV|2026-05-13' docs/agent_notes/LOG.md`",
+          "note": "The guide's direct comparison pointer does not resolve in the named document."
+        }
+      ],
+      "problem": "The weekly procedure is technically recoverable from full Git history, but its documented baseline pointer is false and omits the deleted artifact's path and commit. Operators must perform archaeology before applying the stated drift thresholds.",
+      "proposedDirection": "Restore a current tracked summary or link the exact historical path and baseline commit, and remove the nonexistent LOG-date/AUD-COV pointer.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "triage/batch2-directions.json::refuteReviews[2]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "Coverage cadence has no retained baseline to compare against",
+          "rejectionReason": "Commit 54f2eb910 ('docs(audit): record coverage baseline (AUD-COV-001)') contains the full per-scope metric tables in docs/agent_notes/in_progress/codebase-audit/coverage.md, recoverable by searching git history for the AUD-COV identifiers the guide supplies, and the guide instructs git log -p against the previously tracked baseline. The core claim of literal irreproducibility fails; the surviving stale-pointer hygiene point is conceded within the refutation itself."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": "Overturns batch2-directions.json /refuteReviews/2 only for its conceded residual: recoverability from Git does not cure the live guide's false pointer or omitted path and commit."
+    },
+    {
+      "promotionId": "C-003",
+      "title": "Code-intel silently excludes declared workspace files from discovery",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 6,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The Bun workspace includes packages/*, tools/*, and examples/lint-ratchet-demo."
+        },
+        {
+          "path": "scripts/code-intel/types.ts",
+          "line": 3,
+          "endLine": 13,
+          "measurement": null,
+          "note": "Code-intel defines supported workspace directories as shared, server, client, and scripts only."
+        },
+        {
+          "path": "scripts/code-intel/source-project.ts",
+          "line": 49,
+          "endLine": 66,
+          "measurement": null,
+          "note": "Single-file queries reject unsupported paths explicitly, while discovery constructs only the fixed application topology."
+        },
+        {
+          "path": "tools",
+          "line": null,
+          "endLine": null,
+          "measurement": "127 tracked TypeScript files under tools/ and examples/lint-ratchet-demo are excluded from discovery-mode queries, counted at the audit pin with git ls-files and rg",
+          "note": "Declared workspace source cannot be discovered by the contributor-facing command."
+        }
+      ],
+      "problem": "Code-intel's discovery scope silently excludes two categories declared by the repository workspace. Contributors receive incomplete workspace-wide results, while the hard-coded topology must be updated independently of package.json.",
+      "proposedDirection": "Either derive and support the declared tool/example workspaces or explicitly rename the abstraction as application-only and emit the supported scope in discovery output.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "triage/batch2-rejected.json::rejected[7]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Code-intel excludes declared workspaces while hard-coding application topology repeatedly",
+          "rejectionReason": "Subsumed by approved batch-1 C-021, which already covers hard-coded package topology in the analyzer cores including code-intel and whose policy-adapter direction would deliver this fix; approving it separately duplicates churn. The standalone case is also weaker than claimed: documented scope (AGENTS.md, ts-graph skill) matches behavior and single-file queries fail loudly with an explicit supported-scope message, so the exclusion is not silent on the main path. The genuinely new material — 127 tracked TS files under tools/ and examples/lint-ratchet-demo invisible to discovery-mode queries, and the extend-coverage vs. rename-plus-diagnostic decision — should be carried into C-021's brief as scope input rather than run as separate work."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Exact overlap with authored leaf 109, which carries the 127-file supported-scope decision."
+      ],
+      "overturnsRuling": "Overturns batch2-rejected.json /rejected/7 for reject-audit purposes: current-leaf subsumption is reserved for step 1c, while the tree verifies the residual as live."
+    },
+    {
+      "promotionId": "C-004",
+      "title": "Repository workflow commands remain dependent on the caller's current directory",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 22,
+          "endLine": 31,
+          "measurement": null,
+          "note": "At repository root, dev launches the repository workflow and build composes all three packages."
+        },
+        {
+          "path": "packages/shared/package.json",
+          "line": 34,
+          "endLine": 36,
+          "measurement": null,
+          "note": "In shared, the same vocabulary means TypeScript watch or package-only compilation."
+        },
+        {
+          "path": "packages/server/package.json",
+          "line": 12,
+          "endLine": 22,
+          "measurement": null,
+          "note": "In server, dev starts only the server and the manifest exposes package-local database operations."
+        },
+        {
+          "path": "scripts/README.md",
+          "line": 118,
+          "endLine": 124,
+          "measurement": null,
+          "note": "Documentation confirms that Bun selects the nearest package.json and root-only commands fail from package subdirectories."
+        }
+      ],
+      "problem": "A copied bun run dev, build, or root-only workflow changes meaning or fails solely because of shell location. The documented workaround helps informed contributors but does not make the vocabulary unambiguous.",
+      "proposedDirection": "Keep the rejected dispatcher out of scope; give human-facing workflows explicit scope-bearing names and migrate contributor snippets to the canonical root-anchored invocation.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "triage/batch2-rejected.json::rejected[8]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Repository command meaning changes silently with the current working directory",
+          "rejectionReason": "The cwd tripwire is real and recurring (documented in scripts/README.md:118-124 and worked around by the AGENTS.md --cwd convention), but the proposed dispatcher does not eliminate the underlying nearest-package.json ambiguity — package-local `bun run dev` would still mean something different — it only adds a parallel bespoke entry point. The canonical `bun --cwd=\"$(git rev-parse --show-toplevel)\"` form is already documented, dependency-free, and itself copyable, while a dispatcher adds a new hand-maintained harness surface (script registration, doc/guide migration across AGENTS.md and generated verify wiring) whose churn outweighs the marginal DX gain. Rejection is on fix economics, not on the problem's existence."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaves 85 and 104 address command discoverability and broken nested-cwd recovery, but not the broader dev/build scope collision."
+      ],
+      "overturnsRuling": "Overturns batch2-rejected.json /rejected/8: that ruling concedes the problem and rejects only a dispatcher remedy, so this candidate separates the verified tripwire from that sketch."
+    },
+    {
+      "promotionId": "C-005",
+      "title": "Harness provenance remains split across non-joinable views",
+      "area": "harness",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/README.md",
+          "line": 126,
+          "endLine": 140,
+          "measurement": null,
+          "note": "Adding or moving a script requires manually correlating smoke coverage, path policy, package scripts, manifest data, and prose."
+        },
+        {
+          "path": "scripts/harness/registration-check.ts",
+          "line": 66,
+          "endLine": 80,
+          "measurement": null,
+          "note": "The API returns validation failures, state, and generated surfaces but offers no path/control provenance query."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 136,
+          "endLine": 154,
+          "measurement": null,
+          "note": "The path query computes selected smoke names without explaining the matching subject or connecting controls, slots, hooks, and generated outputs."
+        },
+        {
+          "path": "docs/generated/harness-controls.md",
+          "line": 3,
+          "endLine": 8,
+          "measurement": null,
+          "note": "The generated authoritative view is a control-kind inventory, not a machine query keyed by path or package script."
+        }
+      ],
+      "problem": "No supported query joins a changed path or package-script name to the controls, smoke subjects, verify slots, hooks, and generated outputs governing it. Existing surfaces answer isolated portions only.",
+      "proposedDirection": "Add an explain/query mode to an existing harness entry point, reusing manifest and path-policy data to emit text or JSON keyed by path, control ID, or package script.",
+      "leafability": "single-leaf",
+      "confidence": "medium",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "triage/batch2-rejected.json::rejected[9]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Expose a machine-queryable harness provenance view",
+          "rejectionReason": "Recorded rejection: the common provenance questions are already answered by existing surfaces — path-policy query core for changed-path-to-smoke selection, the generated harness-controls Markdown rendered from the manifest, harness:check/registration-check diagnostics, and doctor's follow-up commands. A new joined query tool would itself become a registered harness surface (package script, smoke, path-policy row, manifest entry, docs) that must track every manifest facet change; that ongoing churn exceeds the low-severity discoverability gain, and the harness's copyability rests on the controls and generators, not on an extra viewer."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaves 85 and 94 address command documentation and inventory authority but do not supply a joined path-to-control query."
+      ],
+      "overturnsRuling": "Overturns batch2-rejected.json /rejected/9: the existing views are not joinable, and adding explain mode to an existing entry point avoids the rejected separate registered command."
+    },
+    {
+      "promotionId": "C-006",
+      "title": "Weapon-mastery reference rows omit Property from their schema and type names",
+      "area": "shared",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/srd-reference.ts",
+          "line": 53,
+          "endLine": 62,
+          "measurement": null,
+          "note": "The section is Weapon Mastery Properties, but exports srdWeaponMasterySchema and SrdWeaponMastery."
+        },
+        {
+          "path": "packages/shared/src/schemas/weapon-mastery.ts",
+          "line": 5,
+          "endLine": 11,
+          "measurement": null,
+          "note": "The separate vocabulary contract is named weaponMasteryPropertySchema and is embedded in character mastery rows."
+        },
+        {
+          "path": "packages/shared/src/schemas/srd.ts",
+          "line": 391,
+          "endLine": 394,
+          "measurement": null,
+          "note": "The public listWeaponMasteryPropertiesOutputSchema wraps srdWeaponMasterySchema, exposing the mismatch."
+        }
+      ],
+      "problem": "Shared exposes a value-vocabulary schema and a three-field SRD reference-row schema for weapon mastery properties, but only the former says Property, making the two same-domain shapes harder to distinguish.",
+      "proposedDirection": "Rename the row contract to srdWeaponMasteryPropertySchema/SrdWeaponMasteryProperty and update imports and MODULE inventory without changing wire shape.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-04.json::coverage.cut[2]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Weapon-mastery reference-row naming omits 'Property' and collides conceptually with weaponMasteryPropertySchema.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-115",
+          "residual": "The landed shared cluster established related row-versus-vocabulary distinctions but did not rename this SRD row."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-007",
+      "title": "Metamagic option counts are named as slots in the shared API and caller",
+      "area": "shared",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 160,
+          "endLine": 170,
+          "measurement": null,
+          "note": "JSDoc says the function returns cumulative metamagic options known, while the export is getMetamagicSlotsAtLevel."
+        },
+        {
+          "path": "packages/server/src/services/level-up/sorcerer.ts",
+          "line": 56,
+          "endLine": 62,
+          "measurement": null,
+          "note": "The sole production caller propagates the misnomer into maxSlots although the error says metamagic options."
+        },
+        {
+          "path": "packages/shared/src/rules/sorcery-points.test.ts",
+          "line": 211,
+          "endLine": 234,
+          "measurement": null,
+          "note": "The focused tests repeat the slots name across every level band."
+        }
+      ],
+      "problem": "Metamagic choices are known options, not spell slots. In a level-up path that also manages actual spell slots, the naming obscures which resource is capped.",
+      "proposedDirection": "Rename the export to getMetamagicOptionsKnownAtLevel, rename maxSlots to maxOptions, and update tests without changing arithmetic.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-04.json::coverage.cut[5]",
+          "lane": "lane-04-shared",
+          "originalTitle": "getMetamagicSlotsAtLevel names known options as slots.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaf 29 touches the consumed metamagic-picks constant but does not correct this function or caller naming."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-008",
+      "title": "Multiclass prerequisite types admit rule states the table never defines",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 18,
+          "endLine": 28,
+          "measurement": null,
+          "note": "The two rule modes are optional over empty-permitting records, admitting neither, both, empty requirements, and empty groups."
+        },
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 30,
+          "endLine": 49,
+          "measurement": null,
+          "note": "Every actual SRD row uses exactly one non-empty mode."
+        },
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 69,
+          "endLine": 85,
+          "measurement": null,
+          "note": "An empty anyOf group passes vacuously, while an empty group list fails and renders an empty description."
+        },
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 92,
+          "endLine": 99,
+          "measurement": null,
+          "note": "The evaluator independently runs both branches, assigning mixed rows implicit AND semantics."
+        }
+      ],
+      "problem": "The exported table value type admits {}, both modes, empty arrays, and empty requirements; those states silently pass, fail malformedly, or acquire semantics absent from the rule table.",
+      "proposedDirection": "Use an exclusive union of a non-empty all requirement or non-empty anyOf tuple, preserving current rows and adding table-shape coverage.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-04.json::coverage.cut[6]",
+          "lane": "lane-04-shared",
+          "originalTitle": "MulticlassPrerequisite admits empty and mixed all/anyOf states absent from the rule table.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-115",
+          "residual": "The landed I2 slice retyped table keys to SrdClassId but left the optional-bag value shape unchanged."
+        }
+      ],
+      "existingLeafHints": [
+        "Similar impossible-state mechanism to leaf 26, but on a distinct multiclass rule-table contract."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-009",
+      "title": "Spellcasting fallback tests hide that their tables are Musi policy",
+      "area": "tests",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 251,
+          "endLine": 252,
+          "measurement": null,
+          "note": "The full-caster cantrip table is explicitly classified as Musi non-SRD fallback policy."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 276,
+          "endLine": 300,
+          "measurement": null,
+          "note": "Half- and third-caster variants carry the same explicit Musi non-SRD classification."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.test.ts",
+          "line": 569,
+          "endLine": 610,
+          "measurement": null,
+          "note": "Nine policy-protecting cases use generic progression names with no Musi-policy classification."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.test.ts",
+          "line": 666,
+          "endLine": 670,
+          "measurement": null,
+          "note": "The unknown-class fallback case describes behavior without identifying its authority."
+        },
+        {
+          "path": "docs/guides/change-rules-logic.md",
+          "line": 38,
+          "endLine": 40,
+          "measurement": null,
+          "note": "The guide requires behavior absent from the SRD to remain explicit app policy and test names to identify that policy."
+        }
+      ],
+      "problem": "Test output makes fallback values look like generic 5E progression rules although production classifies them as Musi policy and SRD class-specific counts differ.",
+      "proposedDirection": "Rename the fallback describe path and unknown-class case so full test names explicitly say Musi fallback policy; retain assertions and comments.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[1]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Shared policy-provenance naming sweep",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "ruling",
+          "ref": "CQ25-95",
+          "residual": "The ruling requires provenance in policy-protecting test names, but these cases remain generic."
+        },
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-182",
+          "residual": "This keeps the accepted non-SRD classification and propagates it into test names rather than inventing SRD provenance."
+        }
+      ],
+      "existingLeafHints": [
+        "Leaf 25 moves the same cantrip family and preserves comments but does not classify existing test names."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-010",
+      "title": "Attack and spell participant-loader suites duplicate one invariant fixture",
+      "area": "tests",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services",
+          "line": null,
+          "endLine": null,
+          "measurement": "The two 111-line load-participants.test.ts suites share 92 byte-identical lines, measured with diff's unchanged-line output",
+          "note": "Only loader vocabulary, result projection, one label, and one comment word materially differ."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/load-participants.test.ts",
+          "line": 16,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The attack suite carries the shared invariant explanation and end-to-end loader rationale."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/load-participants.test.ts",
+          "line": 16,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The spell suite repeats the same explanation."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/load-participants.test.ts",
+          "line": 40,
+          "endLine": 77,
+          "measurement": null,
+          "note": "The attack suite constructs the encounter and character, monster, and NPC participants."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/load-participants.test.ts",
+          "line": 40,
+          "endLine": 77,
+          "measurement": null,
+          "note": "The spell suite independently repeats the fixture."
+        }
+      ],
+      "problem": "One persisted-data invariant and its setup are maintained in two nearly identical suites, forcing lockstep changes while small loader-specific differences remain buried in plumbing.",
+      "proposedDirection": "Extract a test-only invariant fixture accepting a small loader adapter, while keeping result-projection assertions in the colocated suites.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[2]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Server attack/spell participant-loader clone",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-22",
+          "residual": "CQ25-22 changes production typing but does not consolidate these end-to-end invariant suites."
+        }
+      ],
+      "existingLeafHints": [
+        "Leaf 5 fixes production Prisma type fidelity on the spell loader, not duplicated test setup."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-011",
+      "title": "Harness current-gaps list still calls scheduled rules mutation missing",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/ai-harness.md",
+          "line": 564,
+          "endLine": 571,
+          "measurement": null,
+          "note": "Documents the scheduled workflow's scoped shared-rules Stryker run and recovery behavior."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 656,
+          "endLine": 659,
+          "measurement": null,
+          "note": "Says the weekly lane runs the scoped shared-rules mutation pass."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 706,
+          "endLine": 709,
+          "measurement": null,
+          "note": "Current Gaps nevertheless lists scoped mutation testing for packages/shared/src/rules as missing."
+        },
+        {
+          "path": ".github/workflows/slow-drift.yml",
+          "line": 43,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The weekly workflow invokes the driver with MUSI_SLOW_DRIFT_MUTATION=1."
+        }
+      ],
+      "problem": "One maintained guide presents the weekly rules mutation signal as both shipped and missing, encouraging readers to re-propose an implemented capability.",
+      "proposedDirection": "Remove the fulfilled mutation-testing gap and leave only genuinely missing slow-lane signals.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[0]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The harness Current Gaps list still names the implemented weekly rules mutation run as missing.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (sample rank 4)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-012",
+      "title": "Backlog living index omits seven top-level workstreams",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/backlog/README.md",
+          "line": 1,
+          "endLine": 10,
+          "measurement": null,
+          "note": "Labels itself the living reference index for parked workstreams that still matter."
+        },
+        {
+          "path": "docs/agent_notes/backlog",
+          "line": null,
+          "endLine": null,
+          "measurement": "7 of 54 immediate non-README children have no matching backtick reference in backlog/README.md",
+          "note": "The omitted set includes agent-friction-2026-06, client-test-isolation-step3, drift-triage-2026-07-13, testsuite-audit, and three standalone notes."
+        },
+        {
+          "path": "docs/agent_notes/backlog/agent-friction-2026-06/00-report.md",
+          "line": 3,
+          "endLine": 16,
+          "measurement": null,
+          "note": "One omitted pack explicitly records surviving open work."
+        },
+        {
+          "path": "docs/agent_notes/backlog/vitest-worker-override-simplification.md",
+          "line": 1,
+          "endLine": 4,
+          "measurement": null,
+          "note": "Another omission is a deliberately parked candidate requiring classification rather than silence."
+        }
+      ],
+      "problem": "The hand-maintained entry point does not cover the namespace it claims to index, so contributors can miss open work or fail to distinguish parked candidates from historical records.",
+      "proposedDirection": "Add and classify the omissions now; if leaf 84's generated catalog lands, make it exhaustive and label this README explicitly curated.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[4]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The living backlog index omits 7 of 54 top-level workstreams.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (sample rank 1)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaf 84 proposes an exhaustive generated backlog catalog that could subsume this residual."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-013",
+      "title": "Curated LOG violates its newest-first contract and repeats prose",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/LOG.md",
+          "line": 1,
+          "endLine": 5,
+          "measurement": null,
+          "note": "Defines the file as curated recent history and explicitly promises newest-on-top ordering."
+        },
+        {
+          "path": "docs/agent_notes/LOG.md",
+          "line": 362,
+          "endLine": 380,
+          "measurement": null,
+          "note": "Lines 377-379 repeat the preceding partial-check paragraph, and a May 30 section follows May 29."
+        },
+        {
+          "path": "docs/agent_notes/LOG.md",
+          "line": 879,
+          "endLine": 903,
+          "measurement": null,
+          "note": "After chronology reaches May 20, the file appends May 29 and May 31 before returning to May 19."
+        }
+      ],
+      "problem": "The orientation log breaks its explicit ordering invariant and contains duplicated prose, preventing reliable recency scanning and weakening trust in its curated status.",
+      "proposedDirection": "Delete the duplicated paragraph and move displaced entries into date order without expanding the log.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[6]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The curated 981-line LOG is not newest-first and duplicates prose.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (sample rank 6)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-014",
+      "title": "Devcontainer installs an unused second server-start helper",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": ".devcontainer/Dockerfile",
+          "line": 3,
+          "endLine": 5,
+          "measurement": null,
+          "note": "Copies and chmods both container-entrypoint.sh and start-servers.sh."
+        },
+        {
+          "path": ".devcontainer/container-entrypoint.sh",
+          "line": 14,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The active entrypoint independently starts bun run dev after the setup sentinel."
+        },
+        {
+          "path": ".devcontainer/start-servers.sh",
+          "line": 1,
+          "endLine": 4,
+          "measurement": null,
+          "note": "The second helper starts the same command but omits the setup-sentinel contract."
+        },
+        {
+          "path": ".devcontainer/start-servers.sh",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 tracked execution or documentation references; search finds only Dockerfile installation plus lint/test inventory mentions",
+          "note": "No supported workflow invokes or explains the installed helper."
+        }
+      ],
+      "problem": "The image carries two divergent server-start paths, one setup-gated and one not. The uninvoked executable can drift while appearing supported.",
+      "proposedDirection": "Delete start-servers.sh and remove it from Docker COPY/chmod, or document a real manual-restart contract and make the entrypoint share it.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[9]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The devcontainer installs an unused second server-start helper.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (sample rank 3)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaf 82 covers devcontainer prerequisites and reuse accuracy, not this duplicate startup path."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-015",
+      "title": "Spell-slot synchronization redefines the shared maximum spell level",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 10,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Shared declares MAX_SPELL_LEVEL = 9 as the cross-package rule authority."
+        },
+        {
+          "path": "packages/server/src/utils/spell-slot-sync.ts",
+          "line": 7,
+          "endLine": 17,
+          "measurement": null,
+          "note": "Server redeclares the same value as SPELL_LEVEL_COUNT and uses it to bound synchronization."
+        }
+      ],
+      "problem": "The synchronization loop is not compiler-linked to the shared spell-level limit, so a rules change can update validation and presentation while leaving server synchronization behind.",
+      "proposedDirection": "Import MAX_SPELL_LEVEL from @musi/shared/constants and remove SPELL_LEVEL_COUNT.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-08.json::coverage.cut[0]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Spell-slot synchronization privately redefines MAX_SPELL_LEVEL; accurate cross-package straggler, cut below the soft cap.",
+          "rejectionReason": "per-lane-budget:explicit-soft-cap-overflow (rank 3)"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "ruling",
+          "ref": "CQ25-110",
+          "residual": "This is a concrete semantic straggler; the ruling requires whole-tree searches rather than refusing consolidation."
+        }
+      ],
+      "existingLeafHints": [
+        "Exact overlap with authored leaf 189."
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-016",
+      "title": "Superseded lint-ratchet convenience APIs survive only in tests",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-write.ts",
+          "line": 113,
+          "endLine": 142,
+          "measurement": null,
+          "note": "The batch append operation is followed by a singular exported wrapper that only boxes one entry into an array."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/zero-baseline.ts",
+          "line": 304,
+          "endLine": 310,
+          "measurement": null,
+          "note": "The string-only audit export delegates to the richer result-returning operation used by the adapter."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance",
+          "line": null,
+          "endLine": null,
+          "measurement": "Exact-word search over non-documentation source excluding tests found zero call sites for appendValidatedDebtLogEntry and runLintRatchetZeroBaselineAudit outside their declarations",
+          "note": "Only tests adopt them; production uses the batch/result replacements."
+        }
+      ],
+      "problem": "Two superseded exports enlarge the governance API and retain dedicated tests although no production or example adapter calls them.",
+      "proposedDirection": "Delete the singular and string-only wrappers and retarget remaining cases to the batch and result-returning APIs.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[7]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "superseded governance convenience exports remain — low-confidence dead-surface cleanup",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 2)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-017",
+      "title": "Registry validation's legacy set overload survives only in one test",
+      "area": "harness",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/kernel/registry-validation.ts",
+          "line": 70,
+          "endLine": 85,
+          "measurement": null,
+          "note": "A duck-typed has/forEach predicate and normalizer preserve the legacy ReadonlySet form."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/registry-validation.ts",
+          "line": 311,
+          "endLine": 319,
+          "measurement": null,
+          "note": "The public validator signature exposes the set-or-options union."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/baseline.test.ts",
+          "line": 2511,
+          "endLine": 2515,
+          "measurement": null,
+          "note": "The only surviving direct-set caller is an internal validation test."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/registry-validation.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "Three non-test validateLintRatchetRegistry callers all pass the canonical options object; the only direct ReadonlySet second argument is baseline.test.ts:2514",
+          "note": "No production or example consumer needs the compatibility form."
+        }
+      ],
+      "problem": "A public kernel validator advertises two argument shapes and performs runtime duck typing solely for one internal test, obscuring the canonical extensible contract.",
+      "proposedDirection": "Accept only ValidateLintRatchetRegistryOptions, remove the set normalizer, and update the test to pass localRuleIds explicitly.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[8]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "registry validation retains a legacy ReadonlySet overload — small compatibility cleanup",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 4)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-018",
+      "title": "Zero-baseline reporting bypasses canonical Markdown table escaping",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/zero-baseline.ts",
+          "line": 188,
+          "endLine": 190,
+          "measurement": null,
+          "note": "The report defines a private table-cell helper escaping only pipes and LF."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/zero-baseline.ts",
+          "line": 196,
+          "endLine": 199,
+          "measurement": null,
+          "note": "User-authored exitPath or reason text flows through that helper."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/markdown-escape.ts",
+          "line": 1,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The package's canonical escaper additionally handles backslashes, Markdown punctuation, HTML angle brackets, CRLF, and pipes."
+        },
+        {
+          "path": "tools/lint-ratchet/src/kernel/zero-baseline-types.ts",
+          "line": 7,
+          "endLine": 10,
+          "measurement": null,
+          "note": "Disposition reason and exitPath are unconstrained strings."
+        }
+      ],
+      "problem": "Zero-baseline tables use a weaker duplicate escaper than other reports, allowing disposition prose to render unintended Markdown or HTML and bypass future canonical fixes.",
+      "proposedDirection": "Use escapeMarkdownTableCell from kernel/markdown-escape.ts and remove the private helper.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[15]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "zero-baseline duplicates Markdown table-cell escaping — one-line cleanup",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 1)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-019",
+      "title": "Token condition badges silently hide every condition after the fourth",
+      "area": "client",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-condition-icons.tsx",
+          "line": 5,
+          "endLine": 10,
+          "measurement": null,
+          "note": "Token presentation hard-caps visible conditions at four."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-condition-icons.tsx",
+          "line": 49,
+          "endLine": 77,
+          "measurement": null,
+          "note": "The component slices to four and renders no overflow count or signal."
+        },
+        {
+          "path": "packages/client/src/components/campaign/tokens/token-condition-icons.test.tsx",
+          "line": 18,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The six-condition case pins four circles but asserts no indication that two remain hidden."
+        }
+      ],
+      "problem": "Players and DMs cannot tell that a map token has more than four active conditions, so gameplay-relevant state disappears without indicating that the row is incomplete.",
+      "proposedDirection": "Reserve the final position for a +N marker when conditions overflow, with accessible text or a tooltip exposing the hidden count.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-2/lane-08-topup.json::coverage.cut[1]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Pointer 22, show a +N overflow indicator after four token conditions: qualified cheap player/DM feature with evidence at packages/client/src/components/campaign/maps/token-condition-icons.tsx:49-77, but cut below the top-up cap.",
+          "rejectionReason": "per-lane-budget:explicit-soft-cap-overflow (rank 1)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "C-020",
+      "title": "The legal and license page is unavailable before authentication",
+      "area": "client",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/routes/legal-route.ts",
+          "line": 4,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The static legal page is wrapped in AuthGuard."
+        },
+        {
+          "path": "packages/client/src/components/common/auth-guard.tsx",
+          "line": 32,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Unauthenticated visitors are redirected to /login."
+        },
+        {
+          "path": "packages/client/src/components/app-header.tsx",
+          "line": 87,
+          "endLine": 90,
+          "measurement": null,
+          "note": "The header owning Legal navigation is hidden from unauthenticated visitors."
+        },
+        {
+          "path": "packages/client/src/pages/legal-page.tsx",
+          "line": 20,
+          "endLine": 59,
+          "measurement": null,
+          "note": "The page contains SRD attribution, source-license information, and trademark notices relevant before account creation."
+        }
+      ],
+      "problem": "Prospective users cannot inspect source licensing, SRD attribution, or trademark notices without an account even though the page is static and has no authenticated data dependency.",
+      "proposedDirection": "Register Legal as a public root child and render the page directly; add a guest-visible link if discoverability beyond direct URLs is intended.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "C",
+          "sourceItemId": "wave-2/lane-08-topup.json::coverage.cut[2]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Pointer 24, make the static legal/license route unauthenticated: qualified small contributor/prospective-player feature with evidence at packages/client/src/routes/legal-route.ts:4-16 and packages/client/src/components/common/auth-guard.tsx:32-41, but cut below the top-up cap.",
+          "rejectionReason": "per-lane-budget:explicit-soft-cap-overflow (rank 2)"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "Leaf 51 preserves /legal in the protected set but explicitly identifies public access as a separate product decision."
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "itemsAssigned": 39,
+    "itemsAudited": 39,
+    "subagentPartition": [
+      "lane04 subagent: items 5, 6, 18, 19, 20, and 21",
+      "lane06 subagent: items 4, 7, 8, 9, 10, 22, 23, 24, and 25",
+      "lane07 subagent: items 1, 2, 26, 27, 28, 29, 30, and 31",
+      "lane08 subagent: items 3, 11, 12, 13, 32, 33, 38, and 39",
+      "lane09 subagent: items 14, 15, 16, 17, 34, 35, 36, and 37"
+    ],
+    "notes": [
+      "No tests or builds were run and no files were modified.",
+      "D-094 is promoted only for its conceded stale-pointer residual; the historical metrics are recoverable from Git.",
+      "Item 11 and item 32 exactly overlap authored leaves 109 and 189 respectively; they remain promotion candidates because step 1c owns dedup.",
+      "Item 39 is the separate product decision explicitly left outside leaf 51's protected-route restructuring."
+    ]
+  }
+}

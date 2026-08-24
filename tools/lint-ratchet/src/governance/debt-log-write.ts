@@ -31,6 +31,10 @@ const defaultDebtLogAppendDeps: DebtLogAppendDeps = {
   },
 };
 
+function hasExplicitDebtLogKind(value: unknown): value is { readonly kind: unknown } {
+  return typeof value === "object" && value !== null && "kind" in value && value.kind !== undefined;
+}
+
 function debtLogRegressionFor(regression: LintRatchetRegression): LintRatchetRegression {
   return {
     testId: regression.testId,
@@ -60,6 +64,7 @@ export function buildLintRatchetDebtLogEntry(
 ): LintRatchetAcceptedDebtLogEntry {
   return {
     version: "1",
+    kind: "accepted-debt",
     acceptanceReason,
     regressions: decision.regressions.map(debtLogRegressionFor),
     orphansRemoved: decision.orphanRemovals,
@@ -119,6 +124,11 @@ export function appendValidatedDebtLogEntries(
 ): boolean {
   if (entries.length === 0) return false;
   for (const entry of entries) {
+    if (!hasExplicitDebtLogKind(entry)) {
+      throw new ConfigError(
+        "refusing to append an invalid debt-log entry:\nkind: required for newly authored debt-log entries",
+      );
+    }
     const parsed = parseLintRatchetDebtLogEntry(entry);
     if (parsed.entry === undefined) {
       throw new ConfigError(
@@ -132,12 +142,4 @@ export function appendValidatedDebtLogEntries(
   const separator = existing.length > 0 && !existing.endsWith("\n") ? "\n" : "";
   deps.appendFileSync(path, `${separator}${batch}`);
   return true;
-}
-
-export function appendValidatedDebtLogEntry(
-  entry: LintRatchetDebtLogEntry,
-  path: string,
-  deps: DebtLogAppendDeps = defaultDebtLogAppendDeps,
-): boolean {
-  return appendValidatedDebtLogEntries([entry], path, deps);
 }

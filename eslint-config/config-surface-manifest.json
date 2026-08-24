@@ -116,6 +116,12 @@
       "coverageStatus": "linted"
     },
     {
+      "path": "tools/harness-diagnostics/vitest.config.ts",
+      "language": "ts",
+      "group": "root-package-ts",
+      "coverageStatus": "linted"
+    },
+    {
       "path": "scripts/vitest.config.ts",
       "language": "ts",
       "group": "script-ts",

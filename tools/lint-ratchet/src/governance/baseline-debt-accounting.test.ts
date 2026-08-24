@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 
+import { fixtureWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
+import { customWorkflowVocabulary } from "../../test/fixture-workflow-vocabulary.js";
 import { currentById, FIXTURE_HASH } from "../../test/support/lint-ratchet.test-helper.js";
 import {
   buildLintRatchetBaseline,
@@ -14,6 +16,7 @@ import {
   checkBaselineDebtAccounting,
   formatBaselineDebtAccountingFailures,
 } from "./baseline-debt-accounting.js";
+import { formatBaselineDebtAccountingFailures as formatBaselineDebtAccountingFailuresWithVocabulary } from "./baseline-debt-accounting-format.js";
 
 type BaselineTest = NonNullable<LintRatchetBaseline["tests"][string]>;
 
@@ -25,7 +28,6 @@ const messageRatchet = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture message ratchet.",
 } satisfies LintRatchetConfig;
 
@@ -55,8 +57,9 @@ function baselineText(fixtures: readonly BaselineFixture[]): string {
     fixtures.map((fixture) => fixture.ratchet),
     currentById(fixtures.map((fixture) => [fixture.ratchet.id, fixture.items])),
     new Map(fixtures.map((fixture) => [fixture.ratchet.id, FIXTURE_HASH])),
+    { workflowVocabulary: fixtureWorkflowVocabulary },
   );
-  return formatLintRatchetBaseline(baseline);
+  return formatLintRatchetBaseline(baseline, fixtureWorkflowVocabulary);
 }
 
 function withConfigHash(text: string, testId: string, configHash: string): string {
@@ -68,12 +71,13 @@ function withConfigHash(text: string, testId: string, configHash: string): strin
   if (test !== undefined) {
     parsed.tests = { ...parsed.tests, [testId]: { ...test, configHash } };
   }
-  return formatLintRatchetBaseline(parsed);
+  return formatLintRatchetBaseline(parsed, fixtureWorkflowVocabulary);
 }
 
 function debtLogLine(regression: LintRatchetRegression): string {
   return `${JSON.stringify({
     version: "1",
+    kind: "accepted-debt",
     acceptanceReason: "intentional accepted debt for this fixture",
     regressions: [regression],
     orphansRemoved: [],
@@ -120,6 +124,7 @@ describe("checkBaselineDebtAccounting", () => {
     ]);
 
     const result = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -132,8 +137,23 @@ describe("checkBaselineDebtAccounting", () => {
       "count",
       "new-path",
     ]);
-    expect(formatBaselineDebtAccountingFailures(result.failures)).toContain(
-      "ratchet/message packages/server/src/new.ts: new path baseline is 1 finding(s)",
+    expect(
+      formatBaselineDebtAccountingFailuresWithVocabulary(
+        result.failures,
+        customWorkflowVocabulary,
+        "lint-ratchet.baseline.json",
+        "lint-ratchet.debt-log.jsonl",
+      ),
+    ).toContain("ratchet/message packages/server/src/new.ts: new path baseline is 1 finding(s)");
+    expect(
+      formatBaselineDebtAccountingFailuresWithVocabulary(
+        result.failures,
+        customWorkflowVocabulary,
+        "lint-ratchet.baseline.json",
+        "lint-ratchet.debt-log.jsonl",
+      ),
+    ).toContain(
+      'use --retire-ratchet for a proven promotion or accept intentional debt with fixture-ratchet update --allow-worse --reason "<why>", and commit the paired lint-ratchet.debt-log.jsonl line',
     );
   });
 
@@ -155,6 +175,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -188,6 +209,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -222,6 +244,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -257,6 +280,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -295,6 +319,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: baseWithoutTrailingNewline,
@@ -324,6 +349,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -375,6 +401,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -403,6 +430,7 @@ describe("checkBaselineDebtAccounting", () => {
     });
 
     const result = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -429,6 +457,7 @@ describe("checkBaselineDebtAccounting", () => {
     });
 
     const result = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: existingLine,
@@ -465,6 +494,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(() =>
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: historicalLine,
@@ -497,6 +527,7 @@ describe("checkBaselineDebtAccounting", () => {
     );
 
     const result = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -521,6 +552,7 @@ describe("checkBaselineDebtAccounting", () => {
     });
 
     const missing = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -532,6 +564,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -552,6 +585,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText: baselineText([]),
         baseDebtLogText: "",
@@ -570,6 +604,7 @@ describe("checkBaselineDebtAccounting", () => {
       baselineItems: readonly Record<string, unknown>[],
     ): string =>
       debtLogEntry({
+        kind: "accepted-debt",
         acceptanceReason: "remove an intentionally renamed ratchet floor",
         regressions: [],
         orphansRemoved: [
@@ -583,6 +618,7 @@ describe("checkBaselineDebtAccounting", () => {
       });
     const check = (currentDebtLogText: string): BaselineDebtAccountingResult["failures"] =>
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText: baselineText([]),
         baseDebtLogText: "",
@@ -611,6 +647,7 @@ describe("checkBaselineDebtAccounting", () => {
     });
 
     const missing = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -621,6 +658,7 @@ describe("checkBaselineDebtAccounting", () => {
     ]);
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -659,6 +697,7 @@ describe("checkBaselineDebtAccounting", () => {
     // Migration record alone leaves the count increase unaccounted.
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -669,6 +708,7 @@ describe("checkBaselineDebtAccounting", () => {
     // Migration record plus an accepted-debt entry for the count clears the gate.
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -713,6 +753,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -727,6 +768,7 @@ describe("checkBaselineDebtAccounting", () => {
     ]);
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -787,6 +829,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -839,6 +882,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -906,6 +950,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -949,6 +994,7 @@ describe("checkBaselineDebtAccounting", () => {
     });
 
     const result = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -963,11 +1009,12 @@ describe("checkBaselineDebtAccounting", () => {
         hasShrinkRecords: true,
       }),
     ]);
-    expect(formatBaselineDebtAccountingFailures(result.failures)).toContain(
-      `coverage-shrink records are present but do not account for: ${unrecordedPath}`,
-    );
+    expect(
+      formatBaselineDebtAccountingFailures(result.failures, fixtureWorkflowVocabulary),
+    ).toContain(`coverage-shrink records are present but do not account for: ${unrecordedPath}`);
 
     const noRecord = checkBaselineDebtAccounting({
+      workflowVocabulary: fixtureWorkflowVocabulary,
       baseBaselineText,
       currentBaselineText,
       baseDebtLogText: "",
@@ -980,9 +1027,9 @@ describe("checkBaselineDebtAccounting", () => {
         hasShrinkRecords: false,
       }),
     ]);
-    expect(formatBaselineDebtAccountingFailures(noRecord.failures)).toContain(
-      "without a coverage-shrink record",
-    );
+    expect(
+      formatBaselineDebtAccountingFailures(noRecord.failures, fixtureWorkflowVocabulary),
+    ).toContain("without a coverage-shrink record");
   });
 
   it("treats a covered dropped path as fixed when globs also change", () => {
@@ -1008,6 +1055,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",
@@ -1035,6 +1083,7 @@ describe("checkBaselineDebtAccounting", () => {
 
     expect(
       checkBaselineDebtAccounting({
+        workflowVocabulary: fixtureWorkflowVocabulary,
         baseBaselineText,
         currentBaselineText,
         baseDebtLogText: "",

@@ -139,7 +139,7 @@ describe("path policy classification", () => {
     const paths = [
       ".yamllint.yml",
       "eslint.config.js",
-      "eslint-config/shared-policy.js",
+      "eslint-config/path-glob-policy.js",
       "scripts/lint-config-sensors.sh",
       "scripts/eslint-disable-register.sh",
       "scripts/suppression-register.sh",
@@ -152,12 +152,12 @@ describe("path policy classification", () => {
     expect(queryPathPolicy("full-scan-trigger:eslint-changed", paths)).toEqual([
       ".yamllint.yml",
       "eslint.config.js",
-      "eslint-config/shared-policy.js",
+      "eslint-config/path-glob-policy.js",
       "scripts/lib/changed-lintable-files.sh",
     ]);
     expect(queryPathPolicy("full-scan-trigger:agent-lint-changed", paths)).toEqual([
       "eslint.config.js",
-      "eslint-config/shared-policy.js",
+      "eslint-config/path-glob-policy.js",
       "scripts/lib/changed-lintable-files.sh",
     ]);
     expect(queryPathPolicy("full-scan-trigger:config-sensors-changed", paths)).toEqual([
@@ -212,6 +212,20 @@ describe("path policy classification", () => {
     expect(queryPathPolicy("script-smoke-tests", ["scripts/typecheck.sh"])).toEqual([
       "test-typecheck",
     ]);
+  });
+
+  it("routes every seed-closure analyzer module to the lint-ratchet smoke", () => {
+    const analyzerModules = [
+      "scripts/import-closure/closure-walk.ts",
+      "scripts/import-closure/runtime-imports.ts",
+      "scripts/import-closure/runtime-resolution.ts",
+    ];
+
+    for (const analyzerModule of analyzerModules) {
+      expect(queryPathPolicy("script-smoke-tests", [analyzerModule])).toContain(
+        "test-lint-ratchet",
+      );
+    }
   });
 
   it("routes Vitest timeout config changes to the slow-test smoke", () => {

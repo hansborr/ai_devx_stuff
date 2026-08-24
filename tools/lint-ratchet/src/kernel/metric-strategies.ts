@@ -1,10 +1,13 @@
-// Per-metric behavior registered once, so adding a ratchet metric becomes a
-// registration rather than a cross-cutting edit across collection, comparison,
-// and merge. Before this registry the collector hardcoded the `local/max-lines`
-// and `complexity` rule names inline.
+// Ratchet metrics are deliberately closed-world. Adding one requires coordinated
+// edits to the LintRatchetMetric union in config-types.ts, the baseline guard in
+// baseline-spec-parse.ts, the --propose parser and diagnostic in
+// governance/propose.ts, IMPLEMENTED_METRICS plus any metric/rule constraint in
+// registry-validation.ts, and METRIC_STRATEGIES below. Extend
+// LintRatchetMetricItem in metrics-types.ts only when the metric persists a new
+// item field.
 //
 // A strategy owns its metric's collection reduction, item codec (format +
-// validate), and — folded in by later slices — comparison and semantic-minimum
+// validate), comparison, and semantic-minimum
 // merge. The metricItemForFormat/validateMetricItem entry points below delegate
 // to the strategy so the codec lives in exactly one place.
 
@@ -246,10 +249,6 @@ const METRIC_STRATEGIES: Record<LintRatchetMetric, MetricStrategy> = {
 
 export function metricStrategy(metric: LintRatchetMetric): MetricStrategy {
   return METRIC_STRATEGIES[metric];
-}
-
-export function metricStrategies(): readonly MetricStrategy[] {
-  return Object.values(METRIC_STRATEGIES);
 }
 
 // Canonical committed-baseline form of an item. The per-metric codec lives on

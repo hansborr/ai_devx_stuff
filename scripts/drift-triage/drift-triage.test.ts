@@ -4,14 +4,16 @@ import path from "node:path";
 
 import { describe, expect, it, vi } from "vitest";
 
+import { DRIFT_SCHEMA_VERSION } from "../drift-ai/types.js";
 import { parseArgs, runDriftTriage } from "../drift-triage.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { CLI_OPTIONS, cliOptionsSchema, DriftTriageHelp } from "./drift-triage-options.js";
 import { resolveRepoProvenance } from "./drift-triage-packet-io.js";
 
 const tmpRepo = registerTempRootCleanup();
 
 const CLEAN_DRIFT_REPORT = JSON.stringify({
-  schemaVersion: 4,
+  schemaVersion: DRIFT_SCHEMA_VERSION,
   skippedChecks: [],
   findings: [
     {
@@ -82,6 +84,28 @@ describe("parseArgs", () => {
         pathPrefixes: ["packages/server/"],
       },
     });
+  });
+
+  it("names the first packet-selection flag seen in argv order in the --packet-dir error", () => {
+    expect(() =>
+      parseArgs(["--category", "clone", "--priority", "review-first", "drift.json"]),
+    ).toThrow("--category requires --packet-dir.");
+    expect(() =>
+      parseArgs(["--priority", "review-first", "--category", "clone", "drift.json"]),
+    ).toThrow("--priority requires --packet-dir.");
+  });
+
+  it("declares the same option names in the parseCli array and the Zod schema", () => {
+    const optionNames = CLI_OPTIONS.map((option) => option.name);
+    expect(new Set(optionNames).size).toBe(optionNames.length);
+    expect([...optionNames].sort()).toEqual([...Object.keys(cliOptionsSchema.shape)].sort());
+  });
+
+  it("mentions every declared option in the usage text", () => {
+    const usage = new DriftTriageHelp().message;
+    for (const option of CLI_OPTIONS) {
+      expect(usage).toContain(option.name);
+    }
   });
 });
 
@@ -246,7 +270,7 @@ describe("runDriftTriage", () => {
       argv: ["--include-literals", "drift.json"],
       readFile: () =>
         JSON.stringify({
-          schemaVersion: 4,
+          schemaVersion: DRIFT_SCHEMA_VERSION,
           skippedChecks: [],
           findings: [
             {
@@ -268,7 +292,7 @@ describe("runDriftTriage", () => {
       argv: ["--include-type-only-cycles", "drift.json"],
       readFile: () =>
         JSON.stringify({
-          schemaVersion: 4,
+          schemaVersion: DRIFT_SCHEMA_VERSION,
           skippedChecks: [],
           findings: [
             {
@@ -318,7 +342,7 @@ describe("runDriftTriage", () => {
       argv: ["drift.json"],
       readFile: () =>
         JSON.stringify({
-          schemaVersion: 4,
+          schemaVersion: DRIFT_SCHEMA_VERSION,
           skippedChecks: [{ check: "duplicates", reason: "jscpd was not installed" }],
           findings: [],
         }),
@@ -333,7 +357,7 @@ describe("runDriftTriage", () => {
       argv: ["drift.json"],
       readFile: () =>
         JSON.stringify({
-          schemaVersion: 4,
+          schemaVersion: DRIFT_SCHEMA_VERSION,
           scopeMode: "changed",
           roots: ["packages/server/src"],
           enabledChecks: ["duplicates"],

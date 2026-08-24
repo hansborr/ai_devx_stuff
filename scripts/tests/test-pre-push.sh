@@ -4,14 +4,18 @@
 # smoke-subjects: .husky/post-commit
 # smoke-subjects: scripts/git/run-baseline-truth-up.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
-# smoke-subjects: scripts/path-policy/path-policy-query.ts
-# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
-# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-pre-push.sh
 # smoke-subjects: scripts/git/baseline-drivers.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/records.ts
+# smoke-subjects: scripts/harness/pre-push-scope-trigger.generated.sh
 
 set -euo pipefail
 
@@ -28,10 +32,8 @@ REPO_ROOT=$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel)
 TMP_ROOT=$(mktemp -d /tmp/musi-pre-push-test.XXXXXX)
 trap 'rm -rf "$TMP_ROOT"' EXIT
 
-export MUSI_PATH_POLICY_QUERY="$REPO_ROOT/scripts/path-policy/path-policy-query.ts"
-export MUSI_PATH_POLICY_BUN="${MUSI_PATH_POLICY_BUN:-$(command -v bun)}"
 # Sandbox copies of verify-metadata.sh resolve the run-meta codec from the
-# source tree (same seam pattern as MUSI_PATH_POLICY_QUERY above).
+# source tree.
 export MUSI_VERIFY_META_CORE="$REPO_ROOT/scripts/lib/verify-metadata-core.ts"
 export MUSI_VERIFY_META_BUN="${MUSI_VERIFY_META_BUN:-$(command -v bun)}"
 unset MUSI_PRE_PUSH_VERIFY_FRESHNESS_SECONDS
@@ -52,14 +54,24 @@ new_repo() {
   local name="$1"
   local repo="$TMP_ROOT/$name"
 
-  mkdir -p "$repo/scripts/lib" "$repo/scripts/git" "$repo/.husky"
+  mkdir -p "$repo/scripts/lib" "$repo/scripts/git" "$repo/scripts/harness" "$repo/.husky"
   git -C "$repo" init -q
   git -C "$repo" config user.email "test@example.com"
   git -C "$repo" config user.name "Test User"
   cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-commit-queue.sh" "$repo/scripts/lib/verify-commit-queue.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-fast-commit.sh" "$repo/scripts/lib/verify-fast-commit.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-markers.sh" "$repo/scripts/lib/verify-markers.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-path-policy.sh" "$repo/scripts/lib/verify-path-policy.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-run-meta.sh" "$repo/scripts/lib/verify-run-meta.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-state-paths.sh" "$repo/scripts/lib/verify-state-paths.sh"
   cp "$REPO_ROOT/scripts/lib/gate-env.sh" "$repo/scripts/lib/gate-env.sh"
   # post-commit's merge-marker sweep sources the shared baseline-drivers registry.
   cp "$REPO_ROOT/scripts/git/baseline-drivers.sh" "$repo/scripts/git/baseline-drivers.sh"
+  # The boundary trigger ERE is generated data the hook sources; without it the
+  # hook fails closed, so every sandbox repo gets the real fragment.
+  cp "$REPO_ROOT/scripts/harness/pre-push-scope-trigger.generated.sh" \
+    "$repo/scripts/harness/pre-push-scope-trigger.generated.sh"
   cp "$REPO_ROOT/.husky/pre-push" "$repo/.husky/pre-push"
   cp "$REPO_ROOT/.husky/post-commit" "$repo/.husky/post-commit"
   chmod +x "$repo/.husky/pre-push"
@@ -576,7 +588,7 @@ boundary_stale_log="$TMP_ROOT/boundary-two-lane-stale.log"
 set +e
 output=$(run_pre_push_boundary "$repo" \
   "refs/heads/master $local_after refs/heads/master $remote_before" \
-  1 "FAIL: whole-repo near-duplicate baseline is stale after integration" \
+  3 "presentation text is not the verdict contract" \
   "$boundary_stale_log" 2>&1)
 exit_code=$?
 set -e
@@ -591,6 +603,32 @@ grep -qF -- "--admit" <<< "$output" \
 [ -s "$boundary_stale_log" ] \
   || fail "a source-touching push must run the whole-tree scan"
 ok "pre-push blocks a stale near-duplicates baseline assembled across lanes"
+
+# A dirty worktree can propose unreviewed baseline growth over HEAD before the
+# whole-tree comparison runs. That deliberate verdict has its own code (6) and
+# must remain blocking without consulting its human-facing text.
+repo=$(new_boundary_repo boundary-unreviewed-growth)
+remote_before=$(git -C "$repo" rev-parse HEAD)
+printf 'export const grown = 3\n' >> "$repo/module.ts"
+git -C "$repo" add module.ts
+git -C "$repo" commit -qm "touch scanned source before dirty baseline growth"
+local_after=$(git -C "$repo" rev-parse HEAD)
+boundary_growth_log="$TMP_ROOT/boundary-unreviewed-growth.log"
+: > "$boundary_growth_log"
+set +e
+output=$(run_pre_push_boundary "$repo" \
+  "refs/heads/master $local_after refs/heads/master $remote_before" \
+  6 "presentation text is not the verdict contract" \
+  "$boundary_growth_log" 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] \
+  || fail "pre-push must block unreviewed working-tree baseline growth: $output"
+grep -qF "proposes unreviewed growth over HEAD" <<< "$output" \
+  || fail "exit 6 should identify unreviewed working-tree baseline growth: $output"
+[ -s "$boundary_growth_log" ] \
+  || fail "the boundary scan must run before classifying unreviewed growth"
+ok "pre-push blocks unreviewed working-tree baseline growth by exit code"
 
 # A push that changes neither scanned source nor the baseline pays no scan.
 repo=$(new_boundary_repo boundary-docs-only)
@@ -724,5 +762,82 @@ grep -qF "can only validate the checked-out worktree" <<< "$output" \
 [ ! -s "$boundary_non_head_log" ] \
   || fail "the boundary scan must not run against the worktree for a non-HEAD push"
 ok "pre-push fails closed and skips the scan when pushing a non-HEAD branch"
+
+# The boundary trigger ERE is generated data the hook sources. A missing or
+# empty fragment leaves the hook unable to decide whether the pushed range
+# touches scanned source, so it must fail closed with the regeneration command
+# rather than silently skipping the whole-tree scan.
+repo=$(new_boundary_repo boundary-missing-trigger)
+remote_before=$(git -C "$repo" rev-parse HEAD)
+printf 'export const dupD = () => 7\n' > "$repo/dup-d.ts"
+git -C "$repo" add dup-d.ts
+git -C "$repo" commit -qm "add scanned source that would need the boundary scan"
+local_after=$(git -C "$repo" rev-parse HEAD)
+rm "$repo/scripts/harness/pre-push-scope-trigger.generated.sh"
+boundary_missing_trigger_log="$TMP_ROOT/boundary-missing-trigger.log"
+: > "$boundary_missing_trigger_log"
+set +e
+output=$(run_pre_push_boundary "$repo" \
+  "refs/heads/master $local_after refs/heads/master $remote_before" \
+  0 "OK: this stub output must never be consulted" "$boundary_missing_trigger_log" 2>&1)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] \
+  || fail "pre-push must fail closed when the generated boundary trigger is missing: $output"
+grep -qF "bun run harness:pre-push-trigger" <<< "$output" \
+  || fail "a missing boundary trigger should name the regeneration command: $output"
+[ ! -s "$boundary_missing_trigger_log" ] \
+  || fail "the boundary scan must not run without a boundary trigger"
+ok "pre-push fails closed when the generated boundary trigger is missing"
+
+# An inherited export of the trigger variable must not stand in for the
+# generated fragment: a stale value in the environment would satisfy the
+# non-empty guard and hand the scan an obsolete ERE, which is exactly the
+# silent skip the fail-closed contract exists to stop.
+repo=$(new_boundary_repo boundary-inherited-trigger)
+remote_before=$(git -C "$repo" rev-parse HEAD)
+printf 'export const dupE = () => 8\n' > "$repo/dup-e.ts"
+git -C "$repo" add dup-e.ts
+git -C "$repo" commit -qm "add scanned source that would need the boundary scan"
+local_after=$(git -C "$repo" rev-parse HEAD)
+rm "$repo/scripts/harness/pre-push-scope-trigger.generated.sh"
+boundary_inherited_trigger_log="$TMP_ROOT/boundary-inherited-trigger.log"
+: > "$boundary_inherited_trigger_log"
+set +e
+output=$(
+  cd "$repo"
+  PATH="$near_dup_stub_dir:$PATH" \
+    MUSI_VERIFY_STATE_ROOT="$(state_root_for "$repo")" \
+    MUSI_TEST_NEARDUP_STATUS=0 \
+    MUSI_TEST_NEARDUP_OUTPUT="OK: this stub output must never be consulted" \
+    MUSI_TEST_NEARDUP_LOG="$boundary_inherited_trigger_log" \
+    MUSI_PRE_PUSH_NEAR_DUPLICATES_TRIGGER='\.(ts)$' \
+    bash .husky/pre-push \
+    <<< "refs/heads/master $local_after refs/heads/master $remote_before" 2>&1
+)
+exit_code=$?
+set -e
+[ "$exit_code" -ne 0 ] \
+  || fail "an inherited trigger must not substitute for the generated fragment: $output"
+grep -qF "bun run harness:pre-push-trigger" <<< "$output" \
+  || fail "an inherited trigger should still name the regeneration command: $output"
+[ ! -s "$boundary_inherited_trigger_log" ] \
+  || fail "the boundary scan must not run on an inherited trigger value"
+ok "pre-push ignores an inherited boundary trigger and still fails closed"
+
+# The same fail-closed rule must not fire where the boundary check does not
+# apply: a repo with no committed baseline still returns before the trigger is
+# needed, so a missing fragment cannot block an unrelated push.
+repo=$(new_repo boundary-missing-trigger-no-baseline)
+mark_fast_commit "$repo"
+rm "$repo/scripts/harness/pre-push-scope-trigger.generated.sh"
+(
+  cd "$repo"
+  PATH="$near_dup_stub_dir:$PATH" \
+    MUSI_VERIFY_STATE_ROOT="$(state_root_for "$repo")" \
+    bash .husky/pre-push <<< "$(push_line_for_head "$repo")"
+) >/dev/null 2>&1 \
+  || fail "a repo with no near-duplicates baseline must not need the boundary trigger"
+ok "a missing boundary trigger does not block repos with no near-duplicates baseline"
 
 printf 'pre-push tests passed (%d)\n' "$PASS"

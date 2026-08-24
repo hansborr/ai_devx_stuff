@@ -1,0 +1,329 @@
+{
+  "contractVersion": 1,
+  "consult": "D-08",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[25]",
+      "ref": "CQ25-21",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.1 explicitly retains deletion of the false \"Caster first\" sentence, correction of MODULE ordering prose to UTF-16 code-unit order, and a facade ordering-contract test.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[26]",
+      "ref": "CQ25-22",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.2 schedules the narrowed CharacterSpellContext combat field, downstream guard removal, resolveDamageDice retyping, and CastCombatSpellInput typing for getTargetParticipantIds.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[27]",
+      "ref": "CQ25-24",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.4 schedules the ReadonlyMap representation, carrying and iterating that map, and removing both type-assertion-boundary casts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[28]",
+      "ref": "CQ25-25",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.5 explicitly schedules newClassLevel on LevelUpContext and replacement of hpMethod: string with the shared HpMethod type.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[29]",
+      "ref": "CQ25-149",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Dropped rejects castWithoutSlot because extracting it would entrench undecided cantrip/ritual semantics and permits reconsideration only after the rules decision.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[30]",
+      "ref": "CQ25-150",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Dropped rejects the transaction-return restyle and damageByTarget hoist as a type-neutral style twin inside a concurrency-sensitive transaction.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[31]",
+      "ref": "CQ25-152",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Dropped rejects breaking the type-only cycle because it has no runtime cost, merely relocates Prisma-shaped ownership debt, and rests on a false supporting claim.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[32]",
+      "ref": "CQ25-153",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Dropped rejects both the documented non-combat facade rename/re-export and the core.ts split whose single-concern premise did not survive checking.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[28]",
+      "ref": "CQ25-24",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "partial",
+      "reason": "CQ25-24's live 07.4 slice covers the six-ability ASI expansion but not the title's relocation of three core-helper describes, which the document assigns separately to 07.5/CQ25-25.",
+      "promotionIds": [
+        "D-08-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[29]",
+      "ref": "CQ25-25",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.5 names validateBasicPrereqs, validateHpRoll, and validateMulticlassPrereqs and schedules moving all three describes from asi.test.ts to core.test.ts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-21",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md",
+      "coverage": "full",
+      "reason": "07-PLAN.md § Slices 07.1 explicitly schedules correcting MODULE.md from code-point to UTF-16 code-unit ordering and pinning the affectedCharacterIds facade contract in a test.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-52",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/41-PLAN.md",
+      "coverage": "full",
+      "reason": "The live 41-PLAN § Slices retains the complete requested domain split as slice 41.3, including all 16 builders, composition-only mock-trpc.tsx, MODULE.md refresh, max-lines cleanup, and the cursor-helper prerequisite; it is explicitly optional and unscheduled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-52",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/41-PLAN.md",
+      "coverage": "full",
+      "reason": "The live 41-PLAN § Slices fully records the proposed shadow-router split as slice 41.3, including all 16 builders, composition-only mock-trpc.tsx, MODULE.md refresh, max-lines cleanup, and the cursor-helper prerequisite; it is explicitly optional and unscheduled.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[25]",
+      "ref": "CQ25-221",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/43-stryker-config-duplication.md",
+      "coverage": "full",
+      "reason": "The live leaf is Done and says the shared factory landed via the .mjs route after the feasibility stop was overturned, fully covering removal of the four-lane configuration duplication.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-221",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/43-stryker-config-duplication.md",
+      "coverage": "full",
+      "reason": "The live leaf records that the .mjs loader question was resolved positively and the route landed, including conversion of the lint-ratchet lane to the shared factory.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-09-topup.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-221",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/43-stryker-config-duplication.md",
+      "coverage": "full",
+      "reason": "The live leaf marks the .mjs adapter route Done and landed after review explicitly overturned the stop, while retaining lane-specific rationale at the adapter.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[28]",
+      "ref": "CQ25-215",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/65-vacuous-scanning-guards.md",
+      "coverage": "full",
+      "reason": "The live Done status explicitly retains historical ratchetExcluded fields as baseline metadata and declines expanding leaf 65 into a baseline-format migration.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-215",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/65-vacuous-scanning-guards.md",
+      "coverage": "full",
+      "reason": "The live Done status explicitly says no shared assertion helper was added because direct assertions keep each scanning guard's reason local.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-215",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/65-vacuous-scanning-guards.md",
+      "coverage": "full",
+      "reason": "The live Done status resolves both alternatives: maxLinesPolicy.ratchets was retired and historical ratchetExcluded fields deliberately remain baseline metadata.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-122",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live prior-art record marks the hook-shim generation plan Done at 3e9b28df and assigns the generated .claude/.codex/.copilot shims to it.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[9]",
+      "ref": "CQ25-103",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling permanently refuses trimming the mutation-helper headers and retains the file-local guide, cross-cutting document, and per-function JSDoc as three altitudes of one contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[10]",
+      "ref": "CQ25-105",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling retains the encounter casts because a type predicate cannot narrow input.to; S14 corrected the misleading header instead.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[11]",
+      "ref": "CQ25-111",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling explicitly declines character:associationChanged without real-session product evidence and accepts the unbounded cross-client mismatch as a low-severity product tradeoff.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::droppedAsPriorPackDuplicate[24]",
+      "ref": "CQ25-104",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling refuses renaming w/h because they are persisted FogLayerData fields requiring migration and a tolerant read seam; replacement slice S20 preserves the spelling.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-113",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling expressly refuses rebuilding a shared manifest or fixture framework for the two sandbox copy sets and names focused closure assertions as the completed remedy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[32]",
+      "ref": "CQ25-112",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling says leaf 38 implemented and removed the separate eslint-config Vitest project because it added maintenance without behavioral coverage.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[5]",
+      "ref": "CQ25-103",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling calls the file-local helper guide, cross-cutting concurrency document, and function JSDoc complementary altitudes, fully covering the proposed consolidation.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-123",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live prior-art record says spec-driven parseCli landed while surviving hand-written walkers remain governed by the explicit opportunistic-on-touch policy.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[6]",
+      "ref": "CQ25-112",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling records that leaf 38 removed this project split and allows reconsideration only for concrete isolation or behavioral-coverage evidence, which the claimant does not supply.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-113",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md",
+      "coverage": "full",
+      "reason": "The live ruling refuses a shared manifest or fixture framework for the two lint-ratchet sandboxes and preserves the dynamic shell list as unmodelled-copy absent a concrete future need.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-08-001",
+      "title": "Move level-up core helper tests out of asi.test.ts",
+      "area": "tests",
+      "category": "organization",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/level-up/asi.test.ts",
+          "line": 7,
+          "endLine": null,
+          "measurement": null,
+          "note": "The ASI-focused suite imports validateBasicPrereqs, validateHpRoll, and validateMulticlassPrereqs from core.ts solely to host tests for another module."
+        },
+        {
+          "path": "packages/server/src/services/level-up/asi.test.ts",
+          "line": 179,
+          "endLine": 346,
+          "measurement": null,
+          "note": "Three describes for core.ts helpers occupy the latter half of asi.test.ts: validateMulticlassPrereqs, validateBasicPrereqs, and validateHpRoll."
+        },
+        {
+          "path": "packages/server/src/services/level-up/core.test.ts",
+          "line": 3,
+          "endLine": 25,
+          "measurement": null,
+          "note": "The correctly named core suite currently imports and begins coverage for only buildPostLevelUpClasses, leaving the other core helper contracts misfiled."
+        }
+      ],
+      "problem": "Tests for three core.ts validation helpers live in asi.test.ts, forcing an unrelated production import and making the ASI suite a second, misleading authority for core behavior.",
+      "proposedDirection": "Move the validateBasicPrereqs, validateHpRoll, and validateMulticlassPrereqs describes and their required fixtures and imports into core.test.ts, leaving asi.test.ts focused on ASI behavior.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-08",
+          "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[28]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Expand ASI coverage and relocate level-up describes",
+          "rejectionReason": "Six-ability ASI coverage is already scheduled."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-24",
+          "residual": "The six-ability ASI expansion and representation cleanup are covered, but test relocation is not."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-25",
+          "residual": "No substantive residual against this separate record: 07.5 schedules the exact relocation, so step 1c should apply the cross-record dedup ruling."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent d08_plan07: docs/agent_notes/backlog/code-quality-2026-07-25/07-PLAN.md (11 claimants)",
+      "subagent d08_plan41: docs/agent_notes/backlog/code-quality-2026-07-25/41-PLAN.md (2 claimants)",
+      "subagent d08_stryker43: docs/agent_notes/backlog/code-quality-2026-07-25/43-stryker-config-duplication.md (3 claimants)",
+      "subagent d08_guards65: docs/agent_notes/backlog/code-quality-2026-07-25/65-vacuous-scanning-guards.md (3 claimants)",
+      "subagent d08_constraints: docs/agent_notes/backlog/code-quality-2026-07-25/CONSTRAINTS.md (11 claimants)"
+    ],
+    "notes": [
+      "Twenty-nine claimants are fully covered; one compound claimant is only partially covered by its cited record.",
+      "D-08-001 is already scheduled under the distinct prior-pack record CQ25-25, but it remains a promotion because this step judges the claimant's named ref; step 1c owns that cross-record dedup ruling.",
+      "No close authored-leaf title was found for D-08-001, and no current-pack triage ruling overturn is implicated.",
+      "No tests or builds were run, and no files were modified."
+    ]
+  }
+}

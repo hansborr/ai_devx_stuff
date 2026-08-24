@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 
 import { errorMessage } from "../lib/error-message.js";
-import { isRecord } from "./config-readers.js";
+import { isRecord } from "../lib/records.js";
 import {
   DEAD_CODE_CORPUS_LABEL_KINDS,
   type DeadCodeCorpusLabel,

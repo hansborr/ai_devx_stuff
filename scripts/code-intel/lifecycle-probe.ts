@@ -2,13 +2,14 @@ import { existsSync, readFileSync, realpathSync } from "node:fs";
 import path from "node:path";
 
 import { errorMessage } from "../lib/error-message.js";
+import { isRecord } from "../lib/records.js";
 import { DaemonRequestTimeoutError, defaultDaemonTransport } from "./daemon-client.js";
 import {
+  buildPingRequest,
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
-  DAEMON_FALLBACK_ERROR_NAME,
+  isPongResult,
 } from "./daemon-protocol.js";
 import type { DaemonMetadata, DaemonStatePaths } from "./daemon-state.js";
-import { isRecord } from "./json-utils.js";
 
 const LIFECYCLE_PROBE_TIMEOUT_MS = 1000;
 const LIFECYCLE_PROBE_ID = "lifecycle-probe";
@@ -41,11 +42,7 @@ export async function defaultLifecycleProbe(
   if (!existsSync(paths.socketPath)) {
     return { failureKind: "stale", ok: false, reason: "socket missing" };
   }
-  const payload = JSON.stringify({
-    command: { kind: "ping" },
-    id: LIFECYCLE_PROBE_ID,
-    protocolVersion: CODE_INTEL_DAEMON_PROTOCOL_VERSION,
-  });
+  const payload = JSON.stringify(buildPingRequest(LIFECYCLE_PROBE_ID));
   try {
     const raw = await defaultDaemonTransport(paths.socketPath, payload, LIFECYCLE_PROBE_TIMEOUT_MS);
     return parseLifecycleProbe(raw);
@@ -99,14 +96,18 @@ function parseLifecycleProbe(raw: string): DaemonLifecycleProbeResult {
   if (parsed.protocolVersion !== CODE_INTEL_DAEMON_PROTOCOL_VERSION) {
     return { failureKind: "stale", ok: false, reason: "probe protocol mismatch" };
   }
-  if (parsed.ok === true) return { ok: true };
-  if (parsed.ok !== false || !isRecord(parsed.error)) {
-    return { failureKind: "unverified", ok: false, reason: "malformed probe response" };
-  }
-  if (parsed.error.name !== DAEMON_FALLBACK_ERROR_NAME) {
+  if (parsed.ok === true) {
+    if (isPongResult(parsed.result)) return { ok: true };
     return { failureKind: "unverified", ok: false, reason: "unexpected probe response" };
   }
-  return { ok: true };
+  return {
+    failureKind: "unverified",
+    ok: false,
+    reason:
+      parsed.ok === false && isRecord(parsed.error)
+        ? "unexpected probe response"
+        : "malformed probe response",
+  };
 }
 
 function lifecycleFailureKindForError(error: unknown): DaemonLifecycleFailureKind {

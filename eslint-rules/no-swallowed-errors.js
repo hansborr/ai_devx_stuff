@@ -1,8 +1,8 @@
 // @ts-check
 
-import { unwrapChain } from "./ast-helpers.js";
+import { parentOf, unwrapChain } from "./ast-helpers.js";
 import { resolveDeclaredVariable } from "./binding-resolution.js";
-import { belongsToCatch, nodesMaySharePath, parentOf } from "./no-swallowed-errors-paths.js";
+import { belongsToCatch, nodesMaySharePath } from "./no-swallowed-errors-paths.js";
 
 /**
  * Catch blocks must preserve observable failure semantics. Keep this narrow:

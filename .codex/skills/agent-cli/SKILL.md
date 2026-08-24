@@ -20,11 +20,11 @@ The common cases — background each one, a fresh `-o` path per answer, trailers
 
 ```bash
 # delegate implementation
-.claude/skills/agent-cli/scripts/agent-run.sh work codex \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" work codex \
   -p '<task>' -o /tmp/agent-fix-auth.msg > /tmp/agent-fix-auth.log 2>&1
 
 # GPT second opinion / review
-.claude/skills/agent-cli/scripts/agent-run.sh consult codex \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" consult codex \
   -p '<question>' -o /tmp/agent-review-auth.msg > /tmp/agent-review-auth.log 2>&1
 ```
 
@@ -40,34 +40,34 @@ For an off-family opinion, swap in `consult copilot -m <model>` or `consult curs
 ## Command shape
 
 ```bash
-.claude/skills/agent-cli/scripts/agent-run.sh <consult|work> <claude|codex|copilot|cursor> \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" <consult|work> <claude|codex|copilot|cursor> \
   [-m <model>] [-e <effort>] [-p '<prompt>'] [-P <mission-file>]... [-f <material-file>]... \
   [--dirty-ok] [--require-feature-branch] [--branch <name>] [-o <answer-file>] [-r <session-id>] \
   [-- <native args>] > /tmp/agent-<task>.log 2>&1
 
-.claude/skills/agent-cli/scripts/agent-run.sh review codex \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" review codex \
   [-p '<custom instruction>' | -P <mission-file>] [-- <native review args>]
 ```
 
 The complete `agent-run:` trailer and exit-code contract lives in [references/trailer-contract.md](references/trailer-contract.md); the bullets below cover routine caller decisions.
 
 - `consult` and `work` require a mission: `-p`, or `-P`/`--mission-file` to read it from a file. `-P` is repeatable and composes with a single `-p` — components concatenate in command-line order into one prompt, so a resume is one command (`-P mission.prompt -P resume-note.prompt`), never hand-concatenation. An empty or whitespace-only mission (or component) exits 2; native `review codex` may omit its instruction. Mission files may live inside the worktree (unlike `-o`). `-f` attaches a file as supporting material (repeatable) — never the mission; attachment-only dispatch exits 2, and stdin is not an input channel.
-- `-m` picks the model (required for copilot; claude/codex default to the user-configured model; cursor to `grok-4.5-xhigh`). `-e` sets reasoning effort where supported (cursor rejects it — effort is encoded in the model id).
-- `-o` is the authoritative result — a plain answer file regardless of backend. Omit it and one is generated under `$TMPDIR`; either way its canonical absolute path is echoed in the `agent-run: dispatched:` header and confirmed by the `agent-run: answer:` trailer. An explicit path must resolve outside the worktree and must not already exist — anything else exits 2. Deleting a spent answer does not free its path, so give every run a fresh one; when a failed path is worth reusing, [references/trailer-contract.md](references/trailer-contract.md) states the one condition that frees it. `review codex` rejects `-o` (read the log).
+- `-m` picks the model (required for copilot; claude/codex default to the user-configured model; cursor to `cursor-grok-4.6-xhigh`). `-e` sets reasoning effort where supported (cursor rejects it — effort is encoded in the model id).
+- `-o` is the authoritative result — a plain answer file regardless of backend. Omit it and one is generated under `$TMPDIR`; either way its canonical absolute path is echoed in the `agent-run: dispatched:` header and confirmed by the `agent-run: answer:` trailer. An explicit path must resolve outside the worktree and must not already exist — anything else exits 2. Deleting a spent answer does not free its path, so give every run a fresh one; when a failed path is worth reusing, [references/trailer-contract.md](references/trailer-contract.md) states the one condition that frees it. Use a fresh log path for every dispatch and retry; reusing a log mixes distinct runs and is a caller error. `review codex` rejects `-o` (read the log).
 - `-r <session-id>` resumes a prior session; ids surface in the `agent-run: session-id:` trailer. Resume by explicit id only, never "most recent".
-- Native flags after `--` pass through but are guard-scanned: sandbox, session, model, cwd-moving, and permission-mode flags are wrapper-owned and rejected; consults also reject blanket permission grants, while narrow grants (e.g. `'Bash(bun run test:*)'`) pass through as deliberate caller-owned escalations (the one cwd exception lives in [references/copilot.md](references/copilot.md)). Dispatch from the worktree the run should own.
+- Native flags after `--` pass through but are guard-scanned: sandbox, session, model, cwd-moving, and permission-mode flags are wrapper-owned and rejected; consults also reject blanket permission grants, while narrow grants (e.g. `'Bash(bun run test:*)'`) pass through as deliberate caller-owned escalations (the one cwd exception lives in [references/copilot.md](references/copilot.md)). Start dispatch inside the worktree the run should own, so `git rev-parse --show-toplevel` resolves that checkout.
 
 ## Run lifecycle
 
 1. Start `work` from a clean worktree — a dirty start exits 2 unless you pass `--dirty-ok` because the mission is to inspect the current uncommitted diff. Verify cleanliness before codex consults; claude/copilot/cursor consults are safe anywhere.
 2. Dispatch backgrounded via your harness's background mechanism — never a trailing shell `&` (and never both), never piped through `tail`. Concrete mechanics are in the harness-specific notes below.
-3. Wait on the job status — it is authoritative, not the log (logs may stay quiet until completion, and a finished log is not a live run). Idle if your harness can, poll a live session handle if you hold one, otherwise call the bundled helper as one bounded foreground call per ~10 minutes: `.claude/skills/agent-cli/scripts/agent-wait.sh "$LOG" --timeout 570` — exit 0 once the run is decided, 10 on timeout with the run still live (re-invoke), 20/21 on the dead-run signature (below), or 22 when the run died before launch (safe to redispatch). Treat it as a done/not-done signal: never poll log contents yourself, spin no-op calls, or `tail -f` the log. Pass `--finalized-only` when you will act on the worktree next (`work` runs): a landed answer can precede the drift check and lock release. Consults usually finish in minutes, work runs in 10–30+; never dispatch a duplicate (a duplicate work run fails fast on the busy lock with exit 3). TERM a stalled run once the backend has launched; SIGKILL skips finalization.
+3. Wait on the job status — it is authoritative, not the log (logs may stay quiet until completion, and a finished log is not a live run). Idle if your harness can, poll a live session handle if you hold one, otherwise call the bundled helper as one bounded foreground call per ~10 minutes: `"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-wait.sh" "$LOG" --timeout 570` — exit 0 once the run is decided, 10 on timeout with the run still live (re-invoke), 20/21 on the dead-run signature (below), or 22 when the run died before launch (safe to redispatch). Treat it as a done/not-done signal: never poll log contents yourself, spin no-op calls, or `tail -f` the log. Pass `--finalized-only` when you will act on the worktree next (`work` runs): a landed answer can precede the drift check and lock release. Consults usually finish in minutes, work runs in 10–30+; never dispatch a duplicate (a duplicate work run fails fast on the busy lock with exit 3). TERM a stalled run once the backend has launched; SIGKILL skips finalization.
 4. Read the `-o` answer file and the `agent-run:` trailers (attempt, transcript when present, session-id, answer path, worktree state) — after a failure the attempt record, not an empty file, decides whether the output path can be retried.
 5. After `work`: verify the result before reporting success, but don't pull the full diff into your own context. The trailers scope it — `agent-run: head:` reports the commit range (`(unchanged)` flags a no-op run), `agent-run: worktree:` whether it finished clean. Confirm shape cheaply with `git log --oneline` and `git diff --stat` over that range; delegate substantive review rather than reading hunks inline. Trust HEAD advancement and the final trailers over the delegate's own status messages (under a cross-worktree commit guard, `No commit landed` can be a normal queue state).
 
 ### Dead-run signature
 
-A `starting:`, `attempt:`, or launch header present, completion anchors absent, wrapper pid dead. `agent-wait.sh <log> --timeout 0` is the one-shot probe:
+A `starting:`, `attempt:`, or launch header present, completion anchors absent, wrapper pid dead. `"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-wait.sh" <log> --timeout 0` is the one-shot probe:
 
 - **20** — the dead-run signature. Inspect the worktree and session before repeating the mission.
 - **21** — same, but the backend still lives: an orphan that may still write and still owns its answer path (a `work` orphan also holds the worktree lock). Kill its process group (`kill -- -<backend-pid>`) before taking the worktree over.
@@ -104,11 +104,11 @@ git worktree add --detach /tmp/agent-task-b "$BASE_SHA"
 
 # The wrapper locks and mutates the worktree it runs *in* — each dispatch must
 # have the target worktree as its working directory.
-(cd /tmp/agent-task-a && <repo>/.claude/skills/agent-cli/scripts/agent-run.sh \
+(cd /tmp/agent-task-a && "$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" \
   work codex --branch agent/task-a --require-feature-branch \
   -p 'Task A...' -o /tmp/agent-task-a.msg) > /tmp/agent-task-a.log 2>&1
 
-(cd /tmp/agent-task-b && <repo>/.claude/skills/agent-cli/scripts/agent-run.sh \
+(cd /tmp/agent-task-b && "$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" \
   work codex --branch agent/task-b --require-feature-branch \
   -p 'Task B...' -o /tmp/agent-task-b.msg) > /tmp/agent-task-b.log 2>&1
 ```
@@ -126,7 +126,7 @@ Tell delegates to foreground long-running commands (builds, verify, `land.sh`): 
 Long missions travel better as a file — no shell quoting, reusable across retries:
 
 ```bash
-.claude/skills/agent-cli/scripts/agent-run.sh work codex \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" work codex \
   --mission-file /tmp/agent-task.prompt -o /tmp/agent-task.msg > /tmp/agent-task.log 2>&1
 ```
 
@@ -135,7 +135,7 @@ Long missions travel better as a file — no shell quoting, reusable across retr
 Sessions persist across all four backends; prefer resume over a cold run (cursor: resume from the same worktree that ran the original dispatch — see [references/cursor.md](references/cursor.md)):
 
 ```bash
-.claude/skills/agent-cli/scripts/agent-run.sh work codex -r <session-id> \
+"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh" work codex -r <session-id> \
   -p 'verify failed: <error>' -o /tmp/agent-followup.msg > /tmp/agent-followup.log 2>&1
 ```
 
@@ -161,7 +161,7 @@ Codex returns a session id. Poll that exact session id with an empty
 
 ```json
 {
-  "cmd": ".claude/skills/agent-cli/scripts/agent-run.sh work codex -p '...' -o /tmp/agent-task.msg > /tmp/agent-task.log 2>&1",
+  "cmd": "\"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh\" work codex -p '...' -o /tmp/agent-task.msg > /tmp/agent-task.log 2>&1",
   "workdir": "/tmp/task-worktree",
   "yield_time_ms": 1000
 }
@@ -182,7 +182,7 @@ The session status is authoritative. Do not infer completion from log silence or
 
 Codex cannot idle-wait, so make each forced check as infrequent and minimal as the harness allows. The caps (verified on codex-cli 0.142.5, re-check after CLI upgrades): `exec_command` yields after at most 30000 ms, an empty `write_stdin` poll after at most 300000 ms, and there is no completion notification — one empty poll at the 300000 cap every 5 minutes *is* the cheapest legal wait, not a hang to escalate. Runs legitimately take minutes (consults) to hours (large work missions): treat each poll as a status-only done/not-done signal, do not narrate unchanged polls, and never read elapsed time alone as failure.
 
-The `> log 2>&1` redirect is load-bearing: it keeps the session's stdout empty, so each poll returns status only instead of streaming the delegate's log into your context. If you lose the session handle (or the run was dispatched by someone else), start `agent-wait.sh <log> --timeout 3600` in a fresh `exec_command` session and poll that instead — same discipline, plus dead-run detection.
+The `> log 2>&1` redirect is load-bearing: it keeps the session's stdout empty, so each poll returns status only instead of streaming the delegate's log into your context. If you lose the session handle (or the run was dispatched by someone else), start `"$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-wait.sh" <log> --timeout 3600` in a fresh `exec_command` session and poll that instead — same discipline, plus dead-run detection.
 
 **Locks and sessions.** Only `work` runs hold the worktree lock; consults take
 only a per-answer lock, so they parallelize in place as long as each gets its

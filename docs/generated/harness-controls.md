@@ -7,6 +7,34 @@ Authoritative inventory of Musi's harness controls — every lint rule, ratchet,
 
 For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule's `meta.docs` contract (see `docs/generated/local-lint-rules.md`) so the manifest stays a thin enumeration.
 
+For `kind: hook`, `harness.controls.json` is the **policy** authority — event, canonical order, shared body, timeout, status message, outputs, and notes are authored decisions. The projection tables in `scripts/harness/hook-wiring-schema.ts` are the **adapter-syntax** authority: once a control declares an `adapter surface`, its `matcher` and command strings are canonical-checked copies of that projection, so treat them like committed generated output rather than free text. The `.claude/`, `.codex/`, `.copilot/`, and `.github/` hook files are generated from this manifest by `bun run harness:wiring` and are never authoritative. Controls with no declared surface — the Bash aggregators and the claude-only lifecycle hooks — are documented architectural asymmetries and record the reason in their notes.
+
+## Command policy reference
+
+The root `commandPolicy` rows are evaluated in this order; the first hard match wins, otherwise the first soft match advises. Projection disposition is total: each rule contributes complete Claude deny coverage, contributes a necessarily partial but sound projection with its reason, or records why it remains shared-policy-only.
+
+| Order | Rule | Class | Scope | Claude-native projection |
+|---:|---|---|---|---|
+| 1 | `hook-bypass` | hard | command | `Bash(git commit *--no-verify*)`<br>`Bash(git commit --no-verify*)`<br>`Bash(git -c * commit *--no-verify*)`<br>Partial projection by necessity: The native matchers cover only direct `git commit ... --no-verify` forms. The shared rule also denies short `-n` commit flags, `git push --no-verify`, `HUSKY=0` prefixes, unprojected Git global-option forms, and commands behind shell, environment, or runner prefixes or within compound commands; the shared hook remains authoritative for those arms. |
+| 2 | `postgres-cli` | hard | command | Not projected: the whole value of this rule is the shared policy's remediation text (which Prisma or repo script replaces the CLI), and a native deny preempts it with a bare refusal. A rule is projected only where denying before the hook can speak is worth losing its message; here the message is the rule. |
+| 3 | `redis-cli` | hard | command | Not projected, for the same reason as postgres-cli: the shared policy's message is the remediation, and native denial would replace it with a bare refusal. |
+| 4 | `docker-cli` | hard | command | Not projected, for the same reason as postgres-cli: the shared policy's message is the remediation, and native denial would replace it with a bare refusal. |
+| 5 | `database-password-literal` | hard | command | Not projected: this rule matches a credential literal anywhere in the command text rather than a command prefix, and Claude's Bash(...) matchers are prefix-anchored globs with no faithful bare-substring form. |
+| 6 | `protected-file-write` | hard | checkout | Not projected: checkout-scoped. The protected-path table itself is static (the case block in scripts/ai-hooks/protected-files.sh), but the verdict flips on whether the checkout the hook resolves carries the repo-wide .allow-protected-edits override marker, which no static command matcher can see. |
+| 7 | `git-commit-amend` | hard | command | `Bash(git commit *--amend*)`<br>`Bash(git commit --amend*)`<br>`Bash(git -c * commit *--amend*)`<br>Partial projection by necessity: Claude-native Bash globs cover only the projected direct Git prefixes; the shared rule also recognizes amend commands using other Git global options or appearing behind shell, environment, or runner prefixes or within compound commands. |
+| 8 | `git-rebase` | hard | command | Not projected: the rule matches only the residue left after ai_policy_strip_allowed_rebase_controls removes the deliberately allowed --continue/--abort/--skip/--quit forms, so a static `git rebase*` matcher would deny commands this policy allows. |
+| 9 | `git-dangerous-reset` | hard | command | `Bash(git reset *--hard*)`<br>`Bash(git reset *--soft*)`<br>`Bash(git reset *--merge*)`<br>`Bash(git reset *--keep*)`<br>`Bash(git reset HEAD~*)`<br>`Bash(git reset * HEAD~*)`<br>`Bash(git reset HEAD^*)`<br>`Bash(git reset * HEAD^*)`<br>`Bash(git reset ORIG_HEAD*)`<br>`Bash(git reset * ORIG_HEAD*)`<br>Partial projection by necessity: The native matchers cannot soundly cover every reset to an arbitrary non-option target such as a branch name or object id. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms. |
+| 10 | `git-worktree-loss` | hard | command | `Bash(git checkout *--force*)`<br>`Bash(git checkout -f*)`<br>`Bash(git checkout * -f*)`<br>`Bash(git checkout -- *)`<br>`Bash(git checkout * -- *)`<br>`Bash(git checkout .)`<br>`Bash(git switch *--force*)`<br>`Bash(git switch -f*)`<br>`Bash(git switch * -f*)`<br>`Bash(git restore *--worktree*)`<br>`Bash(git restore -W*)`<br>`Bash(git restore * -W*)`<br>`Bash(git restore -- .)`<br>`Bash(git restore .)`<br>Partial projection by necessity: Claude-native Bash globs cannot distinguish destructive restore targets such as `git restore HEAD -- .` from allowed staged-only forms such as `git restore --staged -- .`. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms. |
+| 11 | `git-stash` | hard | command | Not projected, and pinned as such by scripts/ai-hooks/test.sh: a native stash deny fires before the shared hook can speak, and this rule's whole point is the contextual reason it supplies (stash refs are shared by every linked worktree, so ownership cannot be proven, and the message names the commit / git diff / copy-aside alternatives). The record-level corpus fails if this row gains native matchers; harness:check fails if the native deny array stops matching the projection. |
+| 12 | `git-history-rewrite` | hard | command | `Bash(git filter-branch*)`<br>`Bash(git filter-repo*)`<br>`Bash(git replace*)`<br>`Bash(git update-ref*)`<br>`Bash(git reflog expire *--expire=now*--all*)`<br>Partial projection by necessity: Claude-native Bash globs cover only direct Git prefixes; the shared rule also recognizes these history-rewrite commands with Git global options or behind shell, environment, or runner prefixes or within compound commands. |
+| 13 | `git-force-push` | hard | command | `Bash(git push *--force*)`<br>`Bash(git push *--mirror*)`<br>`Bash(git push *--delete*)`<br>`Bash(git push *--prune*)`<br>`Bash(git push -f*)`<br>`Bash(git push * -f*)`<br>`Bash(git push -d*)`<br>`Bash(git push * -d*)`<br>`Bash(git push +*)`<br>`Bash(git push * +*)`<br>`Bash(git push :*)`<br>`Bash(git push * :*)`<br>Partial projection by necessity: The native matchers cannot soundly cover every short-option cluster containing `f` or `d` when those letters are not first. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms. |
+| 14 | `git-push-to-main` | hard | checkout | Not projected: checkout-scoped. Beyond the explicit main/master refspecs, the verdict depends on the branch of the resolved target checkout, which a static command matcher cannot resolve. |
+| 15 | `git-branch-force-delete` | hard | command | `Bash(git branch *--force*)`<br>`Bash(git branch *--delete*--force*)`<br>`Bash(git branch *--force*--delete*)`<br>`Bash(git branch -D*)`<br>`Bash(git branch * -D*)`<br>`Bash(git branch -f*)`<br>`Bash(git branch * -f*)`<br>`Bash(git branch -df*)`<br>`Bash(git branch * -df*)`<br>`Bash(git branch -fd*)`<br>`Bash(git branch * -fd*)`<br>`Bash(git branch -M*)`<br>`Bash(git branch * -M*)`<br>`Bash(git branch -C*)`<br>`Bash(git branch * -C*)`<br>`Bash(git tag *--delete*)`<br>`Bash(git tag *--force*)`<br>`Bash(git tag -d*)`<br>`Bash(git tag * -d*)`<br>`Bash(git tag -f*)`<br>`Bash(git tag * -f*)`<br>`Bash(git worktree remove *--force*)`<br>`Bash(git worktree remove -f*)`<br>`Bash(git worktree remove * -f*)`<br>Partial projection by necessity: The native matchers cannot soundly cover every force/delete short-option cluster. They also cover only direct Git prefixes, while the shared rule recognizes forms such as `git -C . branch -D ...`, other Git global options, and shell, environment, runner, and compound-command forms. |
+| 16 | `git-clean-force` | hard | command | `Bash(git clean -f*)`<br>`Bash(git clean -df*)`<br>`Bash(git clean * -f*)`<br>`Bash(git clean * -df*)`<br>`Bash(git clean *--force*)`<br>Partial projection by necessity: Claude-native Bash globs cannot recognize every short-option cluster containing `f` without over-denying allowed dry-run or exclusion operands such as `git clean -n -e dist/foo`; the shared hook remains authoritative for uncovered force clusters such as `-xdf` and `-nf`. Native globs also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms. |
+| 17 | `gh-auth` | hard | command | `Bash(gh auth login:*)`<br>`Bash(gh auth logout:*)`<br>`Bash(gh auth token:*)`<br>`Bash(gh auth refresh:*)`<br>`Bash(gh auth setup-git:*)`<br>Partial projection by necessity: Claude-native Bash globs cover direct `gh auth` prefixes only; the shared rule also recognizes these commands behind shell, environment, or runner prefixes or within compound commands. |
+| 18 | `gh-remote-mutation` | hard | command | Not projected: the rule's `gh api` arm is flag-contextual — an explicit --method GET and a visible GraphQL query= payload are deliberately allowed — so projecting only the subcommand arms would split one rule across two authorities and leave its contextual arm silently unprojected. |
+| 19 | `git-commit-on-main` | hard | checkout | Not projected: checkout-scoped. A plain `git commit` is allowed everywhere except the protected branch of the resolved target checkout, and a static command matcher cannot see that branch. |
+
 ## Lint rules
 
 ### `lint/local/bad-comparison-sequence`
@@ -45,7 +73,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Rule:** `local/concurrency-guard`
 
-**Principle:** Every write to a concurrency-gated table must go through a documented helper boundary, whether it is spelled as a direct delegate call or as a nested relation payload the branded delegate types cannot see.
+**Principle:** Direct update/upsert writes to concurrency-gated delegates, and the same four operations reached through nested relations, must go through a documented helper boundary.
 
 **Category:** behavior
 
@@ -195,7 +223,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `eslint-rules/no-effect-misuse.js`
 
-**Invocation:** `bun run lint:ratchet`
+**Invocation:** `bun run lint`
 
 **Paired guide:** [docs/guides/client-effects.md](../guides/client-effects.md)
 
@@ -249,6 +277,22 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `lint/local/no-node-builtin-reference`
+
+**Rule:** `local/no-node-builtin-reference`
+
+**Principle:** Shared production modules must remain portable across browser and server consumers regardless of module-reference syntax or ambient-global type/value position.
+
+**Category:** behavior
+
+**Source:** `eslint-rules/no-node-builtin-reference.js`
+
+**Invocation:** `bun run lint`
+
+**Paired guide:** [docs/adr/0006-shared-package-layering.md](../adr/0006-shared-package-layering.md)
+
+**Repair:** manual
+
 ### `lint/local/no-outer-client-in-transaction`
 
 **Rule:** `local/no-outer-client-in-transaction`
@@ -275,7 +319,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Source:** `eslint-rules/no-plain-error-in-trpc.js`
 
-**Invocation:** `bun run lint:ratchet`
+**Invocation:** `bun run lint`
 
 **Paired guide:** [docs/authorization.md](../authorization.md)
 
@@ -551,23 +595,9 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
-### `ratchet/local-no-effect-misuse-client`
-
-**Principle:** Prevent imperative data fetching and derived-state-only React effects from growing while existing reset and synchronization debt moves to query hooks, event handlers, render-time derivation, or keyed remounts.
-
-**Category:** architecture-fitness
-
-**Source:** `scripts/lint-ratchet/lint-ratchet-config.ts`
-
-**Invocation:** `bun run lint:ratchet`
-
-**Paired guide:** [docs/guides/client-effects.md](../guides/client-effects.md)
-
-**Repair:** manual
-
 ### `ratchet/local-no-swallowed-errors-broader-semantics`
 
-**Principle:** Prevent empty catches and log-then-return fallbacks from growing beyond the leaf 12 inventory while the accepted error-semantics debt drains.
+**Principle:** Prevent empty catches and log-then-return fallbacks from growing beyond the current inventory while the accepted error-semantics debt drains.
 
 **Category:** behavior
 
@@ -721,7 +751,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/testing-library-no-container-client-tests`
 
-**Principle:** Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
+**Principle:** Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the current inventory while the debt drains toward normal-lint promotion.
 
 **Category:** maintainability
 
@@ -735,7 +765,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/testing-library-no-node-access-client-tests`
 
-**Principle:** Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.
+**Principle:** Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the current inventory while the debt drains toward normal-lint promotion.
 
 **Category:** maintainability
 
@@ -763,7 +793,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/vitest-expect-expect-script-tests`
 
-**Principle:** Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.
+**Principle:** Prevent script tests without recognized assertions from growing beyond the selected linted test inventory.
 
 **Category:** maintainability
 
@@ -791,7 +821,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `ratchet/vitest-valid-expect-script-tests`
 
-**Principle:** Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.
+**Principle:** Prevent malformed Vitest expect calls from growing in the selected script-test inventory.
 
 **Category:** maintainability
 
@@ -933,7 +963,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `sensor/max-lines-exceptions`
 
-**Principle:** Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps shared-policy.js feeds eslint cannot drift from a hand edit.
+**Principle:** Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps loaded by eslint-config/max-lines-policy.js cannot drift from a hand edit.
 
 **Category:** maintainability
 
@@ -1080,7 +1110,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-changed`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it.
 
 **Category:** maintainability
 
@@ -1100,7 +1130,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
-- `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
+- `coverage-map` — `docs:lint-coverage-map:check`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`
 - `test` — `test:changed` — args: `--reporter=dot --reporter=json --outputFile.json=$TIMINGS_FILE`
@@ -1140,7 +1170,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `verify-wrapper/verify-parallel`
 
-**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.
+**Principle:** Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it.
 
 **Category:** maintainability
 
@@ -1487,7 +1517,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doc-generator/baseline-conflict-recipes`
 
-**Principle:** Project the per-baseline merge-conflict recovery recipes into the merge runbook from the driver's own print_conflict_recovery cases (keyed by baseline), so the docs and scripts/git/baseline-merge-driver.sh never carry differently-worded recipes; --check fails on drift.
+**Principle:** Project the per-baseline merge-conflict recovery recipes into the merge runbook from their live authorities: the package renderer for lint-ratchet and scripts/git/baseline-merge-driver.sh for Musi's other families; --check fails on drift.
 
 **Category:** maintainability
 
@@ -1501,7 +1531,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doc-generator/harness-controls`
 
-**Principle:** Generate the agent-facing harness controls map from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.
+**Principle:** Generate the agent-facing harness controls map and command-policy projection reference from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.
 
 **Category:** maintainability
 
@@ -1515,7 +1545,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `doc-generator/lint-coverage-map`
 
-**Principle:** Generate the direct-child scripts/drift-ai TypeScript coverage row from tracked files, fail-closed ESLint reach, and live ratchet membership while preserving the hand-maintained coverage-map document outside one marker-delimited block; --check fails on generated-block drift.
+**Principle:** Render docs/generated/lint-coverage-map.md end to end from the typed coverage manifest, deriving the direct-child scripts/drift-ai TypeScript row from tracked files, fail-closed ESLint reach, and live ratchet membership; the document is pure generator output with no hand-maintained span, and --check fails on any drift from the manifest.
 
 **Category:** maintainability
 
@@ -1538,6 +1568,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Invocation:** `bun run docs:lint-guidance`
 
 **Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** autofix
+
+### `doc-generator/manifest-json-schema`
+
+**Principle:** Publish the JSON Schema for harness.controls.json by projecting it from the Zod contract that already validates the manifest, so an external adopter can validate a manifest, get editor completion, and see format changes as a schema diff without reverse-engineering the in-repo parser; --check fails when the published schema drifts from the contract.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-manifest-json-schema.ts`
+
+**Invocation:** `bun run harness:manifest-schema`
+
+**Paired guide:** [docs/guides/harness-manifest-parser.md](../guides/harness-manifest-parser.md)
 
 **Repair:** autofix
 
@@ -1570,6 +1614,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** [docs/adr/README.md](../adr/README.md)
 
 **Repair:** manual
+
+### `check/command-policy-generator`
+
+**Principle:** Render the ordered hard-deny command policy from the root commandPolicy rows into the fail-closed shell fragment the agent hooks consume, and derive the Claude-native permissions.deny array from the same rows; --check fails when the committed fragment is stale or when the native deny array stops matching the projection.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-command-policy.ts`
+
+**Invocation:** `bun run harness:command-policy`
+
+**Paired guide:** none
+
+**Repair:** autofix
+
+### `check/concurrency-relation-graph-generator`
+
+**Principle:** Generate the Prisma relation subgraph and repair metadata for every gated delegate, including live docs/CONCURRENCY.md repair anchors and payload-envelope scalar collisions used by the nested-write runtime guard and author-time lint; --check and the always-on drift suite fail when schema, documentation headings, or concurrency policy leave the checked-in descriptor stale.
+
+**Category:** behavior
+
+**Source:** `scripts/codemods/concurrency-guard/generate-relation-graph.ts`
+
+**Invocation:** `bun run concurrency:relation-graph`
+
+**Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
+
+**Repair:** autofix
 
 ### `check/config-sensors`
 
@@ -1797,7 +1869,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/harness-registration-preflight`
 
-**Principle:** Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates.
+**Principle:** Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates. The same entrypoint hosts the read-only --explain provenance query, which joins controls, package scripts, generated surfaces, verify slots, hooks, and smoke subjects for one explicitly typed path, control, or script selector without changing check behavior or exit codes.
 
 **Category:** maintainability
 
@@ -1867,7 +1939,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `check/lint-coverage-map`
 
-**Principle:** Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.
+**Principle:** Detect drift between the typed coverage manifest and tracked repository paths, cited ratchet IDs, asserted file counts, and ESLint reach so the inventory stays load-bearing; the status vocabulary, the normal-lint/status agreement, and well-formed ratchet references are enforced by the manifest's Zod schema at load time.
 
 **Category:** maintainability
 
@@ -1921,6 +1993,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Repair:** manual
 
+### `check/lint-rule-controls-generator`
+
+**Principle:** Derive every kind=lint-rule harness control from the rule files on disk, flat-config enablement, and the ratchet registry, so a rule's identity, source, and enforcement command cannot be re-typed into the manifest and drift from the surface that actually runs it; generation fails when a discovered rule is activated nowhere.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-lint-rule-controls.ts`
+
+**Invocation:** `bun run harness:lint-rule-controls`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** autofix
+
 ### `check/lint-suppressions`
 
 **Principle:** Run the ESLint-disable and TypeScript/Stryker suppression registers across the full tree so whole-repository suppression policy drift is caught by verify and verify:parallel.
@@ -1948,6 +2034,34 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** none
 
 **Repair:** manual
+
+### `check/local-plugin-generator`
+
+**Principle:** Generate the local ESLint plugin registry from the rule modules on disk so adding a rule needs no hand-maintained import list, and the registry cannot drift from the filesystem, lose alphabetical order, or silently register a helper module.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-local-plugin.ts`
+
+**Invocation:** `bun run lint:local-plugin`
+
+**Paired guide:** [docs/guides/local-eslint-rules.md](../guides/local-eslint-rules.md)
+
+**Repair:** autofix
+
+### `check/pre-push-scope-trigger-generator`
+
+**Principle:** Generate the .husky/pre-push near-duplicates boundary trigger ERE from the scanner's own source-extension truth (BUILT_IN_SOURCE_EXTENSIONS plus drift-ai.config.json additionalSourceExtensions) and the whole-file detector inputs; the hook sources the fragment and fails closed when it is missing, and --check fails on drift.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-pre-push-scope-trigger.ts`
+
+**Invocation:** `bun run harness:pre-push-trigger`
+
+**Paired guide:** none
+
+**Repair:** autofix
 
 ### `check/restricted-disable-rules-generator`
 
@@ -2004,6 +2118,20 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Paired guide:** none
 
 **Repair:** autofix
+
+### `check/staged-source-nul`
+
+**Principle:** Reject literal NUL bytes in every source-relevant staged add, copy, modify, or rename blob before source-skip and verification-marker shortcuts can admit the commit.
+
+**Category:** maintainability
+
+**Source:** `scripts/lib/verify-path-policy.sh`
+
+**Invocation:** `git commit`
+
+**Paired guide:** [docs/guides/verify-gate-lifecycle.md](../guides/verify-gate-lifecycle.md)
+
+**Repair:** manual
 
 ### `check/verify-steps-generator`
 
@@ -2193,7 +2321,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `codemod/concurrency-guard`
 
-**Principle:** Rewrite direct Prisma writes on concurrency-gated delegates to documented helper boundaries; name-based, so aliases and destructured handles still need manual review.
+**Principle:** Scan for direct Prisma writes that bypass concurrency-gated helper boundaries, raw-client imports, and drift in sanctioned helper shapes; report findings without rewriting source. Nested diagnostics belong to ESLint and the runtime guard.
 
 **Category:** behavior
 
@@ -2203,7 +2331,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Paired guide:** [docs/guides/add-race-sensitive-mutation.md](../guides/add-race-sensitive-mutation.md)
 
-**Repair:** codemod — `bun run codemod:concurrency-guard`
+**Repair:** manual
 
 ### `codemod/expand-barrel`
 
@@ -2275,7 +2403,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `25`; shared body: `scripts/ai-hooks/backlog-note-lint.sh`
+- event: `PostToolUse`; canonical order: `25`; shared body: `scripts/ai-hooks/backlog-note-lint.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/backlog-note-lint.sh` (matcher: `Edit|Write`; timeout: `30s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/backlog-note-lint.sh"` (matcher: `apply_patch`; timeout: `30s`; status: `Linting edited backlog note`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/backlog-note-lint.sh"` (matcher: `create|edit`; timeout: `30s`)
@@ -2296,7 +2424,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/bun-run-quiet.sh`
+- event: `PreToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/bun-run-quiet.sh`; adapter surface: `bash` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/bun-run-quiet.sh` (matcher: `Bash`; timeout: `2460s`)
 - `codex` — deliberately not wired: Codex deliberately handles `bun run` cache and quieting inside .codex/hooks/pre-tool-use.sh.
 - `copilot` — deliberately not wired: Copilot deliberately handles `bun run` cache checks and output quieting inside its Bash aggregators, mirroring Codex.
@@ -2319,7 +2447,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - event: `PostToolUse`; canonical order: `90`; shared body: `scripts/ai-hooks/bash-post-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
-- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Summarizing repository Bash output`)
+- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/post-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Summarizing repository Bash output`) — note: Aggregator, so the command is not the per-hook projection of body: Codex routes every Bash PostToolUse through the one fixed .codex/hooks/post-tool-use.sh shim, which dispatches the shared aggregate body.
 - `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-post-tool-use.
 
 **Paired guide:** none
@@ -2340,7 +2468,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 - event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/bash-pre-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model.
-- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Running repository Bash hooks`)
+- `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/pre-tool-use.sh"` (matcher: `Bash`; timeout: `60s`; status: `Running repository Bash hooks`) — note: Aggregator, so the command is not the per-hook projection of body: Codex routes every Bash PreToolUse through the one fixed .codex/hooks/pre-tool-use.sh shim, which dispatches the shared aggregate body.
 - `copilot` — deliberately not wired: Copilot runs the same shared Bash aggregate body through hook/ai-copilot-pre-tool-use.
 
 **Paired guide:** none
@@ -2362,7 +2490,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PostToolUse`; canonical order: `90`; shared body: `scripts/ai-hooks/bash-post-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.
 - `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use.
-- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/post-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`) — note: Aggregator, so the command is not the per-hook projection of body: Copilot routes every bash|powershell postToolUse through the one fixed .copilot/hooks/post-tool-use.sh shim, which normalizes the payload and dispatches the shared aggregate body.
 
 **Paired guide:** none
 
@@ -2383,7 +2511,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/bash-pre-tool-use.sh`
 - `claude` — deliberately not wired: Claude deliberately uses direct Bash PreToolUse adapters because it does not have Copilot's aggregator model.
 - `codex` — deliberately not wired: Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use.
-- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`)
+- `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/pre-tool-use.sh"` (matcher: `bash|powershell`; timeout: `60s`) — note: Aggregator, so the command is not the per-hook projection of body: Copilot routes every bash|powershell preToolUse through the one fixed .copilot/hooks/pre-tool-use.sh shim, which normalizes the payload and dispatches the shared aggregate body.
 
 **Paired guide:** none
 
@@ -2401,7 +2529,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/doc-length.sh`
+- event: `PostToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/doc-length.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/doc-length.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/doc-length.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking edited doc length`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/doc-length.sh"` (matcher: `create|edit`; timeout: `15s`)
@@ -2422,7 +2550,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUseFailure`; canonical order: `10`; shared body: `scripts/ai-hooks/failure-guidance.sh`
+- event: `PostToolUseFailure`; canonical order: `10`; shared body: `scripts/ai-hooks/failure-guidance.sh`; adapter surface: `bash` (canonical)
 - outputs: `additionalContext`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/failure-guidance.sh` (matcher: `Bash`; timeout: `15s`)
 - `codex` — deliberately not wired: Codex has no PostToolUseFailure hook event.
@@ -2444,7 +2572,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/git-commit-quiet.sh`
+- event: `PreToolUse`; canonical order: `20`; shared body: `scripts/ai-hooks/git-commit-quiet.sh`; adapter surface: `bash` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/git-commit-quiet.sh` (matcher: `Bash`; timeout: `2460s`)
 - `codex` — deliberately not wired: Codex deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators.
 - `copilot` — deliberately not wired: Copilot deliberately handles commit state and summaries inside its PreToolUse/PostToolUse Bash aggregators, mirroring Codex.
@@ -2455,7 +2583,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/ai-lint-coverage-check`
 
-**Principle:** After AI edits, advise when changed TypeScript surfaces lack an expected lint coverage-map row so new script and code surfaces do not silently escape lint policy.
+**Principle:** After AI edits, advise when changed TypeScript surfaces lack an expected entry in the typed lint coverage manifest so new script and code surfaces do not silently escape lint policy.
 
 **Category:** maintainability
 
@@ -2465,7 +2593,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/lint-coverage-check.sh`
+- event: `PostToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/lint-coverage-check.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/lint-coverage-check.sh` (matcher: `Edit|Write`; timeout: `15s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/lint-coverage-check.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking ESLint coverage`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/lint-coverage-check.sh"` (matcher: `create|edit`; timeout: `15s`)
@@ -2486,7 +2614,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/no-direct-db.sh`
+- event: `PreToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/no-direct-db.sh`; adapter surface: `bash` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/no-direct-db.sh` (matcher: `Bash`)
 - `codex` — deliberately not wired: Codex deliberately uses .codex/hooks/pre-tool-use.sh as a Bash aggregator for the same policy surface.
 - `copilot` — deliberately not wired: Copilot deliberately gets the same policy surface through .copilot/hooks/pre-tool-use.sh, its Bash aggregator.
@@ -2507,7 +2635,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/prisma-generate.sh`
+- event: `PostToolUse`; canonical order: `10`; shared body: `scripts/ai-hooks/prisma-generate.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/prisma-generate.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/prisma-generate.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Regenerating Prisma client`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/prisma-generate.sh"` (matcher: `create|edit`; timeout: `120s`)
@@ -2528,7 +2656,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PreToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/protected-files.sh`
+- event: `PreToolUse`; canonical order: `40`; shared body: `scripts/ai-hooks/protected-files.sh`; adapter surface: `edit` (canonical)
 - outputs: `additionalContext`, `decisionBlock`
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/protected-files.sh` (matcher: `Edit|Write`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/protected-files.sh"` (matcher: `apply_patch`; timeout: `15s`; status: `Checking protected-file edits`)
@@ -2550,7 +2678,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `50`; shared body: `scripts/ai-hooks/ratchet-regression-check.sh`
+- event: `PostToolUse`; canonical order: `50`; shared body: `scripts/ai-hooks/ratchet-regression-check.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/ratchet-regression-check.sh` (matcher: `Edit|Write`; timeout: `60s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/ratchet-regression-check.sh"` (matcher: `apply_patch`; timeout: `60s`; status: `Checking lint-ratchet regressions`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/ratchet-regression-check.sh"` (matcher: `create|edit`; timeout: `60s`)
@@ -2637,7 +2765,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 **Hook wiring:**
 
-- event: `PostToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/tidy-edited-file.sh`
+- event: `PostToolUse`; canonical order: `30`; shared body: `scripts/ai-hooks/tidy-edited-file.sh`; adapter surface: `edit` (canonical)
 - `claude` — `bash $CLAUDE_PROJECT_DIR/.claude/hooks/tidy-edited-file.sh` (matcher: `Edit|Write`; timeout: `120s`)
 - `codex` — `bash "$(git rev-parse --show-toplevel)/.codex/hooks/tidy-edited-file.sh"` (matcher: `apply_patch`; timeout: `120s`; status: `Tidying edited file`)
 - `copilot` — `bash "$(git rev-parse --show-toplevel)/.copilot/hooks/tidy-edited-file.sh"` (matcher: `create|edit`; timeout: `120s`)
@@ -2704,7 +2832,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `hook/pre-commit`
 
-**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
+**Principle:** Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.
 
 **Category:** maintainability
 
@@ -2724,7 +2852,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 - `knip-unused-exports` — `sensor:knip-unused-exports`
 - `near-duplicates` — `sensor:near-duplicates`
 - `max-lines-exceptions` — `lint:max-lines-exceptions`
-- `coverage-map` — `docs:lint-coverage-map:check` — args: `-- --staged`
+- `coverage-map` — `docs:lint-coverage-map:check`
 - `format-check` — `format:changed:check`
 - `typecheck` — `typecheck`
 - `test` — `test:changed` — args: `--reporter=dot`; dynamic: `precommit-test-timings`
@@ -2752,7 +2880,7 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 
 ### `skill/agent-cli`
 
-**Principle:** Keep the agent-cli skill's shared instructions and references aligned across Claude and Codex while preserving only the declared harness-specific workflow, metadata, and dispatch-script overlays.
+**Principle:** Keep the agent-cli skill's shared instructions and references aligned across Claude and Codex while preserving only the declared harness-specific workflow and metadata overlays.
 
 **Category:** maintainability
 
@@ -2771,20 +2899,6 @@ For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule
 **Category:** maintainability
 
 **Source:** `.claude/skills/playwright-cli/SKILL.md`
-
-**Invocation:** `bun run harness:check`
-
-**Paired guide:** none
-
-**Repair:** manual
-
-### `skill/ts-graph`
-
-**Principle:** Keep TS Graph instructions aligned across Claude and Codex while permitting only Claude's command allowlist frontmatter and Codex discovery metadata.
-
-**Category:** maintainability
-
-**Source:** `.claude/skills/ts-graph/SKILL.md`
 
 **Invocation:** `bun run harness:check`
 

@@ -244,7 +244,7 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 
 **Description:** Disallow direct Prisma update/upsert calls on concurrency-gated delegates, and nested relation writes that reach them through a non-gated parent
 
-**Principle:** Every write to a concurrency-gated table must go through a documented helper boundary, whether it is spelled as a direct delegate call or as a nested relation payload the branded delegate types cannot see.
+**Principle:** Direct update/upsert writes to concurrency-gated delegates, and the same four operations reached through nested relations, must go through a documented helper boundary.
 
 **Category:** behavior
 
@@ -297,6 +297,18 @@ This table is generated from `meta.docs` on each rule and grouped into maintaina
 **Category:** behavior
 
 **Paired guide:** none
+
+**Repair:** manual
+
+### `local/no-node-builtin-reference`
+
+**Description:** Disallow Node module and ambient-global references in runtime-neutral code
+
+**Principle:** Shared production modules must remain portable across browser and server consumers regardless of module-reference syntax or ambient-global type/value position.
+
+**Category:** behavior
+
+**Paired guide:** [docs/adr/0006-shared-package-layering.md](../adr/0006-shared-package-layering.md)
 
 **Repair:** manual
 

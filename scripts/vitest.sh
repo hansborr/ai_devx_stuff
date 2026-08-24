@@ -16,6 +16,32 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || {
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/ai-hooks/output-filter.sh"
 
+# A shell smoke is not a Vitest test. With --passWithNoTests, forwarding one
+# would otherwise produce a false green without running the named file.
+POSITIONAL_ONLY=0
+OPTION_VALUE=0
+for arg in "$@"; do
+  if [ "$arg" = -- ]; then
+    POSITIONAL_ONLY=1
+    continue
+  fi
+  if [ "$OPTION_VALUE" -eq 1 ]; then
+    OPTION_VALUE=0
+    continue
+  fi
+  if [ "$POSITIONAL_ONLY" -eq 0 ] && [[ "$arg" = -* ]]; then
+    case "$arg" in
+      -t | --testNamePattern) OPTION_VALUE=1 ;;
+    esac
+    continue
+  fi
+  if [[ "$arg" = *.sh ]]; then
+    printf "vitest.sh: shell smoke path '%s' is not a Vitest test; run 'bash %s' for one smoke or 'bun run test:scripts' for the registered shell-smoke suite.\n" \
+      "$arg" "$arg" >&2
+    exit 2
+  fi
+done
+
 # Fail fast on a stale/unbuilt @musi/shared dist or generated Prisma client
 # before Vitest imports them — otherwise the staleness surfaces as dozens of
 # phantom "<X> is not a function" failures. The check is gated on real

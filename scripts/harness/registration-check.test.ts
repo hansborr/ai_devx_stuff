@@ -68,15 +68,27 @@ describe("registration-only harness checks", () => {
       readonly name: string;
       readonly inputs: RegistrationCheckInputs;
       readonly expected: string;
-      readonly repair: string;
+      readonly repair: string | readonly string[];
     }[] = [
       {
+        // Schema diagnostics fire against the ASSEMBLED manifest, so the entry
+        // they name may live in either owner file. Both routes have to be in
+        // the repair text or a malformed lint-rule control sends the reader to
+        // harness.controls.json, which no longer holds one.
         name: "manifest shape",
         inputs: withManifest(base, (manifest) => {
           manifest.unregisteredTopLevelField = true;
         }),
         expected: "Unrecognized key",
-        repair: "harness.controls.json",
+        repair: ["harness.controls.json", "harness.controls.lint-rules.generated.json"],
+      },
+      {
+        name: "manifest control entry shape",
+        inputs: withManifest(base, (manifest) => {
+          controls(manifest).push("not-an-object" as unknown as Record<string, unknown>);
+        }),
+        expected: "is not an object",
+        repair: ["harness.controls.json", "harness.controls.lint-rules.generated.json"],
       },
       {
         name: "source reference",
@@ -98,18 +110,26 @@ describe("registration-only harness checks", () => {
       {
         name: "verify slot validity",
         inputs: withManifest(base, (manifest) => {
-          for (const id of [
-            "verify-wrapper/verify",
-            "verify-wrapper/verify-changed",
-            "verify-wrapper/verify-parallel",
-            "hook/pre-commit",
-          ]) {
-            const slots = control(manifest, id).slots;
-            if (!Array.isArray(slots)) throw new Error(`${id} slots missing`);
-            const lint = (slots as Record<string, unknown>[]).find((slot) => slot.name === "lint");
-            if (lint === undefined) throw new Error(`${id} lint slot missing`);
-            lint.script = "missing:slot-script";
+          const catalog = manifest.verifySlotCatalog;
+          if (!Array.isArray(catalog)) throw new Error("fixture manifest has no slot catalog");
+          const lint = (catalog as Record<string, unknown>[]).find(
+            (entry) => entry.name === "lint",
+          );
+          if (lint === undefined) throw new Error("fixture slot catalog has no lint entry");
+          const full = lint.full;
+          if (typeof full !== "object" || full === null) {
+            throw new Error("fixture lint entry has no full slot");
           }
+          (full as Record<string, unknown>).script = "missing:slot-script";
+          const changed = lint.changed;
+          if (typeof changed !== "object" || changed === null) {
+            throw new Error("fixture lint entry has no changed disposition");
+          }
+          const changedSlot = (changed as Record<string, unknown>).slot;
+          if (typeof changedSlot !== "object" || changedSlot === null) {
+            throw new Error("fixture lint entry has no changed slot");
+          }
+          (changedSlot as Record<string, unknown>).script = "missing:slot-script";
         }),
         expected: "references unknown package.json script: missing:slot-script",
         repair: "bun run verify:steps",
@@ -146,6 +166,33 @@ describe("registration-only harness checks", () => {
         },
         expected: "local rule local/unregistered-test-rule is not declared",
         repair: "manifest",
+      },
+      {
+        // Regression: the ratchet direction of the activation-mode check. Its
+        // absence is what let lint/local/no-plain-error-in-trpc advertise
+        // `bun run lint:ratchet` after the rule was promoted to normal lint.
+        name: "lint rule activation mode (ratchet claim for an enabled rule)",
+        inputs: withManifest(base, (manifest) => {
+          control(manifest, "lint/local/no-barrel").invocation = "bun run lint:ratchet";
+        }),
+        expected: "but it is enabled in eslint.config.js",
+        repair: "harness:lint-rule-controls",
+      },
+      {
+        name: "lint rule activation mode (normal-lint claim for a disabled rule)",
+        inputs: {
+          ...base,
+          localRuleConfig: {
+            ...base.localRuleConfig,
+            enabledRuleNames: new Set(
+              [...base.localRuleConfig.enabledRuleNames].filter(
+                (name) => name !== "local/no-barrel",
+              ),
+            ),
+          },
+        },
+        expected: "claims normal ESLint coverage",
+        repair: "bun run lint:ratchet",
       },
       {
         name: "lint overlay parity",
@@ -211,18 +258,6 @@ describe("registration-only harness checks", () => {
         repair: "bun run verify:steps",
       },
       {
-        name: "harness-check fixture manifest freshness",
-        inputs: {
-          ...base,
-          readOutput: (path) =>
-            path === "scripts/tests/harness-check-fixture-manifest.generated.txt"
-              ? "stale\n"
-              : readFileSync(join(repoRoot, path), "utf8"),
-        },
-        expected: "scripts/tests/harness-check-fixture-manifest.generated.txt is out of date",
-        repair: "bun run verify:steps",
-      },
-      {
         name: "skill mirror registration",
         inputs: withManifest(base, (manifest) => {
           const skill = controls(manifest).find((entry) => entry.kind === "skill");
@@ -253,7 +288,8 @@ describe("registration-only harness checks", () => {
     for (const fixture of cases) {
       const output = messages(collectRegistrationFailures(fixture.inputs));
       expect(output, fixture.name).toContain(fixture.expected);
-      expect(output, fixture.name).toContain(fixture.repair);
+      const repairs = typeof fixture.repair === "string" ? [fixture.repair] : fixture.repair;
+      for (const repair of repairs) expect(output, fixture.name).toContain(repair);
     }
     expect(excludedCheckSpies.spawn).not.toHaveBeenCalled();
     expect(excludedCheckSpies.fixtureClosure).not.toHaveBeenCalled();

@@ -5,7 +5,9 @@ Date: 2026-07-21
 Priority: P2
 Size: L
 Risk: medium-high
-Source: `pain_points.log` line 21; Claude memory
+Source:
+`/home/node/persist/musi/pain_points/harness-registration-and-generated-surfaces.md`;
+Claude memory
 `autonomous-drain-lane-recipe.md`; lint-messaging audit residual finding
 
 ## Problem

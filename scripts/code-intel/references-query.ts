@@ -5,10 +5,8 @@ import { CodeIntelError } from "./errors.js";
 import { formatLocation } from "./format.js";
 import { identifierAtPosition, positionFromLineColumn } from "./identifier-location.js";
 import { getProjectSourceFile } from "./source-project.js";
-import type { IntelResult, ReferenceKind, SourceLocation } from "./types.js";
+import type { ReferenceKind, ReferenceResult, SourceLocation } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
-
-type ReferenceResult = Extract<IntelResult, { kind: "reference" }>;
 
 type ReferenceCollectionContext = {
   declarationLocations: Set<string>;
@@ -19,7 +17,7 @@ type ReferenceCollectionContext = {
 
 export type ReferencesQueryResult = {
   name: string;
-  results: IntelResult[];
+  results: ReferenceResult[];
 };
 
 export function queryReferences(

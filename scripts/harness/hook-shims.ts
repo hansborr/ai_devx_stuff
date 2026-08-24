@@ -65,9 +65,18 @@ function assertCanonicalBody(body: string, context: string): string {
   return name;
 }
 
-function parseCommandRelPath(command: string, context: string): string {
+/**
+ * Repo-relative shim path of a recognized harness command shape, or undefined
+ * for anything else. Shared with the read-only explain view, which must stay
+ * tolerant of open hookWiring interiors instead of failing generation.
+ */
+export function commandShimRelPath(command: string): string | undefined {
   const match = CLAUDE_PROJECT_DIR_COMMAND.exec(command) ?? TOPLEVEL_COMMAND.exec(command);
-  const rel = match?.groups?.rel;
+  return match?.groups?.rel;
+}
+
+function parseCommandRelPath(command: string, context: string): string {
+  const rel = commandShimRelPath(command);
   if (rel === undefined) {
     throw new Error(
       `${context}.command does not match a recognized shim command shape ` +

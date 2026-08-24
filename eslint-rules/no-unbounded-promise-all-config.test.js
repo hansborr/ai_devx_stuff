@@ -1,18 +1,10 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
+import { configFor, lintTextFor, messagesFor, severityOf } from "./repo-config-harness.js";
 
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
 const RULE_ID = "local/no-unbounded-promise-all";
 const DYNAMIC_FAN_OUT = [
   "export async function loadAll(items: string[]) {",
@@ -20,26 +12,13 @@ const DYNAMIC_FAN_OUT = [
   "}",
 ].join("\n");
 
-/** @returns {Promise<{ rules?: Record<string, unknown> }>} */
-async function configFor(/** @type {string} */ relPath) {
-  const config = await eslint.calculateConfigForFile(resolve(repoRoot, relPath));
-  return { rules: config.rules };
-}
-
 /** @param {{ rules?: Record<string, unknown> }} config */
-function severityOf(config) {
-  const entry = config.rules?.[RULE_ID];
-  if (Array.isArray(entry)) return entry[0];
-  return entry;
+function ruleSeverityOf(config) {
+  return severityOf(config, RULE_ID);
 }
 
 async function ruleMessagesFor(/** @type {string} */ relPath) {
-  const results = await eslint.lintText(DYNAMIC_FAN_OUT, {
-    filePath: resolve(repoRoot, relPath),
-  });
-  return results.flatMap((result) =>
-    result.messages.filter((message) => message.ruleId === RULE_ID),
-  );
+  return messagesFor(await lintTextFor(relPath, DYNAMIC_FAN_OUT), RULE_ID);
 }
 
 describe("no-unbounded-promise-all config", () => {
@@ -52,7 +31,7 @@ describe("no-unbounded-promise-all config", () => {
         "packages/server/prisma/seed.ts",
         "packages/server/scripts/pgexec.ts",
       ]) {
-        expect(severityOf(await configFor(file)), file).toBe(2);
+        expect(ruleSeverityOf(await configFor(file)), file).toBe(2);
         expect(await ruleMessagesFor(file), file).toHaveLength(1);
       }
     },
@@ -66,7 +45,7 @@ describe("no-unbounded-promise-all config", () => {
         "packages/server/src/services/auth-service.test.ts",
         "packages/client/src/lib/api-base.ts",
       ]) {
-        expect(severityOf(await configFor(file)), file).toBeUndefined();
+        expect(ruleSeverityOf(await configFor(file)), file).toBeUndefined();
         expect(await ruleMessagesFor(file), file).toHaveLength(0);
       }
     },

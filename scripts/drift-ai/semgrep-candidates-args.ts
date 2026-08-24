@@ -1,10 +1,22 @@
-import { readNonEmpty, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import type { CliOptionEvent } from "../lib/cli.js";
+import { nonEmptyValue, positiveIntValue, readNonEmpty } from "./arg-readers.js";
 import {
   DEFAULT_SEMGREP_CANDIDATES_TOP,
   SEMGREP_CANDIDATES_SUBCOMMAND,
 } from "./semgrep-advisory.js";
 import { createCliRuleSourceCollector, type SemgrepRuleSource } from "./semgrep-rule-sources.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+  subcommandBooleanFlag,
+} from "./subcommand-args.js";
 
 const SEMGREP_CANDIDATES_USAGE = [
   "Usage:",
@@ -46,64 +58,74 @@ export type ParsedSemgrepCandidatesArgs = {
   readonly includeRuleMessages: boolean;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--root", kind: "value", repeatable: true },
+  { name: "--rule-source-manifest", kind: "value" },
+  { name: "--semgrep-config", kind: "value", repeatable: true },
+  { name: "--rule-license", kind: "value", repeatable: true },
+  { name: "--registry-pack", kind: "value", repeatable: true },
+  { name: "--allow-rule-license", kind: "value", repeatable: true },
+  { name: "--top", kind: "value" },
+  { name: "--semgrep-bin", kind: "value" },
+  subcommandBooleanFlag("--allow-live-registry"),
+  subcommandBooleanFlag("--include-rule-messages"),
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--root": z.array(z.string()).default([]),
+  "--rule-source-manifest": z.string().optional(),
+  // The three rule-source options are validated and consumed through the
+  // parse's optionEvents below (their pairing is argv-order-sensitive across
+  // different flags); these entries keep the option/schema registries aligned.
+  "--semgrep-config": z.array(z.string()).default([]),
+  "--rule-license": z.array(z.string()).default([]),
+  "--registry-pack": z.array(z.string()).default([]),
+  "--allow-rule-license": z.array(nonEmptyValue("--allow-rule-license")).default([]),
+  "--top": positiveIntValue("--top").default(DEFAULT_SEMGREP_CANDIDATES_TOP),
+  "--semgrep-bin": nonEmptyValue("--semgrep-bin").optional(),
+  "--allow-live-registry": z.boolean().default(false),
+  "--include-rule-messages": z.boolean().default(false),
+});
+
+// `--rule-license` licenses the `--semgrep-config` it FOLLOWS and
+// `--registry-pack` closes any open config, so the three options are
+// order-sensitive across different flag names. The flattened options record
+// cannot carry that interleaving; replay the parser-observed option events
+// (every occurrence, argv order) through the collector, which owns the
+// pairing rules and their exact diagnostics.
+function collectRuleSources(events: readonly CliOptionEvent[]): readonly SemgrepRuleSource[] {
+  const collector = createCliRuleSourceCollector();
+  for (const event of events) {
+    if (typeof event.value !== "string") continue;
+    if (event.name === "--semgrep-config") collector.addConfig(event.value);
+    else if (event.name === "--rule-license") {
+      collector.addLicense(readNonEmpty(event.value, "--rule-license"));
+    } else if (event.name === "--registry-pack") collector.addPack(event.value);
+  }
+  return collector.sources();
+}
+
 export function parseSemgrepCandidatesArgs(argv: readonly string[]): ParsedSemgrepCandidatesArgs {
-  const roots: string[] = [];
-  let top = DEFAULT_SEMGREP_CANDIDATES_TOP;
-  let semgrepBin: string | null = null;
-  let ruleSourceManifestPath: string | null = null;
-  const allowedRuleLicenses: string[] = [];
-  let allowLiveRegistry = false;
-  let includeRuleMessages = false;
-  const ruleSources = createCliRuleSourceCollector();
-  const base = parseSubcommandArgs(argv, {
+  const parsed = parseSubcommandCli({
+    argv,
     usage: SEMGREP_CANDIDATES_USAGE,
-    acceptsConfig: true,
-    pathValueOptions: {
-      "--root": (value) => {
-        roots.push(value);
-      },
-      "--rule-source-manifest": (value) => {
-        ruleSourceManifestPath = value;
-      },
-      "--semgrep-config": (value) => {
-        ruleSources.addConfig(value);
-      },
-    },
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--rule-license": (value) => {
-        ruleSources.addLicense(readNonEmpty(value, "--rule-license"));
-      },
-      "--registry-pack": (value) => {
-        ruleSources.addPack(readNonEmpty(value, "--registry-pack"));
-      },
-      "--allow-rule-license": (value) => {
-        allowedRuleLicenses.push(readNonEmpty(value, "--allow-rule-license"));
-      },
-      "--semgrep-bin": (value) => {
-        semgrepBin = readNonEmpty(value, "--semgrep-bin");
-      },
-    },
-    flagOptions: {
-      "--allow-live-registry": () => {
-        allowLiveRegistry = true;
-      },
-      "--include-rule-messages": () => {
-        includeRuleMessages = true;
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
+  const options = parsed.options;
   return {
-    base,
-    roots,
-    top,
-    semgrepBin,
-    ruleSourceManifestPath,
-    cliRuleSources: ruleSources.sources(),
-    allowedRuleLicenses,
-    allowLiveRegistry,
-    includeRuleMessages,
+    base: subcommandBaseFromOptions(options),
+    roots: options["--root"],
+    top: options["--top"],
+    semgrepBin: options["--semgrep-bin"] ?? null,
+    ruleSourceManifestPath: options["--rule-source-manifest"] ?? null,
+    cliRuleSources: collectRuleSources(parsed.optionEvents ?? []),
+    allowedRuleLicenses: options["--allow-rule-license"],
+    allowLiveRegistry: options["--allow-live-registry"],
+    includeRuleMessages: options["--include-rule-messages"],
   };
 }

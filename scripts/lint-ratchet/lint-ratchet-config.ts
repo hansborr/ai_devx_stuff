@@ -9,9 +9,11 @@ import {
   codeFiles,
   productionFunctionStructureFiles,
   productionFunctionStructureIgnores,
+} from "../../eslint-config/path-glob-policy.js";
+import {
   scriptFixtureIgnores,
   scriptTestAssertFunctionNames,
-} from "../../eslint-config/shared-policy.js";
+} from "../../eslint-config/script-test-policy.js";
 import {
   localTypeAssertionBoundaryRatchet,
   vitestValidExpectRatchet,
@@ -47,8 +49,7 @@ const codeWideRatchetIgnores = [
   ...scriptFixtureIgnores,
 ] as const;
 const testingLibraryDrainExitPath = "docs/agent_notes/finished_work/lint-followups-2026-06.md";
-const harnessReview202607Leaf37 =
-  "docs/agent_notes/backlog/harness-review-2026-07/37-cheap-plugin-and-config-rule-adds.md";
+const harnessReview202607Index = "docs/agent_notes/backlog/harness-review-2026-07/00-index.md";
 const noDirectGitExecScriptsRestrictedSyntax = [
   {
     selector:
@@ -105,7 +106,6 @@ export const lintRatchets = [
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Freeze the accepted client arbitrary Tailwind bracket-value inventory so new one-off class values fail while the design-token cleanup drains incrementally.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
@@ -121,28 +121,10 @@ export const lintRatchets = [
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Prevent multi-line operative code from being preserved in comments, where it obscures the active implementation and can be resurrected as a stale alternative.",
     zeroBaselineDisposition: {
       kind: "intentional-ratchet-only",
       reason: "the deliberately conservative comment-shape heuristic should block new debt at commit time without becoming a normal-lint editor diagnostic across every maintained JS/TS file",
-    },
-  },
-  {
-    id: "ratchet/local-no-effect-misuse-client",
-    ruleId: "local/no-effect-misuse",
-    parserProfile: "minimal-ts",
-    files: clientSourceFiles,
-    ignores: clientTestAndHelperSourceFiles,
-    ruleOptions: [],
-    mode: "no-new",
-    metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent imperative data fetching and derived-state-only React effects from growing while existing reset and synchronization debt moves to query hooks, event handlers, render-time derivation, or keyed remounts.",
-    zeroBaselineDisposition: {
-      kind: "promote-to-normal-lint",
-      reason: "the client inventory has drained to zero; local/no-effect-misuse should become a normal-lint error over this same scope so a new finding fails lint outright instead of landing in a baseline",
-      exitPath: "docs/agent_notes/backlog/code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md",
     },
   },
   {
@@ -158,8 +140,7 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent empty catches and log-then-return fallbacks from growing beyond the leaf 12 inventory while the accepted error-semantics debt drains.",
+    principle: "Prevent empty catches and log-then-return fallbacks from growing beyond the current inventory while the accepted error-semantics debt drains.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
       reason: "once empty catches and logged fallbacks drain, remove the normal-lint adoption options so every no-swallowed-errors message is a hard error",
@@ -198,7 +179,6 @@ export const lintRatchets = [
     ruleOptions: [{ max: 3 }],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Freeze production nesting beyond three blocks so new deeply nested handlers fail and repairs favor early returns, guard clauses, and focused helpers.",
   },
   {
@@ -223,7 +203,6 @@ export const lintRatchets = [
     ruleOptions: [{ max: 100, skipBlankLines: true, skipComments: true }],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Prevent the number of production functions over 100 effective lines from growing while the 200-line normal-lint ceiling remains the hard cap and existing debt drains without artificial splits.",
   },
   {
@@ -236,7 +215,6 @@ export const lintRatchets = [
     ruleOptions: noDirectGitExecScriptsRestrictedSyntax,
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Freeze direct child-process Git calls outside scripts/lib/git.ts so new production bypasses cannot erode the named Git seam while accepted fixtures and injectable adapters drain opportunistically.",
   },
   {
@@ -249,12 +227,11 @@ export const lintRatchets = [
     ruleOptions: noRealTimeInPackageTestsRestrictedSyntax,
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Freeze real-clock usage in package tests so new Date.now() and no-arg new Date() calls cannot grow while existing tests migrate to fake timers or injected clocks.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
       reason: "package tests should use deterministic clocks; once the current real-time inventory drains, normal test lint should enforce the Date.now()/no-arg new Date() ban directly",
-      exitPath: harnessReview202607Leaf37,
+      exitPath: harnessReview202607Index,
     },
   },
   {
@@ -267,7 +244,6 @@ export const lintRatchets = [
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Freeze the accepted set-state-in-effect floor so finding #25 fails at commit time while cleanup proceeds opportunistically.",
   },
   {
@@ -284,12 +260,11 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Prevent Fast Refresh unsafe mixed exports in client TSX modules from growing while shared constants and helpers move out of component files.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
       reason: "client TSX modules should export components only for reliable Fast Refresh; once the mixed-export inventory drains, normal client React lint should enforce the rule directly",
-      exitPath: harnessReview202607Leaf37,
+      exitPath: harnessReview202607Index,
     },
   },
   {
@@ -318,7 +293,6 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Hold a strict-boolean-expressions zero floor over the packages/server/src/services/encounter-combat slice while package-wide server cleanup proceeds incrementally.",
     zeroBaselineDisposition: {
       kind: "intentional-ratchet-only",
@@ -352,7 +326,6 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Extend strict-boolean-expressions coverage across server services while excluding the existing encounter-combat slice that already owns its zero floor.",
     zeroBaselineDisposition: {
       kind: "intentional-ratchet-only",
@@ -386,7 +359,6 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Prevent strict-boolean-expressions debt from growing in packages/shared/src production code while cleanup proceeds incrementally.",
     zeroBaselineDisposition: {
       kind: "intentional-ratchet-only",
@@ -403,11 +375,10 @@ export const lintRatchets = [
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.",
+    principle: "Prevent render-result container querying (testing-library/no-container) in client component tests from growing past the current inventory while the debt drains toward normal-lint promotion.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
-      reason: "querying through the render() container in client component tests bypasses Testing Library queries; floored at the leaf 06 inventory and promoted to normal-lint error once the debt drains to zero",
+      reason: "querying through the render() container in client component tests bypasses Testing Library queries; floored at the current inventory and promoted to normal-lint error once the debt drains to zero",
       exitPath: testingLibraryDrainExitPath,
     },
   },
@@ -421,11 +392,10 @@ export const lintRatchets = [
     ruleOptions: [],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the leaf 06 inventory while the debt drains toward normal-lint promotion.",
+    principle: "Prevent direct DOM-node access (testing-library/no-node-access) in client component tests from growing past the current inventory while the debt drains toward normal-lint promotion.",
     zeroBaselineDisposition: {
       kind: "promote-to-normal-lint",
-      reason: "direct DOM-node access in client component tests bypasses Testing Library queries; floored at the leaf 06 inventory and promoted to normal-lint error once the debt drains to zero",
+      reason: "direct DOM-node access in client component tests bypasses Testing Library queries; floored at the current inventory and promoted to normal-lint error once the debt drains to zero",
       exitPath: testingLibraryDrainExitPath,
     },
   },
@@ -443,7 +413,6 @@ export const lintRatchets = [
     ],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     principle: "Keep the drift-ai test expect-expect floor pinned to assertFunctionNames [\"expect\"] only, stricter than the resolved plugin defaults normal lint applies (keep verdict, lint-review-2026-06 leaf 03e).",
     zeroBaselineDisposition: {
       kind: "narrow-floor",
@@ -460,8 +429,7 @@ export const lintRatchets = [
     ruleOptions: [{ assertFunctionNames: scriptTestAssertFunctionNames }],
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
-    principle: "Prevent script tests without recognized assertions from growing now that the final Leaf 41g test rows are linted.",
+    principle: "Prevent script tests without recognized assertions from growing beyond the selected linted test inventory.",
     zeroBaselineDisposition: {
       kind: "narrow-floor",
       reason: "normal Vitest lint resolves extra plugin-default expect-expect options; this ratchet pins the assertFunctionNames allowlist (expect plus the named script-test helpers) scoped to the selected script tests",
@@ -481,7 +449,7 @@ export const lintRatchets = [
     id: "ratchet/vitest-valid-expect-script-tests",
     files: scriptVitestOptionPinnedFiles,
     ignores: [],
-    principle: "Prevent malformed Vitest expect calls in the newly linted singleton script tests while Leaf 41 drain work proceeds.",
+    principle: "Prevent malformed Vitest expect calls from growing in the selected script-test inventory.",
     zeroBaselineDisposition: {
       kind: "narrow-floor",
       reason: "normal Vitest lint resolves valid-expect defaults in addition to maxArgs:2; this ratchet keeps the selected script-test floor",

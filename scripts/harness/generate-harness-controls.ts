@@ -3,7 +3,6 @@
 // repairKind / repairCommand from the rule's own meta.docs so there is one
 // source of truth.
 
-import { readFileSync } from "node:fs";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
@@ -12,20 +11,24 @@ import { runDocGeneratorAsync } from "../lib/doc-generator.js";
 import { loadLintRuleDocs, type RuleDocs } from "../lib/lint-rule-docs.js";
 import { isObjectLike } from "../lib/records.js";
 import { lintRatchets } from "../lint-ratchet/lint-ratchet-config.js";
+import { type CommandPolicyRule, loadCommandPolicy } from "./command-policy-schema.js";
 import {
   type ControlCategory,
   type ControlKind,
   isNonEmptyString,
   KINDS,
+  type RawControlRecord,
   type RepairKind,
 } from "./control-field-validation.js";
 import {
   formatValidationFailures,
   resolveControl,
 } from "./generate-harness-controls-validation.js";
-import { HARNESS_MANIFEST_FILENAME, harnessManifestPath } from "./harness-manifest.js";
+import { HARNESS_MANIFEST_FILENAME, readHarnessManifest } from "./harness-manifest.js";
+import { safeParseHarnessManifest } from "./harness-manifest-schema.js";
 import { GENERATED_HARNESS_CONTROLS_DOC_PATH } from "./harness-paths.js";
-import { formatHookWiring, type HookWiring } from "./hook-wiring-schema.js";
+import { formatHookWiring, HOOK_WIRING_PROVENANCE_NOTE } from "./hook-wiring-doc.js";
+import type { HookWiring } from "./hook-wiring-schema.js";
 
 const KIND_HEADINGS: Record<ControlKind, string> = {
   "lint-rule": "Lint rules",
@@ -42,29 +45,7 @@ const KIND_HEADINGS: Record<ControlKind, string> = {
   skill: "Skills",
 };
 
-export interface RawControl {
-  readonly id: string;
-  readonly kind: string;
-  readonly ruleName?: string;
-  readonly category?: string;
-  readonly principle?: string;
-  readonly pairedGuide?: string;
-  readonly repairKind?: string;
-  readonly repairCommand?: string;
-  readonly source?: string;
-  readonly invocation?: string;
-  readonly slots?: readonly RawControlSlot[];
-  readonly hookWiring?: unknown;
-}
-
-export interface RawControlSlot {
-  readonly name?: unknown;
-  readonly script?: unknown;
-  readonly args?: unknown;
-  readonly env?: unknown;
-  readonly dynamic?: unknown;
-  readonly condition?: unknown;
-}
+export type RawControl = RawControlRecord & { readonly id: string };
 
 export interface ControlSlot {
   readonly name: string;
@@ -96,21 +77,49 @@ export interface ControlValidationFailure {
 }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
-const manifestPath = harnessManifestPath(repoRoot);
 const outputPath = join(repoRoot, GENERATED_HARNESS_CONTROLS_DOC_PATH);
 
-function readManifest(): RawControl[] {
-  const text = readFileSync(manifestPath, "utf8");
-  const parsed: unknown = JSON.parse(text);
+function assertAuthoredProfilesResolved(
+  controls: readonly unknown[],
+  parsedManifest: ReturnType<typeof safeParseHarnessManifest>,
+): void {
+  if (
+    parsedManifest.manifest === undefined &&
+    controls.some((entry) => isObjectLike(entry) && "slotProfile" in entry)
+  ) {
+    throw new Error(
+      `Cannot generate harness controls while slot profiles are unresolved:\n${parsedManifest.failures.join("\n")}`,
+    );
+  }
+}
+
+interface HarnessDocInput {
+  readonly controls: readonly RawControl[];
+  readonly commandPolicy: readonly CommandPolicyRule[];
+}
+
+function readManifest(): HarnessDocInput {
+  // Through readHarnessManifest, not raw IO: the lint-rule controls live in a
+  // generated include and this doc must inventory the ASSEMBLED manifest.
+  const parsed: unknown = readHarnessManifest(repoRoot);
   if (!isObjectLike(parsed)) {
     throw new Error(`${HARNESS_MANIFEST_FILENAME} must be an object`);
   }
   if (!Array.isArray(parsed.controls)) {
     throw new Error(`${HARNESS_MANIFEST_FILENAME} must declare a controls array`);
   }
+  // On the clean path, consume the parser's early-resolved slot arrays so the
+  // generated doc stays unaware of catalog/profile syntax. Preserve the raw
+  // fallback deliberately: this generator owns granular, test-pinned
+  // diagnostics and must still read past an unrelated whole-manifest defect.
+  // That fallback is lossless only for controls that author materialized
+  // `slots`; profile controls require the typed parser to resolve the catalog.
+  const parsedManifest = safeParseHarnessManifest(parsed);
+  assertAuthoredProfilesResolved(parsed.controls, parsedManifest);
+  const sourceControls = parsedManifest.manifest?.controls ?? parsed.controls;
   const controls: RawControl[] = [];
   const seenIds = new Set<string>();
-  for (const entry of parsed.controls) {
+  for (const entry of sourceControls) {
     if (!isObjectLike(entry)) {
       throw new Error("every control entry must be an object");
     }
@@ -122,13 +131,21 @@ function readManifest(): RawControl[] {
       throw new Error(`duplicate control id: ${id}`);
     }
     seenIds.add(id);
-    // type-assertion-boundary: json - `entry` came from JSON.parse of harness.controls.json and was shape-validated above (`isObjectLike(entry)` + `isNonEmptyString(id)`); deeper field-level validation happens later in `resolveControl`. The double-cast (`as unknown as RawControl`) widens away the `Record<string, unknown>` field types so each readonly optional field is reachable without per-field casts in the consumer.
-    controls.push(entry as unknown as RawControl);
+    controls.push({ ...entry, id });
   }
-  return controls;
+  return {
+    controls,
+    commandPolicy:
+      parsed.commandPolicy === undefined ? [] : loadCommandPolicy(parsed.commandPolicy),
+  };
 }
 
-async function collectControls(): Promise<ResolvedControl[] | undefined> {
+interface CollectedHarnessDocs {
+  readonly controls: readonly ResolvedControl[];
+  readonly commandPolicy: readonly CommandPolicyRule[];
+}
+
+async function collectControls(): Promise<CollectedHarnessDocs | undefined> {
   const { entries: ruleDocEntries, failures: ruleDocFailures } = await loadLintRuleDocs(repoRoot);
   if (ruleDocFailures.length > 0) {
     const detail = ruleDocFailures
@@ -142,10 +159,10 @@ async function collectControls(): Promise<ResolvedControl[] | undefined> {
   const ratchetPrinciples = new Map<string, string>(
     lintRatchets.map((ratchet) => [ratchet.id, ratchet.principle]),
   );
-  const rawControls = readManifest();
+  const manifest = readManifest();
   const entries: ResolvedControl[] = [];
   const failures: ControlValidationFailure[] = [];
-  for (const raw of rawControls) {
+  for (const raw of manifest.controls) {
     const result = resolveControl(raw, ruleDocs, repoRoot, ratchetPrinciples);
     if ("failures" in result) {
       failures.push(result);
@@ -164,7 +181,7 @@ async function collectControls(): Promise<ResolvedControl[] | undefined> {
     // the id tiebreaker feeds the committed generated doc (freshness-gated by harness:check).
     return kindOrder === 0 ? compareByCodepoint(a.id, b.id) : kindOrder;
   });
-  return entries;
+  return { controls: entries, commandPolicy: manifest.commandPolicy };
 }
 
 function formatPairedGuide(pairedGuide: string): string {
@@ -208,7 +225,45 @@ function formatSlots(slots: readonly ControlSlot[] | undefined): string[] {
   return lines;
 }
 
-function renderMarkdown(entries: readonly ResolvedControl[]): string {
+function escapeTableCell(value: string): string {
+  return value.replaceAll("|", "\\|").replaceAll("\n", "<br>");
+}
+
+function formatPolicyProjection(rule: CommandPolicyRule): string {
+  if (!rule.nativePermissions.projected) {
+    return escapeTableCell(rule.nativePermissions.reason);
+  }
+  const matchers = rule.nativePermissions.matchers
+    .map((matcher) => `\`${escapeTableCell(matcher)}\``)
+    .join("<br>");
+  return rule.nativePermissions.partialReason === undefined
+    ? matchers
+    : `${matchers}<br>Partial projection by necessity: ${escapeTableCell(rule.nativePermissions.partialReason)}`;
+}
+
+function formatCommandPolicy(rules: readonly CommandPolicyRule[]): string[] {
+  if (rules.length === 0) return [];
+  const lines = [
+    "## Command policy reference",
+    "",
+    "The root `commandPolicy` rows are evaluated in this order; the first hard match wins, otherwise the first soft match advises. Projection disposition is total: each rule contributes complete Claude deny coverage, contributes a necessarily partial but sound projection with its reason, or records why it remains shared-policy-only.",
+    "",
+    "| Order | Rule | Class | Scope | Claude-native projection |",
+    "|---:|---|---|---|---|",
+  ];
+  for (const rule of rules) {
+    lines.push(
+      `| ${String(rule.order)} | \`${rule.id}\` | ${rule.class} | ${rule.scope} | ${formatPolicyProjection(rule)} |`,
+    );
+  }
+  lines.push("");
+  return lines;
+}
+
+function renderMarkdown(
+  entries: readonly ResolvedControl[],
+  commandPolicy: readonly CommandPolicyRule[],
+): string {
   const lines: string[] = [];
   lines.push("# Harness Controls");
   lines.push("");
@@ -223,6 +278,9 @@ function renderMarkdown(entries: readonly ResolvedControl[]): string {
     "For `kind: lint-rule`, the rule-specific metadata is re-projected from each rule's `meta.docs` contract (see `docs/generated/local-lint-rules.md`) so the manifest stays a thin enumeration.",
   );
   lines.push("");
+  lines.push(HOOK_WIRING_PROVENANCE_NOTE);
+  lines.push("");
+  lines.push(...formatCommandPolicy(commandPolicy));
   let currentKind: ControlKind | undefined;
   for (const entry of entries) {
     if (entry.kind !== currentKind) {
@@ -262,11 +320,11 @@ async function main(): Promise<void> {
     outputPath,
     refreshCommand: "docs:harness-controls",
     render: async () => {
-      const entries = await collectControls();
-      if (entries === undefined) return undefined;
+      const collected = await collectControls();
+      if (collected === undefined) return undefined;
       return {
-        rendered: renderMarkdown(entries),
-        wroteSuffix: ` (${String(entries.length)} control(s))`,
+        rendered: renderMarkdown(collected.controls, collected.commandPolicy),
+        wroteSuffix: ` (${String(collected.controls.length)} control(s))`,
       };
     },
   });

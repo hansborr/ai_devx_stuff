@@ -1,9 +1,19 @@
-import { readNonEmptyPath, readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { nonEmptyPathValue, positiveIntValue } from "./arg-readers.js";
 import {
   CLASS_CONSTRUCTION_SUBCOMMAND,
   DEFAULT_CLASS_CONSTRUCTION_TOP,
 } from "./class-construction-advisory.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const CLASS_CONSTRUCTION_USAGE = [
   "Usage:",
@@ -25,26 +35,33 @@ export type ParsedClassConstructionArgs = {
   readonly unusedExportsReportPath: string | null;
 };
 
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--root", kind: "value", repeatable: true },
+  { name: "--top", kind: "value" },
+  { name: "--unused-exports-report", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--root": z.array(z.string()).default([]),
+  "--top": positiveIntValue("--top").default(DEFAULT_CLASS_CONSTRUCTION_TOP),
+  "--unused-exports-report": nonEmptyPathValue("--unused-exports-report").optional(),
+});
+
 export function parseClassConstructionArgs(argv: readonly string[]): ParsedClassConstructionArgs {
-  const roots: string[] = [];
-  let top = DEFAULT_CLASS_CONSTRUCTION_TOP;
-  let unusedExportsReportPath: string | null = null;
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: CLASS_CONSTRUCTION_USAGE,
-    acceptsConfig: true,
-    pathValueOptions: {
-      "--root": (value) => {
-        roots.push(value);
-      },
-    },
-    valueOptions: {
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--unused-exports-report": (value) => {
-        unusedExportsReportPath = readNonEmptyPath(value, "--unused-exports-report");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, roots, top, unusedExportsReportPath };
+  return {
+    base: subcommandBaseFromOptions(options),
+    roots: options["--root"],
+    top: options["--top"],
+    unusedExportsReportPath: options["--unused-exports-report"] ?? null,
+  };
 }

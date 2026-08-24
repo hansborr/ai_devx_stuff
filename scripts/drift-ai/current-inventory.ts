@@ -3,11 +3,10 @@ import { lstatSync } from "node:fs";
 import path from "node:path";
 
 import { collapseRepoPath, type DriftAiIgnoreConfig, pathEscapesRepo } from "./config.js";
-import { matchesAnyGlob, pathHasAnyPrefix, pathHasAnySegment } from "./config-match.js";
+import { isPathIgnored } from "./config-match.js";
 import { DriftAiError } from "./errors.js";
 import { configuredRootFor, isSourceLike, isWholeRepoRoots, toPosix } from "./path-util.js";
 import { type CurrentScopeFile, toCurrentScopeFile } from "./scope.js";
-import { DEFAULT_IGNORE_EXTENSIONS, DEFAULT_IGNORE_FILES } from "./types.js";
 
 export type StringGitRunner = (args: readonly string[]) => string;
 export type BufferGitRunner = (args: readonly string[]) => Buffer;
@@ -82,12 +81,7 @@ export function discoverCurrentFiles(
 }
 
 export function isIgnoredCurrentPath(filePath: string, ignore: DriftAiIgnoreConfig): boolean {
-  const normalized = toPosix(filePath);
-  if (pathHasAnySegment(normalized, new Set(ignore.segments))) return true;
-  if (pathHasAnyPrefix(normalized, ignore.prefixes)) return true;
-  if (matchesAnyGlob(normalized, ignore.globs)) return true;
-  if (DEFAULT_IGNORE_FILES.includes(path.posix.basename(normalized))) return true;
-  return DEFAULT_IGNORE_EXTENSIONS.includes(path.posix.extname(normalized).toLowerCase());
+  return isPathIgnored(toPosix(filePath), ignore);
 }
 
 function parseGitInventory(output: Buffer): string[] {

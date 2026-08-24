@@ -1,0 +1,1128 @@
+{
+  "step": "1c-input",
+  "builtFrom": [
+    {
+      "consult": "R4B",
+      "file": "reject-audit-r4-b.json",
+      "count": 13
+    },
+    {
+      "consult": "R4C",
+      "file": "reject-audit-r4-c.json",
+      "count": 5
+    }
+  ],
+  "candidateCount": 18,
+  "candidates": [
+    {
+      "promotionId": "R4B-011",
+      "title": "Converge typecheck fan-out on the shared live-output parallel runner",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/typecheck.sh",
+          "line": 20,
+          "endLine": 114,
+          "measurement": null,
+          "note": "Typecheck privately implements temp/FIFO state, child cleanup, signal traps, prefixed streams, and child launch; its only extra is teeing each stream to a lane log."
+        },
+        {
+          "path": "scripts/lib/parallel-runner.sh",
+          "line": 20,
+          "endLine": 119,
+          "measurement": null,
+          "note": "The existing shared runner owns the same initialization, cleanup, signal, FIFO-stream, PID, and launch lifecycle."
+        },
+        {
+          "path": "scripts/typecheck.sh",
+          "line": 120,
+          "endLine": 163,
+          "measurement": null,
+          "note": "Diagnostic excerpting is the genuine typecheck-specific behavior."
+        },
+        {
+          "path": "scripts/typecheck.sh",
+          "line": 191,
+          "endLine": 230,
+          "measurement": null,
+          "note": "Typecheck waits all lanes and merges matching nonzero statuses, falling back to 1 when they disagree."
+        },
+        {
+          "path": "scripts/lib/parallel-runner.sh",
+          "line": 130,
+          "endLine": 164,
+          "measurement": null,
+          "note": "The shared runner independently implements the same wait and exit-aggregation rule."
+        }
+      ],
+      "problem": "Two gate facades maintain the same subtle shell process lifecycle independently: FIFOs and reader processes, signal cleanup, wait ordering, and multi-exit aggregation. A lifecycle fix in the shared runner does not reach typecheck even though typecheck differs only by retaining logs for diagnostic excerpts.",
+      "proposedDirection": "Add a small optional per-lane log or failure-report seam to parallel-runner.sh, then make typecheck.sh declare its four commands and retain only TypeScript diagnostic-excerpt policy.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[21]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "typecheck.sh substantially duplicates scripts/lib/parallel-runner.sh.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 3); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 204 — hint only; that leaf targets scripts/verify.sh rather than typecheck.sh's separate fan-out"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-021",
+      "title": "Route current inventory through the canonical ignore predicate",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/config-match.ts",
+          "line": 8,
+          "endLine": 22,
+          "measurement": null,
+          "note": "The module declares isPathIgnored to be the core ignore predicate and implements segment, prefix, glob, default-filename, and extension policy."
+        },
+        {
+          "path": "scripts/drift-ai/current-inventory.ts",
+          "line": 84,
+          "endLine": 90,
+          "measurement": null,
+          "note": "isIgnoredCurrentPath independently repeats the canonical predicate's full decision sequence."
+        },
+        {
+          "path": "scripts/drift-ai/current-inventory.ts",
+          "line": 130,
+          "endLine": 149,
+          "measurement": null,
+          "note": "Explicit-root behavior only selects a root-relative suffix before invoking the copied predicate."
+        }
+      ],
+      "problem": "Changed-scope, history, and source-walk consumers use the declared canonical ignore predicate while current inventory maintains a second copy. A new ignore rule or normalization correction can make current and changed analysis silently scan different sets.",
+      "proposedDirection": "Delegate current inventory to isPathIgnored after computing any explicit-root suffix, retaining focused tests for root-relative semantics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[2]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Current-inventory duplicates the canonical ignore predicate",
+          "rejectionReason": "redistributed-unused-capacity:weak-or-absent-rationale (rank 5); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 134 — hint only; leaf 134 does not cite ignore semantics"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-022",
+      "title": "Make near-duplicate exact-token collection an explicit runner choice",
+      "area": "harness",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/near-duplicates-fingerprint.ts",
+          "line": 38,
+          "endLine": 52,
+          "measurement": null,
+          "note": "The extractor treats an omitted includeExactTokens option as true."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-runner.ts",
+          "line": 45,
+          "endLine": 56,
+          "measurement": null,
+          "note": "The adjacent runner exposes the identically named option as optional."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-runner.ts",
+          "line": 114,
+          "endLine": 123,
+          "measurement": null,
+          "note": "The runner converts omission to false before calling the extractor."
+        },
+        {
+          "path": "scripts/drift-ai/clone-candidates-command.ts",
+          "line": 81,
+          "endLine": 98,
+          "measurement": null,
+          "note": "Clone candidates omits the option and silently relies on the runner's false default."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-check.ts",
+          "line": 45,
+          "endLine": 56,
+          "measurement": null,
+          "note": "The registered near-duplicates check explicitly passes true, demonstrating that production callers need different choices."
+        }
+      ],
+      "problem": "The same optional setting has opposite meanings when omitted at adjacent API layers. Future callers can silently lose exact-clone input or incur unexpected token collection depending on which layer they enter.",
+      "proposedDirection": "Require includeExactTokens at the runner boundary and pass false and true explicitly from the two production callers; also require or clearly document the extractor's standalone choice.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[8]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Near-duplicate extractor and runner assign opposite defaults to includeExactTokens",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 4); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-031",
+      "title": "Starting-equipment persistence erases its transaction-only capability",
+      "area": "server",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/starting-equipment-service.ts",
+          "line": 63,
+          "endLine": 80,
+          "measurement": null,
+          "note": "The persistence stage accepts either DbClient or TxClient and performs its reads and bulk insert through that widened capability."
+        },
+        {
+          "path": "packages/server/src/services/character-create.ts",
+          "line": 230,
+          "endLine": 248,
+          "measurement": null,
+          "note": "The only production caller invokes the stage inside the transaction that creates the character and level-one features."
+        },
+        {
+          "path": "packages/server/src/utils/prisma-types.ts",
+          "line": 142,
+          "endLine": 171,
+          "measurement": null,
+          "note": "TxClient and DbClient intentionally expose different transaction capabilities."
+        }
+      ],
+      "problem": "Starting equipment is an internal stage of atomic character creation, but its type advertises an unused top-level autocommit mode. A future caller can persist it outside the character transaction and permit partial character assembly.",
+      "proposedDirection": "Narrow createStartingInventory to TxClient and keep it transaction-internal; update focused tests to invoke it through a transaction or test a pure data-building seam.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[5]",
+          "lane": "lane-03-server",
+          "originalTitle": "Starting-equipment persistence advertises an unused autocommit mode.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 4); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 004 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-032",
+      "title": "Inventory header falsely claims its transaction prevents concurrent over-attunement",
+      "area": "server",
+      "category": "comment",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/inventory-service.ts",
+          "line": 25,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The header claims the transaction prevents concurrent over-attunement and then says the path is deliberately single-writer and outside every race pattern."
+        },
+        {
+          "path": "packages/server/src/services/inventory-service.ts",
+          "line": 221,
+          "endLine": 244,
+          "measurement": null,
+          "note": "Create performs count and insert in a default transaction without serializable isolation, a lock, or a conditional write."
+        },
+        {
+          "path": "packages/server/src/services/inventory-service.ts",
+          "line": 270,
+          "endLine": 279,
+          "measurement": null,
+          "note": "Update uses the same default count-then-write transaction shape."
+        },
+        {
+          "path": "docs/CONCURRENCY.md",
+          "line": 19,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Policy treats single-writer, recoverable races as reasons not to gate, which is accepted risk rather than serialization."
+        }
+      ],
+      "problem": "A default read-then-write transaction groups statements atomically but does not prevent two transactions from observing free capacity. The false guarantee can mislead future invariant changes and serve as an incorrect concurrency precedent.",
+      "proposedDirection": "Rewrite the header to distinguish atomic grouping from serialization and state that policy deliberately accepts the theoretical race; do not add a gate without the real-session evidence required by CONCURRENCY.md.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[8]",
+          "lane": "lane-03-server",
+          "originalTitle": "Inventory's concurrency header makes incompatible atomicity and race-prevention claims.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 1); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 033 — hint only",
+        "looks close to leaf 092 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-033",
+      "title": "Class caster metadata bypasses existing database enum boundaries",
+      "area": "server",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/prisma/schema.prisma",
+          "line": 468,
+          "endLine": 499,
+          "measurement": null,
+          "note": "Class and Subclass store casterType and spellcastingAbility as String/String? fields constrained only by comments."
+        },
+        {
+          "path": "packages/server/prisma/schema.prisma",
+          "line": 244,
+          "endLine": 253,
+          "measurement": null,
+          "note": "The schema already defines the AbilityAbbreviation enum needed by both spellcastingAbility columns."
+        },
+        {
+          "path": "packages/shared/src/schemas/srd.ts",
+          "line": 126,
+          "endLine": 165,
+          "measurement": null,
+          "note": "Shared closes casterType to four values and spellcastingAbility to the ability-abbreviation vocabulary."
+        },
+        {
+          "path": "packages/server/src/utils/caster-resolver.ts",
+          "line": 5,
+          "endLine": 20,
+          "measurement": null,
+          "note": "Rules-facing reads runtime-parse the wide Prisma strings before use."
+        },
+        {
+          "path": "packages/server/src/utils/srd-narrowing.ts",
+          "line": 28,
+          "endLine": 58,
+          "measurement": null,
+          "note": "Router mapping instead uses marked Prisma assertions based on seed assumptions."
+        }
+      ],
+      "problem": "Closed caster vocabularies are enforced only after rows leave the database. Invalid write data can persist and then crash parsers or pass through unsound assertions, while two boundary strategies are maintained for the same columns.",
+      "proposedDirection": "Add a Prisma CasterType enum, reuse AbilityAbbreviation for spellcastingAbility, land a migration after validating existing values, and remove redundant boundary parsing or assertions.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[21]",
+          "lane": "lane-03-server",
+          "originalTitle": "Caster metadata remains comment-constrained TEXT rather than Prisma enums.",
+          "rejectionReason": "redistributed-unused-capacity:weak-or-absent-rationale (rank 8); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 006 — hint only"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-034",
+      "title": "Delete the no-op validateAuthConfig startup boundary",
+      "area": "server",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/config/auth.ts",
+          "line": 56,
+          "endLine": 62,
+          "measurement": null,
+          "note": "getJwtSecret returns serverEnv.jwtSecret, and validateAuthConfig calls that getter and discards the result."
+        },
+        {
+          "path": "packages/server/src/config/env.ts",
+          "line": 179,
+          "endLine": 185,
+          "measurement": null,
+          "note": "loadServerEnv performs actual validation and serverEnv invokes it eagerly."
+        },
+        {
+          "path": "packages/server/src/app.ts",
+          "line": 188,
+          "endLine": 195,
+          "measurement": null,
+          "note": "buildServer invokes validateAuthConfig as though it were an explicit startup check."
+        }
+      ],
+      "problem": "The named startup validator performs no validation beyond reading an already-parsed value. It creates a false ownership boundary for auth configuration checks.",
+      "proposedDirection": "Delete validateAuthConfig and its buildServer call, leaving env.ts's eager schema parse as the single validation boundary.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[26]",
+          "lane": "lane-03-server",
+          "originalTitle": "validateAuthConfig is a misleading no-op.",
+          "rejectionReason": "redistributed-unused-capacity:weak-or-absent-rationale (rank 6); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-051",
+      "title": "Share the inventory-item draft fields between add and edit dialogs",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/add-item-dialog.tsx",
+          "line": 75,
+          "endLine": 103,
+          "measurement": null,
+          "note": "The add dialog owns five field-state cells and a five-field reset contract."
+        },
+        {
+          "path": "packages/client/src/components/sheet/add-item-dialog.tsx",
+          "line": 149,
+          "endLine": 201,
+          "measurement": null,
+          "note": "The add form renders name, type, quantity, weight, and description controls."
+        },
+        {
+          "path": "packages/client/src/components/sheet/edit-item-dialog.tsx",
+          "line": 21,
+          "endLine": 43,
+          "measurement": null,
+          "note": "Edit independently declares the same draft and parses quantity and weight."
+        },
+        {
+          "path": "packages/client/src/components/sheet/edit-item-dialog.tsx",
+          "line": 77,
+          "endLine": 149,
+          "measurement": null,
+          "note": "Edit repeats the five controls, including ItemType selection and numeric constraints."
+        }
+      ],
+      "problem": "Add and edit independently maintain the same inventory draft vocabulary, controls, constraints, and item-type selector. Field changes require synchronized edits and can drift in validation, accessibility, or conversion semantics.",
+      "proposedDirection": "Extract a controlled inventory-item field body and typed draft normalizers while retaining add reset/homebrew behavior and edit change detection in their current owners.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[1]",
+          "lane": "lane-05-client",
+          "originalTitle": "Add and edit inventory-item dialogs duplicate the same five-field form.",
+          "rejectionReason": "redistributed-unused-capacity:weak-or-absent-rationale (rank 6); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-052",
+      "title": "Give homebrew-item conversion a pure adapter boundary",
+      "area": "client",
+      "category": "layering",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/homebrew-item-tab.tsx",
+          "line": 46,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The view module owns persisted-data compatibility normalization and schema parsing."
+        },
+        {
+          "path": "packages/client/src/components/sheet/homebrew-item-tab.tsx",
+          "line": 64,
+          "endLine": 143,
+          "measurement": null,
+          "note": "Category mapping plus weapon, armor, and inventory-input conversion policy occupy the query component file."
+        },
+        {
+          "path": "packages/client/src/components/sheet/homebrew-item-tab.tsx",
+          "line": 157,
+          "endLine": 176,
+          "measurement": null,
+          "note": "Each row parses the entry for display and then calls a converter that parses it again."
+        },
+        {
+          "path": "packages/client/src/components/sheet/homebrew-item-tab.test.tsx",
+          "line": 223,
+          "endLine": 242,
+          "measurement": null,
+          "note": "The component suite establishes a separate pure-converter test seam."
+        }
+      ],
+      "problem": "A query/view module owns a substantial persisted-data compatibility and domain-conversion adapter, and each row parses the same entry twice. Compatibility, mapping, rendering, and pure-helper tests consequently share one change surface.",
+      "proposedDirection": "Extract a client homebrew-item adapter returning parsed display data and create input together, leaving the component responsible for query state and rendering.",
+      "leafability": "single-leaf",
+      "confidence": "medium",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[2]",
+          "lane": "lane-05-client",
+          "originalTitle": "Homebrew item tab embeds compatibility parsing and conversion inside a query view.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 5); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-173",
+          "residual": "CQ25-173 declined moving persisted normalization into shared schemas where no outside reader exists. This candidate keeps normalization in the client adapter and only separates it from React/query rendering."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 195 — hint only; that leaf validates authoring submissions rather than linked-item read conversion"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-053",
+      "title": "Rename create-only map-layer actions as enable operations",
+      "area": "client",
+      "category": "naming",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/maps/map-fog-actions.ts",
+          "line": 28,
+          "endLine": 41,
+          "measurement": null,
+          "note": "FogActions exposes handleToggleFog, but its implementation unconditionally creates a fog layer."
+        },
+        {
+          "path": "packages/client/src/hooks/use-drawing-actions.ts",
+          "line": 37,
+          "endLine": 55,
+          "measurement": null,
+          "note": "DrawingActions exposes handleToggleDrawing, but it only creates an empty drawing layer."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-toolbar-fog-tools.tsx",
+          "line": 22,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The fog callback is rendered only when no layer exists and is labeled Enable."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx",
+          "line": 47,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The drawing callback is likewise available only when no layer exists and is labeled Enable."
+        }
+      ],
+      "problem": "Public callback names promise reversible toggle semantics while the operations only create layers. Current UI guards prevent misuse, but the contract propagated through hooks and toolbar props invites later callers to assume disabling behavior.",
+      "proposedDirection": "Rename the fog and drawing callback chain to handleEnable*/onEnable* while retaining explicit no-layer guards and adding no deletion behavior.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[31]",
+          "lane": "lane-05-client",
+          "originalTitle": "Enable-only map-layer actions are named as toggles.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 3); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-054",
+      "title": "Debounce notes search before changing the infinite-query key",
+      "area": "client",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/notes/notes-panel.tsx",
+          "line": 79,
+          "endLine": 84,
+          "measurement": null,
+          "note": "Every input event immediately updates search state."
+        },
+        {
+          "path": "packages/client/src/components/campaign/notes/notes-panel.tsx",
+          "line": 232,
+          "endLine": 251,
+          "measurement": null,
+          "note": "Immediate search state is embedded directly in infiniteQueryOptions."
+        },
+        {
+          "path": "packages/client/src/hooks/use-debounced-value.ts",
+          "line": 15,
+          "endLine": 25,
+          "measurement": null,
+          "note": "The existing hook explicitly documents settling text before it feeds a query key."
+        },
+        {
+          "path": "packages/client/src/hooks/MODULE.md",
+          "line": 45,
+          "endLine": 55,
+          "measurement": null,
+          "note": "useDebouncedValue is an advertised client-hook entry point."
+        }
+      ],
+      "problem": "Typing immediately starts a separate infinite query for each intermediate prefix and retains each parameterized key until normal garbage collection, adding avoidable API, database, and cache churn.",
+      "proposedDirection": "Keep immediate controlled input state but feed a trimmed debounced value into note.list and active-filter derivation, with focused fake-timer coverage.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[32]",
+          "lane": "lane-05-client",
+          "originalTitle": "Notes search creates an infinite-query key on every keystroke.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 2); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-207",
+          "residual": "CQ25-207 rejects maxPages/gcTime policy changes and leaves notes normally staleable. Debouncing preserves that policy and addresses only per-keystroke requests and key creation."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-055",
+      "title": "Single-source the class-feature persistence codec",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/class/class-form-data.ts",
+          "line": 85,
+          "endLine": 94,
+          "measurement": null,
+          "note": "Class parses persisted feature records into the three-field form shape."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/class/class-form-data.ts",
+          "line": 132,
+          "endLine": 138,
+          "measurement": null,
+          "note": "Class serializes the feature form with a positive-level fallback."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/subclass/subclass-form-data.ts",
+          "line": 33,
+          "endLine": 42,
+          "measurement": null,
+          "note": "Subclass duplicates the persisted feature parser field for field."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/subclass/subclass-form-data.ts",
+          "line": 60,
+          "endLine": 71,
+          "measurement": null,
+          "note": "Subclass duplicates the integer coercion and feature serializer."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/subclass/MODULE.md",
+          "line": 10,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Subclass already treats the class feature form type and editor as class-owned shared dependencies."
+        }
+      ],
+      "problem": "Class and subclass use the same feature form type and editor but independently decode and encode its persisted shape. A field or coercion change can drift by entity type.",
+      "proposedDirection": "Export one parse and one build helper from the class-owned feature form boundary and reuse them from subclass while keeping whole-entity builders separate.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[36]",
+          "lane": "lane-05-client",
+          "originalTitle": "Class and subclass duplicate the feature persistence codec.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 4); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 238 — hint only; that leaf shares caster-selection presentation rather than the feature codec"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4B-056",
+      "title": "Preserve shared literal vocabularies in homebrew select form state",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/magic-item/magic-item-form-data.ts",
+          "line": 5,
+          "endLine": 28,
+          "measurement": null,
+          "note": "Magic-item options come from shared enums, but category and rarity form fields are widened to string."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/magic-item/magic-item-form-data.ts",
+          "line": 71,
+          "endLine": 90,
+          "measurement": null,
+          "note": "Persisted magic-item category and rarity values are accepted as arbitrary strings."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/magic-item/magic-item-form-data.ts",
+          "line": 113,
+          "endLine": 131,
+          "measurement": null,
+          "note": "The widened values are emitted unchanged into the homebrew payload."
+        },
+        {
+          "path": "packages/shared/src/schemas/magic-item.ts",
+          "line": 7,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Shared exports closed MagicItemCategory and MagicItemRarity schemas and inferred types."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/spell/spell-form-data.ts",
+          "line": 11,
+          "endLine": 45,
+          "measurement": null,
+          "note": "Spell school, attack type, and saving throw are strings despite closed vocabularies."
+        },
+        {
+          "path": "packages/shared/src/schemas/spell.ts",
+          "line": 22,
+          "endLine": 37,
+          "measurement": null,
+          "note": "Shared exports SpellSchool and SpellAttackType literal-union contracts."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/spell/spell-combat-fields.tsx",
+          "line": 28,
+          "endLine": 65,
+          "measurement": null,
+          "note": "Radix Select strings pass directly into widened attack-type and ability fields."
+        }
+      ],
+      "problem": "Several homebrew selects derive choices from shared closed vocabularies but erase those unions to string in form state, parsers, and builders. The compiler cannot keep defaults, options, persisted parsing, callbacks, and emitted payloads aligned.",
+      "proposedDirection": "Type shared-schema-backed fields with inferred unions plus explicit empty sentinels, parse unknown persisted values at the form-data seam, and localize checked Radix string narrowing. Exclude open text and stringified numeric fields.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[38]",
+          "lane": "lane-05-client",
+          "originalTitle": "Closed homebrew select values remain unrestricted strings.",
+          "rejectionReason": "per-lane-budget:weak-or-absent-rationale (rank 1); recorded rationale: none"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 053 — hint only; that leaf covers FilterSelect rather than these direct Radix forms",
+        "looks close to leaf 195 — hint only; runtime submit validation does not preserve closed form-state types"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-b.json"
+    },
+    {
+      "promotionId": "R4C-001",
+      "title": "Ad-hoc Fastify tests skip teardown when assertions fail",
+      "area": "tests",
+      "category": "test-shape",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": 42,
+          "endLine": 57,
+          "measurement": null,
+          "note": "The rate-limit app is created and readied, then closed only after request execution and the assertion; either failure bypasses close."
+        },
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": 219,
+          "endLine": 230,
+          "measurement": null,
+          "note": "The Socket.IO-enabled variant reaches close only after its decorator assertions."
+        },
+        {
+          "path": "packages/server/src/app.ts",
+          "line": 264,
+          "endLine": 268,
+          "measurement": null,
+          "note": "Fastify close is the lifecycle boundary that invokes Socket.IO cleanup."
+        },
+        {
+          "path": "packages/server/src/app.test.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "6 ad-hoc Fastify instance/close pairs (`rg -n 'const (rateLimitApp|testApp|customApp|socketApp|socketlessApp) =|await (rateLimitApp|testApp|customApp|socketApp|socketlessApp)\\.close\\(\\)' packages/server/src/app.test.ts`)",
+          "note": "All six constructions have a tail-position close and no failure-safe per-test cleanup registration."
+        }
+      ],
+      "problem": "Six app tests create custom Fastify instances but close them only after all requests and assertions. A failure skips teardown; the socket-enabled case also skips its registered Socket.IO cleanup, leaving resources alive during the failure run.",
+      "proposedDirection": "Register every custom instance for per-test cleanup immediately after construction, before ready, injection, or assertions; keep the custom configurations local rather than forcing them through the suite-scoped helper.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[6]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Ad-hoc Fastify app failure-safe teardown",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "landed",
+          "ref": "CQ25-121",
+          "residual": "The prior pack landed the failure-safe useTestApp lifecycle for suite-scoped apps, but app.test.ts's custom per-test instances remain outside that lifecycle."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 164 — hint only; both concern test-resource cleanup, but leaf 164 covers drift-AI temporary roots"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-c.json"
+    },
+    {
+      "promotionId": "R4C-002",
+      "title": "Document the two cross-worktree status modes in the per-worktree guide",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 14,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The command table describes only the current-worktree worktree:status behavior."
+        },
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 64,
+          "endLine": 109,
+          "measurement": null,
+          "note": "The multi-lane orchestration and recovery sections never mention either cross-worktree mode."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 14,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The authoritative header defines --all provisioning blocks and --lanes [--base <ref>] Git-work summaries."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 1536,
+          "endLine": 1565,
+          "measurement": null,
+          "note": "The dispatcher implements both modes, validates their exclusivity, and restricts --base to --lanes."
+        }
+      ],
+      "problem": "Operators following the dedicated guide cannot discover the read-only commands designed to inspect every worktree's provisioning or coordinate parallel lanes. The omission is especially costly in the guide's multi-lane workflow, where ahead/behind and staged/unstaged state are the useful overview.",
+      "proposedDirection": "Expand the command table and multi-lane section with worktree:status --all and worktree:status --lanes [--base <ref>], distinguishing provisioning diagnostics from Git-work coordination.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[7]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The per-worktree guide omits worktree:status --all and --lanes.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 096 — hint only; that leaf covers a different prerequisite omission in the same guide"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-c.json"
+    },
+    {
+      "promotionId": "R4C-003",
+      "title": "Add a human-focused contribution entrypoint",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line": 173,
+          "endLine": 177,
+          "measurement": null,
+          "note": "The development section offers two assertions and sends readers to AGENTS.md for full standards."
+        },
+        {
+          "path": "docs/README.md",
+          "line": 3,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The documentation landing page explicitly assigns README.md to humans and AGENTS.md to agents."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 44,
+          "endLine": 51,
+          "measurement": null,
+          "note": "Branch naming, commit format, verification, push, and integration rules are present inside agent workflow instructions."
+        },
+        {
+          "path": "docs/public-release-notes.md",
+          "line": 1,
+          "endLine": 5,
+          "measurement": null,
+          "note": "The repository records public publication as an intended supported state."
+        },
+        {
+          "path": "README.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 tracked CONTRIBUTING files (`git ls-tree -r --name-only ebf096580b31f604861fadb3d4cbd4079da4f017 | rg -i '(^|/)CONTRIBUTING(?:\\.[^/]*)?$' | wc -l`)",
+          "note": "The pinned repository has no conventionally discoverable human contribution guide."
+        }
+      ],
+      "problem": "A human can set up Musi but cannot find a human-owned contribution workflow. The public README routes standards into an agent control file, so branch, commit, gate, and review expectations are easy to miss until a hook or review rejects prepared work.",
+      "proposedDirection": "Add a concise CONTRIBUTING.md linked from README.md, covering the human branch, commit, focused-verification, commit-gate, and PR workflow while linking to existing task guides instead of duplicating them.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[9]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The repository lacks a human-focused CONTRIBUTING entrypoint.",
+          "rejectionReason": "coverage.cut; no rationale recorded"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 103 — hint only; that leaf repairs a host prerequisite in primary onboarding"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-c.json"
+    },
+    {
+      "promotionId": "R4C-004",
+      "title": "Three description controls cap valid input at half the shared contract limit",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/constants.ts",
+          "line": 55,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The canonical constant explicitly unifies description fields at 10,000 characters."
+        },
+        {
+          "path": "packages/shared/src/schemas/campaign-inputs.ts",
+          "line": 9,
+          "endLine": 52,
+          "measurement": null,
+          "note": "Campaign creation and updates validate descriptions against MAX_DESCRIPTION_LENGTH."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew-inputs.ts",
+          "line": 15,
+          "endLine": 30,
+          "measurement": null,
+          "note": "Homebrew collection creation and updates use the same 10,000-character contract."
+        },
+        {
+          "path": "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx",
+          "line": 60,
+          "endLine": 71,
+          "measurement": null,
+          "note": "The campaign creation form independently hard-codes maxLength 5000."
+        },
+        {
+          "path": "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx",
+          "line": 91,
+          "endLine": 101,
+          "measurement": null,
+          "note": "The campaign settings form repeats the 5,000-character cap."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/collections/collection-form-fields.tsx",
+          "line": 48,
+          "endLine": 60,
+          "measurement": null,
+          "note": "The shared create/edit collection control also repeats maxLength 5000."
+        }
+      ],
+      "problem": "Campaign and homebrew collection authoring surfaces prevent users from entering descriptions longer than 5,000 characters even though their canonical create and update schemas deliberately accept 10,000. The duplicated HTML literals silently make valid input unavailable and can drift again when the shared contract changes.",
+      "proposedDirection": "Use MAX_DESCRIPTION_LENGTH for all three Textarea limits and add focused UI assertions that the controls expose the shared contract.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-1/lane-08.json::coverage.cut[4]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "HTML maxLength duplication was routed to bugsSideList because the observed 5,000 versus 10,000 mismatch is behavior-shaped.",
+          "rejectionReason": "coverage.cut; routed to bugsSideList because the mismatch was behavior-shaped"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 189 — hint only; that leaf consolidates seven other downstream copies of shared authorities but does not include description limits"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-c.json"
+    },
+    {
+      "promotionId": "R4C-005",
+      "title": "Expand-barrel maintains two hand-written traversals of TypeScript's export graph",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/expand-barrel/export-bindings.ts",
+          "line": 10,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The codemod manually enumerates variable, function, class, interface, type-alias, and enum declaration forms to identify top-level exports."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": 109,
+          "endLine": 124,
+          "measurement": null,
+          "note": "One recursive traversal constructs a complete export map with path-stack cycle handling."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": 167,
+          "endLine": 220,
+          "measurement": null,
+          "note": "A second recursive path resolves one symbol through local, named, namespace, and star re-exports with a separate seen-key scheme."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/paths.ts",
+          "line": 20,
+          "endLine": 47,
+          "measurement": null,
+          "note": "The feature also maintains restricted module resolution from JavaScript specifiers to ts/tsx files and index modules."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/export-map.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "461 total lines across the export graph and binding implementations (`wc -l scripts/codemods/expand-barrel/export-map.ts scripts/codemods/expand-barrel/export-bindings.ts`)",
+          "note": "The narrowed barrel-resolution subsystem remains substantial after excluding the unrelated 182-line tRPC identifier classifier."
+        }
+      ],
+      "problem": "The codemod uses ts-morph but separately models declaration exports, module paths, complete export-map traversal, and single-symbol traversal. TypeScript syntax or resolution changes require synchronized edits across this private semantic machinery, while the graph paths can diverge in alias, star-export, ambiguity, or cycle behavior.",
+      "proposedDirection": "Establish one export-resolution boundary backed where practical by ts-morph or TypeScript semantic APIs. If source-path rewriting requires a custom projection, derive complete-map and single-symbol queries from one memoized traversal.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R4C",
+          "sourceItemId": "wave-2/lane-09-topup.json::coverage.cut[1]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "Codemods maintain a 643-line shadow TypeScript symbol model — cut because the candidate combined distinct reference-classification and barrel-resolution concerns without a sufficiently narrow shared boundary.",
+          "rejectionReason": "coverage.cut; the wave combined distinct reference-classification and barrel-resolution concerns without a narrow shared boundary"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 149 — hint only; that leaf extracts generic codemod infrastructure from a tRPC-named module but does not address expand-barrel's export graph"
+      ],
+      "overturnsRuling": null,
+      "sourceFile": "working/phase5/reject-audit-r4-c.json"
+    }
+  ]
+}

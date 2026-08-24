@@ -10,7 +10,8 @@ import {
   buildHarnessDiagnostics,
   type HarnessDiagnostics,
   type HarnessFinding,
-} from "../../packages/shared/src/schemas/harness-diagnostics.js";
+} from "@musi/harness-diagnostics/schema.js";
+
 import {
   harnessDiagnosticsOutputPath,
   writeHarnessDiagnosticsSidecar,

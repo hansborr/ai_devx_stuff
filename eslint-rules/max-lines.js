@@ -1,4 +1,10 @@
 // @ts-check
+//
+// Unlike its siblings, this module's `@ts-check` pragma is actually enforced:
+// scripts/*.ts imports `effectiveLines` and the guidance constants, and
+// tsconfig.scripts.json sets `allowJs`, so the pragma is honored there (a
+// project-level `checkJs: false` does not override it). Keep it compiling —
+// a type error here fails the scripts typecheck, not just an editor.
 
 const DEFAULT_MAX_LINES = 300;
 
@@ -28,6 +34,25 @@ function isSameLine(left, right) {
 }
 
 /**
+ * The nearest token on `side` of `comment` that is not itself a comment, or
+ * `null` at the start/end of the file. Walking with the null check in the loop
+ * condition keeps every argument a real token, so no cast is needed.
+ *
+ * @param {import('eslint').SourceCode} sourceCode
+ * @param {import('estree').Comment} comment
+ * @param {"before" | "after"} side
+ */
+function adjacentCodeToken(sourceCode, comment, side) {
+  const step = side === "before" ? sourceCode.getTokenBefore : sourceCode.getTokenAfter;
+  const next = step.bind(sourceCode);
+  let token = next(comment, { includeComments: true });
+  while (token !== null && isCommentToken(token)) {
+    token = next(token, { includeComments: true });
+  }
+  return token;
+}
+
+/**
  * Returns the lines occupied by a comment when no code token shares the same
  * line. Inline comments should not make the code line disappear.
  *
@@ -35,26 +60,18 @@ function isSameLine(left, right) {
  * @param {import('estree').Comment} comment
  */
 function commentOnlyLines(sourceCode, comment) {
-  let start = comment.loc.start.line;
-  let end = comment.loc.end.line;
+  // ESLint always populates `loc` on the comments it hands out; estree types it
+  // optional. Treat a locless comment as occupying no lines rather than casting.
+  const loc = comment.loc;
+  if (!loc) return [];
+  let start = loc.start.line;
+  let end = loc.end.line;
 
-  let token = /** @type {import('estree').BaseNode | null} */ (comment);
-  do {
-    token = /** @type {import('estree').BaseNode | null} */ (
-      sourceCode.getTokenBefore(token, { includeComments: true })
-    );
-  } while (isCommentToken(token));
+  const before = adjacentCodeToken(sourceCode, comment, "before");
+  if (before && isSameLine(before, comment)) start += 1;
 
-  if (token && isSameLine(token, comment)) start += 1;
-
-  token = /** @type {import('estree').BaseNode | null} */ (comment);
-  do {
-    token = /** @type {import('estree').BaseNode | null} */ (
-      sourceCode.getTokenAfter(token, { includeComments: true })
-    );
-  } while (isCommentToken(token));
-
-  if (token && isSameLine(comment, token)) end -= 1;
+  const after = adjacentCodeToken(sourceCode, comment, "after");
+  if (after && isSameLine(comment, after)) end -= 1;
 
   return start <= end ? lineRange(start, end + 1) : [];
 }
@@ -116,6 +133,7 @@ export default {
     type: "suggestion",
     docs: {
       description: "Enforce a maximum file length with Musi repair guidance",
+      // @ts-expect-error -- every local rule carries harness metadata on meta.docs (read by scripts/harness/generate-harness-controls-validation.ts); ESLint's RulesMetaDocs lives in the transitive @eslint/core and does not declare these keys
       principle:
         "Files with excessive lines become harder to maintain and reason about; split into focused modules.",
       category: "maintainability",

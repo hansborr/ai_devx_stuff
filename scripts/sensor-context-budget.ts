@@ -26,9 +26,8 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
-const PROCESS_ARGV_USER_ARGS_START = 2;
 const CHARS_PER_TOKEN_ESTIMATE = 4;
 const EXIT_TOOL_ERROR = 2;
 const JSON_INDENT = 2;

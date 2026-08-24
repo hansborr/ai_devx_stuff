@@ -4,6 +4,17 @@
 # smoke-subjects: scripts/prisma-client-freshness.sh
 # smoke-subjects: scripts/doc-length-policy.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/parallel-step.sh
 # smoke-subjects: scripts/lib/lint-dist-preflight.sh
@@ -13,9 +24,13 @@
 # smoke-subjects: scripts/harness/generated-surface-freshness.generated.sh
 # smoke-subjects: scripts/verify/steps-lib.sh
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/lib/verify-engine.sh
+# smoke-subjects: scripts/lib/verify-evidence-transaction.sh
+# smoke-subjects: scripts/lib/verify-lifecycle.sh
+# smoke-subjects: scripts/lib/verify-policy-validation.sh
 # smoke-subjects: .husky/pre-commit
 # smoke-subjects: .husky/post-commit
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -69,6 +84,14 @@ export MUSI_VERIFY_MEMORY_STATE_ROOT="$TMP_ROOT/memory-state"
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
 ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
+generated_step_names() {
+  local array_name="$1" names
+  names="$(sed -n "s/^declare -ga ${array_name}=(\(.*\))\$/\1/p" \
+    "$SCRIPT_DIR/../verify/steps.generated.sh" | tr -d "'")"
+  [ -n "$names" ] || fail "could not read $array_name from steps.generated.sh"
+  printf '%s\n' "$names"
+}
+
 write_live_memory_reservation() {
   local token="$1" mb="$2" slot="$3" owner_pid owner_start_time
   owner_pid="$BASHPID"
@@ -94,6 +117,7 @@ copy_verify_steps_fixture() {
     "$target/scripts/harness/generated-surface-freshness.generated.sh"
   cp "$SCRIPT_DIR/../verify/steps-lib.sh" "$target/scripts/verify/steps-lib.sh"
   cp "$SCRIPT_DIR/../verify/memory-budget.sh" "$target/scripts/verify/memory-budget.sh"
+  cp "$SCRIPT_DIR/../verify/memory-wait-timeout.sh" "$target/scripts/verify/memory-wait-timeout.sh"
   cp "$SCRIPT_DIR/../verify/admitted-command.sh" "$target/scripts/verify/admitted-command.sh"
   cp "$SCRIPT_DIR/../lib/test-worker-count.sh" "$target/scripts/lib/test-worker-count.sh"
 }
@@ -106,10 +130,19 @@ copy_precommit_fixture() {
   cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$target/scripts/prisma-client-freshness.sh"
   cp "$SCRIPT_DIR/../doc-length-policy.sh" "$target/scripts/doc-length-policy.sh"
   cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$target/scripts/lib/verify-metadata.sh"
+  cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$target/scripts/lib/verify-commit-queue.sh"
+  cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$target/scripts/lib/verify-fast-commit.sh"
+  cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$target/scripts/lib/verify-markers.sh"
+  cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$target/scripts/lib/verify-path-policy.sh"
+  cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$target/scripts/lib/verify-run-meta.sh"
+  cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$target/scripts/lib/verify-state-paths.sh"
   cp "$SCRIPT_DIR/../lib/gate-env.sh" "$target/scripts/lib/gate-env.sh"
   cp "$SCRIPT_DIR/../process-tree.sh" "$target/scripts/process-tree.sh"
   cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$target/scripts/lib/parallel-step.sh"
   cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$target/scripts/lib/verify-engine.sh"
+  cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$target/scripts/lib/verify-evidence-transaction.sh"
+  cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$target/scripts/lib/verify-lifecycle.sh"
+  cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$target/scripts/lib/verify-policy-validation.sh"
   cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$target/scripts/lib/lint-dist-preflight.sh"
   cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$target/scripts/ai-hooks/output-filter.sh"
   cp "$SCRIPT_DIR/../../.husky/pre-commit" "$target/.husky/pre-commit"
@@ -274,10 +307,19 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$hook_repo/scripts/dependency-fresh
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$hook_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$hook_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$hook_repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$hook_repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$hook_repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$hook_repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$hook_repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$hook_repo/scripts/lib/verify-state-paths.sh"
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$hook_repo/scripts/lib/verify-engine.sh"
+cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$hook_repo/scripts/lib/verify-evidence-transaction.sh"
+cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$hook_repo/scripts/lib/verify-lifecycle.sh"
+cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$hook_repo/scripts/lib/verify-policy-validation.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$hook_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$hook_repo/.husky/pre-commit"
@@ -387,7 +429,7 @@ BAD_MARKER
     || fail "missing-dist pre-commit should run typecheck before lint: $(cat "$stub_log")"
   [ "$typecheck_line" -lt "$ratchet_line" ] \
     || fail "missing-dist pre-commit should run typecheck before ratchet: $(cat "$stub_log")"
-  grep -qF "stub bun run docs:lint-coverage-map:check -- --staged" "$stub_log" || fail "corrupt marker did not run staged coverage-map check"
+  grep -qF "stub bun run docs:lint-coverage-map:check" "$stub_log" || fail "corrupt marker did not run the coverage-map check"
   grep -qF "stub bun run format:changed:check" "$stub_log" || fail "corrupt marker did not run changed format check"
   grep -qF "stub bun run typecheck" "$stub_log" || fail "corrupt marker did not rerun typecheck"
   grep -qF "stub bun run test:changed --reporter=dot" "$stub_log" || fail "corrupt marker did not rerun test"
@@ -482,15 +524,32 @@ copy_precommit_fixture "$lock_repo"
 
   stub_log="$lock_repo/bun-lock.log"
   verify_lock="$lock_repo/precommit-held.lock"
+  lock_ready="$lock_repo/precommit-held.ready"
+  lock_release="$lock_repo/precommit-held.release"
   : > "$stub_log"
   (
     exec 8<>"$verify_lock"
     flock -n 8 || exit 1
     printf 'PID=fixture STARTED=now\n' > "$verify_lock"
-    sleep 2
+    : > "$lock_ready"
+    release_ticks=0
+    until [ -e "$lock_release" ] || [ "$release_ticks" -ge 1200 ]; do
+      sleep 0.05
+      release_ticks=$((release_ticks + 1))
+    done
+    [ -e "$lock_release" ] || exit 1
   ) &
   holder=$!
-  sleep 0.2
+  ticks=0
+  until [ -e "$lock_ready" ] || ! kill -0 "$holder" 2>/dev/null || [ "$ticks" -ge 200 ]; do
+    sleep 0.05
+    ticks=$((ticks + 1))
+  done
+  if [ ! -e "$lock_ready" ] || ! kill -0 "$holder" 2>/dev/null; then
+    kill "$holder" 2>/dev/null || true
+    wait "$holder" 2>/dev/null || true
+    fail "same-worktree contention holder did not signal readiness at $lock_ready"
+  fi
 
   set +e
   output="$(
@@ -498,12 +557,15 @@ copy_precommit_fixture "$lock_repo"
     STUB_LOG="$stub_log" \
     MUSI_VERIFY_LOCK="$verify_lock" \
     MUSI_COMMIT_QUEUE_LOCK="$lock_repo/queue-unused.lock" \
-      sh .husky/pre-commit 2>&1
+      timeout 5 sh .husky/pre-commit 2>&1
   )"
   exit_code=$?
   set -e
-  wait "$holder" 2>/dev/null || true
+  : > "$lock_release"
+  wait "$holder" 2>/dev/null \
+    || fail "same-worktree contention holder did not observe release at $lock_release"
 
+  [ "$exit_code" -ne 124 ] || fail "same-worktree pre-commit contention exceeded 5 seconds"
   [ "$exit_code" -eq 2 ] || fail "same-worktree pre-commit contention should exit 2, got $exit_code: $output"
   grep -qF "PRE-COMMIT ALREADY RUNNING" <<< "$output" \
     || fail "same-worktree contention missing fail-fast heading: $output"
@@ -640,15 +702,28 @@ copy_precommit_fixture "$queue_timeout_repo"
 
   stub_log="$queue_timeout_repo/bun-queue-timeout.log"
   queue_lock="$queue_timeout_repo/shared-commit-queue-timeout.lock"
+  queue_ready="$queue_timeout_repo/shared-commit-queue-timeout.ready"
   : > "$stub_log"
   (
     exec 8<>"$queue_lock"
     flock -n 8 || exit 1
     printf 'PID=queue-timeout-fixture WORKTREE=other STARTED=now\n' > "$queue_lock"
-    sleep 3
+    : > "$queue_ready"
+    # Keep the holder alive across scheduler stalls from the parallel full gate;
+    # the probe below terminates it immediately after observing the timeout.
+    sleep 30
   ) &
   holder=$!
-  sleep 0.2
+  ticks=0
+  until [ -e "$queue_ready" ] || ! kill -0 "$holder" 2>/dev/null || [ "$ticks" -ge 200 ]; do
+    sleep 0.05
+    ticks=$((ticks + 1))
+  done
+  if [ ! -e "$queue_ready" ] || ! kill -0 "$holder" 2>/dev/null; then
+    kill "$holder" 2>/dev/null || true
+    wait "$holder" 2>/dev/null || true
+    fail "commit queue timeout holder did not signal readiness at $queue_ready"
+  fi
 
   set +e
   output="$(
@@ -661,6 +736,7 @@ copy_precommit_fixture "$queue_timeout_repo"
   )"
   exit_code=$?
   set -e
+  kill "$holder" 2>/dev/null || true
   wait "$holder" 2>/dev/null || true
 
   [ "$exit_code" -eq 2 ] || fail "commit queue timeout should exit 2, got $exit_code: $output"
@@ -678,10 +754,19 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$gate_repo/scripts/dependency-fresh
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$gate_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$gate_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$gate_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$gate_repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$gate_repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$gate_repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$gate_repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$gate_repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$gate_repo/scripts/lib/verify-state-paths.sh"
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$gate_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$gate_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$gate_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$gate_repo/scripts/lib/verify-engine.sh"
+cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$gate_repo/scripts/lib/verify-evidence-transaction.sh"
+cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$gate_repo/scripts/lib/verify-lifecycle.sh"
+cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$gate_repo/scripts/lib/verify-policy-validation.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$gate_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$gate_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$gate_repo/.husky/pre-commit"
@@ -745,6 +830,31 @@ chmod +x "$gate_repo/bin/bun"
   [ "$(tail -n 1 "$memory_wait_log")" = 30 ] \
     || fail "pre-commit should default memory deferral to 30s: $(cat "$memory_wait_log")"
 
+  normalization_case=0
+  while IFS='|' read -r configured_memory_timeout expected_memory_timeout; do
+    normalization_case=$((normalization_case + 1))
+    : > "$memory_wait_log"
+    output="$({
+      PATH="$gate_repo/bin:$PATH" \
+      STUB_LOG="$stub_log" \
+      STUB_MEMORY_WAIT_LOG="$memory_wait_log" \
+      FORCE_VERIFY=1 \
+      MUSI_VERIFY_MEMORY_WAIT_TIMEOUT="$configured_memory_timeout" \
+      MUSI_VERIFY_LOCK="$gate_repo/precommit-lock-memory-normalized-$normalization_case" \
+      MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-logs-memory-normalized-$normalization_case" \
+        sh .husky/pre-commit
+    } 2>&1)" || fail "pre-commit should accept memory timeout $configured_memory_timeout: $output"
+    [ "$(tail -n 1 "$memory_wait_log")" = "$expected_memory_timeout" ] \
+      || fail "pre-commit should normalize memory timeout $configured_memory_timeout to $expected_memory_timeout: $(cat "$memory_wait_log")"
+    if grep -qF 'exceeds the 30-second pre-commit memory-wait cap' <<< "$output"; then
+      fail "normalized memory timeout $configured_memory_timeout should not be treated as over cap: $output"
+    fi
+  done <<'EOF'
+030|30
+0000|0
+000000000000000000000000030|30
+EOF
+
   : > "$memory_wait_log"
   output="$({
     PATH="$gate_repo/bin:$PATH" \
@@ -758,12 +868,44 @@ chmod +x "$gate_repo/bin/bun"
   } 2>&1)" || fail "pre-commit capped memory run failed: $output"
   [ "$(tail -n 1 "$memory_wait_log")" = 30 ] \
     || fail "pre-commit should cap memory deferral above 30s: $(cat "$memory_wait_log")"
+  grep -qF 'pre-commit: MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=99 exceeds the 30-second pre-commit memory-wait cap; using 30' <<< "$output" \
+    || fail "pre-commit should disclose the capped memory timeout: $output"
+
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  for invalid_memory_timeout in typo ' 30' 9223372036854775808; do
+    : > "$stub_log"
+    set +e
+    output="$({
+      PATH="$gate_repo/bin:$PATH" \
+      STUB_LOG="$stub_log" \
+      FORCE_VERIFY=1 \
+      MUSI_VERIFY_MEMORY_WAIT_TIMEOUT="$invalid_memory_timeout" \
+      MUSI_COMMIT_QUEUE_LOCK="$gate_repo/precommit-invalid-memory-queue" \
+      MUSI_VERIFY_LOCK="$gate_repo/precommit-invalid-memory-lock" \
+      MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-invalid-memory-logs" \
+        sh .husky/pre-commit
+    } 2>&1)"
+    invalid_memory_exit=$?
+    set -e
+    [ "$invalid_memory_exit" -eq 2 ] \
+      || fail "invalid memory timeout $invalid_memory_timeout should exit 2, got $invalid_memory_exit: $output"
+    grep -qF "pre-commit: invalid MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=$invalid_memory_timeout;" <<< "$output" \
+      || fail "invalid memory timeout $invalid_memory_timeout should name the operator setting: $output"
+    [ ! -s "$stub_log" ] \
+      || fail "invalid memory timeout $invalid_memory_timeout should stop before registration or behavioral slots: $(cat "$stub_log")"
+    if grep -qE '^(Failed|Not run):' <<< "$output"; then
+      fail "invalid memory timeout $invalid_memory_timeout should not fabricate slot results: $output"
+    fi
+    [ ! -e "$gate_repo/precommit-invalid-memory-logs" ] \
+      || fail "invalid memory timeout $invalid_memory_timeout should stop before gate log initialization"
+  done
+  rm -f "$identity/musi-fast-commit"
 
   memory_state="$gate_repo/precommit-memory-state"
   memory_queue="$gate_repo/precommit-memory-queue"
   mkdir -p "$memory_state"
   write_live_memory_reservation "$memory_state/reservation.external" 5000 external
-  start_seconds="$(date +%s)"
   set +e
   output="$({
     PATH="$gate_repo/bin:$PATH" \
@@ -780,21 +922,60 @@ chmod +x "$gate_repo/bin/bun"
   } 2>&1)"
   memory_exit=$?
   set -e
-  elapsed_seconds=$(( $(date +%s) - start_seconds ))
   rm -f "$memory_state/reservation.external"
   [ "$memory_exit" -ne 0 ] || fail "pre-commit memory deadline should fail pending slots"
-  [ "$elapsed_seconds" -lt 5 ] \
-    || fail "pre-commit held the queue for ${elapsed_seconds}s after a 1s memory deadline"
   grep -qF 'memory wait timed out after 1s' <<< "$output" \
     || fail "pre-commit memory deadline diagnostic missing: $output"
+  not_run_slots="$(
+    sed -n 's/^Not run:[[:space:]]*//p' <<< "$output" | tr '\n' ' '
+  )"
+  for slot in $(generated_step_names MUSI_PRE_COMMIT_STEPS); do
+    case " $not_run_slots " in
+      *" $slot "*) ;;
+      *) fail "pre-commit memory deadline omitted pending $slot from Not run: $output" ;;
+    esac
+  done
+  for slot in lint ratchet; do
+    grep -qF 'typecheck was not launched, so required dist outputs remain unavailable' \
+      "$gate_repo/precommit-logs-memory/${slot}.log" \
+      || fail "deferred $slot should explain the admission-blocked typecheck"
+  done
   exec {queue_probe_fd}>"$memory_queue"
   flock -n "$queue_probe_fd" \
     || fail "pre-commit left the commit queue locked after memory timeout"
   flock -u "$queue_probe_fd"
   exec {queue_probe_fd}>&-
+
+  sed -i \
+    -e "s/\\[execution_mode\\]='parallel'/[execution_mode]='serial'/" \
+    -e "s/\\[pre_cache_admission_condition\\]='musi_precommit_snapshot_fast_mode'/[pre_cache_admission_condition]=''/" \
+    .husky/pre-commit
+  git add .husky/pre-commit
+  write_live_memory_reservation "$memory_state/reservation.external" 5000 external
+  output="$({
+    PATH="$gate_repo/bin:$PATH" \
+    FORCE_VERIFY=1 \
+    MUSI_FAST_COMMIT_ENABLED_SNAPSHOT=1 \
+    MUSI_VERIFY_MEMORY_AVAILABLE_MB=6000 \
+    MUSI_VERIFY_MEMORY_STATE_ROOT="$memory_state" \
+    MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=1 \
+    MUSI_COMMIT_QUEUE_LOCK="$memory_queue" \
+    MUSI_VERIFY_LOCK="$gate_repo/precommit-lock-serial-skip" \
+    MUSI_VERIFY_LOG_DIR="$gate_repo/precommit-logs-serial-skip" \
+      sh .husky/pre-commit
+  } 2>&1 || true)"
+  rm -f "$memory_state/reservation.external"
+  serial_not_run="$(sed -n 's/^Not run:[[:space:]]*//p' <<< "$output")"
+  case " $serial_not_run " in
+    *" lint "*) ;;
+    *) fail "serial admission fixture should report lint not run: $output" ;;
+  esac
+  case " $serial_not_run " in
+    *" test "*|*" scripts "*) fail "serial remainder reported a skippable slot: $output" ;;
+  esac
 )
 ok "pre-commit runs checks for staged eslint-rules changes"
-ok "pre-commit preserves quiet slots and its explicit 30-second memory cap"
+ok "pre-commit validates and discloses its explicit 30-second memory cap"
 ok "pre-commit bounds memory deferral while holding the commit queue"
 
 manifest_repo="$TMP_ROOT/manifest-repo"
@@ -803,10 +984,19 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$manifest_repo/scripts/dependency-f
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$manifest_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$manifest_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$manifest_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$manifest_repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$manifest_repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$manifest_repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$manifest_repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$manifest_repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$manifest_repo/scripts/lib/verify-state-paths.sh"
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$manifest_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$manifest_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$manifest_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$manifest_repo/scripts/lib/verify-engine.sh"
+cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$manifest_repo/scripts/lib/verify-evidence-transaction.sh"
+cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$manifest_repo/scripts/lib/verify-lifecycle.sh"
+cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$manifest_repo/scripts/lib/verify-policy-validation.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$manifest_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$manifest_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$manifest_repo/.husky/pre-commit"
@@ -1003,10 +1193,19 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$cache_repo/scripts/dependency-fres
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$cache_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$cache_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$cache_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$cache_repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$cache_repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$cache_repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$cache_repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$cache_repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$cache_repo/scripts/lib/verify-state-paths.sh"
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$cache_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$cache_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$cache_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$cache_repo/scripts/lib/verify-engine.sh"
+cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$cache_repo/scripts/lib/verify-evidence-transaction.sh"
+cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$cache_repo/scripts/lib/verify-lifecycle.sh"
+cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$cache_repo/scripts/lib/verify-policy-validation.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$cache_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$cache_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$cache_repo/.husky/pre-commit"
@@ -1474,10 +1673,19 @@ cp "$SCRIPT_DIR/../dependency-freshness.sh" "$hook_only_repo/scripts/dependency-
 cp "$SCRIPT_DIR/../prisma-client-freshness.sh" "$hook_only_repo/scripts/prisma-client-freshness.sh"
 cp "$SCRIPT_DIR/../doc-length-policy.sh" "$hook_only_repo/scripts/doc-length-policy.sh"
 cp "$SCRIPT_DIR/../lib/verify-metadata.sh" "$hook_only_repo/scripts/lib/verify-metadata.sh"
+cp "$SCRIPT_DIR/../lib/verify-commit-queue.sh" "$hook_only_repo/scripts/lib/verify-commit-queue.sh"
+cp "$SCRIPT_DIR/../lib/verify-fast-commit.sh" "$hook_only_repo/scripts/lib/verify-fast-commit.sh"
+cp "$SCRIPT_DIR/../lib/verify-markers.sh" "$hook_only_repo/scripts/lib/verify-markers.sh"
+cp "$SCRIPT_DIR/../lib/verify-path-policy.sh" "$hook_only_repo/scripts/lib/verify-path-policy.sh"
+cp "$SCRIPT_DIR/../lib/verify-run-meta.sh" "$hook_only_repo/scripts/lib/verify-run-meta.sh"
+cp "$SCRIPT_DIR/../lib/verify-state-paths.sh" "$hook_only_repo/scripts/lib/verify-state-paths.sh"
 cp "$SCRIPT_DIR/../lib/gate-env.sh" "$hook_only_repo/scripts/lib/gate-env.sh"
 cp "$SCRIPT_DIR/../process-tree.sh" "$hook_only_repo/scripts/process-tree.sh"
 cp "$SCRIPT_DIR/../lib/parallel-step.sh" "$hook_only_repo/scripts/lib/parallel-step.sh"
 cp "$SCRIPT_DIR/../lib/verify-engine.sh" "$hook_only_repo/scripts/lib/verify-engine.sh"
+cp "$SCRIPT_DIR/../lib/verify-evidence-transaction.sh" "$hook_only_repo/scripts/lib/verify-evidence-transaction.sh"
+cp "$SCRIPT_DIR/../lib/verify-lifecycle.sh" "$hook_only_repo/scripts/lib/verify-lifecycle.sh"
+cp "$SCRIPT_DIR/../lib/verify-policy-validation.sh" "$hook_only_repo/scripts/lib/verify-policy-validation.sh"
 cp "$SCRIPT_DIR/../lib/lint-dist-preflight.sh" "$hook_only_repo/scripts/lib/lint-dist-preflight.sh"
 cp "$SCRIPT_DIR/../ai-hooks/output-filter.sh" "$hook_only_repo/scripts/ai-hooks/output-filter.sh"
 cp "$SCRIPT_DIR/../../.husky/pre-commit" "$hook_only_repo/.husky/pre-commit"
@@ -1666,6 +1874,60 @@ copy_precommit_fixture "$harness_controls_doc_repo"
     || fail "generated harness controls doc should remain source-irrelevant after advisory: $output"
 )
 ok "pre-commit checks harness controls freshness for staged generated doc"
+
+# --- staged lint-rule control include checks the harness controls doc -------
+# The manifest is assembled from harness.controls.json plus the generated
+# lint-rule include, so the agent-facing control doc gains or loses a section
+# whenever the include changes. Staging the include must reach the same
+# advisory that staging harness.controls.json does.
+#
+# Two independent axes are pinned here, and they do not trade off against each
+# other:
+#   1. Generated-surface freshness stays ADVISORY — a stale include warns, it
+#      does not fail the commit. That is why the hook must still exit 0.
+#   2. The include is SOURCE-RELEVANT — it is half the assembled manifest, so
+#      staging it selects the changed-scope gates and, more importantly, an
+#      unstaged or untracked edit to it is rejected by the staging guard.
+# harness.controls.json already holds both at once (see the manifest-repo case
+# above), and the include is its sibling, so it must too.
+lint_rule_include_repo="$TMP_ROOT/lint-rule-include-repo"
+copy_precommit_fixture "$lint_rule_include_repo"
+(
+  cd "$lint_rule_include_repo"
+  git init -q
+  git config user.name "Test User"
+  git config user.email "test@example.invalid"
+  printf '{"controls":[]}\n' > harness.controls.lint-rules.generated.json
+  git add scripts bin .husky harness.controls.lint-rules.generated.json
+  git commit -q -m init
+  printf '{"controls":[{"id":"lint/local/x"}]}\n' > harness.controls.lint-rules.generated.json
+  git add harness.controls.lint-rules.generated.json
+
+  marker="$lint_rule_include_repo/precommit-marker"
+  log_dir="$lint_rule_include_repo/precommit-logs"
+  stub_log="$lint_rule_include_repo/bun.log"
+  : > "$stub_log"
+
+  output="$(
+    PATH="$lint_rule_include_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$marker" \
+    MUSI_VERIFY_LOCK="$lint_rule_include_repo/precommit-lock" \
+    MUSI_VERIFY_LOG_DIR="$log_dir" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "pre-commit generated-surface freshness should stay advisory for the staged lint-rule include: $output"
+
+  grep -qF "stub bun run harness:lint-rule-controls:check" "$stub_log" \
+    || fail "staged lint-rule include did not run its own generator freshness advisory"
+  grep -qF "stub bun run docs:harness-controls:check" "$stub_log" \
+    || fail "staged lint-rule include did not run harness controls freshness advisory"
+  if grep -qF "no source changes staged" <<< "$output"; then
+    fail "lint-rule-include-only staged change should not be treated as source-irrelevant: $output"
+  fi
+  grep -qF "stub bun run lint:changed" "$stub_log" \
+    || fail "staged lint-rule include did not run the changed-scope gates"
+)
+ok "pre-commit treats the staged lint-rule include as source-relevant and advises on freshness"
 
 # --- restricted-disable generator now triggers its generated warning --------
 restricted_disable_repo="$TMP_ROOT/restricted-disable-repo"
@@ -1930,6 +2192,95 @@ init_bridge_repo "$fast_skip_repo"
     || fail "post-commit should consume the pending marker after logging"
 )
 ok "fast-commit slot skip records provenance end-to-end"
+
+# Registration timeout configuration is resolved before gate dispatch. A
+# fixture-local timeout stub records argv and executes the checker immediately,
+# so these cases pin command shape without sleeping.
+registration_timeout_config_repo="$TMP_ROOT/registration-timeout-config-repo"
+init_bridge_repo "$registration_timeout_config_repo"
+cat > "$registration_timeout_config_repo/bin/timeout" <<'STUB'
+#!/usr/bin/env sh
+printf 'stub timeout %s\n' "$*" >> "$STUB_TIMEOUT_LOG"
+while [ "$#" -gt 0 ]; do
+  case "$1" in
+    --foreground | --signal=* | --kill-after=*) shift ;;
+    *) shift; break ;;
+  esac
+done
+exec "$@"
+STUB
+chmod +x "$registration_timeout_config_repo/bin/timeout"
+git -C "$registration_timeout_config_repo" add bin/timeout
+git -C "$registration_timeout_config_repo" commit -q -m 'add timeout fixture'
+(
+  cd "$registration_timeout_config_repo"
+  printf 'registration timeout config edit\n' > packages/example.ts
+  git add packages/example.ts
+  identity="$(musi_git_common_identity_path "$PWD")"
+  : > "$identity/musi-fast-commit"
+  stub_log="$TMP_ROOT/registration-timeout-config-bun.log"
+  timeout_log="$TMP_ROOT/registration-timeout-config-timeout.log"
+
+  : > "$stub_log"
+  : > "$timeout_log"
+  output="$(
+    env -u MUSI_PRECOMMIT_REGISTRATION_TIMEOUT \
+    PATH="$registration_timeout_config_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_TIMEOUT_LOG="$timeout_log" \
+    FORCE_VERIFY=1 \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/registration-timeout-default-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/registration-timeout-default-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/registration-timeout-default-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "default registration timeout fixture failed: $output"
+  grep -qxF 'stub timeout --foreground --signal=TERM --kill-after=1s 45s bun run harness:registration:check' "$timeout_log" \
+    || fail "registration timeout default argv mismatch: $(cat "$timeout_log")"
+
+  : > "$stub_log"
+  : > "$timeout_log"
+  output="$(
+    PATH="$registration_timeout_config_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    STUB_TIMEOUT_LOG="$timeout_log" \
+    FORCE_VERIFY=1 \
+    MUSI_PRECOMMIT_REGISTRATION_TIMEOUT=23 \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/registration-timeout-override-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/registration-timeout-override-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/registration-timeout-override-logs" \
+      sh .husky/pre-commit 2>&1
+  )" || fail "registration timeout override fixture failed: $output"
+  grep -qxF 'stub timeout --foreground --signal=TERM --kill-after=1s 23s bun run harness:registration:check' "$timeout_log" \
+    || fail "registration timeout override argv mismatch: $(cat "$timeout_log")"
+
+  for invalid in 0 00 -1 15s abc; do
+    : > "$stub_log"
+    : > "$timeout_log"
+    set +e
+    output="$(
+      PATH="$registration_timeout_config_repo/bin:$PATH" \
+      STUB_LOG="$stub_log" \
+      STUB_TIMEOUT_LOG="$timeout_log" \
+      FORCE_VERIFY=1 \
+      MUSI_PRECOMMIT_REGISTRATION_TIMEOUT="$invalid" \
+      MUSI_PRECOMMIT_MARKER="$TMP_ROOT/registration-timeout-invalid-marker" \
+      MUSI_VERIFY_LOCK="$TMP_ROOT/registration-timeout-invalid-lock" \
+      MUSI_VERIFY_LOG_DIR="$TMP_ROOT/registration-timeout-invalid-logs" \
+        sh .husky/pre-commit 2>&1
+    )"
+    exit_code=$?
+    set -e
+    [ "$exit_code" -eq 2 ] \
+      || fail "invalid registration timeout $invalid should exit 2, got $exit_code: $output"
+    grep -qF "pre-commit: invalid MUSI_PRECOMMIT_REGISTRATION_TIMEOUT=$invalid; expected positive whole seconds without a suffix or leading zero (for example, 30)" <<< "$output" \
+      || fail "invalid registration timeout $invalid missing diagnostic: $output"
+    [ ! -s "$timeout_log" ] \
+      || fail "invalid registration timeout $invalid invoked registration: $(cat "$timeout_log")"
+    [ ! -s "$stub_log" ] \
+      || fail "invalid registration timeout $invalid invoked a behavioral slot: $(cat "$stub_log")"
+  done
+)
+ok "pre-commit validates and applies registration timeout configuration"
 
 # A structural admission failure blocks before cache/bridge/slot dispatch,
 # writes one registration log and one summary, and creates no success debt.
@@ -2271,6 +2622,104 @@ init_bridge_repo "$unresolved_repo"
     || fail "unresolved marker failure must preserve pending provenance"
 )
 ok "unresolved fast provenance prints an actionable recovery recipe"
+
+# Staged-blob policy runs before both native and manual verification marker
+# shortcuts, so cached green evidence cannot admit a NUL-bearing source blob.
+nul_native_repo="$TMP_ROOT/nul-native-marker-repo"
+init_bridge_repo "$nul_native_repo"
+(
+  cd "$nul_native_repo"
+  printf 'native\0nul\n' > packages/example.ts
+  git add packages/example.ts
+  native_marker="$TMP_ROOT/nul-native-marker"
+  musi_write_success_marker "$native_marker" "$(git rev-parse HEAD)" \
+    "$(ai_precommit_fingerprint "$PWD")" \
+    || fail "test setup failed to write fresh native marker for NUL fixture"
+  stub_log="$TMP_ROOT/nul-native-bun.log"
+  : > "$stub_log"
+
+  set +e
+  output="$(
+    PATH="$nul_native_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$native_marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/nul-native-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/nul-native-logs" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "fresh native marker must not admit a staged NUL"
+  grep -qF "packages/example.ts" <<< "$output" \
+    || fail "native-marker NUL rejection should name the path: $output"
+  grep -qF "literal NUL" <<< "$output" \
+    || fail "native-marker NUL rejection should explain the byte: $output"
+  if grep -qF "already verified" <<< "$output"; then
+    fail "staged NUL should fail before native marker reuse: $output"
+  fi
+  [ ! -s "$stub_log" ] \
+    || fail "staged NUL should fail before native marker dispatch: $(cat "$stub_log")"
+)
+ok "pre-commit rejects staged NUL before native marker reuse"
+
+nul_bridge_repo="$TMP_ROOT/nul-verify-bridge-repo"
+init_bridge_repo "$nul_bridge_repo"
+(
+  cd "$nul_bridge_repo"
+  printf 'bridge\0nul\n' > packages/example.ts
+  git add packages/example.ts
+  changed_marker="$TMP_ROOT/nul-bridge-changed-marker"
+  musi_write_success_marker "$changed_marker" "$(git rev-parse HEAD)" \
+    "$(ai_staged_fingerprint "$PWD")" \
+    || fail "test setup failed to write verify:changed marker for NUL fixture"
+  stub_log="$TMP_ROOT/nul-bridge-bun.log"
+  : > "$stub_log"
+
+  set +e
+  output="$(
+    PATH="$nul_bridge_repo/bin:$PATH" \
+    STUB_LOG="$stub_log" \
+    MUSI_PRECOMMIT_MARKER="$TMP_ROOT/nul-bridge-precommit-marker" \
+    MUSI_VERIFY_MARKER_CHANGED="$changed_marker" \
+    MUSI_VERIFY_MARKER_FULL="$TMP_ROOT/nul-bridge-full-marker" \
+    MUSI_VERIFY_LOCK="$TMP_ROOT/nul-bridge-lock" \
+    MUSI_VERIFY_LOG_DIR="$TMP_ROOT/nul-bridge-logs" \
+      sh .husky/pre-commit 2>&1
+  )"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "verify:changed marker must not admit a staged NUL"
+  grep -qF "packages/example.ts" <<< "$output" \
+    || fail "verify-bridge NUL rejection should name the path: $output"
+  if grep -qF "verify:changed passed" <<< "$output"; then
+    fail "staged NUL should fail before verify:changed bridge reuse: $output"
+  fi
+  [ ! -s "$stub_log" ] \
+    || fail "staged NUL should fail before verify bridge dispatch: $(cat "$stub_log")"
+)
+ok "pre-commit rejects staged NUL before verify marker bridge"
+
+# A lockfile is source-relevant even though a clean lockfile-only commit skips
+# behavioral source verification. Its staged blob must still pass the invariant.
+nul_lock_repo="$TMP_ROOT/nul-lockfile-repo"
+init_bridge_repo "$nul_lock_repo"
+(
+  cd "$nul_lock_repo"
+  printf 'lock\0data\n' > bun.lock
+  git add bun.lock
+
+  set +e
+  output="$(sh .husky/pre-commit 2>&1)"
+  exit_code=$?
+  set -e
+  [ "$exit_code" -ne 0 ] || fail "lockfile-only staged NUL must fail pre-commit"
+  grep -qF "bun.lock" <<< "$output" \
+    || fail "lockfile NUL rejection should name bun.lock: $output"
+  if grep -qF "no source changes staged" <<< "$output"; then
+    fail "lockfile NUL should fail before the source-skip path: $output"
+  fi
+)
+ok "pre-commit rejects NUL in a source-relevant lockfile before source skip"
 
 # Negative: a docs-only commit skips no slots even with the marker present, so
 # nothing may reach the provenance log — re-logging it would force a redundant

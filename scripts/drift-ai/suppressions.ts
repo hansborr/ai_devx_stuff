@@ -3,8 +3,7 @@
 
 import { defaultGitRunner, gitRepoRootArgs } from "../lib/git.js";
 import type { FileReader } from "./comments.js";
-import { changedFilesFromScope } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { type ChangedDetectorScope, changedFilesFromScope, type DetectorScope } from "./scope.js";
 import {
   type CommentScanState,
   compareSuppressions,
@@ -53,7 +52,7 @@ export function runSuppressionsCheck(options: RunSuppressionsCheckOptions): Drif
 }
 
 function suppressionChangedFilesFromScope(
-  detectorScope: DetectorScope,
+  detectorScope: ChangedDetectorScope,
 ): ReadonlyMap<string, "added" | "modified" | "renamed" | "copied"> {
   const files = new Map<string, "added" | "modified" | "renamed" | "copied">();
   for (const file of changedFilesFromScope(detectorScope)) {

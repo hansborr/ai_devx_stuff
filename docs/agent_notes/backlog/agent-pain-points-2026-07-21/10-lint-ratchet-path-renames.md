@@ -65,7 +65,8 @@ valid history or lets stale rows authorize a different item.
 - `docs/guides/lint-ratchet.md` describes same-range per-path debt accounting
   and, in its path-rename section, claims a workflow the CLI cannot perform.
 
-Source: `/home/node/persist/musi/pain_points.log` and
+Source:
+`/home/node/persist/musi/pain_points/lint-ratchet-and-source-policy.md` and
 `/home/node/.claude/projects/-workspace/memory/lint-ratchet-package-seam-s3.md`.
 The gap remains open; it is not a request to reopen the completed package-seam
 work.

@@ -62,30 +62,92 @@ ai_commit_truth_up_lines() {
   printf '%s\n' "$output" | grep '^post-commit: ' || true
 }
 
-ai_precommit_failed_tasks() {
-  local output="$1"
-  local failed_line
-
-  failed_line=$(printf '%s\n' "$output" | grep -m1 '^Failed:' || true)
-  printf '%s\n' "$failed_line" | sed 's/^Failed://' | xargs
-}
-
 ai_precommit_failure_summary() {
   local output="$1"
   local log_dir="${2:-$AI_PRECOMMIT_LOG_DIR}"
-  local passed_line failed_line failed_tasks summary task log
+  local work_root="${3:-}"
+  local musi_log_dir="${4:-}"
+  local adapter_log_dir="${5:-}"
+  local evidence_unattributable=0
+  local has_husky_trailer=0
+  local passed_line failed_line not_run_line starting_load_line footer_line footer_log_dir
+  local failed_tasks not_run_tasks summary task log
+
+  # Producer identity wins only through verify-engine's exact final footer,
+  # allowing only Husky's exact failure trailer after it.
+  footer_line=$(printf '%s\n' "$output" | tail -n 1)
+  if printf '%s\n' "$footer_line" \
+    | grep -Eq '^husky - pre-commit script failed \(code [0-9]+\)$'; then
+    has_husky_trailer=1
+    footer_line=$(printf '%s\n' "$output" | tail -n 2 | head -n 1)
+  fi
+  footer_log_dir=$(printf '%s\n' "$footer_line" | sed -n \
+    -e 's|^verify: failure logs: \(.*\) (per-slot <slot>\.log; wiped by the next verify/pre-commit run — read or copy first)$|\1|p' \
+    -e 's|^verify: failure logs: \(.*\) (per-slot <slot>\.log, test-timings\.json; wiped by the next verify/pre-commit run — read or copy first)$|\1|p')
+  if [ -n "$footer_log_dir" ]; then
+    log_dir="$footer_log_dir"
+    if [[ "$log_dir" != /* ]] && [ -n "$work_root" ]; then
+      log_dir="${work_root%/}/$log_dir"
+    elif [[ "$log_dir" != /* ]]; then
+      evidence_unattributable=1
+    fi
+  elif [ -n "$musi_log_dir" ]; then
+    log_dir="$musi_log_dir"
+    if [[ "$log_dir" != /* ]] && [ -n "$work_root" ]; then
+      log_dir="${work_root%/}/$log_dir"
+    elif [[ "$log_dir" != /* ]]; then
+      evidence_unattributable=1
+    fi
+  elif [ -n "$adapter_log_dir" ]; then
+    log_dir="$adapter_log_dir"
+  elif [ -n "$work_root" ]; then
+    log_dir=$(musi_standard_verify_log_dir "$work_root")
+  fi
 
   passed_line=$(printf '%s\n' "$output" | grep -m1 '^Passed:' || true)
   failed_line=$(printf '%s\n' "$output" | grep -m1 '^Failed:' || true)
+  not_run_line=$(printf '%s\n' "$output" | awk '
+    /^Failed:/ {
+      if (getline next_line > 0 && next_line ~ /^Not run:/) print next_line
+      exit
+    }
+  ')
   failed_tasks=$(printf '%s\n' "$failed_line" | sed 's/^Failed://' | xargs)
+  not_run_tasks=$(printf '%s\n' "$not_run_line" | sed 's/^Not run://' | xargs)
+  starting_load_line=""
+  if [ -n "$footer_log_dir" ]; then
+    if [ "$has_husky_trailer" -eq 1 ]; then
+      starting_load_line=$(printf '%s\n' "$output" | tail -n 3 | head -n 1)
+    else
+      starting_load_line=$(printf '%s\n' "$output" | tail -n 2 | head -n 1)
+    fi
+    if ! grep -Eq '^starting load was [0-9]+([.][0-9]+)? on [1-9][0-9]* cores$' \
+      <<< "$starting_load_line"; then
+      starting_load_line=""
+    fi
+  fi
 
-  [ -n "$failed_tasks" ] || return 1
+  [ -n "$failed_tasks" ] || [ -n "$not_run_tasks" ] || return 1
 
   summary="Pre-commit failed.
 $passed_line
 $failed_line"
+  if [ -n "$not_run_tasks" ]; then
+    summary="$summary
+$not_run_line"
+  fi
+  if [ -n "$starting_load_line" ]; then
+    summary="$summary
+$starting_load_line"
+  fi
 
   for task in $failed_tasks; do
+    if [ "$evidence_unattributable" -eq 1 ]; then
+      summary="$summary
+
+--- $task (log not read: relative producer directory $log_dir cannot be resolved because the target checkout is unattributable) ---"
+      continue
+    fi
     log="$log_dir/${task}.log"
     if [ -f "$log" ]; then
       if [ "$task" = ratchet ]; then
@@ -103,6 +165,26 @@ $(ai_filtered_task_log_excerpt "$task" "$log" 30)"
       summary="$summary
 
 --- $task (no log found at $log) ---"
+    fi
+  done
+
+  for task in $not_run_tasks; do
+    if [ "$evidence_unattributable" -eq 1 ]; then
+      summary="$summary
+
+--- $task (not run; log not read: relative producer directory $log_dir cannot be resolved because the target checkout is unattributable) ---"
+      continue
+    fi
+    log="$log_dir/${task}.log"
+    if [ -f "$log" ]; then
+      summary="$summary
+
+--- $task (not run; full log: $log) ---
+$(ai_filtered_task_log_excerpt "$task" "$log" 30)"
+    else
+      summary="$summary
+
+--- $task (not run; no log found at $log) ---"
     fi
   done
 

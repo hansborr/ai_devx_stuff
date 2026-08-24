@@ -1,6 +1,9 @@
 import { existsSync } from "node:fs";
 import path from "node:path";
 
+import { CodemodError, fail as failWithName } from "./codemod-errors.js";
+import { createProject } from "./codemod-project.js";
+import { writeOrPreviewFiles } from "./codemod-writes.js";
 import { parseSharedSchemaCodemodArgs } from "./trpc-shared-engine-args.js";
 import type {
   SharedSchemaCodemodArgs,
@@ -8,20 +11,16 @@ import type {
 } from "./trpc-shared-engine-types.js";
 import {
   appendSharedSchemaExports,
-  CodemodError,
   collectAllowlistedRouterImports,
   collectTargetIdentifiers,
-  createProject,
   discoverSharedSchemaCandidates,
   ensureSharedSchemaImports,
-  fail as failWithName,
   getSourceFileAtPath,
   normalizeRelativeRouterPath,
   reportSharedSchemaDiscovery,
   rewriteRouterSharedSchemaReferences,
   targetPathFromSource,
   validateSharedSchemaCandidates,
-  writeOrPreviewFiles,
 } from "./trpc-shared-schema.js";
 
 export type {

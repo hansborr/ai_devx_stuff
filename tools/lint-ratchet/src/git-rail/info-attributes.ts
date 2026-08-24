@@ -1,10 +1,10 @@
 /**
  * Render one baseline driver's desired `.git/info/attributes` block — the pure
- * body of the leaf-04 TS attributes rewriter. The Musi (and demo) CLI wrapper
- * under `scripts/git/` reads/writes the files and shells out here; the
- * git-invoked merge driver stays dependency-free and never calls this.
+ * body of the TypeScript attributes rewriter. The package executable reads and
+ * writes `.git/info/attributes` in process; the generated Git bootstrap invokes
+ * that executable through Bun using the adopter's configured module specifier.
  *
- * Behavior mirrors the previous awk exactly:
+ * The output contract is:
  *  - Legacy shared and old single-driver marker blocks are migrated in place:
  *    their markers are dropped and each interior row falls through to the
  *    per-path rules below, so a sibling driver's rows survive as loose lines
@@ -37,8 +37,7 @@ function stripCr(line: string): string {
   return line.replace(/\r$/u, "");
 }
 
-// The first whitespace-delimited field, matching awk's `$1` (which skips any
-// leading whitespace before the first token).
+// The first whitespace-delimited field, skipping leading whitespace.
 function firstToken(line: string): string {
   return line.trimStart().split(/\s+/u)[0] ?? "";
 }
@@ -76,8 +75,7 @@ interface ManagedBlock {
 /**
  * Classify one attribute line against the managed/legacy block markers,
  * mutating the fold state. Extracted so the top-level render stays under the
- * complexity budget; the branch set matches the previous awk rules line for
- * line.
+ * complexity budget while preserving the output contract above.
  */
 function foldAttributeLine(state: FoldState, rawLine: string, block: ManagedBlock): void {
   const line = stripCr(rawLine);
@@ -109,8 +107,7 @@ function foldAttributeLine(state: FoldState, rawLine: string, block: ManagedBloc
 
 function foldExistingAttributes(currentAttributes: string, block: ManagedBlock): string[] {
   const state: FoldState = { kept: [], legacy: false, skip: false, managedEmitted: false };
-  // A trailing newline yields a final empty element from split(); the awk read
-  // loop never saw that phantom line, so drop it before iterating.
+  // A trailing newline yields a final empty split element; drop it before iterating.
   const lines = currentAttributes.split("\n");
   if (lines.length > 0 && lines[lines.length - 1] === "") {
     lines.pop();
@@ -163,8 +160,7 @@ export function renderBaselineMergeAttributes(input: {
 
   const trailer = [managedBegin, managedAttributes, managedEnd].join("\n");
   if (kept.length > 0) {
-    // A blank separator line between the preserved rows and the appended block,
-    // matching the awk `printf '\n'` before the block.
+    // A blank separator keeps the appended block distinct from preserved rows.
     return `${kept.join("\n")}\n\n${trailer}\n`;
   }
   return `${trailer}\n`;

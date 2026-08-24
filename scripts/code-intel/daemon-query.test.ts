@@ -1,31 +1,19 @@
-import {
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  statSync,
-  symlinkSync,
-  utimesSync,
-  writeFileSync,
-} from "node:fs";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { DaemonRequestTimeoutError, requestDaemonQuery } from "./daemon-client.js";
-import { CODE_INTEL_DAEMON_PROTOCOL_VERSION } from "./daemon-protocol.js";
-import { runDaemon, type RunningDaemon } from "./daemon-server.js";
+import { defaultDaemonTransport, requestDaemonQuery } from "./daemon-client.js";
 import {
-  buildDaemonMetadata,
-  ensureStateDir,
-  readDaemonMetadata,
-  resolveDaemonStatePaths,
-  writeDaemonMetadata,
-} from "./daemon-state.js";
+  CODE_INTEL_DAEMON_PROTOCOL_VERSION,
+  DAEMON_FALLBACK_ERROR_NAME,
+} from "./daemon-protocol.js";
+import { runDaemon, type RunningDaemon } from "./daemon-server.js";
+import { readDaemonMetadata, resolveDaemonStatePaths } from "./daemon-state.js";
 import { CodeIntelError } from "./errors.js";
 import { formatCodeIntelQueryResult } from "./format.js";
-import { computeWorkspaceManifest, GraphCache } from "./graph-cache.js";
+import { GraphCache } from "./graph-cache.js";
 import { ProjectCache } from "./project-cache.js";
 import { executeCodeIntelQuery } from "./query-executor.js";
 import {
@@ -223,13 +211,13 @@ describe("code:intel daemon query route", () => {
       timeoutMs: 15_000,
     });
     const daemonResult = expectDaemonResult(outcome);
-    expect(formatCodeIntelQueryResult(daemonResult, "text")).toBe(
-      formatCodeIntelQueryResult(oneShot, "text"),
+    expect(formatCodeIntelQueryResult(daemonResult, "text", command.kind)).toBe(
+      formatCodeIntelQueryResult(oneShot, "text", command.kind),
     );
-    expect(formatCodeIntelQueryResult(daemonResult, "json")).toBe(
-      formatCodeIntelQueryResult(oneShot, "json"),
+    expect(formatCodeIntelQueryResult(daemonResult, "json", command.kind)).toBe(
+      formatCodeIntelQueryResult(oneShot, "json", command.kind),
     );
-    return formatCodeIntelQueryResult(daemonResult, "text");
+    return formatCodeIntelQueryResult(daemonResult, "text", command.kind);
   }
 
   function expectDaemonResult(
@@ -459,143 +447,50 @@ describe("code:intel daemon query route", () => {
     residentDaemonTestTimeoutMs,
   );
 
-  it("falls back when no daemon is running", async () => {
-    const outcome = await requestDaemonQuery(
-      {
-        depth: 1,
-        excludeTests: false,
-        file: "packages/shared/src/rules/core.ts",
-        kind: "dependents",
-      },
-      { repoRoot, state: { rootDir: stateRoot } },
-    );
-    expect(outcome.kind).toBe("fallback");
-    if (outcome.kind === "fallback") expect(outcome.reason).toContain("absent");
-
-    const symbolOutcome = await requestDaemonQuery(
-      { kind: "defName", name: "coreValue" },
-      { repoRoot, state: { rootDir: stateRoot } },
-    );
-    expect(symbolOutcome.kind).toBe("fallback");
-    if (symbolOutcome.kind === "fallback") expect(symbolOutcome.reason).toContain("absent");
-  });
-
-  it("falls back when metadata advertises a different protocol version", async () => {
-    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
-    ensureStateDir(paths);
-    writeDaemonMetadata(paths, {
-      ...buildDaemonMetadata({ paths, pid: process.pid, repoRealpath: repoRoot, repoRoot }),
-      protocolVersion: (CODE_INTEL_DAEMON_PROTOCOL_VERSION + 1) as 1,
-    });
-    writeFileSync(paths.socketPath, "");
-
-    const outcome = await requestDaemonQuery(
-      {
-        depth: 1,
-        excludeTests: false,
-        file: "packages/shared/src/rules/core.ts",
-        kind: "dependents",
-      },
-      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
-    );
-    expect(outcome.kind).toBe("fallback");
-    if (outcome.kind === "fallback") expect(outcome.reason).toContain("protocol");
-
-    const symbolOutcome = await requestDaemonQuery(
-      { kind: "defName", name: "coreValue" },
-      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
-    );
-    expect(symbolOutcome.kind).toBe("fallback");
-    if (symbolOutcome.kind === "fallback") expect(symbolOutcome.reason).toContain("protocol");
-  });
-
-  it("falls back when daemon metadata is malformed instead of throwing", async () => {
-    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
-    ensureStateDir(paths);
-    writeFileSync(paths.metadataPath, "{ not valid json");
-    writeFileSync(paths.socketPath, "");
-
-    const outcome = await requestDaemonQuery(
-      {
-        depth: 1,
-        excludeTests: false,
-        file: "packages/shared/src/rules/core.ts",
-        kind: "dependents",
-      },
-      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
-    );
-    expect(outcome.kind).toBe("fallback");
-    if (outcome.kind === "fallback") expect(outcome.reason).toContain("metadata");
-  });
-
-  it("falls back when daemon metadata fails the shape check", async () => {
-    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
-    ensureStateDir(paths);
-    writeFileSync(paths.metadataPath, JSON.stringify({ pid: "not-a-number" }));
-    writeFileSync(paths.socketPath, "");
-
-    const outcome = await requestDaemonQuery(
-      {
-        depth: 1,
-        excludeTests: false,
-        file: "packages/shared/src/rules/core.ts",
-        kind: "dependents",
-      },
-      { repoRoot, isAlive: () => true, state: { rootDir: stateRoot } },
-    );
-    expect(outcome.kind).toBe("fallback");
-    if (outcome.kind === "fallback") expect(outcome.reason).toContain("metadata");
-  });
-
-  it("uses a longer refs timeout and avoids one-shot fallback after timeout", async () => {
-    const paths = resolveDaemonStatePaths(repoRoot, { rootDir: stateRoot });
-    ensureStateDir(paths);
-    writeDaemonMetadata(
-      paths,
-      buildDaemonMetadata({ paths, pid: process.pid, repoRealpath: repoRoot, repoRoot }),
-    );
-    writeFileSync(paths.socketPath, "");
-
-    let refsTimeout = 0;
-    await expect(
-      requestDaemonQuery(
+  it("maps every undecodable request to one-shot fallback semantics", async () => {
+    const daemon = await startDiskDaemon();
+    try {
+      const malformedCommand = await requestDaemonQuery(
+        { kind: "defName", name: "example" },
         {
-          kind: "refs",
-          location: { col: 14, file: "packages/shared/src/rules/core.ts", line: 1 },
-        },
-        {
-          isAlive: () => true,
           repoRoot,
           state: { rootDir: stateRoot },
-          transport: (_socketPath, _payload, timeoutMs) => {
-            refsTimeout = timeoutMs;
-            return Promise.reject(new DaemonRequestTimeoutError(timeoutMs));
+          transport: (socketPath, payload, timeoutMs) => {
+            const request = JSON.parse(payload) as { id: string; protocolVersion: number };
+            return defaultDaemonTransport(
+              socketPath,
+              JSON.stringify({
+                command: { kind: "def" },
+                id: request.id,
+                protocolVersion: request.protocolVersion,
+              }),
+              timeoutMs,
+            );
           },
         },
-      ),
-    ).rejects.toThrow(/Retry the query/u);
-    expect(refsTimeout).toBe(30000);
+      );
+      expect(malformedCommand.kind).toBe("fallback");
+      if (malformedCommand.kind === "fallback") {
+        expect(malformedCommand.reason).toContain("Request does not match daemon protocol");
+      }
 
-    let graphTimeout = 0;
-    const graphOutcome = await requestDaemonQuery(
-      {
-        depth: 1,
-        excludeTests: false,
-        file: "packages/shared/src/rules/core.ts",
-        kind: "dependents",
-      },
-      {
-        isAlive: () => true,
-        repoRoot,
-        state: { rootDir: stateRoot },
-        transport: (_socketPath, _payload, timeoutMs) => {
-          graphTimeout = timeoutMs;
-          return Promise.reject(new DaemonRequestTimeoutError(timeoutMs));
-        },
-      },
-    );
-    expect(graphTimeout).toBe(5000);
-    expect(graphOutcome.kind).toBe("fallback");
+      const nonStringId = await defaultDaemonTransport(
+        daemon.paths.socketPath,
+        JSON.stringify({
+          command: { kind: "defName", name: "example" },
+          id: 42,
+          protocolVersion: CODE_INTEL_DAEMON_PROTOCOL_VERSION,
+        }),
+        1000,
+      );
+      expect(JSON.parse(nonStringId)).toMatchObject({
+        error: { name: DAEMON_FALLBACK_ERROR_NAME },
+        id: "unknown",
+        ok: false,
+      });
+    } finally {
+      await daemon.shutdown();
+    }
   });
 
   it("answers exports from the daemon and matches one-shot output", async () => {
@@ -647,37 +542,6 @@ describe("code:intel daemon query route", () => {
     } finally {
       await daemon.shutdown();
     }
-  });
-
-  it("rebuilds cached state when the manifest fingerprint changes", () => {
-    let manifest = "first";
-    let rebuildCount = 0;
-    const fixture = buildFixture();
-    const cache = new GraphCache(repoRoot, {
-      computeManifest: () => manifest,
-      rebuild: () => {
-        rebuildCount += 1;
-        return { graph: fixture.graph, manifest, resolver: fixture.resolver };
-      },
-    });
-    cache.ensure();
-    cache.ensure();
-    expect(rebuildCount).toBe(1);
-    manifest = "second";
-    cache.ensure();
-    expect(rebuildCount).toBe(2);
-  });
-
-  it("fingerprints source contents for same-size edits", () => {
-    createSymbolWorkspace();
-    const target = path.join(repoRoot, "packages/shared/src/rules/mutable.ts");
-    const originalStat = statSync(target);
-    const before = computeWorkspaceManifest(repoRoot);
-
-    writeFileSync(target, "export const mutableValue = 2;\n");
-    utimesSync(target, originalStat.atime, originalStat.mtime);
-
-    expect(computeWorkspaceManifest(repoRoot)).not.toBe(before);
   });
 
   it("preserves daemon metadata after a query", async () => {

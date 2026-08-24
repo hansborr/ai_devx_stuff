@@ -7,7 +7,7 @@ import {
 import {
   CODE_INTEL_DAEMON_PROTOCOL_VERSION,
   type CodeIntelDaemonError,
-  type CodeIntelDaemonRequest,
+  type CodeIntelDaemonQueryRequest,
   type CodeIntelDaemonResponse,
 } from "./daemon-protocol.js";
 import { CodeIntelError } from "./errors.js";
@@ -17,7 +17,7 @@ import { executeCodeIntelQuery } from "./query-executor.js";
 import type { CodeIntelQueryResult } from "./types.js";
 
 export function executeDaemonQuery(
-  envelope: CodeIntelDaemonRequest,
+  envelope: CodeIntelDaemonQueryRequest,
   repoRoot: string,
   graphCache: GraphCache,
   projectCache: ProjectCache,
@@ -44,14 +44,18 @@ export function executeDaemonQuery(
 }
 
 function executeRoutableDaemonQuery(
-  command: CodeIntelDaemonRequest["command"],
+  command: CodeIntelDaemonQueryRequest["command"],
   repoRoot: string,
   graphCache: GraphCache,
   projectCache: ProjectCache,
 ): CodeIntelQueryResult {
   if (isGraphCommand(command)) return executeGraphQuery(command, repoRoot, graphCache);
   if (isSymbolCommand(command)) return executeSymbolQuery(command, repoRoot, projectCache);
-  throw new CodeIntelError(`Command is not daemon-routable: ${command.kind}`);
+  return unreachableRoutableCommand(command);
+}
+
+function unreachableRoutableCommand(_command: never): never {
+  throw new CodeIntelError("Command is not daemon-routable.");
 }
 
 function executeGraphQuery(

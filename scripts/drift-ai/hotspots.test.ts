@@ -1,9 +1,10 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import type { GitRunner } from "./git-changed-scope.js";
 import {
   commitBlock as buildCommitBlock,
@@ -13,6 +14,7 @@ import { runHotspots } from "./hotspots.js";
 import type { CouplingSection, HotspotsAdvisory } from "./hotspots-format.js";
 
 const FIXED_DATE = "2026-05-29T00:00:00-07:00";
+const tmpRepo = registerTempRootCleanup();
 
 // Hotspots fixtures derive the author email and subject from the hash/author at
 // a fixed timestamp, so wrap the shared git-log builder to keep that shape.
@@ -35,7 +37,7 @@ function hotspotsGit(
   logByWindow: Readonly<Record<number, string>>,
   suppressionLog = "",
 ): GitRunner {
-  const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-hotspots-"));
+  const repoRoot = tmpRepo.makeTempRepo("drift-hotspots-");
   return (args) => {
     const key = args.join(" ");
     if (key === "rev-parse --show-toplevel") return `${repoRoot}\n`;
@@ -137,7 +139,6 @@ describe("runHotspots", () => {
       coChanges: 5,
       crossBoundary: true,
     });
-    expect(result.stdout).not.toContain("not implemented");
   });
 
   it("renders coupling text with the score model header and cross-boundary marker", () => {
@@ -338,7 +339,7 @@ describe("runHotspots", () => {
   });
 
   it("returns exit code 2 for invalid --config JSON", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "drift-hotspots-cfg-"));
+    const dir = tmpRepo.makeTempRepo("drift-hotspots-cfg-");
     const configPath = path.join(dir, "drift-ai.config.json");
     writeFileSync(configPath, "{ not valid json");
     const result = runHotspots({
@@ -356,7 +357,7 @@ describe("runHotspots", () => {
   });
 
   it("discloses unavailable line counts and revision-only entries on a blobless clone", () => {
-    const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-hotspots-"));
+    const repoRoot = tmpRepo.makeTempRepo("drift-hotspots-");
     const blocks: string[] = [];
     for (let index = 0; index < 30; index += 1) {
       const rows = [`src/cold-${index % 10}.ts`];
@@ -383,7 +384,7 @@ describe("runHotspots", () => {
   });
 
   it("skips suppression-churn content scans on a blobless clone", () => {
-    const repoRoot = mkdtempSync(path.join(tmpdir(), "drift-hotspots-"));
+    const repoRoot = tmpRepo.makeTempRepo("drift-hotspots-");
     const recorded: string[][] = [];
     const nameOnly = gitLog(
       Array.from({ length: 30 }, (_unused, index) =>
@@ -406,5 +407,24 @@ describe("runHotspots", () => {
 
     expect(result.stdout).toContain("content scan unavailable on a blobless partial clone");
     expect(recorded.some((args) => args.includes("-G"))).toBe(false);
+  });
+
+  it("runs the suppression content scan only for selections that declare the need", () => {
+    const scanArgsFor = (lens: string): boolean => {
+      const recorded: string[][] = [];
+      const inner = hotspotsGit({ 14: richHistory() });
+      const recording: GitRunner = (args) => {
+        recorded.push([...args]);
+        return inner(args);
+      };
+      const result = runHotspots({ argv: ["--lens", lens], git: recording });
+      expect(result.exitCode).toBe(0);
+      return recorded.some((args) => args.includes("-G"));
+    };
+
+    expect(scanArgsFor("churn")).toBe(false);
+    expect(scanArgsFor("coupling")).toBe(false);
+    expect(scanArgsFor("suppression-churn")).toBe(true);
+    expect(scanArgsFor("all")).toBe(true);
   });
 });

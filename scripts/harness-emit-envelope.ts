@@ -4,8 +4,12 @@ import {
   type HarnessFinding,
   harnessFindingSchema,
   summarizeHarnessFindings,
-} from "../packages/shared/src/schemas/harness-diagnostics.js";
-import { emitHarnessDiagnostics } from "./harness/harness-diagnostics-output.js";
+} from "@musi/harness-diagnostics/schema.js";
+
+import {
+  emitHarnessDiagnostics,
+  type HarnessDiagnosticsRoute,
+} from "./harness/harness-diagnostics-output.js";
 
 const PROCESS_ARG_OFFSET = 2;
 const OPTION_WITH_VALUE_ARG_SPAN = 2;
@@ -29,7 +33,7 @@ const MUSI_HARNESS_TOOLS = [
   "harness:audit",
 ] as const;
 
-type MusiHarnessTool = (typeof MUSI_HARNESS_TOOLS)[number];
+export type MusiHarnessTool = (typeof MUSI_HARNESS_TOOLS)[number];
 
 function isMusiHarnessTool(value: string): value is MusiHarnessTool {
   return MUSI_HARNESS_TOOLS.some((tool) => tool === value);
@@ -148,6 +152,36 @@ function parseFindings(text: string): readonly HarnessFinding[] {
   return findings;
 }
 
+/**
+ * Build a harness-diagnostics envelope from already-validated findings and hand
+ * it to the shared emission kernel.
+ *
+ * This is the one envelope constructor in the repo. The CLI below is the
+ * adapter Bash producers pipe NDJSON into; a TypeScript producer that already
+ * holds typed findings (`scripts/lib/migration-safety-cli.ts`) calls this
+ * directly instead of re-serializing them through a subprocess. Both paths
+ * therefore share one summary computation and one set of emitted bytes —
+ * duplicating either across the boundary would be a defect
+ * (`docs/ai-harness.md` § Substrate Ruling).
+ *
+ * `source` is the human-facing producer label in a validation failure, never a
+ * value written into the envelope.
+ */
+export function emitHarnessEnvelope(
+  tool: MusiHarnessTool,
+  findings: readonly HarnessFinding[],
+  route: HarnessDiagnosticsRoute,
+  source = "harness-emit-envelope",
+): void {
+  const envelope: HarnessDiagnostics = {
+    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
+    tool,
+    findings: [...findings],
+    summary: summarizeHarnessFindings(findings),
+  };
+  emitHarnessDiagnostics(envelope, route, { source });
+}
+
 async function main(): Promise<void> {
   let args: ParsedArgs;
   try {
@@ -164,19 +198,16 @@ async function main(): Promise<void> {
   const text = await readStdin();
   const findings = parseFindings(text);
 
-  const envelope: HarnessDiagnostics = {
-    version: HARNESS_DIAGNOSTICS_SCHEMA_VERSION,
-    tool: args.tool,
-    findings: [...findings],
-    summary: summarizeHarnessFindings(findings),
-  };
-  emitHarnessDiagnostics(
-    envelope,
+  emitHarnessEnvelope(
+    args.tool,
+    findings,
     args.outputPath === undefined
       ? { mode: "stdout-only" }
       : { mode: "output-path", path: args.outputPath },
-    { source: "harness-emit-envelope" },
+    "harness-emit-envelope",
   );
 }
 
-await main();
+if (import.meta.main) {
+  await main();
+}

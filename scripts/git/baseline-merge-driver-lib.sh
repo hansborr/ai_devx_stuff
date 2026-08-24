@@ -12,7 +12,7 @@ _MUSI_BASELINE_INFO_ATTRIBUTES_RENDERER="$_MUSI_BASELINE_LIB_DIR/baseline-info-a
 # Render the clone-local merge.<name>.driver command. Every baseline now shares
 # one installed driver body (musi/baseline-merge-driver.sh); the driver key baked
 # in here is what selects the per-baseline descriptor inside that generic body,
-# so the same installed file serves all four merge.<name>.driver entries.
+# so the same installed file serves the three repository-owned driver entries.
 musi_baseline_driver_command() {
   local installed_driver_relative_path="$1" argv0="$2" driver_key="$3"
   printf '%s\n' "bash -c 'set -e; driver=\"\$(git rev-parse --git-common-dir)/$installed_driver_relative_path\"; exec bash \"\$driver\" $driver_key \"\$@\"' $argv0 %O %A %B %L %P"

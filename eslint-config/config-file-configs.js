@@ -3,8 +3,8 @@
 import json from "@eslint/json";
 import tseslint from "typescript-eslint";
 
+import { tsConfigFiles } from "./config-surfaces.js";
 import { noMagicNumbersRule } from "./rule-groups.js";
-import { tsConfigFiles } from "./shared-policy.js";
 
 export const jsonFileConfigs = [
   {

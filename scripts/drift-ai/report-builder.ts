@@ -57,12 +57,9 @@ export function buildReport(
 
   for (const check of options.checks) {
     const startMs = clock();
+    // Total lookup: the plugin-by-id record is compiler-checked against
+    // `DriftCheckId`, so every CLI-validated check id has a plugin.
     const plugin = checkPluginFor(check);
-    if (plugin === undefined) {
-      skipped.push({ check, reason: "check is not implemented" });
-      checkTimings.push({ check, durationMs: elapsedMs(startMs, clock) });
-      continue;
-    }
     const outcome = plugin.runWithSelectedConfig(reportInput);
     checkTimings.push({ check, durationMs: elapsedMs(startMs, clock) });
     if (outcome.status === "skipped") {

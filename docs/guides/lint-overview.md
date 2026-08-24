@@ -43,12 +43,12 @@ flowchart LR
 
 | Part | Lives in | What it does |
 | --- | --- | --- |
-| ESLint flat config | `eslint.config.js` + `eslint-config/` | The strict lint floor. `eslint.config.js` composes an ordered set of config fragments from the `eslint-config/` modules (base, code quality, package boundaries, client framework, scripts, tests, config files). Glob and policy constants are centralized in `eslint-config/shared-policy.js`, fed by the declarative `config-surface-manifest.json`; external adopters should follow the [config-surface consumer chain](lint-ratchet-adoption.md#config-surface-manifest-adoption), not copy the manifest alone. `no-restricted-syntax` is the exception to the fragment pattern: its whole policy is data in `eslint-config/restricted-syntax-policy.js`, composed by `eslint-config/restricted-syntax-builder.js` — see [add-restricted-syntax-fence.md](add-restricted-syntax-fence.md). |
-| Local rules | `eslint-rules/` (registered via `eslint-config/local-plugin.js`) | Repo-specific `local/*` rules encode Musi policy: concurrency guards, tRPC schema contracts, socket broadcast rules, type-assertion boundaries, structured logging, and more. Each rule ships with unit tests and machine-readable `meta.docs` guidance; see the generated rule catalog for the current set. |
+| ESLint flat config | `eslint.config.js` + `eslint-config/` | The strict lint floor. `eslint.config.js` composes an ordered set of config fragments from the `eslint-config/` modules (base, code quality, package boundaries, client framework, scripts, tests, config files). Focused path/glob, script/test, package-boundary, and max-lines policy modules share the declarative `config-surface-manifest.json` vocabulary where needed; external adopters should follow the [config-surface consumer chain](lint-ratchet-adoption.md#config-surface-manifest-adoption), not copy the manifest alone. `no-restricted-syntax` is the exception to the fragment pattern: its whole policy is data in `eslint-config/restricted-syntax-policy.js`, composed by `eslint-config/restricted-syntax-builder.js` — see [add-restricted-syntax-fence.md](add-restricted-syntax-fence.md). |
+| Local rules | `eslint-rules/` (registered via `eslint-config/local-plugin.generated.js`) | Repo-specific `local/*` rules encode Musi policy: concurrency guards, tRPC schema contracts, socket broadcast rules, type-assertion boundaries, structured logging, and more. Each rule ships with unit tests and machine-readable `meta.docs` guidance; see the generated rule catalog for the current set. |
 | Rule catalog (generated) | `docs/generated/local-lint-rules.md` | Generated from each rule's `meta.docs` by `bun run docs:lint-guidance`; grouped by maintainability / architecture fitness / behavior, with a principle and repair path per rule. |
 | Lint ratchet | `scripts/lint-ratchet/` + `lint-ratchet.baseline.json` | Tracks selected existing debt without letting it grow. `bun run lint:ratchet` fails on any regression against the committed baseline; `lint:ratchet:update` records intentional changes. Run `bun run lint:ratchet:summary` for the current ratchet list. See [Lint Ratchet](lint-ratchet.md). |
 | Suppression registers | `scripts/lint-suppressions.sh` | Live scans that fail on any `eslint-disable`, `@ts-expect-error`, or Stryker suppression without a `-- reason`, and on broad disables outside an explicit allowlist. Rules currently under ratchet cannot be disabled at all (`eslint-config/ratchet-restricted-disable-rules.generated.js`). |
-| Coverage map | `docs/generated/lint-coverage-map.md` | An inventory assigning every tracked file a status (`linted`, `ratcheted`, `excluded`, ...), checked by `bun run docs:lint-coverage-map:check` so no surface goes silently unlinted. |
+| Coverage map | `scripts/lint-coverage-map-manifest.ts` → `docs/generated/lint-coverage-map.md` | A typed inventory assigning every tracked file a status (`linted`, `ratcheted`, `excluded`, ...), checked by `bun run docs:lint-coverage-map:check` so no surface goes silently unlinted. The Markdown table is generated from the manifest; edit the manifest, not the document. |
 | Agent envelope | `scripts/lint-agent.ts` | `bun run lint:agent:local-rules[:changed]` re-emits `local/*`, selected core/plugin steering findings, and parser errors as a structured `HarnessDiagnostics` JSON envelope (severity, principle, repair command) for AI-agent consumption. Rules without structured guidance remain info disclosures. Advisory view only — the ESLint gate stays the enforcement floor. |
 | Non-ESLint floors | `scripts/lint-shell.sh`, `lint-config-sensors.sh`, `lint-import-cycles.sh`, `backlog-lint.ts` | ShellCheck for shell scripts; actionlint/yamllint/taplo/hadolint for workflow and config files; a runtime import-cycle floor; front-matter lint for backlog notes. |
 | AI post-edit hooks | `scripts/ai-hooks/` (wired in `.claude/settings.json`) | After an agent edits a file: auto-fix with ESLint/prettier, warn if the file is outside lint coverage, and advisory-check for new ratchet regressions — feedback at edit time, before any gate runs. |
@@ -62,7 +62,7 @@ what varies is scope:
   Nothing blocks here.
 - **Pre-commit / `verify:changed`** — parallel slots: `lint:changed` (changed
   files only), suppressions, ratchet + zero-baseline + debt accounting,
-  max-lines exceptions, coverage map (`--staged`), plus format, typecheck, and
+  max-lines exceptions, coverage map (no reach probe), plus format, typecheck, and
   tests. The import-cycle floor always runs whole-tree because a cycle is a
   global property.
 - **Full `verify` / CI** — same slots with full scope: whole-tree ESLint,
@@ -113,6 +113,12 @@ catalog and the agent envelope, so both a new dev and an AI agent get the
 "why" and the repair path with the finding, not just a rule id. This repo is
 also a public harness-engineering reference, so the ratchet and guidance
 pipeline are built to be copied ([adoption guide](lint-ratchet-adoption.md)).
+
+**Exit codes carry tool verdicts.** Git truth-up and pre-push consumers branch
+on documented dedicated exit codes; human diagnostic prose remains
+presentation and is never a hidden policy API. Those consumers treat codes 1
+and 2 as unclassified failures, so a runtime crash cannot be mistaken for a
+stale baseline.
 
 ## Which doc to read when
 

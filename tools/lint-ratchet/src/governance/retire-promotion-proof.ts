@@ -34,7 +34,6 @@ function probeConfig(scope: OrphanRetireScope): LintRatchetConfig {
     ruleOptions: scope.ruleOptions,
     mode: "no-new",
     metric: "message-count",
-    repairKind: "manual",
     // Placeholder only: this probe config feeds normal-lint coverage matching;
     // principle is the harness-controls doc field and never read on this path.
     principle: "retire-path probe (principle unused)",

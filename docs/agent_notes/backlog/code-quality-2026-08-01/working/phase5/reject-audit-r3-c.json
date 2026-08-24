@@ -1,0 +1,512 @@
+{
+  "contractVersion": 1,
+  "consult": "R3C",
+  "step": "1b-round-3",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[0]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/shared/src/schemas/asi.ts:1-11, character-inputs.ts:220-254, schemas/MODULE.md:50-59, and the prior pack's SHARED-CLUSTER-PLAN.md K3 ruling. asi.ts is the dependency-safe asiIncreaseSchema fragment shared by entity and input schemas, while ASI_FEAT_ID and ASI_TOTAL_POINTS directly define asiChoiceSchema's request validation. The prior ruling deliberately created and documents this boundary; moving request-specific constants would weaken it without removing duplication or drift risk.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[1]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "Opened all declarations and handlers. The title undercounts the population: direction appears in monster-inputs.ts:40, magic-item-inputs.ts:29, note-inputs.ts:82, and inventory-inputs.ts:104. The first two document that TanStack injects the key and strict Zod inputs would otherwise reject it; all four handlers correctly implement forward cursors without branching on direction. Extracting the repeated two-literal enum would add a neutral dependency solely for required adapter metadata and address no observed drift.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[7]",
+      "lane": "lane-04-shared",
+      "disposition": "promote",
+      "reasoning": "Opened both casts and the authoritative marker taxonomy. multiclass-rules.ts:51-53 labels Object.entries key widening as framework, while spellcasting.ts:80-84 labels a runtime-proven numeric literal narrowing as framework. docs/guides/local-eslint-rules.md:364-375 explicitly classifies both shapes as interop, so the machine-readable boundary documentation is wrong.",
+      "promotionIds": [
+        "R3C-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-04.json::coverage.cut[9]",
+      "lane": "lane-04-shared",
+      "disposition": "uphold",
+      "reasoning": "Opened the named conditions, XP, combat, sorcery, and map modules, knip.config.ts:18-24, prior leaf 26, and SHARED-CLUSTER-PLAN.md:498-514,533,574-575. Shared rules and map exports are intentionally treated as package API even without current internal consumers. Several alleged test-only exports are also live building blocks: conditions.ts composes its duration helpers into production-used tickConditions, xp.ts uses its fractional constants in the canonical label table, and sorcery-points.ts uses its exported level constants internally. The prior pack explicitly remeasured and closed the remaining combat/map cases, so the title supplies no basis to overturn that ruling.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[0]",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/shared/src/schemas/magic-item.test.ts:21-280, packages/server/src/routers/magic-item.test.ts:252-310, packages/server/src/socket/broadcast-registry.test.ts:221-238, and map-broadcast.test.ts:16-31. Magic-item schemas and their tRPC boundary are substantively exercised. Although socket-events.test.ts omits mapLayerUpdatedSchema, the registry suite checks that exact shared schema, valid and invalid payloads, and room derivation, while the broadcast suite checks the helper's event and payload mapping. Lower-level duplicate tests would not cover a residual failure mode.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[3]",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/server/src/test/race-helpers.ts:1-12 and representative concurrency suites. raceTest explicitly targets simple setup/N-actions/invariant races, and its three consumers fit that contract. Other Promise.allSettled sites coordinate unlike operations or forced interleavings: serializable-isolation.test.ts:430-455 uses four barriers, spell-casting-concurrency.test.ts:245-276 diagnoses lock ordering, and level-up-concurrency.test.ts:102-125 compares different operations. Consolidating those through raceTest would add adapters without sharing their substantive synchronization.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[11]",
+      "lane": "lane-06-tests",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/client/src/hooks/auth-context.test.tsx:100-423. The standard renderHook wrapper repeats twelve times, but it is local, declarative setup around differing mutation arrangements; the suite already extracts the materially richer signed-in setup at lines 407-423. A helper would save roughly two dozen obvious lines in one file while introducing return-type and lifecycle abstraction, with no demonstrated drift or missing contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::coverage.cut[12]",
+      "lane": "lane-06-tests",
+      "disposition": "promote",
+      "reasoning": "Opened spell-filter-bar.tsx:74-112, its colocated test, and the SpellsPanel suite. The component renders three select controls whose callbacks patch level, school, and prepared state, but spell-filter-bar.test.ts imports only pure conversion helpers and never renders the component. spells-panel.test.tsx:190-218 proves visibility and text search only. Miswired options, values, labels, or callbacks for all three selects therefore remain green.",
+      "promotionIds": [
+        "R3C-101"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[12]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened examples/lint-ratchet-demo/README.md:65-86. The walkthrough explicitly raises the accepted baseline from two to three with --allow-worse and a recorded reason, then concludes that debt can only trend down. docs/guides/lint-ratchet.md:197-215 confirms intentional increases are a supported, durably recorded operation, so the demo's concluding invariant is false.",
+      "promotionIds": [
+        "R3C-271"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[16]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reasoning": "Opened both documents and their discovery paths. DESIGN.md:179-182 identifies app.css and UI primitives as authoritative and says its detailed tokens mirror them; docs/design-direction.md:3-5 scopes itself to stable intent and guardrails rather than every component variant. docs/README.md:27-28 routes token guidance to DESIGN.md, while architecture-plan.md:104-105 routes high-level theme intent to design-direction.md. Their roles and values agree; a cross-link would improve navigation but the tree does not support the claimed competing rulebooks.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[2]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "uphold",
+      "reasoning": "Opened README.md:175 and the TypeScript project graph. tsconfig.base.json:2-21 sets strict:true and is extended by the package, script, config, E2E, server-script, and lint-ratchet TypeScript projects; the demo independently sets strict:true. tsconfig.eslint-js.json is deliberately a checkJs project over JavaScript ESLint configuration, not a TypeScript compilation boundary. The wording is broad, but the claimed strict-TypeScript exception does not survive inspection.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[6]",
+      "lane": "lane-07-docs-dx",
+      "disposition": "promote",
+      "reasoning": "Opened the active map and its authorities. docs/generated/lint-coverage-map.md:409-419 still narrates the portable package and demo as future leaf slices, although the same map at lines 423-427 and 456 records them as live and their manifests confirm they exist. The map also retains a Leaf 41 implementation section at lines 458-487 and directs Leaf 40 to drain simple-import-sort/imports at line 223 even though code-quality-configs.js:189-195 already enforces it as an error. This is stale implementation guidance in an active policy document.",
+      "promotionIds": [
+        "R3C-272"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[1]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened packages/shared/package.json:8-32 and traced consumers plus accommodations in knip.config.ts:76-83, tsconfig.e2e.json:22-30, and the two shared-schema codemod path modules. The constants subpath is the lone extensionless export, but it is stable and broadly used. Normalizing it would churn production imports and resolver/codemod fixtures to remove two tiny special cases, with no correctness or discoverability failure demonstrated.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[5]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened campaign.ts:16-30, campaign-inputs.ts:42-54, campaign.ts router lines 187-211, and campaign-settings-panel.tsx:36-123. The only dormant surface is Campaign.settings, an intentionally opaque JSON record whose comment says known keys should become typed when a consumer exists; neither the update input nor router accepts it. Actual settings controls for name, description, and next-session date are wired through validation and campaign.update. Adding controls now would require inventing product semantics rather than reconstructing a concrete missing feature.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[6]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "promote",
+      "reasoning": "Opened the notification contract, router, hook, and popover. The contract and router support cursor pagination and return nextCursor, but useNotifications issues a one-page query capped at 20, exposes no cursor or load-more state, and the popover renders only that array. Persisted notifications older than the newest 20 are inaccessible even though unreadCount covers all rows. Leaf 064 explicitly excludes client infinite-query work, and leaf 196 concerns click navigation rather than history access.",
+      "promotionIds": [
+        "R3C-301"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::coverage.cut[9]",
+      "lane": "lane-08-cross-cutting",
+      "disposition": "uphold",
+      "reasoning": "Opened README.md:26-67, .env.example, docker-compose.yml, the root scripts, and scripts/dev.sh. Primary-host setup is manual but concrete: copy and edit one environment file, start Compose, migrate, seed, then run dev, with doctor providing exact diagnostics; secondary worktrees bootstrap automatically. A primary bootstrap would need policy for secrets, URL encoding, existing environments and database volumes, infrastructure startup, and seeding. No repeated failure or missing instruction establishes that productizing those choices is worth a new command.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[1]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened eslint-rules/strict-shared-schemas.js and eslint-config/package-boundary-configs.js. The rule activates only over shared schemas, and both activation and implementation explicitly state that only *InputSchema declarations fire because output schemas must remain permissive. Renaming the historical rule would churn registration, manifest/generated docs, tests, and suppressions without clarifying undocumented behavior or changing enforcement.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[2]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened eslint-config/code-quality-configs.js and eslint.config.js. The three max-lines fragments are order-sensitive under flat-config semantics, but there is one production consumer, and both producer and consumer state the required base, engine-zone, per-file-exception, generated-exemption sequence. Consolidating them would remove little real risk while crossing CQ25-43's adjacent max-lines surface, which deliberately excludes eslint-config edits.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[5]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "uphold",
+      "reasoning": "Opened registry-validation.ts, check-registry.ts, and modes.ts. validateLintRatchetRegistry is the portable structural validator; checkLintRatchetRegistry intentionally composes it with repository integrity checks for globs, baseline orphans, and manifest coverage, and its options type exposes that broader boundary. The remaining local validateRegistry wrapper is part of per-command preflight selection already owned by authored leaf 124's command-catalog direction. A naming-only leaf would not materially improve correctness.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-09.json::coverage.cut[6]",
+      "lane": "lane-09-lint-machinery",
+      "disposition": "promote",
+      "reasoning": "Opened the debt-log schema, parser, renderer, writer, and accounting consumers. The persisted union has four variants, but accepted debt alone lacks kind and is recognized by field presence; parsing sends every missing or unknown kind through the accepted-debt schema. Rendering and lifecycle accounting repeat ordered predicate ladders, while the writer independently constructs and orders each event family. This is a real non-exhaustive protocol-extension hazard and looks close to authored leaf 160, recorded only as a hint.",
+      "promotionIds": [
+        "R3C-401"
+      ]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R3C-001",
+      "title": "Correct two shared type-assertion boundary categories",
+      "area": "shared",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/multiclass-rules.ts",
+          "line": 51,
+          "endLine": 53,
+          "measurement": null,
+          "note": "abilityRequirementEntries asserts Object.entries back to the known AbilityAbbreviation key tuple but labels the runtime invariant as a framework boundary."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 80,
+          "endLine": 84,
+          "measurement": null,
+          "note": "clampSpellSlotTableLevel proves the number lies in the literal table-key range with runtime checks, then labels the narrowing assertion as framework."
+        },
+        {
+          "path": "docs/guides/local-eslint-rules.md",
+          "line": 364,
+          "endLine": 375,
+          "measurement": null,
+          "note": "The authoritative marker taxonomy assigns Object.entries/Object.keys widening and runtime-predicate narrowing to interop, while framework is reserved for library seams."
+        }
+      ],
+      "problem": "The two machine-parseable markers describe local runtime invariants as external framework seams. Assertion inventories and reviews therefore receive the wrong remediation signal, and production examples contradict the repository's explicit taxonomy.",
+      "proposedDirection": "Change both marker categories from framework to interop while retaining their concrete reasons; no runtime change is required.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-04.json::coverage.cut[7]",
+          "lane": "lane-04-shared",
+          "originalTitle": "Two type-assertion markers classify built-in Object.entries/range narrowing as framework rather than interop.",
+          "rejectionReason": "Coverage cut after the lane ranked this localized marker correction below retained shared-package findings."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 038 — hint only; that leaf corrects the same marker-category defect in dice-notation.ts, while these two rules files remain outside its parser-only scope"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3C-101",
+      "title": "Spell filter selects lack rendered interaction coverage",
+      "area": "client",
+      "category": "test-shape",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/sheet/spell-filter-bar.tsx",
+          "line": 74,
+          "endLine": 112,
+          "measurement": null,
+          "note": "SpellFilterBar renders search plus Level, School, and Status controls with separate value conversions and filter patches."
+        },
+        {
+          "path": "packages/client/src/components/sheet/spell-filter-bar.test.ts",
+          "line": 1,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The colocated suite imports and tests only pure conversion helpers; it never imports or renders SpellFilterBar."
+        },
+        {
+          "path": "packages/client/src/components/sheet/spells-panel.test.tsx",
+          "line": 190,
+          "endLine": 218,
+          "measurement": null,
+          "note": "The composition suite checks filter-bar presence and drives only text search, leaving all three rendered selects unexercised."
+        }
+      ],
+      "problem": "The level, school, and prepared-status controls are user-facing filter paths, but tests stop at pure guards and text-search composition. Regressions in option population, current-value projection, labels, or callback wiring can make a select ineffective or update the wrong field while every existing test remains green.",
+      "proposedDirection": "Render SpellFilterBar with controlled filters and add focused interactions for Level, School, and Status, asserting complete onFilterChange payloads and representative option labels.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-06.json::coverage.cut[12]",
+          "lane": "lane-06-tests",
+          "originalTitle": "Spell-filter rendered-control coverage",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 053 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3C-271",
+      "title": "Correct the lint-ratchet demo's false monotonic-debt claim",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "examples/lint-ratchet-demo/README.md",
+          "line": 65,
+          "endLine": 86,
+          "measurement": null,
+          "note": "The public walkthrough deliberately accepts an increase from two findings to three, then concludes that debt can only trend down."
+        },
+        {
+          "path": "docs/guides/lint-ratchet.md",
+          "line": 197,
+          "endLine": 215,
+          "measurement": null,
+          "note": "The authoritative guide documents intentional worse-baseline updates and their committed acceptance record."
+        },
+        {
+          "path": "docs/harness-tour.md",
+          "line": 43,
+          "endLine": 57,
+          "measurement": null,
+          "note": "The tour advertises the demo's explicitly accepted increase and defines the invariant as symmetric recording, not monotonic decrease."
+        }
+      ],
+      "problem": "The adoption example teaches the supported explicit-increase workflow and immediately summarizes it with an invariant that workflow disproves. An adopter can incorrectly conclude that accepted increases are forbidden, obscuring the debt-log governance contract and making the demo disagree with its manual.",
+      "proposedDirection": "State the actual invariant: debt cannot change silently; increases require --allow-worse plus a recorded reason, while decreases require a committed baseline update.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-07.json::coverage.cut[12]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The lint-ratchet demo says debt can only trend down immediately after demonstrating an accepted increase.",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 090's public lint-ratchet documentation accuracy work — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3C-272",
+      "title": "Remove completed leaf implementation instructions from the active lint coverage map",
+      "area": "docs",
+      "category": "comment",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 409,
+          "endLine": 419,
+          "measurement": null,
+          "note": "The active map describes the portable lint-ratchet package and demo as future Leaf 02 implementation slices."
+        },
+        {
+          "path": "tools/lint-ratchet/package.json",
+          "line": 1,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The portable @musi/lint-ratchet workspace package and governance exports are already present."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 223,
+          "endLine": null,
+          "measurement": null,
+          "note": "A live row says Leaf 40 can still drain simple-import-sort/imports from drift-ai."
+        },
+        {
+          "path": "eslint-config/code-quality-configs.js",
+          "line": 189,
+          "endLine": 195,
+          "measurement": null,
+          "note": "The repository-wide TypeScript configuration already enforces simple-import-sort/imports as an error."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 458,
+          "endLine": 487,
+          "measurement": null,
+          "note": "The current policy map ends with a Leaf 41 implementation section mixing landed outcomes, obsolete instructions, and remaining-work assertions."
+        }
+      ],
+      "problem": "A document used as the live lint-surface and follow-up map still presents completed audit slices in future tense and emits at least one follow-up already enforced by normal lint. Contributors cannot distinguish current policy from closed implementation history, inviting redundant work and undermining genuine follow-ups.",
+      "proposedDirection": "Audit the hand-maintained map prose and blocker cells against live configuration, retain only current-state coverage and actionable follow-ups, and leave closed chronology to historical notes or git history.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-2/lane-07-topup.json::coverage.cut[6]",
+          "lane": "lane-07-docs-dx",
+          "originalTitle": "The active lint coverage map retains closed leaf-era implementation residue.",
+          "rejectionReason": "Coverage cut with no recorded rationale after the lane budget was filled."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-44",
+          "residual": "CQ25-44 relocates the lint-coverage-map family and preserves its checker and generator facades; it does not remove stale leaf-era prose or validate follow-up claims against live lint configuration."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 111's lint-coverage-map source-of-truth redesign — hint only",
+        "looks close to leaf 102's lint-coverage-map ownership correction — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3C-301",
+      "title": "The notification UI ignores the server cursor, making every persisted notification after the newest 20 inaccessible",
+      "area": "client",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/notification-inputs.ts",
+          "line": 16,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The public list input supports an optional cursor and bounded page size."
+        },
+        {
+          "path": "packages/server/src/routers/notification.ts",
+          "line": 31,
+          "endLine": 50,
+          "measurement": null,
+          "note": "The server counts all unread rows independently of the page and returns nextCursor when more notification rows exist."
+        },
+        {
+          "path": "packages/client/src/hooks/use-notifications.ts",
+          "line": 57,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The sole client hook issues a normal one-page query with limit 20 and never passes or consumes a cursor."
+        },
+        {
+          "path": "packages/client/src/components/notifications/notification-popover.tsx",
+          "line": 51,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The popover renders only the hook's current array and exposes no load-more or history path."
+        }
+      ],
+      "problem": "The persistence and wire layers implement notification history, but the only client fetch stops after 20 rows and discards nextCursor. After enough notifications accumulate, unreadCount can include rows the user cannot inspect or mark individually, and without a retention policy the inaccessible tail only grows.",
+      "proposedDirection": "Use an infinite notification query, expose guarded load-more state in the popover, and preserve socket prepends plus optimistic mark-read updates across loaded pages. Add focused multi-page and socket-prepend coverage.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-08.json::coverage.cut[6]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Older-notification pagination; useful but lower value than actionable notification deep links.",
+          "rejectionReason": "Cut as useful but lower value than actionable notification deep links."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 064 — hint only; that leaf fixes server cursor correctness and explicitly excludes client infinite-query changes",
+        "looks close to leaf 196 — hint only; that leaf adds notification deep links, not access to older pages"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R3C-401",
+      "title": "Debt-log variants require non-exhaustive dispatch across parsing, reporting, and accounting",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 23,
+          "endLine": 90,
+          "measurement": null,
+          "note": "The four-record union is not uniformly discriminated: accepted debt has no kind and needs a presence-based predicate."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 409,
+          "endLine": 420,
+          "measurement": null,
+          "note": "The parser dispatches three explicit kinds and sends every other value, including unknown kinds, through the accepted-debt schema."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log.ts",
+          "line": 110,
+          "endLine": 160,
+          "measurement": null,
+          "note": "Report rendering reimplements four-way selection as an ordered type-guard ladder with a defensive fallthrough."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/baseline-debt-accounting-lifecycle.ts",
+          "line": 69,
+          "endLine": 134,
+          "measurement": null,
+          "note": "Lifecycle accounting separately dispatches retirement, accepted debt, metric migration, and coverage shrink through repeated predicates."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/baseline-update-apply.ts",
+          "line": 86,
+          "endLine": 118,
+          "measurement": null,
+          "note": "The update writer constructs each event family independently and hand-orders the heterogeneous batch."
+        }
+      ],
+      "problem": "Debt-log record kinds form a persisted protocol, but classification and behavior are hand-dispatched in the parser, renderer, writer, and accounting paths. Because accepted debt lacks the common discriminator, TypeScript cannot require exhaustive handling: a new variant can be omitted or misclassified, and an unknown kind currently falls into accepted-debt validation instead of failing explicitly.",
+      "proposedDirection": "Normalize legacy kind-less accepted-debt rows at parse time into a uniformly discriminated union, emit an explicit accepted-debt kind for new rows, reject unknown kinds, and convert downstream consumers to exhaustive kind switches.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R3C",
+          "sourceItemId": "wave-1/lane-09.json::coverage.cut[6]",
+          "lane": "lane-09-lint-machinery",
+          "originalTitle": "debt-log variants use several disconnected dispatch surfaces — larger and less certain than the retained metric registry finding",
+          "rejectionReason": "Coverage cut as larger and less certain than the retained metric-registry finding."
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 160 — hint only"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly the 20 assigned items across lanes 04, 06, 07, 08, and 09; no tests or builds were run and no files were modified.",
+    "For lane-04 direction metadata, the live tree contains four direction-bearing shared list contracts rather than the cut title's three.",
+    "For lane-04 runtime/test-only exports, sampled every exported declaration in conditions.ts, xp.ts, combat.ts, sorcery-points.ts, and shared map modules against non-test consumers, then checked the prior pack's explicit closure.",
+    "For dormant campaign settings, audited the opaque persisted settings record and every supported campaign-update layer; no typed setting key or runtime consumer exists from which non-speculative controls can be reconstructed."
+  ]
+}

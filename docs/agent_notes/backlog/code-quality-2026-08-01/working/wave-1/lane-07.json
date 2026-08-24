@@ -1,0 +1,1059 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-07-docs-dx",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L07-001",
+      "title": "The public harness copy recipes are not closed over their imports",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "docs/ai-harness.md",
+          "line": 192,
+          "endLine": 220,
+          "measurement": null,
+          "note": "Defines the portable diagnostics and hook/control core as explicit file lists."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 245,
+          "endLine": 273,
+          "measurement": null,
+          "note": "Tells adopters to copy those listed files as minimal and advanced starters."
+        },
+        {
+          "path": "scripts/harness/generate-hook-wiring.ts",
+          "line": 5,
+          "endLine": 20,
+          "measurement": null,
+          "note": "The advertised entrypoint imports atomic-write, manifest, path, shim-file, and shim-template modules omitted from the copy list."
+        },
+        {
+          "path": "scripts/harness/generate-harness-controls.ts",
+          "line": 10,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The advertised portable generator imports omitted modules, including the Musi lint-ratchet registry classified elsewhere as an adapter."
+        },
+        {
+          "path": "scripts/harness/*.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "18 unique relative import targets outside the six-file hook/control list, measured by extracting and sorting relative imports from the six advertised files at the pin",
+          "note": "The documented copy set cannot compile or execute without an undocumented dependency closure."
+        }
+      ],
+      "problem": "The outsider-facing adoption ladder presents runnable copy sets, but both starters omit required modules and the purported portable generator reaches into Musi policy. An adopter receives a broken checkout with no reliable reusable-versus-adapter boundary.",
+      "proposedDirection": "Treat the implementation import graph as authoritative. Publish an import-closed portable package/example or generate and check a complete copy manifest; until then, document the full closure and Musi-specific edits.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-002",
+      "title": "Lint-ratchet adoption docs mix the packaged engine with its retired copy-set architecture",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "docs/guides/lint-ratchet-adoption.md",
+          "line": 64,
+          "endLine": 85,
+          "measurement": null,
+          "note": "Tier 1 describes a self-contained engine package and adopter-owned adapter, but also incorrectly makes Musi's diagnostics envelope intrinsic to the runner."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-adoption.md",
+          "line": 191,
+          "endLine": 238,
+          "measurement": null,
+          "note": "The same checklist requires edits to Musi-only registry, diagnostics, sidecar, and portable-test files outside the stated package copy set."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-reference.md",
+          "line": 196,
+          "endLine": 205,
+          "measurement": null,
+          "note": "The reference points to the nonexistent scripts/lint-ratchet/ratchet-globs.ts rather than the packaged kernel implementation."
+        },
+        {
+          "path": "docs/guides/lint-ratchet-reference.md",
+          "line": 321,
+          "endLine": 330,
+          "measurement": null,
+          "note": "CI advice still links to removed runtimeFiles/expandDirectories instructions."
+        },
+        {
+          "path": "tools/lint-ratchet/README.md",
+          "line": 19,
+          "endLine": 33,
+          "measurement": null,
+          "note": "The package README assigns registry, CLI composition, harness wiring, and envelope rendering to the adopter-owned adapter."
+        },
+        {
+          "path": "tools/lint-ratchet/test/package-structure.test.ts",
+          "line": 68,
+          "endLine": 84,
+          "measurement": null,
+          "note": "The authoritative package-boundary test asserts that the engine has no imports escaping the package."
+        }
+      ],
+      "problem": "External adopters cannot follow one coherent Tier-1 recipe: the guide first describes the landed package seam, then requires edits to files neither copied nor imported by that package.",
+      "proposedDirection": "Treat package exports, package-boundary tests, and the demo adapter as authoritative. Rewrite Tier 1 around package plus adopter-owned adapter and remove obsolete copy-set, import-rewrite, and manifest vocabulary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-12",
+        "novelty": "CQ25-12 records the package seam as landed with no work left; this finding identifies documentation that still teaches the superseded seam."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-003",
+      "title": "Devcontainer quick start depends on undocumented local infrastructure",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": ".devcontainer/README.md",
+          "line": 7,
+          "endLine": 19,
+          "measurement": null,
+          "note": "The complete quick start only tells a newcomer to copy the env file and open VS Code."
+        },
+        {
+          "path": ".devcontainer/Dockerfile",
+          "line": 1,
+          "endLine": null,
+          "measurement": null,
+          "note": "The build starts from localhost/claude-devcontainer:latest, which cannot be pulled and has no build source in this repository."
+        },
+        {
+          "path": ".devcontainer/docker-compose.yml",
+          "line": 8,
+          "endLine": null,
+          "measurement": null,
+          "note": "Podman is told to use a devcontainers.slice cgroup supplied by a separate host setup."
+        },
+        {
+          "path": ".devcontainer/docker-compose.yml",
+          "line": 90,
+          "endLine": 91,
+          "measurement": null,
+          "note": "The persist volume is external and must already exist."
+        },
+        {
+          "path": ".devcontainer/README.md",
+          "line": 271,
+          "endLine": 283,
+          "measurement": null,
+          "note": "The reuse section nevertheless says copying the directory and adjusting environment, services, and ports is sufficient."
+        }
+      ],
+      "problem": "A fresh contributor or harness adopter cannot follow the documented quick start from repository contents alone. The same hidden dependencies make the advertised copy-and-reuse workflow inaccurate.",
+      "proposedDirection": "Treat Dockerfile and Compose as authoritative: make the base reproducible or pullable and auxiliary resources self-provisioning, or place explicit bootstrap prerequisites before Quick start and enumerate every Musi-specific replacement point.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-004",
+      "title": "The sole in-progress queue is mostly a stale view of completed or deleted work",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "high",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/in_progress/codex-drain-queue-2026-06-21.md",
+          "line": 3,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The repository's only in-progress queue claims landed entries were removed, then lists eleven bounded items including entries it calls resolved and missing source prefixes."
+        },
+        {
+          "path": "docs/agent_notes/backlog/testsuite-audit/00-index.md",
+          "line": 3,
+          "endLine": 4,
+          "measurement": null,
+          "note": "The authoritative source pack says all 55 findings landed, contradicting the queue's open testsuite item."
+        },
+        {
+          "path": "docs/agent_notes/backlog/harness-research-followups-2026-06/02-design-token-lint.md",
+          "line": 3,
+          "endLine": 7,
+          "measurement": null,
+          "note": "The authoritative leaf says the design-token work is done while the active queue calls it unimplemented."
+        },
+        {
+          "path": "docs/agent_notes/backlog/harness-review-tasks/00-index.md",
+          "line": 3,
+          "endLine": 4,
+          "measurement": null,
+          "note": "The source index says every task is done, contradicting five queue entries."
+        },
+        {
+          "path": "docs/agent_notes/in_progress/codex-drain-queue-2026-06-21.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "10 of 11 Open, bounded items are contradicted by source Status headers, explicitly resolved in the queue, or point to missing leaf prefixes; measured against git ls-tree and the first 16 lines of each source index/leaf",
+          "note": "Only the mutation-coverage residue was not disproved."
+        }
+      ],
+      "problem": "The lifecycle's most prominent active-work signal points backward and forces contributors to re-triage source packs before trusting any item.",
+      "proposedDirection": "Treat source-pack Status headers as authoritative and retire or regenerate this queue. Add a structural check requiring every in-progress reference to resolve and remain nonterminal.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-005",
+      "title": "Backlog is simultaneously an action queue, evidence archive, and completed-work store",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "high",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/README.md",
+          "line": 114,
+          "endLine": 126,
+          "measurement": null,
+          "note": "The governing lifecycle defines backlog as work that still matters and can be promoted into in_progress."
+        },
+        {
+          "path": "docs/agent_notes/backlog/README.md",
+          "line": 6,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The backlog's own policy calls its contents parked workstreams."
+        },
+        {
+          "path": "docs/agent_notes/backlog/README.md",
+          "line": 31,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The parked-items list retains a drained pack explicitly as a provenance record."
+        },
+        {
+          "path": "docs/agent_notes/backlog/codebase-audit/00-report.md",
+          "line": 3,
+          "endLine": 13,
+          "measurement": null,
+          "note": "A retained audit pack says it is closed and all surviving leaves are Done."
+        },
+        {
+          "path": "docs/agent_notes/backlog/testsuite-audit/00-index.md",
+          "line": 3,
+          "endLine": 14,
+          "measurement": null,
+          "note": "Another backlog pack says all findings landed and surviving leaves are historical records."
+        },
+        {
+          "path": "docs/agent_notes/backlog",
+          "line": null,
+          "endLine": null,
+          "measurement": "95 of 297 tracked Markdown files contain Status:...Done within their first 16 lines; measured by enumerating pinned files and scanning header metadata only",
+          "note": "This conservative count excludes Closed, Implemented, Superseded, Resolved, and Rejected records."
+        }
+      ],
+      "problem": "The directory name no longer predicts whether an item is actionable. Open work, rejected designs, completed leaves, and provenance ledgers share one 301-file namespace.",
+      "proposedDirection": "Separate actionable backlog from evidence/provenance records, or introduce a generated typed catalog with record class and lifecycle state while retaining history needed for deduplication.",
+      "leafability": "needs-split",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-006",
+      "title": "The specialist package-script surface has no contributor-facing command catalog",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 22,
+          "endLine": 169,
+          "measurement": null,
+          "note": "The root manifest exposes 147 scripts in one undifferentiated object."
+        },
+        {
+          "path": "package.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "177 script keys across all 6 tracked package.json files: root 147, demo 8, client 3, server 17, shared 2, lint-ratchet tool 0; measured with jq over each pinned manifest",
+          "note": "The total command surface is substantially larger than the everyday subset."
+        },
+        {
+          "path": "README.md",
+          "line": 128,
+          "endLine": 133,
+          "measurement": null,
+          "note": "Specialist tooling is documented only by telling contributors to print the raw root script object and consult AGENTS.md."
+        },
+        {
+          "path": "README.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "21 root script keys have zero exact-key mentions in AGENTS.md, CLAUDE.md, README.md, non-agent_notes docs, or tracked README files; measured with fixed-string git grep per key",
+          "note": "Examples include code:intel:perf, test:slow, verify:async controls, test:client:split, and harness:hook-timeouts:check."
+        }
+      ],
+      "problem": "The raw manifest acts as the command reference but does not communicate purpose, audience, side effects, required cwd, owning guide, or whether a command is a check, repair, generator, CI primitive, or lifecycle hook.",
+      "proposedDirection": "Add a generated or manifest-backed command catalog grouped by audience and function, carrying package/cwd, purpose, side-effect class, owner documentation, and writer/check relationships.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "plan-slice",
+        "ref": "CQ25-37",
+        "novelty": "CQ25-37 inventories direct children of scripts/ for layout governance; this finding covers the separate user-facing package-command surface."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-007",
+      "title": "The E2E guide permits raw locators that mandatory lint unconditionally rejects",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/add-e2e-test.md",
+          "line": 14,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The selector hierarchy permits a raw CSS locator when no accessible surface exists if a short reason is left."
+        },
+        {
+          "path": "docs/guides/add-e2e-test.md",
+          "line": 29,
+          "endLine": 31,
+          "measurement": null,
+          "note": "Canvas/VTT guidance repeats that fallback."
+        },
+        {
+          "path": "eslint-rules/e2e-prefer-role-selectors.js",
+          "line": 40,
+          "endLine": 46,
+          "measurement": null,
+          "note": "The rule reports every locator call without inspecting a reason or contextual exception."
+        },
+        {
+          "path": "eslint-config/test-configs.js",
+          "line": 80,
+          "endLine": 83,
+          "measurement": null,
+          "note": "The rule is enabled as an error for E2E."
+        },
+        {
+          "path": "eslint-rules/e2e-prefer-role-selectors.test.js",
+          "line": 20,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The focused test makes raw locator forms invalid, including an aria-label locator."
+        }
+      ],
+      "problem": "A contributor following the documented fallback still receives a blocking lint error; prose explaining the locator does not satisfy the enforced rule.",
+      "proposedDirection": "Treat lint config and focused tests as authoritative. Document the precise reasoned suppression form, or change guide and rule together if raw locators are intended to be impossible.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-008",
+      "title": "The concurrency rulebook claims three exhaustive patterns, then documents an uncounted fourth mechanism",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/CONCURRENCY.md",
+          "line": 3,
+          "endLine": 7,
+          "measurement": null,
+          "note": "The opening claims Patterns A/B/C cover every concurrency-sensitive write and tells contributors not to invent a fourth."
+        },
+        {
+          "path": "docs/CONCURRENCY.md",
+          "line": 454,
+          "endLine": 460,
+          "measurement": null,
+          "note": "The Serializable section says two paths use a shape that Patterns A/B/C cannot express."
+        },
+        {
+          "path": "packages/server/src/utils/prepared-spell-toggle.ts",
+          "line": 2,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The implementation identifies Serializable retry as the commit path and explicitly says none of the three patterns expresses its set-level invariant."
+        }
+      ],
+      "problem": "The guide's most prominent taxonomy classifies an established production mechanism as something contributors were told never to invent.",
+      "proposedDirection": "Treat the detailed Serializable section and implementation as authoritative. Describe three normal row-level patterns plus a narrowly admitted Serializable set-level exception.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-009",
+      "title": "Architecture documentation promises level-up review and rollback that the product does not expose",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/architecture-plan.md",
+          "line": 73,
+          "endLine": 77,
+          "measurement": null,
+          "note": "Says CharacterLevelChoice records let recent decisions be reviewed and rolled back."
+        },
+        {
+          "path": "packages/server/src/routers/character.ts",
+          "line": 121,
+          "endLine": 149,
+          "measurement": null,
+          "note": "The router exposes levelUp but no review, undo, downgrade, or rollback procedure."
+        },
+        {
+          "path": "packages/client/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 production UI consumers of levelChoices; all three pinned-tree client matches are test fixtures or tests, measured with git grep",
+          "note": "The persisted rows are not presented as a player-facing review workflow."
+        }
+      ],
+      "problem": "A stable architecture document describes a capability rather than current data-model intent, encouraging contributors to design around an assumed reversible workflow.",
+      "proposedDirection": "Treat the router and current consumers as authoritative. Describe CharacterLevelChoice as an audit/history record today and separate any review/rollback capability into a product decision.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-010",
+      "title": "Coverage cadence has no retained baseline to compare against",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/coverage-cadence.md",
+          "line": 14,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The guide says original baseline notes were deleted, points to purported LOG entries, and defers creating a durable baseline."
+        },
+        {
+          "path": "docs/guides/coverage-cadence.md",
+          "line": 25,
+          "endLine": 33,
+          "measurement": null,
+          "note": "The weekly policy nevertheless requires percentage-point comparisons against the absent baseline."
+        },
+        {
+          "path": "docs/agent_notes",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 tracked coverage-baseline artifacts at the pin; measured from the complete agent_notes filename inventory, while LOG.md has no cited 2026-05-13 or AUD-COV record",
+          "note": "There is no durable comparison artifact behind the cadence instructions."
+        }
+      ],
+      "problem": "The weekly check can produce coverage but cannot reproducibly apply its own drift thresholds, leaving each operator to invent a comparison point.",
+      "proposedDirection": "Record a fresh stable baseline and link it here, or explicitly reframe the current command as a one-off floor check until a retained comparison artifact exists.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-011",
+      "title": "Harness manifest guide undercounts and omits sanctioned direct readers",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/harness-manifest-parser.md",
+          "line": 119,
+          "endLine": 135,
+          "measurement": null,
+          "note": "The guide says exactly two sanctioned readers remain and documents only generate-harness-controls and check-registry."
+        },
+        {
+          "path": "scripts/harness/manifest-contract-check.ts",
+          "line": 105,
+          "endLine": 140,
+          "measurement": null,
+          "note": "The authoritative allowlist contains five readers: loader, registration-check, generate-harness-controls, generate-skill-artifacts, and check-registry."
+        }
+      ],
+      "problem": "The maintenance guide presents two exceptional shapes as the complete inventory while the enforced map has five entries with materially different roles.",
+      "proposedDirection": "Treat MANIFEST_DIRECT_READERS as authoritative. Document or generate all five readers grouped by composition seam, typed specialized consumer, and partial-tree/diagnostic exception.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "The landed harness cluster changed this surface; the new delta is post-landing prose describing only two of five enforced readers."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-012",
+      "title": "Two documents both claim to be the authoritative complete harness inventory",
+      "area": "docs",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/README.md",
+          "line": 11,
+          "endLine": 16,
+          "measurement": null,
+          "note": "Calls ai-harness.md the authoritative single-source inventory of every guide, lint rule, sensor, and gate."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 400,
+          "endLine": 404,
+          "measurement": null,
+          "note": "Says its local-rule rows are selected examples and routes the complete catalog elsewhere."
+        },
+        {
+          "path": "docs/generated/harness-controls.md",
+          "line": 3,
+          "endLine": 8,
+          "measurement": null,
+          "note": "The generated manifest projection independently calls itself the authoritative inventory of every harness control."
+        }
+      ],
+      "problem": "Readers cannot determine which inventory is exhaustive. The conceptual map and generated manifest serve different purposes but are both branded as the single authority.",
+      "proposedDirection": "Make harness.controls.json and its generated projection authoritative for exhaustive membership; describe ai-harness.md as the conceptual architecture, lifecycle, adoption, and gap map.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-013",
+      "title": "The generated-doc ownership table misclassifies the lint coverage map as wholly hand-maintained",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/generated/README.md",
+          "line": 7,
+          "endLine": 12,
+          "measurement": null,
+          "note": "Labels lint-coverage-map.md Hand-maintained and tells contributors to edit the map directly."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 13,
+          "endLine": 17,
+          "measurement": null,
+          "note": "Defines hybrid ownership: one marker-delimited table is generated and surrounding policy is hand-maintained."
+        },
+        {
+          "path": "docs/generated/lint-coverage-map.md",
+          "line": 95,
+          "endLine": 100,
+          "measurement": null,
+          "note": "Forbids hand-editing the generated span and supplies refresh/check commands."
+        },
+        {
+          "path": "scripts/lint-coverage-map-gen.ts",
+          "line": 14,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The generator rewrites the marker-delimited block."
+        }
+      ],
+      "problem": "The directory-level ownership table can lead contributors to hand-edit bytes owned by a generator.",
+      "proposedDirection": "Treat the map's marker contract and generator as authoritative. Classify it as Hybrid and list direct-edit versus generation workflows separately.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-014",
+      "title": "Homebrew module index sends contributors to the wrong registry file",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/MODULE.md",
+          "line": 21,
+          "endLine": null,
+          "measurement": null,
+          "note": "The parent index says shared currently contains only caster-form-utils.ts."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/shared/MODULE.md",
+          "line": 7,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The authoritative child module documents six shared files."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/MODULE.md",
+          "line": 25,
+          "endLine": 31,
+          "measurement": null,
+          "note": "The flow and add-entity recipe say entry-dialog.tsx switches on types and owns registry entries."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/MODULE.md",
+          "line": 11,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The focused child document correctly names entry-editor-registry.ts as the single registry."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
+          "line": 24,
+          "endLine": 29,
+          "measurement": null,
+          "note": "The dialog imports the registry API."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 162,
+          "endLine": null,
+          "measurement": null,
+          "note": "The code-authoritative EDITOR_REGISTRY is declared here."
+        }
+      ],
+      "problem": "The parent document duplicated child-module details and drifted after the split. Its explicit recipe sends contributors to a registry consumer while hiding most reusable shared helpers.",
+      "proposedDirection": "Make code and focused child MODULE documents authoritative. Point the parent recipe to entry-editor-registry.ts and replace volatile inventories with child-document links.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-117",
+        "novelty": "The landed client/homebrew work refreshed focused modules; this is remaining parent-index drift at new paths."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-015",
+      "title": "Server utilities lack an orientation contract despite owning cross-module trust boundaries",
+      "area": "server",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "docs/module-docs.md",
+          "line": 24,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The charter requires MODULE docs for large shared folders and surfaces hiding cross-module contracts."
+        },
+        {
+          "path": "packages/server/src/utils",
+          "line": null,
+          "endLine": null,
+          "measurement": "46 direct tracked non-test TypeScript files and no MODULE document at the pin; measured from git ls-tree",
+          "note": "This is the largest undocumented application-source directory among the ranked direct-file directories."
+        },
+        {
+          "path": "packages/server/src/utils/participant-stats-mutations.ts",
+          "line": 6,
+          "endLine": 55,
+          "measurement": null,
+          "note": "One file alone documents the sanctioned write escape, mutation shapes, locks, and writer classes."
+        },
+        {
+          "path": "packages/server/src/utils/prisma-types.ts",
+          "line": 3,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The directory owns restricted-delegate trust boundaries."
+        },
+        {
+          "path": "packages/server/src/utils/character-auth.ts",
+          "line": 10,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The same flat directory owns authorization semantics tied to ADR-0002."
+        }
+      ],
+      "problem": "The flat directory mixes authorization, race-sensitive mutation capabilities, Prisma typing, mapping, logging, socket access, and domain helpers. Its ownership map is scattered through long comments and remote service docs.",
+      "proposedDirection": "Add a focused utils/MODULE.md mapping utility families and trust boundaries, naming sanctioned mutation/auth entry points and linking to CONCURRENCY and authorization docs.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-016",
+      "title": "Major harness implementation directories have only one-line remote descriptions",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "docs/module-docs.md",
+          "line": 24,
+          "endLine": 30,
+          "measurement": null,
+          "note": "The charter calls for local orientation on large, subtle, cross-contract surfaces."
+        },
+        {
+          "path": "scripts/harness",
+          "line": null,
+          "endLine": null,
+          "measurement": "42 direct tracked non-test TypeScript files and no MODULE document at the pin",
+          "note": "The directory owns manifest validation, generated surfaces, hook wiring, verification projection, diagnostics, and registration checks."
+        },
+        {
+          "path": "scripts/code-intel",
+          "line": null,
+          "endLine": null,
+          "measurement": "36 direct tracked non-test TypeScript files and no MODULE document at the pin",
+          "note": "The directory contains CLI, daemon, protocol, graph, project-cache, and query layers."
+        },
+        {
+          "path": "scripts/README.md",
+          "line": 50,
+          "endLine": 61,
+          "measurement": null,
+          "note": "The only common orientation is a one-line ownership row per directory."
+        }
+      ],
+      "problem": "Two high-churn harness families meet the repository's own MODULE threshold but lack local orientation, forcing contributors to reconstruct authority, state ownership, and internal layering from filenames.",
+      "proposedDirection": "Add separate local MODULE documents for scripts/harness and scripts/code-intel, identifying facades, clusters, generated/state ownership, and authoritative checks.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "The landed harness cluster added path-policy documentation and changed these internals, but both owner directories remain undocumented locally."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L07-017",
+      "title": "Per-worktree guide omits its mandatory devcontainer credential prerequisite",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 3,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The guide presents automatic secondary-worktree provisioning without a prerequisites section."
+        },
+        {
+          "path": "docs/guides/per-worktree-dev.md",
+          "line": 20,
+          "endLine": 21,
+          "measurement": null,
+          "note": "worktree:init and worktree:new are described as self-contained provisioning commands."
+        },
+        {
+          "path": "scripts/worktree-db.sh",
+          "line": 222,
+          "endLine": 239,
+          "measurement": null,
+          "note": "The authoritative implementation requires the primary checkout's .devcontainer/.env and reads DATABASE_URL only from it."
+        },
+        {
+          "path": ".env.example",
+          "line": 1,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The separate root setup tells users to create a root .env, which does not satisfy this lookup."
+        }
+      ],
+      "problem": "A contributor following the documented root environment setup can create .env successfully and still have worktree provisioning fail because the distinct devcontainer env file is absent.",
+      "proposedDirection": "Document .devcontainer/.env and a reachable database as explicit prerequisites, link the devcontainer setup, and explain the root .env distinction. The shell implementation is authoritative.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-018",
+      "title": "Primary onboarding omits the Bash/Unix runtime required by its first development command",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "README.md",
+          "line": 26,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Prerequisites list only Bun and Docker, without a supported host OS, Bash, WSL, or devcontainer requirement."
+        },
+        {
+          "path": "README.md",
+          "line": 54,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The primary setup path ends with bun run dev."
+        },
+        {
+          "path": "package.json",
+          "line": 23,
+          "endLine": null,
+          "measurement": null,
+          "note": "The dev command is implemented as bash scripts/dev.sh."
+        }
+      ],
+      "problem": "The README appears platform-neutral, but its first application command and most quality/worktree commands require Bash. Windows contributors receive no supported WSL, Git Bash, or devcontainer path.",
+      "proposedDirection": "Declare supported host environments and the Bash requirement in Prerequisites, with a concise Windows path such as WSL2 or the documented devcontainer workflow.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-019",
+      "title": "Scripts README gives a non-root recovery command that is still relative to the current directory",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/README.md",
+          "line": 118,
+          "endLine": 124,
+          "measurement": null,
+          "note": "After explaining nearest-package failures, the guide suggests bun run scripts/harness-check.ts directly, which is also relative to the nested cwd."
+        },
+        {
+          "path": "AGENTS.md",
+          "line": 16,
+          "endLine": null,
+          "measurement": null,
+          "note": "Repository-wide guidance supplies the canonical root-anchored --cwd form."
+        },
+        {
+          "path": "packages/client/package.json",
+          "line": 7,
+          "endLine": 11,
+          "measurement": null,
+          "note": "A representative nearest package manifest has no harness:check fallback."
+        }
+      ],
+      "problem": "The troubleshooting paragraph diagnoses the cwd problem correctly, then offers an alternative that fails for the same reason.",
+      "proposedDirection": "Replace the relative direct-entrypoint advice with the root-anchored --cwd form from AGENTS.md and keep one canonical snippet.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-020",
+      "title": "Two database-writing SRD backfill commands are exposed without an operator runbook",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/package.json",
+          "line": 23,
+          "endLine": 24,
+          "measurement": null,
+          "note": "The server manifest exposes backfill:spell-combat and backfill:monster-actions beside routine generation commands."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-spell-combat.ts",
+          "line": 43,
+          "endLine": 46,
+          "measurement": null,
+          "note": "The spell command performs Prisma updateMany writes."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-srd-monster-actions.ts",
+          "line": 64,
+          "endLine": 72,
+          "measurement": null,
+          "note": "The monster command overwrites four persisted action fields."
+        },
+        {
+          "path": "packages/server/src/seed/backfill-runner.ts",
+          "line": 20,
+          "endLine": 23,
+          "measurement": null,
+          "note": "The shared runner connects to serverEnv.databaseUrl and immediately executes the backfill."
+        },
+        {
+          "path": "docs/srd-data-sources.md",
+          "line": 96,
+          "endLine": 105,
+          "measurement": null,
+          "note": "The SRD guide documents all four neighboring generate commands but neither backfill."
+        },
+        {
+          "path": "docs/srd-data-sources.md",
+          "line": null,
+          "endLine": null,
+          "measurement": "0 live-documentation references to either backfill script key, measured with fixed-string git grep across onboarding and non-agent_notes documentation",
+          "note": "No documentation states environment selection, lifecycle, affected data, rerun expectations, validation, or rollback."
+        }
+      ],
+      "problem": "A contributor can invoke database-writing commands from the manifest without documentation explaining which database to target, whether the scripts remain needed or rerunnable, and how to validate or recover.",
+      "proposedDirection": "Treat implementation as authoritative and add both commands to the SRD runbook with lifecycle, target-environment warning, affected fields, rerun expectations, expected report, validation, backup, and rollback guidance.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "The flat scripts directory is governed only by prose",
+      "ref": "CQ25-4",
+      "reason": "Exact open prior leaf, already decomposed into scheduled CQ25-34 through CQ25-44."
+    },
+    {
+      "title": "Scripts README lacks the TS-first two-tier test placement contract",
+      "ref": "CQ25-27",
+      "reason": "The exact documentation addition is already scheduled."
+    },
+    {
+      "title": "Scripts layout inventory omits owner-directory rows",
+      "ref": "CQ25-34",
+      "reason": "The exact layout-documentation correction is already scheduled."
+    },
+    {
+      "title": "Spell-casting MODULE misstates affected-character ordering",
+      "ref": "CQ25-21",
+      "reason": "The exact spell MODULE correction and facade contract are already scheduled."
+    },
+    {
+      "title": "scripts/drift-ai lacks a MODULE document",
+      "ref": "CQ25-35",
+      "reason": "The exact MODULE addition is already scheduled; CQ25-146 also preserves the flat layout."
+    },
+    {
+      "title": "Consolidate the concurrency guidance into one document",
+      "ref": "CQ25-103",
+      "reason": "The three documentation altitudes are a standing deliberate structure."
+    },
+    {
+      "title": "Consolidate the four lint-ratchet guides",
+      "ref": "CQ25-78",
+      "reason": "The audience-partitioned guide split is explicitly deliberate."
+    },
+    {
+      "title": "Add byte-identical SRD regeneration checking",
+      "ref": "CQ25-172",
+      "reason": "Checksum attestation without a regeneration drift gate is an explicit recorded decision."
+    },
+    {
+      "title": "Restructure generators around optional docs/refs inputs",
+      "ref": "CQ25-171",
+      "reason": "The generator work is explicitly parked pending provisioned upstream inputs."
+    },
+    {
+      "title": "Decompose the worktree-db shell monolith",
+      "ref": "CQ25-126",
+      "reason": "The broad decomposition was rejected; only narrower recorded slices remain eligible."
+    },
+    {
+      "title": "Move worktree seed modules under scripts/worktree-db",
+      "ref": "CQ25-63",
+      "reason": "The exact family move is already a blocked plan slice."
+    },
+    {
+      "title": "Bulk-normalize worktree CLI argument walkers",
+      "ref": "CQ25-127",
+      "reason": "Bulk convergence was recorded as converge-on-touch rather than schedulable work."
+    },
+    {
+      "title": "Bulk-normalize shell smoke filenames and command prefixes",
+      "ref": "CQ25-140",
+      "reason": "Pure naming churn was explicitly rejected."
+    }
+  ],
+  "featureIdeas": [
+    "If the architecture-plan wording reflects product intent, expose human-readable level-up history and an explicit rollback workflow backed by CharacterLevelChoice."
+  ],
+  "bugsSideList": [
+    {
+      "title": "Root Compose publishes PostgreSQL and Redis on every host interface",
+      "paths": [
+        "docker-compose.yml",
+        ".devcontainer/docker-compose.yml"
+      ],
+      "whySuspectedBug": "Root Compose uses unqualified 8002:5432 and 8004:6379 bindings while the devcontainer intentionally binds the same services to 127.0.0.1; the root form can expose development data services to the surrounding network.",
+      "suggestedOwner": "security-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "docs/*.md, docs/adr/**/*.md, and docs/roadmap/**/*.md — all pinned Markdown files",
+      "docs/guides/** — all 24 files, 4,858 lines",
+      "**/MODULE.md and **/*-MODULE.md — all 52 tracked module documents",
+      "AGENTS.md, CLAUDE.md, README.md, and every tracked non-docs README",
+      "All 6 tracked package.json files",
+      "All 14 matched root/package/tool/example/script tsconfig*.json files and knip.config.ts",
+      ".devcontainer/**, root Docker/Compose/env/SQL setup, and docs/guides/per-worktree-dev.md",
+      "docs/agent_notes governance files: README.md, DECISIONS.md, LOG.md, decisions-*.md, backlog/README.md, finished_work/README.md, and the sole in_progress note"
+    ],
+    "sampled": [
+      "docs/generated/** — each file's ownership/provenance header and tail plus targeted authoritative-inventory, generated-span, and stale-leaf sections",
+      "docs/SRD_CC_v5.2.1.pdf — existence, 6,031,375-byte blob metadata, PDF metadata, and 364-page count only",
+      "docs/agent_notes/** — all 407 pinned paths inventoried; all 297 backlog Markdown headers scanned through line 16; first and last lexicographic header sampled in each of 27 immediate backlog packs; substantive pack bodies excluded",
+      "Every MODULE directory listing and named path was existence-checked; semantic source inspection targeted candidate ownership and flow claims",
+      "Top 10 direct non-test source directories lacking MODULE docs ranked by pinned tracked-file count",
+      "Manifest script targets — every first-token repository-relative shell/TS/MJS target was existence-checked",
+      "Source/config/test authorities cited by guides — targeted cross-checks across harness, tRPC, Prisma, socket, concurrency, client, E2E, rules, lint, coverage, and worktree surfaces",
+      "scripts/worktree-db.sh and scripts/doctor.sh — command contracts, environment handling, status/recovery paths, and cited diagnostics sampled",
+      "All 22 SQL files, including the complete 1,268-line baseline migration, were read in the configuration shard"
+    ],
+    "skipped": [
+      "docs/SRD_CC_v5.2.1.pdf content — SRD content correctness is explicitly excluded",
+      "Substantive bodies of backlog, research, review, eval, and finished-work packs outside governance files and deterministic header samples — pack contents are explicitly excluded",
+      "Build artifacts, lockfiles, node_modules, generated Prisma source, and SRD data-value correctness — excluded by scope",
+      "Unrelated implementation bodies referenced from documentation — inspected only where needed to establish authoritative behavior",
+      "Test suite and build execution — explicitly prohibited by the user"
+    ],
+    "pointers": [
+      "Lane 01: implementation/layout concerns under scripts/ remain owned by CQ25-4 and scheduled CQ25-34 through CQ25-44.",
+      "Lane 08: decide whether scripts/worktree-db.sh should support root-Compose credentials rather than only the primary .devcontainer/.env; this audit reports only the missing prerequisite documentation.",
+      "Lane 03 or lane 08: code-side dry-run, transaction, or explicit environment-confirmation mechanisms for the SRD backfills are outside this docs-side finding.",
+      "Lane 06: worktree, E2E-selector, package-boundary, and manifest-reader tests were consulted only as authoritative evidence; test-shape changes remain lane 06."
+    ],
+    "cut": [
+      "The harness Current Gaps list still names the implemented weekly rules mutation run as missing.",
+      "The active lint coverage map retains fulfilled leaf-era implementation-plan residue.",
+      "The concurrency writer map points to a thin router rather than the transaction-owning service.",
+      "The concurrency guide calls UTF-16 code-unit ordering code-point ordering; overlaps CQ25-21 on a new path.",
+      "The living backlog index omits 7 of 54 top-level workstreams.",
+      "The finished-work index omits 38 of 67 retained records.",
+      "The curated 981-line LOG is not newest-first and duplicates prose.",
+      "Research, review, and eval collections sit outside the documented agent-notes lifecycle.",
+      "The per-worktree multi-lane section omits worktree:status --lanes and --all.",
+      "The devcontainer installs an unused second server-start helper.",
+      "Root and devcontainer Compose maintain byte-identical copies of init-test-db.sql.",
+      "Generated-artifact package scripts use three inconsistent writer naming forms.",
+      "The lint-ratchet demo says debt can only trend down immediately after demonstrating an accepted increase.",
+      "scripts/drift-ai/README.md repeats its external invocation contract across four sections.",
+      "Character creation is a 21-file multi-step feature without a local MODULE document.",
+      "docs/guides/ has no local landing page, while the claimed complete guide table directly omits two of 24 guides.",
+      "docs/design-direction.md and root DESIGN.md are competing visual-design rulebooks with no explicit relationship.",
+      "The repository has no human-focused CONTRIBUTING entrypoint; README routes coding standards to agent-specific AGENTS.md."
+    ]
+  }
+}

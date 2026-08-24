@@ -1,0 +1,1264 @@
+{
+  "contractVersion": 1,
+  "step": "1c",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "decisions": [
+    {
+      "promotionId": "B-001",
+      "ruling": "new-leaf",
+      "title": "Decompose the stateful Bash verification engine behind its existing facade",
+      "area": "harness",
+      "category": "organization",
+      "severity": "medium",
+      "size": "L",
+      "worthIt": true,
+      "worthItReason": "A move-only split reduces recurring maintenance cost without reopening the rejected substrate rewrite.",
+      "rulingReason": "Leaf 117 explicitly identifies verify-engine.sh as the same smell but separate work, while CQ25-124 bars a speculative TypeScript core rather than internal Bash decomposition.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep process orchestration and the public sourcing facade in Bash. Extract cohesive Bash libraries for lifecycle/cleanup, policy validation, and evidence transactions in behavior-preserving slices.",
+      "authorConstraints": [
+        "Do not introduce a TypeScript core or move locks, mktemp, Git, process control, or evidence publication out of Bash.",
+        "Preserve all sourced names and public entry paths during the move."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-124",
+          "residual": "Move-only internal Bash decomposition remains outside the substrate refusal."
+        }
+      ],
+      "dedupBasis": "Current leaf 117 expressly excludes scripts/lib/verify-engine.sh as a separate finding at 117-verify-metadatash-second-kitchen-sink-shell.md:167-169; the substrate boundary is recorded at code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md:62-75.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-002",
+      "ruling": "new-leaf",
+      "title": "Rename auth-service to reflect its authentication-primitive boundary",
+      "area": "server",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small coordinated rename makes the service inventory and navigation accurately describe ownership.",
+      "rulingReason": "The original workflow extraction was rejected, but its ruling conceded this narrower naming defect; no authored leaf covers it.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep authentication workflows in the router and rename auth-service.ts to an accurate primitive-oriented name such as auth-primitives.ts. Update imports and the service inventory atomically.",
+      "authorConstraints": [
+        "Do not extract router workflows or alter authentication behavior.",
+        "Coordinate the services/README.md edit with leaf 004 if both are implemented nearby."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 004 edits the same inventory only for character creation and is confined to that move at 004-character-creation-large-pseudo-module-loose.md:130-151; no prior-pack refusal covers this rename.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-003",
+      "ruling": "new-leaf",
+      "title": "Single-source memory-wait timeout validation across verification entry paths",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "One bounded parser prevents malformed environment input from breaking a common verification path.",
+      "rulingReason": "Leaf 110 owns dependency metadata and leaves memory-scheduler hygiene outside its direction; it does not cover timeout parsing.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add one shared signed-range timeout parser beside the memory-budget implementation and use it from both scheduler forms. Let pre-commit apply its separate policy cap after shared validation.",
+      "authorConstraints": [
+        "Preserve the pre-commit policy cap as a distinct layer.",
+        "Reject values that Bash numeric comparisons cannot safely consume."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 110 covers named artifact dependencies at 110-parallel-verify-dependencies-hidden.md:95-159 and separates memory-scheduler hygiene at :179-190; no timeout-validation coverage appears there.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-004",
+      "ruling": "reject",
+      "title": "Generate declarations from checked JavaScript lint policy",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The fix pays, but it is already authored exactly and needs no promotion.",
+      "rulingReason": "Leaf 158 states the same ambient-shadow problem and already specifies checked-JS JSDoc, declaration emission, freshness registration, and residual manual declarations.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement leaf 158 as written.",
+      "authorConstraints": [
+        "Retain manual declarations for the deliberately unchecked eslint-rules modules.",
+        "Sequence with leaf 157 as leaf 158 requires."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage: 158-typescript-consumers-depend-hand-written.md:8-23 describes the defect and :25-50 specifies the complete remedy and boundaries.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-005",
+      "ruling": "new-leaf",
+      "title": "Encode ghost-files mode dependencies as discriminated scope contracts",
+      "area": "harness",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The change eliminates quietly lossy and runtime-only impossible states on a maintained analyzer path.",
+      "rulingReason": "CQ25-10 narrows other analyzer contracts but does not cover DetectorScope or ghost-files dependencies, and no current leaf does.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Make DetectorScope a mode-discriminated union whose file variants match the mode. Give ghost-files mode-specific option variants that require inventory for current scope and directory listing for changed scope.",
+      "authorConstraints": [
+        "Preserve current findings and scope behavior for valid callers.",
+        "Do not broaden the CQ25-10 triage-contract slices into this work."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-10",
+          "residual": "DetectorScope mode/file correspondence and ghost-files dependencies remain uncovered."
+        }
+      ],
+      "dedupBasis": "CQ25-10's live scope is bounded to unrelated analyzer contracts at code-quality-2026-07-25/34-PLAN.md:110-169; no matching authored leaf was found.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-006",
+      "ruling": "new-leaf",
+      "title": "Converge drift-ai command result and sentinel-error lifecycles",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Five maintained command paths repeat a changing lifecycle contract, so a bounded shared helper pays within the analyzer family.",
+      "rulingReason": "Leaves 120 and 161 cover parsing/registries and entrypoint cleanup respectively, while both exclude this runner/output lifecycle.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Introduce a neutral run-result contract and one helper for mapping DriftAiHelp and DriftAiError to command results. Converge the five command families while retaining command-specific parsing, execution, and formatting.",
+      "authorConstraints": [
+        "Do not derive command parsing, help prose, or full result assembly from descriptors; preserve leaf 120's boundary.",
+        "Do not combine this with leaf 161's entrypoint-only cleanup; sequence overlapping runner edits."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 120 preserves hand-written result assembly at 120-cli-option-models-remain-parallel-registries.md:125-145; leaf 161 excludes runner/output behavior at 161-drift-ai-executable-exposes-incoherent-23.md:66-87.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "B-007",
+      "ruling": "new-leaf",
+      "title": "Remove the unused repository-root parameter from blame parsing",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The deletion is tiny and clarifies that repository anchoring belongs to the injected Git runner.",
+      "rulingReason": "No authored or prior-pack record covers this unused dependency.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Remove repoRoot from BlameLineIntroductionsOptions and its callers. Keep repository-root capture only in defaultBlameGitRunner.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Pool-wide title and evidence-path comparison found no current-pack leaf or prior record covering coldspots-blame.ts's unused repoRoot parameter.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-008",
+      "ruling": "new-leaf",
+      "title": "Load metamagics only after level-up applicability is established",
+      "area": "server",
+      "category": "layering",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small ownership correction removes an unnecessary transactional query from most level-ups.",
+      "rulingReason": "CQ25-25 and leaf 029 touch neighboring level-up/metamagic surfaces but neither conditions this query.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Give the Sorcerer-specific resolver ownership of checking applicability before loading existing metamagics and validating choices.",
+      "authorConstraints": [
+        "Preserve current validation errors and transaction boundaries.",
+        "Do not alter metamagic progression semantics."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-25",
+          "residual": "Conditional ownership of the existing-metamagic query remains uncovered."
+        }
+      ],
+      "dedupBasis": "CQ25-25 schedules different level-up contracts at code-quality-2026-07-25/07-PLAN.md:167-178; leaf 029 explicitly excludes level-up selection changes at 029-one-metamagic-constant-controls-two.md:70-82.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-009",
+      "ruling": "new-leaf",
+      "title": "Reuse validated class references during spell-bearing character creation",
+      "area": "server",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The bounded consolidation removes duplicate database reads and one future drift seam.",
+      "rulingReason": "Leaf 004 explicitly keeps character-create behavior unchanged, and CQ25-185 only preserves the non-SrdClassId fallback.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Load class and subclass references once in the creation reference bundle and pass the needed caster fields into spell-create validation.",
+      "authorConstraints": [
+        "Land after or rebase onto leaf 004's module move.",
+        "Preserve CQ25-185's non-SrdClassId caster fallback and all error semantics."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-185",
+          "residual": "Duplicate class/subclass loading remains uncovered; fallback semantics remain binding."
+        }
+      ],
+      "dedupBasis": "Leaf 004's no-behavior-change boundary is 004-character-creation-large-pseudo-module-loose.md:147-151; CQ25-185's fallback refusal is at code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:611-635.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-010",
+      "ruling": "new-leaf",
+      "title": "Give initiative orchestration layers depth-signalling names",
+      "area": "server",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small rename removes an import alias and makes three orchestration depths navigable.",
+      "rulingReason": "CQ25-58 changes initiative ordering and shared-rule naming but leaves these service-layer symbols unchanged.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Rename the caller-owned middle layer to a core-signalling name and give the persistence implementation a role-specific name. Import all layers without same-name aliases.",
+      "authorConstraints": [
+        "Coordinate with CQ25-58/T3 if it edits the low-level module.",
+        "Do not change initiative ordering or persistence behavior."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-58",
+          "residual": "Service-layer orchestration names and their import alias remain uncovered."
+        }
+      ],
+      "dedupBasis": "CQ25-58/T3 covers ordered reads and activation sorting at code-quality-2026-07-25/53-PLAN.md:302, not the three service names; no current exact match was found.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-011",
+      "ruling": "augment-existing-leaf",
+      "title": "Close server-local mutation event and reason vocabularies",
+      "area": "server",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The compiler should enforce the stable operational vocabulary while leaf 182 already edits its owning logger contract.",
+      "rulingReason": "Leaf 182 owns logging policy and request-logger outcome types but deliberately leaves exact event/reason vocabulary server-local; this residual belongs in that same edit boundary.",
+      "targetLeaf": "182-logging-producers-their-auditor-separately.md",
+      "augmentInstruction": "Add a producer-side step defining server-local MutationEvent and MutationReason unions from the complete production literal census, apply them to MutationLogPayload and runTopLevelCommand, and add compile-time/runtime coverage. Clarify that these exact names remain server-local and are not exported through shared logging policy.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Close mutation event and reason strings at the server logger boundary while keeping them server-local. Sweep all producers before defining the unions so no live vocabulary is lost.",
+      "authorConstraints": [
+        "Do not share exact event/reason names with logs-audit or @musi/shared.",
+        "Preserve leaf 182's producer/auditor asymmetry and sequence jointly with leaf 171."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 182 centralizes outcomes at 182-logging-producers-their-auditor-separately.md:51-95 but keeps exact vocabularies server-local at :78-81 and :118-120; that is the natural augmentation seam.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-012",
+      "ruling": "reject",
+      "title": "Complete the VTT stat-block reveal control",
+      "area": "client",
+      "category": "dead-code",
+      "severity": "medium",
+      "size": "L",
+      "worthIt": true,
+      "worthItReason": "The product fix pays, but leaf 179 already authors the complete persisted workflow.",
+      "rulingReason": "Leaf 179 starts from the exact disabled control and covers persistence, permissions, mutation/broadcast reuse, discovery, and spectator-safe rendering.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement leaf 179's persisted reveal workflow rather than separately deleting the control.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage appears in 179-turn-disabled-stat-block-placeholder-party.md:8-27 and its settled workflow at :66-130.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-013",
+      "ruling": "new-leaf",
+      "title": "Make character-wizard step validation exhaustive over its closed registry",
+      "area": "client",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The change converts a runtime navigation trap on a common feature path into a compile-time failure.",
+      "rulingReason": "Leaves 042 and 056 touch wizard state and tests but do not close the key union or require validator exhaustiveness.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Derive WizardStepKey from WIZARD_STEPS, use it throughout applicability and validation, and make STEP_VALIDATORS exhaustive. Remove the empty-string sentinel where the step has already been narrowed.",
+      "authorConstraints": [
+        "Coordinate with leaf 042's wizard-state restructuring.",
+        "Do not fold this production contract into leaf 056's test-only cleanup."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 056 excludes production wizard state at 056-wizard-contexttesttsx-stale-duplicate-wizard.md:62-95; leaf 042's migration at 042-flat-character-creation-contract-forces.md:90-135 does not specify this contract.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-014",
+      "ruling": "reject",
+      "title": "Replace dual-prop authentication redirects with typed navigation contracts",
+      "area": "client",
+      "category": "hack",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The fix pays, but leaf 186 already covers the problem and exact remedy.",
+      "rulingReason": "Leaf 186 contains the dual to/href precedence, render-behind, typed search, adapter, and E2E work verbatim.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement leaf 186 as written.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage: 186-authentication-redirects-depend-undocumented.md:8-26 and :29-59; leaf 051 delegates guard internals to it at 051-flat-route-tree-makes-authentication-eleven.md:63-77.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-015",
+      "ruling": "merge-with-promotion",
+      "title": "Converge character deletion on the shared destructive-confirmation dialog",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The migration pays, but it is one instance of B-017's broader confirmation-system convergence.",
+      "rulingReason": "B-015 and B-017 share the same existing common dialog, interaction policy, and migration mechanism; authoring them separately would duplicate abstraction work.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": "B-017",
+      "mergeContribution": "Add the Dashboard character-deletion dialog as a fifth migration target; preserve its pending-state behavior, then delete the bespoke component.",
+      "settledDirection": "Handle character deletion inside B-017's configurable destructive-action dialog work rather than creating a second leaf.",
+      "authorConstraints": [
+        "Do not reopen CQ25-187's broad loose-root regrouping refusal."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-187",
+          "residual": "The Dashboard duplicate remains after the common dialog move; broad regrouping stays refused."
+        }
+      ],
+      "dedupBasis": "Prior F2 established the common dialog at code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md:263-264; no current leaf covers Dashboard convergence, and B-017 uses the same destination and policy.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-016",
+      "ruling": "new-leaf",
+      "title": "Derive the character-sheet SRD lookup bundle once at composition",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small prop-boundary change removes duplicate observers and repeated lookup projection work.",
+      "rulingReason": "Leaf 200 is explicitly vocabulary-only and leaf 039 excludes panel-level/SheetSharedProps refactors, so neither covers this ownership defect.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Pass the already-resolved lookup bundle from CharacterSheetContent into the sheet body and useSheetState boundary, removing the nested useSrdLookups invocation.",
+      "authorConstraints": [
+        "Land after or rebase onto leaf 200's lookup-bundle rename.",
+        "Coordinate with leaf 039 if it changes the sheet composition boundary."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 200 preserves behavior and changes vocabulary only at 200-generic-srd-getall-contract-client-specific.md:43-75; leaf 039 excludes SheetSharedProps changes at 039-responsive-character-sheets-keep-two.md:118-125.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-017",
+      "ruling": "new-leaf",
+      "title": "Converge destructive client actions on one accessible confirmation dialog",
+      "area": "client",
+      "category": "duplication",
+      "severity": "low",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "Five destructive actions currently split accessibility, focus, copy, and pending-state policy across browser and bespoke dialogs.",
+      "rulingReason": "No authored leaf covers these browser confirmations, and B-015 is merged here because it requires the same abstraction and migration.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Generalize the existing common destructive-confirmation dialog only as needed, then migrate both token removals, fog reset, drawing clear, and Dashboard character deletion. Preserve action-specific copy and pending behavior.",
+      "authorConstraints": [
+        "Do not introduce a global modal framework.",
+        "Preserve each action's authorization and mutation ownership.",
+        "Include B-015's pending-state requirements and remove its bespoke component."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Prior F2 supplies the common component at code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md:263-264; current-pack search found no leaf covering the four window.confirm sites or Dashboard duplicate.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "B-018",
+      "ruling": "new-leaf",
+      "title": "Route NPC mutations through the campaign invalidation facade",
+      "area": "client",
+      "category": "layering",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "One explicit closure restores the advertised facade boundary without the machinery previously rejected.",
+      "rulingReason": "CQ25-196 preserved explicit closures and rejected only a generic descriptor binder; it did not add NPC invalidation.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add an explicit invalidateNpcs(campaignId) closure to useQueryInvalidation and use it from NPC create, update, and delete mutations.",
+      "authorConstraints": [
+        "Do not introduce a descriptor map or generic invalidation binder.",
+        "Preserve existing query-key and invalidation behavior."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-196",
+          "residual": "The explicit NPC invalidation closure remains absent; the generic binder remains refused."
+        }
+      ],
+      "dedupBasis": "CQ25-196's explicit-closure boundary and generic-binder refusal are at code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md:260 and :592-593; no current exact match exists.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-001",
+      "ruling": "new-leaf",
+      "title": "Correct the architecture plan's unsupported level-up rollback claim",
+      "area": "docs",
+      "category": "dx",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A small factual correction prevents contributors from designing around an inverse workflow the data cannot support.",
+      "rulingReason": "Leaf 192 records the read-only limitation but explicitly leaves the architecture-plan wording as a separate correction.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Describe CharacterLevelChoice as partial read-only audit/history data. State explicitly that rollback or downgrade needs a separate product, data, and inverse-operation design.",
+      "authorConstraints": [
+        "Do not add a rollback feature to this docs correction.",
+        "Verify the entire materially edited architecture claim, not only the word rollback."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 192 states the read-only limitation at 192-expose-level-up-history-already-returned.md:10-12 and expressly leaves the architecture wording correction separate at :56.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-002",
+      "ruling": "new-leaf",
+      "title": "Replace the coverage-cadence guide's deleted baseline pointer",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The edit removes avoidable archaeology from a recurring operator procedure.",
+      "rulingReason": "The original refutation established recoverability but conceded the live pointer was false; no leaf covers that residual.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Replace the nonexistent LOG/AUD-COV pointer with the exact historical path and baseline commit, or restore a current tracked summary. Keep Git-history recovery instructions concrete and reproducible.",
+      "authorConstraints": [
+        "Do not claim the historical baseline is irrecoverable.",
+        "Use commit 54f2eb910 and the historical docs/agent_notes/in_progress/codebase-audit/coverage.md path if retaining the Git-history approach."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "No current semantic match was found; leaf 083's LOG.md references are unrelated at 083-sole-progress-queue-mostly-stale-view.md:72-81.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-003",
+      "ruling": "reject",
+      "title": "Make code-intel's supported workspace scope explicit",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The fix pays, but the exact decision and evidence already live in leaf 109 and its plan.",
+      "rulingReason": "Leaf 109 includes the same excluded workspaces, 127-file measurement, and extend-versus-explicit-application-scope decision.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; execute leaf 109's supported-scope slice.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage is at 109-musi-repository-policy-embedded-throughout.md:34-39, :104-118, and :169-177, with execution in 109-PLAN.md:24-29.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-004",
+      "ruling": "new-leaf",
+      "title": "Give repository workflows cwd-stable, scope-bearing command names",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The common dev/build workflow should not silently change meaning based on the caller's directory.",
+      "rulingReason": "Leaves 085 and 104 cover command discovery and one broken recovery instruction while explicitly excluding broader script renaming/restructuring.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add explicit root-workflow aliases such as repo:dev and repo:build, retain conventional package-local names, and migrate contributor-facing snippets to root-anchored invocations. Do not add a dispatcher.",
+      "authorConstraints": [
+        "Respect the original rejection of a command dispatcher.",
+        "Use the canonical bun --cwd=\"$(git rev-parse --show-toplevel)\" run form in documentation.",
+        "Coordinate catalog metadata with leaf 085."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 085 excludes renaming/restructuring at 085-specialist-package-script-surface-has-no.md:139-145; leaf 104 is confined to one recovery edit and excludes manifest changes at 104-scripts-readme-gives-non-root-recovery.md:49-70.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-005",
+      "ruling": "new-leaf",
+      "title": "Add a joined explain view for harness control provenance",
+      "area": "harness",
+      "category": "feature",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "A read-only joined query repays its cost on the recurring add-or-move-script workflow without creating another authority.",
+      "rulingReason": "Existing leaves catalog commands or isolate path queries, but none joins paths/scripts to controls, slots, hooks, smoke subjects, and generated outputs.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Add a read-only --explain mode to an existing harness registration/check entrypoint, keyed by path, control ID, or package-script name, with stable text and JSON output. Derive results from existing manifest and path-policy authorities.",
+      "authorConstraints": [
+        "Do not create the separately registered command rejected by triage.",
+        "Do not create a second manifest or hand-maintained join table.",
+        "Discovery must be non-vacuous and independent of any allowlist it validates."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 085's catalog is command-keyed at 085-specialist-package-script-surface-has-no.md:86-108; leaf 094 only settles documentation authority at 094-two-documents-both-claim-be-authoritative.md:53-72; leaf 152 excludes new query results at 152-path-policy-query-core-closed-over-musis.md:108-112.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "C-006",
+      "ruling": "reject",
+      "title": "Rename the weapon-mastery SRD reference-row contract",
+      "area": "shared",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "The row and vocabulary are already path-distinguished, and coordinated export/import churn buys only local naming polish.",
+      "rulingReason": "The residual is real and uncovered, but its impact does not meet the repository's churn bar.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep the current exported row name unless a behavior-bearing change already touches the complete consumer set.",
+      "authorConstraints": [],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-115",
+          "residual": "The SRD reference-row rename is uncovered but not worth a standalone change."
+        }
+      ],
+      "dedupBasis": "CQ25-115 distinguishes the vocabulary and row without scheduling this rename at code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:571-572; no current leaf covers it.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-007",
+      "ruling": "new-leaf",
+      "title": "Rename metamagic slot terminology to options-known terminology",
+      "area": "shared",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The small rename removes ambiguity inside a level-up path that also manipulates actual spell slots.",
+      "rulingReason": "Leaf 029 touches the same constant consumer but does not correct the function or caller vocabulary.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Rename getMetamagicSlotsAtLevel to getMetamagicOptionsKnownAtLevel and maxSlots to maxOptions, updating focused tests without changing arithmetic.",
+      "authorConstraints": [
+        "Coordinate same-file edits with leaf 029.",
+        "Do not alter option counts or progression."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 029 identifies the current consumer at 029-one-metamagic-constant-controls-two.md:31-34 but its remedy is limited to the per-cast constant at :56-68.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-008",
+      "ruling": "new-leaf",
+      "title": "Make multiclass prerequisite table states exclusive and non-empty",
+      "area": "shared",
+      "category": "idiom",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The inferred rules-table type should not admit states whose evaluator assigns accidental or vacuous semantics.",
+      "rulingReason": "Leaf 026 is only an idiom analogue, and CQ25-115 retyped table keys without closing the value shape.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Define an exclusive union between a non-empty all-requirement map and a non-empty anyOf tuple. Preserve current table rows and add focused shape/evaluator coverage.",
+      "authorConstraints": [
+        "Do not change numeric prerequisites or public string-lookup fallbacks.",
+        "Classify and name rule provenance in tests per the standing rules guide."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-115",
+          "residual": "Optional-bag prerequisite values remain inference-visible impossible states."
+        }
+      ],
+      "dedupBasis": "CQ25-115/I2 changes only keys and preserves behavior at code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md:560; leaf 026 covers monster provenance only at 026-monster-provenance-invariants-disappear.md:77-109.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-009",
+      "ruling": "augment-existing-leaf",
+      "title": "Name cantrip fallback tests as Musi policy",
+      "area": "tests",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The required provenance correction is nearly free while leaf 025 already splits and retitles the affected tests.",
+      "rulingReason": "Leaf 025 owns the same cantrip fallback test split, while the prior-pack standing ruling requires policy-protecting test names to identify Musi policy.",
+      "targetLeaf": "025-spellcastingts-contains-five-independently.md",
+      "augmentInstruction": "In the cantrips test-split step and acceptance criteria, require every fallback-policy describe/it name—including the unknown-class case—to say it pins Musi non-SRD policy. Preserve the tables, assertions, and existing provenance comments.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Rename the affected test cases during leaf 025's cantrip test split so their full names identify Musi non-SRD fallback policy.",
+      "authorConstraints": [
+        "Do not invent SRD provenance or replace the accepted fallback policy.",
+        "Apply the standing provenance requirement to every policy-protecting case moved by the slice."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-95",
+          "residual": "Existing generic fallback test names do not state the policy they pin."
+        },
+        {
+          "ref": "CQ25-182",
+          "residual": "The accepted Musi-policy classification must be propagated into test names."
+        }
+      ],
+      "dedupBasis": "Leaf 025 moves the cantrip tables and splits their tests at 025-spellcastingts-contains-five-independently.md:99-140; the binding naming requirement is code-quality-2026-07-25/CONSTRAINTS.md:30.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-010",
+      "ruling": "reject",
+      "title": "Share the duplicated participant-loader invariant fixture",
+      "area": "tests",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "Abstracting two end-to-end fixtures would hide loader-specific setup for modest duplication savings.",
+      "rulingReason": "The duplication is real and uncovered, but a cross-suite adapter does not clearly pay for its indirection.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep the two fixtures local; factor only a lower-level fixture builder if future invariant suites create a third consumer.",
+      "authorConstraints": [],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-22",
+          "residual": "The duplicated fixtures are uncovered but not worth a two-suite abstraction."
+        }
+      ],
+      "dedupBasis": "Leaf 005 edits only the spell suite for production type fidelity at 005-spell-participant-loading-discards-prisma.md:77-111; CQ25-22 similarly covers production typing at code-quality-2026-07-25/07-PLAN.md:171-175.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "C-011",
+      "ruling": "new-leaf",
+      "title": "Remove the fulfilled shared-rules mutation gap from harness documentation",
+      "area": "docs",
+      "category": "dx",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A tiny factual correction stops operators from re-proposing an already shipped signal.",
+      "rulingReason": "No leaf corrects the contradictory Current Gaps entry; leaf 101 only edits adjacent mutation documentation.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Remove the fulfilled shared-rules mutation-testing gap and retain only genuinely missing slow-lane signals. Verify the surrounding mutation section remains internally consistent.",
+      "authorConstraints": [
+        "Treat the entire materially edited factual section as owned by this change."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 101 updates other mutation documentation at 101-mutation-docs-promise-sandbox-isolation.md:59-97 but does not cover the Current Gaps contradiction.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-012",
+      "ruling": "reject",
+      "title": "Make backlog workstream coverage exhaustive through the generated catalog",
+      "area": "docs",
+      "category": "organization",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Exhaustive coverage pays, but leaf 084 already supplies it without creating another hand-maintained list.",
+      "rulingReason": "Leaf 084 generates a per-file catalog and explicitly demotes the README to curated narrative, which subsumes the omitted-workstream problem and rejects the candidate's manual-list remedy.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not add seven manual README entries as a second authority; implement leaf 084's exhaustive generated catalog and label the README as curated narrative.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Coverage and direction are at 084-backlog-simultaneously-action-queue-evidence.md:75-122, with the catalog-versus-curated boundary at :140-147.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-013",
+      "ruling": "reject",
+      "title": "Repair chronology and duplicated prose in the curated agent log",
+      "area": "docs",
+      "category": "organization",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "Reordering old curated entries and deleting one duplicate paragraph is local polish with negligible future payoff.",
+      "rulingReason": "The defect is real and uncovered, but it does not meet the audit's churn bar.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Leave historical ordering untouched unless the log is already being materially refreshed; then fix the duplicate and chronology in that same edit.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "No authored leaf covers LOG chronology; leaf 083 only preserves unrelated historical links at 083-sole-progress-queue-mostly-stale-view.md:72-81.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-014",
+      "ruling": "augment-existing-leaf",
+      "title": "Remove the unused duplicate devcontainer server-start helper",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Deleting an uninvoked startup path is cheaper and more accurate than documenting it as a supported replacement point.",
+      "rulingReason": "Leaf 082 already inventories start-servers.sh as a Musi-specific reuse surface, so the deletion belongs in that devcontainer truth-up rather than a separate leaf.",
+      "targetLeaf": "082-devcontainer-quick-start-depends.md",
+      "augmentInstruction": "Before the replacement-point checklist, add a source/consumer census for start-servers.sh. If the existing zero-consumer result holds, delete the helper and remove its Dockerfile COPY/chmod and README checklist mentions; keep container-entrypoint.sh as the sole startup path. If a supported consumer is discovered, document that workflow and share the setup-sentinel contract instead.",
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Prefer deleting the unused helper and its image-install wiring, leaving container-entrypoint.sh as the sole supported server-start path.",
+      "authorConstraints": [
+        "Do not change post-create provisioning or entrypoint sentinel behavior.",
+        "Re-verify all factual claims in the edited devcontainer documentation."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 082 identifies start-servers.sh at 082-devcontainer-quick-start-depends.md:59-64 and schedules its reuse-checklist treatment at :101-111, providing the exact augmentation seam.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-015",
+      "ruling": "reject",
+      "title": "Use the shared maximum spell level in spell-slot synchronization",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The consolidation pays, but leaf 189 already contains the exact edit and acceptance sweep.",
+      "rulingReason": "Leaf 189 names the same constants and directs replacing SPELL_LEVEL_COUNT with MAX_SPELL_LEVEL.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement leaf 189's spell-level consolidation.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage: 189-downstream-packages-keep-semantic-copies.md:18 and :28-34, with whole-tree acceptance at :36-48.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-016",
+      "ruling": "new-leaf",
+      "title": "Remove lint-ratchet compatibility APIs used only by tests",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A one-commit deletion shrinks the governance/kernel API and its dedicated compatibility branches.",
+      "rulingReason": "Current leaves touch the same files for other contracts but do not cover these test-only wrappers; C-017 is merged because it is the same cleanup shape.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Delete the singular debt-log append wrapper, the string-only zero-baseline wrapper, and the legacy registry-validation set overload. Retarget tests to the canonical batch, result-returning, and options-object APIs.",
+      "authorConstraints": [
+        "Coordinate debt-log-write.ts with leaf 160 and registry-validation.ts with leaf 175.",
+        "Confirm the production and example consumer census before deleting each export."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 160's debt-log changes are at 160-debt-log-union-uses-absence-discriminator.md:23-68 and leaf 175's registry work at 175-metric-strategy-registry-does-not-make.md:14-40; neither covers these compatibility APIs.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-017",
+      "ruling": "merge-with-promotion",
+      "title": "Remove the test-only registry-validation set overload",
+      "area": "harness",
+      "category": "dead-code",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The deletion pays as part of the same test-only compatibility cleanup as C-016.",
+      "rulingReason": "Both candidates remove superseded lint-ratchet public shapes whose only remaining callers are tests; one leaf avoids duplicate census and migration prose.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": "C-016",
+      "mergeContribution": "Delete the ReadonlySet overload and duck-typed normalizer, and update the sole test to pass ValidateLintRatchetRegistryOptions with localRuleIds.",
+      "settledDirection": "Fold the registry overload deletion into C-016's canonical-API cleanup.",
+      "authorConstraints": [
+        "Preserve leaf 175's metric-strategy and registry-policy work."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 175 edits registry-validation.ts for different metric constraints at 175-metric-strategy-registry-does-not-make.md:14-40; C-016 provides the matching dead-compatibility cleanup boundary.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-018",
+      "ruling": "new-leaf",
+      "title": "Use the canonical Markdown table escaper in zero-baseline reports",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A tiny consolidation prevents user-authored disposition text from producing malformed or unintended report markup.",
+      "rulingReason": "No current leaf covers zero-baseline Markdown escaping, and the canonical helper already exists.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Replace zero-baseline's private table-cell helper with escapeMarkdownTableCell and remove the duplicate. Add cases for pipes, CRLF, Markdown punctuation, backslashes, and angle brackets.",
+      "authorConstraints": [
+        "Preserve report column layout and existing plain-text output."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Pool-wide title and evidence-path comparison found no authored leaf claiming zero-baseline Markdown escaping.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-019",
+      "ruling": "new-leaf",
+      "title": "Signal overflow when token conditions exceed the visible badge limit",
+      "area": "client",
+      "category": "feature",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The UI currently hides gameplay-relevant state without warning on a common VTT surface.",
+      "rulingReason": "No authored or prior-pack leaf covers condition-badge overflow.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "When conditions exceed four, reserve the final visible position for a +N overflow marker and expose the hidden count through accessible text or a tooltip.",
+      "authorConstraints": [
+        "Keep the compact four-position layout.",
+        "Do not discard condition data or change condition ordering."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Pool-wide current-pack title and evidence-path comparison found no token-condition overflow leaf.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "C-020",
+      "ruling": "new-leaf",
+      "title": "Make legal, license, and SRD attribution available before authentication",
+      "area": "client",
+      "category": "feature",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "A static legal-information page should be inspectable without creating an account, and the route change is bounded.",
+      "rulingReason": "Leaf 051 explicitly preserves /legal as protected and identifies public access as a separate product decision.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Register /legal as a public root child and render it without AuthGuard. Add a guest-visible navigation link on the login/register surface or another stable public chrome location.",
+      "authorConstraints": [
+        "Coordinate route-tree edits with leaf 051 so /legal is not reparented under the authenticated layout.",
+        "Do not expose authenticated data or broaden any other route."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Leaf 051's protected-set direction is at 051-flat-route-tree-makes-authentication-eleven.md:48-61 and its explicit /legal product-decision exclusion at :63-67.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "D-01-001",
+      "ruling": "new-leaf",
+      "title": "Align shared export guidance with ADR-0005's scoped-only decision",
+      "area": "docs",
+      "category": "dx",
+      "severity": "medium",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "Removing a direct contradiction between live module guidance and an actively gated ADR prevents repeated design churn.",
+      "rulingReason": "CQ25-115 never performed the promised review; leaf 021 excludes export redesign and leaf 153 treats ADR-0005 as binding.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Reaffirm scoped-only shared imports and remove the MODULE.md promise of a future aggregate/root barrel review. Point contributors to ADR-0005 and its specific-subpath extension process.",
+      "authorConstraints": [
+        "Do not add a root or schemas aggregate export.",
+        "Do not weaken leaf 153's restricted-import gate or ADR message.",
+        "A future reconsideration requires bundle and dependency-graph evidence plus an ADR and gate update."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-115",
+          "residual": "The live MODULE deferred an aggregate-export review that the closed cluster never performed."
+        }
+      ],
+      "dedupBasis": "The conflicting promise is packages/shared/src/schemas/MODULE.md:30-34 and :192-195; ADR-0005's binding decision is docs/adr/0005-shared-subpath-exports.md:29-53. Leaf 021 excludes export redesign at :128-132, and leaf 153 preserves the ADR fence at :58-104.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-01-002",
+      "ruling": "new-leaf",
+      "title": "Standardize dateTimeField-backed mapper result boundaries",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severity": "medium",
+      "size": "L",
+      "worthIt": true,
+      "worthItReason": "A uniform mapper convention removes repeated serialization policy and prevents equivalent output paths from drifting.",
+      "rulingReason": "The prior refusal covers only bare-string homebrew/magic-item schemas; leaf 014 covers the MapLayer specimen and leaf 006 covers Prisma payload typing, leaving the broader dateTimeField-backed inventory real.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Inventory mappers whose actual output schemas use dateTimeField, convert their result contracts to schema input types, and let output parsing normalize Prisma Dates. Deliver domain-bounded slices, using leaf 014's MapLayer convention as the precedent.",
+      "authorConstraints": [
+        "Exclude strict pagination cursors, logs, exports, and timestamps created for external protocols.",
+        "Do not touch the deliberately bare-string homebrew/magic-item schemas or their three mappers.",
+        "Sequence after leaf 014 and coordinate type edits with leaf 006.",
+        "Include a plan section with a complete mapper census before implementation."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-181",
+          "residual": "Uniform normalization across existing dateTimeField-backed mapper boundaries remains outside the narrow refusal."
+        }
+      ],
+      "dedupBasis": "The prior leaf makes the larger uniform question separate at code-quality-2026-07-25/26-shared-dead-and-vestigial.md:145-166 and bounds exclusions at :200-205. Leaf 014 supplies the MapLayer pattern at 014-map-layer-responses-mapped-twice-divergent.md:60-107; leaf 006 preserves Zod output behavior at :151-159.",
+      "confidence": "medium"
+    },
+    {
+      "promotionId": "D-02-001",
+      "ruling": "reject",
+      "title": "Derive the central-mock registry by parsing client setup during rule load",
+      "area": "harness",
+      "category": "duplication",
+      "severity": "low",
+      "size": "M",
+      "worthIt": false,
+      "worthItReason": "The existing bidirectional drift guard already makes duplication safe; adding synchronous I/O and TypeScript parsing to every lint load costs more than the second edit.",
+      "rulingReason": "CQ25-201 called AST extraction viable but unshipped and highest-risk, not mandatory; the current explicit table plus guard is the better tradeoff.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Retain the explicit production registry and its bidirectional setup.ts drift test. Reconsider load-time extraction only with measured startup evidence and a fail-closed, non-vacuous parse policy.",
+      "authorConstraints": [
+        "Do not revive the refused shared plain-data registry or relocate the config tests.",
+        "Any future scanner must discover independently, assert a non-empty corpus, and not silently disable the rule on parse failure."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-201",
+          "residual": "Rule-load AST extraction is viable but does not pay for its runtime and failure-mode churn."
+        }
+      ],
+      "dedupBasis": "The live prior leaf records the unshipped extraction and its risk at code-quality-2026-07-25/38-eslint-rule-helpers.md:225-236 and :287-292; the shared-registry refusal is :268-286.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-04-001",
+      "ruling": "reject",
+      "title": "Converge campaign and note authorization caller shapes",
+      "area": "server",
+      "category": "idiom",
+      "severity": "low",
+      "size": "L",
+      "worthIt": true,
+      "worthItReason": "The conversion pays, but it is already scheduled exactly as the optional S18 slice.",
+      "rulingReason": "CQ25-69/S18 names the same three helpers, call-site conversion, NOT_FOUND behavior, and one-log-per-boundary constraints.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author a duplicate leaf; execute CQ25-69/S18 after S17 if the optional authorization tail is taken.",
+      "authorConstraints": [
+        "Preserve NOT_FOUND normalization and one log per authorization boundary.",
+        "Keep S17 before S18."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact scheduling is code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md:661-662 and 03-authz-caller-contract.md:142-181.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-05-001",
+      "ruling": "reject",
+      "title": "Move the seven flat root-script families into owner directories",
+      "area": "harness",
+      "category": "organization",
+      "severity": "medium",
+      "size": "XL",
+      "worthIt": true,
+      "worthItReason": "The moves pay, but all seven are already planned as independent prior-pack slices.",
+      "rulingReason": "CQ25-38 through CQ25-44 collectively cover the complete seven-family physical reorganization with no residual.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author a second XL plan; implement the seven owner-directory moves through the existing 28-PLAN slices.",
+      "authorConstraints": [
+        "Retain public command and merge-CLI facades.",
+        "Apply each move's path-sensitive harness updates atomically."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact move slices and completion contract are in code-quality-2026-07-25/28-PLAN.md:121-150; the prior index keeps the plan open at 00-index.md:74-80.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-05-002",
+      "ruling": "reject",
+      "title": "Separate max-lines policy from the broad shared lint-policy module",
+      "area": "harness",
+      "category": "organization",
+      "severity": "medium",
+      "size": "M",
+      "worthIt": true,
+      "worthItReason": "The split pays, but current leaf 157 already covers it exactly.",
+      "rulingReason": "Leaf 157 identifies the import-time max-lines I/O boundary and assigns the loader, validation, exemptions, and policy assembly to a focused module.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; implement leaf 157 before the CQ25-43 command-family move.",
+      "authorConstraints": [],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage is 157-shared-policyjs-grab-bag-unrelated-lint.md:8-21 and :25-47.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-05-003",
+      "ruling": "reject",
+      "title": "Build the persisted DM-facing initiative tie-resolution workflow",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severity": "medium",
+      "size": "XL",
+      "worthIt": true,
+      "worthItReason": "The feature pays, but prior plan T2-T6 already specifies the complete cross-layer workflow.",
+      "rulingReason": "CQ25-57 through CQ25-61 cover persistence, ordered reads, activation gates, mutation, and client affordance exactly.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another plan; execute 53-PLAN T2-T6 after its T1 policy/helper slice.",
+      "authorConstraints": [
+        "Preserve the owner ruling that people resolve ties; do not add an automatic secondary key.",
+        "Honor the plan's concurrency and sequencing gates."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "The settled policy is code-quality-2026-07-25/53-PLAN.md:3-10; exact T1-T6 scope and sequencing are :294-329.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-06-001",
+      "ruling": "reject",
+      "title": "Split the lint-ratchet shell smoke by subject ownership",
+      "area": "tests",
+      "category": "test-shape",
+      "severity": "medium",
+      "size": "XL",
+      "worthIt": true,
+      "worthItReason": "The suite split pays, but CQ25-31 already plans the exact subject-coherent slices.",
+      "rulingReason": "Current leaf 068 explicitly excludes the shell suite and points to the still-planned CQ25-31 work.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another XL leaf; execute the existing 27-PLAN shell-suite slices until its stopping rule is met.",
+      "authorConstraints": [
+        "Split by coherent subject ownership, not arbitrary line ranges.",
+        "Leave every remainder independently runnable."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact prior scheduling is code-quality-2026-07-25/27-PLAN.md:94-101 and :124-129; current leaf 068 excludes it at 068-one-lint-ratchet-acceptance-suite-serializes.md:131-138.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-07-001",
+      "ruling": "reject",
+      "title": "Disambiguate the two exported WeaponAttackResult contracts",
+      "area": "cross-cutting",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": false,
+      "worthItReason": "The types are path-separated and never jointly imported, so coordinated rename churn buys only search-result polish.",
+      "rulingReason": "The prior-pack drop was wrong and no current leaf covers the rename, but the verified impact remains too small for promotion.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Keep both names unless a behavior-bearing change already touches the client hook's complete consumer set; then prefer UseWeaponAttackResult.",
+      "authorConstraints": [
+        "Do not disturb leaf 049's byte-compatible hook contract or leaf 191's shared result behavior."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-16",
+          "residual": "The exact name collision is absent from the prior inventory but is not worth standalone churn."
+        }
+      ],
+      "dedupBasis": "Prior leaf 46's inventory omits both interfaces at code-quality-2026-07-25/46-naming-renames.md:20-77 and :138-275; current leaves 035, 049, and 191 touch behavior rather than this rename.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-07-002",
+      "ruling": "reject",
+      "title": "Pluralize the widened skill smoke-test field within CQ25-32",
+      "area": "harness",
+      "category": "naming",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The plural name pays as a zero-increment correction inside the already-scheduled cardinality change, not as a standalone leaf.",
+      "rulingReason": "CQ25-32/27.9 already owns the scalar-to-list schema and routing edits; the missing plural spelling should be folded into that slice rather than separately authored.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "When CQ25-32/27.9 widens the field, name it smokeTests throughout the manifest, parser, diagnostics, type, and projection.",
+      "authorConstraints": [
+        "Do not create a compatibility alias for singular smokeTest unless migration of persisted external data requires one.",
+        "Preserve the 27.9 to 27.10 dependency."
+      ],
+      "priorPackResidual": [
+        {
+          "ref": "CQ25-32",
+          "residual": "The list widening is scheduled; plural field spelling is an incremental correction to fold into that slice."
+        }
+      ],
+      "dedupBasis": "The exact list-widening slice is code-quality-2026-07-25/27-PLAN.md:94-102, retaining singular spelling; its dependency is :128-129. Current leaf 063 distinguishes this skill-artifact work at :164-169.",
+      "confidence": "high"
+    },
+    {
+      "promotionId": "D-08-001",
+      "ruling": "reject",
+      "title": "Move level-up core helper tests out of asi.test.ts",
+      "area": "tests",
+      "category": "organization",
+      "severity": "low",
+      "size": "S",
+      "worthIt": true,
+      "worthItReason": "The relocation pays, but CQ25-25/07.5 already schedules it exactly.",
+      "rulingReason": "The candidate was dropped against the wrong sibling record; the live 07.5 slice names all three describes and their destination.",
+      "targetLeaf": null,
+      "augmentInstruction": null,
+      "mergeInto": null,
+      "mergeContribution": null,
+      "settledDirection": "Do not author another leaf; execute the test relocation in CQ25-25/07.5.",
+      "authorConstraints": [
+        "Keep asi.test.ts focused on ASI behavior and core.test.ts authoritative for the three helpers."
+      ],
+      "priorPackResidual": [],
+      "dedupBasis": "Exact coverage is code-quality-2026-07-25/07-PLAN.md:176-177 and :241-242; CQ25-24 covers only the neighboring ASI work.",
+      "confidence": "high"
+    }
+  ],
+  "summary": {
+    "totalDecisions": 49,
+    "newLeaf": 26,
+    "augmentExistingLeaf": 3,
+    "mergeWithPromotion": 2,
+    "rejected": 18,
+    "acceptedForAuthoring": 29,
+    "bySeverity": {
+      "high": 0,
+      "medium": 22,
+      "low": 27
+    },
+    "bySize": {
+      "S": 33,
+      "M": 9,
+      "L": 4,
+      "XL": 3
+    },
+    "notes": [
+      "The global pass removed 18 candidates from authoring: 11 as current/prior coverage or prior-slice fold-ins and 5 as below the churn bar, with 2 additional cross-promotion merges.",
+      "B-015 must be incorporated into B-017; C-017 must be incorporated into C-016. Neither receives its own number.",
+      "Augment leaf 182 with B-011, leaf 025 with C-009, and leaf 082 with C-014; preserve each listed scope boundary.",
+      "D-07-002 has no current-pack authoring action: its plural spelling belongs in the already-planned CQ25-32/27.9 implementation.",
+      "If all 29 authoring targets pass step 2b, the step-2c accepted-promotion threshold is exceeded and a second reject round is required."
+    ]
+  }
+}

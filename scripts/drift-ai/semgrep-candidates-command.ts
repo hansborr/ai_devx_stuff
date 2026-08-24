@@ -10,6 +10,7 @@
 import { type Dirent, existsSync, readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 
+import type { DriftAiCommandResult } from "./command-result.js";
 import { matchesAnyGlob } from "./config-match.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import { DriftAiError } from "./errors.js";
@@ -64,10 +65,7 @@ export type SemgrepCandidatesRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type SemgrepCandidatesRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type SemgrepCandidatesRunResult = DriftAiCommandResult;
 
 export function runSemgrepCandidates(
   options: SemgrepCandidatesRunOptions,

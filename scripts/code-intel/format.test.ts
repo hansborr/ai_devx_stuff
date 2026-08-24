@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { formatCodeIntelQueryResult } from "./format.js";
 import { runCodeIntel } from "./runner.js";
 import {
   addSource,
@@ -9,6 +10,16 @@ import {
 } from "./test-fixtures.test-helper.js";
 
 describe("formatCodeIntelQueryResult", () => {
+  it("uses the issued command kind rather than the header for empty states", () => {
+    expect(
+      formatCodeIntelQueryResult(
+        { kind: "results", header: "custom heading", results: [] },
+        "text",
+        "exports",
+      ),
+    ).toBe("custom heading (0 results)\n  no exports found");
+  });
+
   it("formats result counts, empty states, and JSON output", () => {
     const project = createFixtureProject();
     addSource(project, "packages/shared/src/rules/local.ts", "const local = 1;\n");

@@ -34,9 +34,13 @@ ai_cache_init
 # Reused below for the commit HEAD snapshot so the post hook reads the same root.
 WORK_ROOT=$(git -C "$(ai_resolve_target_dir "$CMD" "$(ai_payload_cwd "$PAYLOAD")" "$REPO_ROOT")" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$REPO_ROOT")
 
-if REASON=$(ai_policy_violation_reason "$CMD" "$WORK_ROOT"); then
-  ai_emit_block "$REASON"
-fi
+declare -A POLICY_DECISION=()
+ai_policy_decision POLICY_DECISION "$CMD" "$WORK_ROOT"
+case "${POLICY_DECISION[verdict]-}" in
+  block|advise) ai_emit_block "${POLICY_DECISION[message]-}" ;;
+  allow) ;;
+  *) ai_emit_block "$AI_POLICY_RULE_DATA_ERROR" ;;
+esac
 
 # Fail closed when the commit names a checkout that could not be resolved: the
 # WORK_ROOT above then silently became this hook's own checkout, so the branch

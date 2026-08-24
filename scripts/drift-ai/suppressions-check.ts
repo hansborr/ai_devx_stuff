@@ -23,8 +23,15 @@ export const suppressionsCheck = defineCheckPlugin<
     suppressionsGit: resolveSuppressionsGit(env.overrides),
     readFile: env.overrides.readFile ?? defaultFileReader(env.repoRoot),
   }),
+  // Carrying `code` means the HarnessDiagnostics projection now substitutes it
+  // into `howToFix` (`skip.code ?? skip.reason`, diagnostics-projection.ts).
+  // Accepted knowingly: that preference predates this skip carrying a code and
+  // applies to every coded skip alike, and the human-readable reason stays
+  // visible in the projected `why` line.
   preflight: (ctx) =>
-    ctx.detectorScope.scopeMode === "current" ? "only available in changed scope" : undefined,
+    ctx.detectorScope.scopeMode === "current"
+      ? { reason: "only available in changed scope", code: "changed-scope-only" }
+      : undefined,
   run: (ctx) => {
     const findings = runSuppressionsCheck({
       detectorScope: ctx.detectorScope,

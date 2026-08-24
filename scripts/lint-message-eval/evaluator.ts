@@ -1,6 +1,7 @@
 import { Linter } from "eslint";
 import tseslint from "typescript-eslint";
 
+import { defaultGitRunner, type GitRunner, readGitBlobAtRef } from "../lib/git.js";
 import { lintAgentGuidanceOverlayFor } from "../lint-agent-guidance.js";
 import { type MessageEvalFixture, type MessageEvalMode, parseLintMessageTrace } from "./trace.js";
 
@@ -44,6 +45,10 @@ export interface LintMessageEvalResult {
   readonly agent: string;
   readonly fixtures: readonly MessageEvalFixtureResult[];
   readonly summary: MessageEvalSummary;
+}
+
+interface EvaluateLintMessageTraceOptions {
+  readonly git?: GitRunner;
 }
 
 const STRUCTURAL_LINT_CONFIG: Linter.Config[] = [
@@ -93,10 +98,6 @@ export function lintMessageVariantsFor(
     control: message.message,
     treatment: `${message.message} Why: ${overlay.why} How to fix: ${overlay.howToFix}`,
   };
-}
-
-function setHasEvery(set: ReadonlySet<string>, values: readonly string[]): boolean {
-  return values.every((value) => set.has(value));
 }
 
 function patternResults(ruleIdsByStep: readonly (readonly string[])[]): {
@@ -165,8 +166,13 @@ function average(values: readonly number[]): number | null {
   return values.reduce((total, value) => total + value, 0) / values.length;
 }
 
-function armIterations(fixture: MessageEvalFixtureResult, mode: MessageEvalMode): number | null {
-  return fixture.arms.find((arm) => arm.mode === mode)?.iterationsToGreen ?? null;
+export function armFor(
+  fixture: MessageEvalFixtureResult,
+  mode: MessageEvalMode,
+): MessageEvalArmResult {
+  const arm = fixture.arms.find((entry) => entry.mode === mode);
+  if (arm === undefined) throw new Error(`${fixture.id} is missing its ${mode} arm`);
+  return arm;
 }
 
 // The iteration delta is measured only over fixtures BOTH arms resolved. Each
@@ -183,8 +189,8 @@ function resultSummary(fixtures: readonly MessageEvalFixtureResult[]): MessageEv
   let controlOnlyResolved = 0;
   let treatmentOnlyResolved = 0;
   for (const fixture of fixtures) {
-    const controlIter = armIterations(fixture, "control");
-    const treatmentIter = armIterations(fixture, "treatment");
+    const controlIter = armFor(fixture, "control").iterationsToGreen;
+    const treatmentIter = armFor(fixture, "treatment").iterationsToGreen;
     if (controlIter !== null) controlIterations.push(controlIter);
     if (treatmentIter !== null) treatmentIterations.push(treatmentIter);
     if (controlIter !== null && treatmentIter !== null) {
@@ -208,11 +214,42 @@ function resultSummary(fixtures: readonly MessageEvalFixtureResult[]): MessageEv
   };
 }
 
-export function evaluateLintMessageTrace(input: unknown): LintMessageEvalResult {
+function validateFixtureSource(
+  fixture: MessageEvalFixture,
+  gitCommit: string,
+  git: GitRunner,
+): void {
+  let blob: string;
+  try {
+    blob = readGitBlobAtRef(git, gitCommit, fixture.filename);
+  } catch {
+    throw new Error(`could not read ${fixture.id} source from ${gitCommit}:${fixture.filename}`);
+  }
+  const lines = blob.split("\n");
+  if (blob.endsWith("\n")) lines.pop();
+  if (fixture.sourceEndLine > lines.length) {
+    throw new Error(
+      `${fixture.id} source range ${String(fixture.sourceLine)}-${String(fixture.sourceEndLine)} exceeds ${gitCommit}:${fixture.filename} (${String(lines.length)} lines)`,
+    );
+  }
+  const committedSource = lines.slice(fixture.sourceLine - 1, fixture.sourceEndLine).join("\n");
+  if (committedSource !== fixture.source) {
+    throw new Error(
+      `${fixture.id} source does not match ${gitCommit}:${fixture.filename}:${String(fixture.sourceLine)}-${String(fixture.sourceEndLine)}`,
+    );
+  }
+}
+
+export function evaluateLintMessageTrace(
+  input: unknown,
+  options: EvaluateLintMessageTraceOptions = {},
+): LintMessageEvalResult {
   const trace = parseLintMessageTrace(input);
+  const git = options.git ?? defaultGitRunner({ stderr: "captured" });
   const fixtures = trace.fixtures.map((fixture) => {
-    const modes = fixture.arms.map((arm) => arm.mode).sort();
-    if (!setHasEvery(new Set(modes), ["control", "treatment"])) {
+    validateFixtureSource(fixture, trace.gitCommit, git);
+    const modes = new Set(fixture.arms.map((arm) => arm.mode));
+    if (!(["control", "treatment"] as const).every((mode) => modes.has(mode))) {
       throw new Error(`${fixture.id} must contain one control and one treatment arm`);
     }
     return {

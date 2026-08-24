@@ -32,6 +32,9 @@ describe("no-broadcast-in-transaction", () => {
           code: "await ctx.prisma.$transaction(async () => sendEmail(user));",
         },
         {
+          code: "await ctx.prisma.$transaction();",
+        },
+        {
           code: [
             "await ctx.prisma.$transaction(async (tx) => {",
             "  await tx.encounter.update({ where: { id }, data });",
@@ -68,6 +71,16 @@ describe("no-broadcast-in-transaction", () => {
             "socketServer.on('connection', () => {",
             '  io.to(room).emit("encounter:updated", payload);',
             "});",
+          ].join("\n"),
+        },
+        {
+          // A function declaration outside a transaction is not inherited as
+          // transactional merely because it contains a broadcast.
+          code: [
+            "function publishAfterCommit() {",
+            '  io.to(room).emit("encounter:updated", payload);',
+            "}",
+            "publishAfterCommit();",
           ].join("\n"),
         },
       ],
@@ -169,6 +182,20 @@ describe("no-broadcast-in-transaction", () => {
           code: [
             "await ctx.prisma.$transaction(async () => {",
             '  io.compress(true).emit("encounter:updated", payload);',
+            "});",
+          ].join("\n"),
+          errors: [{ messageId: "noBroadcastInTransaction" }],
+        },
+        {
+          // The current rule inherits the surrounding transaction into a
+          // nested declaration by omission; the tracker must make that result
+          // explicit without changing it.
+          code: [
+            "await ctx.prisma.$transaction(async () => {",
+            "  function publishBeforeCommit() {",
+            '    io.to(room).emit("encounter:updated", payload);',
+            "  }",
+            "  publishBeforeCommit();",
             "});",
           ].join("\n"),
           errors: [{ messageId: "noBroadcastInTransaction" }],

@@ -1,10 +1,15 @@
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import type { DaemonSpawner } from "./daemon-process.js";
+import {
+  CODE_INTEL_DAEMON_PROTOCOL_VERSION,
+  DAEMON_FALLBACK_ERROR_NAME,
+} from "./daemon-protocol.js";
 import { runDaemon } from "./daemon-server.js";
 import {
   buildDaemonMetadata,
@@ -121,6 +126,71 @@ describe("code:intel:server lifecycle", () => {
     }
   });
 
+  it("does not treat same-version non-pong responses as healthy", async () => {
+    const paths = pathsFor(repoA);
+    ensureStateDir(paths);
+    writeDaemonMetadata(
+      paths,
+      buildDaemonMetadata({
+        paths,
+        pid: process.pid,
+        repoRealpath: repoA,
+        repoRoot: repoA,
+      }),
+    );
+    let response:
+      | { ok: false; error: { message: string; name: string } }
+      | { ok: true; result: { header: string; kind: string; results: never[] } } = {
+      ok: true,
+      result: { kind: "results", header: "not a pong", results: [] },
+    };
+    const server = createServer((socket) => {
+      socket.once("data", () => {
+        socket.end(
+          `${JSON.stringify({
+            id: "lifecycle-probe",
+            protocolVersion: CODE_INTEL_DAEMON_PROTOCOL_VERSION,
+            ...response,
+          })}\n`,
+        );
+      });
+    });
+    await new Promise<void>((resolve, reject) => {
+      server.once("error", reject);
+      server.listen(paths.socketPath, resolve);
+    });
+
+    try {
+      const status = await runServerCliCommand(["status"], {
+        repoRoot: repoA,
+        state: { rootDir: stateRoot },
+      });
+      expect(status.output).toContain("busy or unverified");
+      expect(status.output).toContain("unexpected probe response");
+
+      response = {
+        error: {
+          message: "daemon could not decode ping",
+          name: DAEMON_FALLBACK_ERROR_NAME,
+        },
+        ok: false,
+      };
+      const fallbackStatus = await runServerCliCommand(["status"], {
+        repoRoot: repoA,
+        state: { rootDir: stateRoot },
+      });
+      expect(fallbackStatus.output).toContain("busy or unverified");
+      expect(fallbackStatus.output).toContain("unexpected probe response");
+    } finally {
+      await new Promise<void>((resolve, reject) => {
+        server.close((error) => {
+          if (error) reject(error);
+          else resolve();
+        });
+      });
+    }
+  });
+
   it("stop removes live and stale state", async () => {
     seedRunningDaemon(repoA, process.pid);
     const livePaths = pathsFor(repoA);
@@ -194,9 +264,10 @@ describe("code:intel:server lifecycle", () => {
         return Promise.resolve(true);
       },
     });
-    expect(result.exitCode).toBe(0);
-    expect(result.output).toContain("started");
-    expect(result.output).toContain("pid 424242");
+    expect(result).toEqual({
+      exitCode: 0,
+      output: `code-intel daemon: started (pid 424242, socket ${stalePaths.socketPath})`,
+    });
     expect(existsSync(stalePaths.socketPath)).toBe(true);
     expect(existsSync(stalePaths.metadataPath)).toBe(true);
   });
@@ -276,8 +347,9 @@ describe("code:intel:server lifecycle", () => {
       },
     });
     expect(stop.exitCode).toBe(1);
-    expect(stop.output).toContain("state preserved");
+    expect(stop.output).toContain("code-intel daemon: state preserved");
     expect(stop.output).toContain("socket probe timed out");
+    expect(stop.output).toContain("process command does not match code-intel daemon");
     expect(stopCalled).toBe(false);
     expect(existsSync(paths.stateDir)).toBe(true);
   });
@@ -312,10 +384,15 @@ describe("code:intel:server lifecycle", () => {
         stopCalled = true;
         return Promise.resolve(true);
       },
+      verifyProcessIdentity: () => ({
+        kind: "unverified",
+        reason: "process identity mismatch",
+      }),
     });
-    expect(result.exitCode).toBe(1);
-    expect(result.output).toContain("restart skipped");
-    expect(result.output).toContain("state preserved");
+    expect(result).toEqual({
+      exitCode: 1,
+      output: `code-intel daemon: restart skipped; state preserved (pid ${String(process.pid)} socket probe timed out; process identity mismatch)`,
+    });
     expect(stopCalled).toBe(false);
     expect(spawnCalled).toBe(false);
     expect(existsSync(pathsFor(repoA).stateDir)).toBe(true);
@@ -348,6 +425,9 @@ describe("code:intel:server lifecycle", () => {
     await expect(
       runServerCliCommand(["bogus"], { repoRoot: repoA, state: { rootDir: stateRoot } }),
     ).rejects.toThrow(/Unknown server command/u);
+    await expect(
+      runServerCliCommand(["start"], { repoRoot: repoA, state: { rootDir: stateRoot } }),
+    ).rejects.toThrow(/Unknown server command: start/u);
     await expect(
       runServerCliCommand([], { repoRoot: repoA, state: { rootDir: stateRoot } }),
     ).rejects.toThrow(/Usage:/u);

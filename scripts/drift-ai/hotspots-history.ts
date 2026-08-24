@@ -72,7 +72,7 @@ export type CommitRecord = {
 };
 
 // First-seen / last-touched accumulator over the windowed walk. Structural so
-// every lens aggregate (`FileAggregate`, `ThrashAggregate`, …) satisfies it
+// aggregates that retain both bounds (currently `ThrashAggregate`) satisfy it
 // without importing a concrete lens type into this shared collector module.
 export type TouchDateAccumulator = {
   newestTouchMs: number | null;
@@ -81,8 +81,8 @@ export type TouchDateAccumulator = {
 
 // Fold one record's author timestamp into an aggregate's first-seen / last-touched
 // bounds. Non-finite dates (a malformed `authorDate`) are skipped so they never
-// poison the min/max. Mutates in place — both coldspot and thrash aggregation walk
-// records once and update the same accumulator per file.
+// poison the min/max. Mutates in place — the thrash aggregation walk updates the
+// same accumulator once per file in each record.
 export function updateTouchDates(aggregate: TouchDateAccumulator, record: CommitRecord): void {
   const timestamp = Date.parse(record.authorDate);
   if (!Number.isFinite(timestamp)) return;
@@ -140,7 +140,7 @@ export function parseGitLog(output: string, options: { numstat?: boolean } = {})
   for (const rawLine of output.split("\n")) {
     applyLogLine(state, rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine, parseRow);
   }
-  if (state.current !== undefined) state.records.push(finalizeRecord(state.current));
+  if (state.current !== undefined) state.records.push({ ...state.current });
   return state.records;
 }
 
@@ -149,7 +149,7 @@ type RowParser = (line: string) => CommitFileChange | undefined;
 
 function applyLogLine(state: ParseState, line: string, parseRow: RowParser): void {
   if (line.startsWith(OUT_RECORD)) {
-    if (state.current !== undefined) state.records.push(finalizeRecord(state.current));
+    if (state.current !== undefined) state.records.push({ ...state.current });
     state.current = startRecord(line.slice(OUT_RECORD.length));
     return;
   }
@@ -189,10 +189,6 @@ function startRecord(meta: string): MutableRecord {
     coAuthors,
     files: [],
   };
-}
-
-function finalizeRecord(record: MutableRecord): CommitRecord {
-  return { ...record, files: record.files };
 }
 
 function parseNumstatRow(line: string): CommitFileChange | undefined {

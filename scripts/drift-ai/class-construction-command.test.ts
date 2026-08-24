@@ -4,6 +4,7 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { runPrototypeSubcommand } from "./prototype-subcommands.js";
 import { runDriftAi } from "./runner.js";
 
@@ -42,7 +43,7 @@ describe("class-construction subcommand", () => {
         "--top",
         "10",
       ],
-      git: gitRoot(repo.dir),
+      git: currentRepoGit(repo.dir),
       gitBuffer: () => nulDelimited(["src/models.ts"]),
     });
     const advisory = JSON.parse(result.stdout) as {
@@ -98,7 +99,7 @@ describe("class-construction subcommand", () => {
 
     const result = runDriftAi({
       argv: ["class-construction", "--config", repo.configPath, "--format", "json", "--top", "10"],
-      git: gitRoot(repo.dir),
+      git: currentRepoGit(repo.dir),
       gitBuffer: () =>
         nulDelimited(["packages/server/src/service.ts", "packages/client/src/service.ts"]),
     });
@@ -130,10 +131,6 @@ function writeFixtureRepo(
   const configPath = path.join(dir, "drift-ai.config.json");
   writeFileSync(configPath, JSON.stringify(config), "utf8");
   return { dir, configPath };
-}
-
-function gitRoot(repoRoot: string): (args: readonly string[]) => string {
-  return (args) => (args[0] === "rev-parse" ? `${repoRoot}\n` : "");
 }
 
 function identityFields(entry: { readonly filePath: string; readonly displayName: string }): {

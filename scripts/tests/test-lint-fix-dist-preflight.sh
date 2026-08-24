@@ -55,6 +55,7 @@ make_required_dist_outputs() {
     "$repo/packages/shared/dist/test" \
     "$repo/packages/server/dist/routers"
   touch "$repo/packages/shared/dist/constants.d.ts"
+  touch "$repo/packages/shared/dist/logging-policy.d.ts"
   touch "$repo/packages/shared/dist/dice/dice-roller.d.ts"
   touch "$repo/packages/shared/dist/map/drawing.d.ts"
   touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
@@ -94,6 +95,8 @@ expect_lint_fix_blocks_missing_dist() {
     || fail "$label missing lint:fix prerequisite action"
   grep -qF "packages/shared/dist/constants.d.ts" "$ROOT/$label.err" \
     || fail "$label missing shared dist path detail"
+  grep -qF "packages/shared/dist/logging-policy.d.ts" "$ROOT/$label.err" \
+    || fail "$label missing logging-policy dist path detail"
   grep -qF "packages/server/dist/routers/app-router.d.ts" "$ROOT/$label.err" \
     || fail "$label missing server dist path detail"
   [ ! -s "$eslint_log" ] || fail "$label should fail before eslint runs: $(cat "$eslint_log")"

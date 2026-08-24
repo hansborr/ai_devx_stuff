@@ -1,0 +1,162 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-07-docs-dx",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L07-111",
+      "title": "Schema tests retain opaque audit numbers and drifting raw line references",
+      "area": "tests",
+      "category": "comment",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.test.ts",
+          "line": 95,
+          "endLine": 96,
+          "measurement": null,
+          "note": "A self-contained validator rationale ends with the unqualified provenance label “finding 19”; the same file uses findings 3 and 19 plus backlog item 35 without naming a source."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew.test.ts",
+          "line": 472,
+          "endLine": 473,
+          "measurement": null,
+          "note": "The comment names both opaque “Finding 14” and an `L100` guard."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 93,
+          "endLine": 99,
+          "measurement": null,
+          "note": "At the audit pin, the guard referenced as `L100` is on line 98, demonstrating that raw source-line provenance has already drifted. The implementation and executable assertions are authoritative."
+        },
+        {
+          "path": "packages/shared/src/schemas/map.test.ts",
+          "line": 18,
+          "endLine": 24,
+          "measurement": null,
+          "note": "A multi-line mutation rationale is labeled only “backlog finding 20,” with no stable record or document."
+        },
+        {
+          "path": "packages/shared/src/schemas/monster.test.ts",
+          "line": 82,
+          "endLine": 85,
+          "measurement": null,
+          "note": "Another mutation rationale uses the unqualified label “mutation-coverage finding 15.”"
+        },
+        {
+          "path": "packages/shared/src/schemas",
+          "line": null,
+          "endLine": null,
+          "measurement": "24 numbered historical annotations across 4 test files and 9 naked identifiers (3, 7, 14, 15, 19, 20, 22, 33, 35), measured with pinned git grep over packages/shared/src/schemas/**/*.{test,spec}.ts",
+          "note": "Inventory: encounter-inputs.test.ts has 8 annotations, homebrew.test.ts has 14, map.test.ts has 1, and monster.test.ts has 1."
+        }
+      ],
+      "problem": "These comments mix durable behavioral explanations with provenance labels that have no namespace, title, path, or stable record id. Contributors cannot identify the referenced source from the comment itself, while associated raw line coordinates have already drifted. Comments intended to explain test intent therefore create maintenance archaeology.",
+      "proposedDirection": "Treat the landed implementation and executable assertions as authoritative. Retain the invariant or mutation rationale, remove opaque finding numbers and raw line references, name the relevant schema or helper symbol, and use a stable document path plus record id only where historical provenance remains valuable.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L07-112",
+      "title": "Mutation docs promise sandbox isolation while three lanes mutate the live worktree",
+      "area": "docs",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "docs/agent_notes/backlog/mutation-testing-stryker.md",
+          "line": 47,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The landed plan retains a blanket non-goal saying Stryker mutates only in its own sandbox and should not use separate worktrees."
+        },
+        {
+          "path": "docs/agent_notes/backlog/mutation-testing-stryker.md",
+          "line": 275,
+          "endLine": 290,
+          "measurement": null,
+          "note": "The same document later acknowledges server `inPlace` operation and crashed-run backups, internally contradicting the earlier sandbox premise while omitting the scripts and lint-ratchet lanes."
+        },
+        {
+          "path": "docs/ai-harness.md",
+          "line": 607,
+          "endLine": 635,
+          "measurement": null,
+          "note": "The operator guide presents all mutation commands but labels only the server lane as `inPlace`; it provides no hard-interruption warning or recovery procedure."
+        },
+        {
+          "path": "scripts/stryker-scripts.mjs",
+          "line": 5,
+          "endLine": 11,
+          "measurement": null,
+          "note": "The scripts lane requires `inPlace: true` and says a hard kill can leave mutated sources on disk."
+        },
+        {
+          "path": "stryker.config.server.mjs",
+          "line": 14,
+          "endLine": 21,
+          "measurement": null,
+          "note": "The server lane requires `inPlace: true` and records the same hard-kill risk."
+        },
+        {
+          "path": "tools/stryker-lint-ratchet.mjs",
+          "line": 5,
+          "endLine": 9,
+          "measurement": null,
+          "note": "The lint-ratchet lane requires `inPlace: true` and records the same hard-kill risk."
+        },
+        {
+          "path": "package.json",
+          "line": 53,
+          "endLine": 56,
+          "measurement": null,
+          "note": "The public mutation-command wrappers trap removal of setup files but do not document or perform live-source recovery."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "3 configs set `inPlace: true`, measured with pinned git grep over stryker.config*.mjs, scripts/stryker-scripts.mjs, and tools/stryker-lint-ratchet.mjs",
+          "note": "Live-worktree mutation applies to scripts, server, and lint-ratchet rather than being a server-only exception."
+        }
+      ],
+      "problem": "A contributor following the landed plan or operator guide can reasonably believe mutation testing is sandboxed, even though three advertised commands mutate tracked source in the live worktree. The hard-interruption warning exists only inside individual configs, and the invocation documentation supplies no preflight or recovery workflow.",
+      "proposedDirection": "Treat the executable configs as authoritative. Replace the stale blanket sandbox statement with the landed per-lane split, explicitly mark scripts, server, and lint-ratchet as `inPlace`, and add one operator-facing interruption warning plus a verified recovery or preflight recipe. Coordinate the final wording with banked L06-103 if its guarded-runner direction changes the runtime behavior.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-221",
+        "novelty": "This does not revisit the rejected feasibility stop or propose configuration deduplication; it documents the operator-visible live-worktree semantics and recovery gap created by the landed `.mjs` configs."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [],
+  "featureIdeas": [],
+  "bugsSideList": [],
+  "coverage": {
+    "readFully": [
+      "Shard 1: packages/shared/src/schemas/{encounter-inputs,homebrew,map,monster,harness-diagnostics}.test.ts; packages/shared/src/schemas/homebrew.ts as the authoritative line-reference cross-check.",
+      "Shard 2: docs/agent_notes/backlog/mutation-testing-stryker.md; docs/ai-harness.md; stryker.config.mjs; stryker.config.server.mjs; scripts/stryker-scripts.mjs; tools/stryker-lint-ratchet.mjs; package.json.",
+      "The finding contract, both banked lane-07 result files, banked L06-103, and relevant dedup records CQ25-13, CQ25-49, CQ25-157, CQ25-158, and CQ25-221."
+    ],
+    "sampled": [
+      "Shard 1 glob packages/shared/src/schemas/**/*.{test,spec}.ts — all 36 pinned files searched exhaustively for finding/backlog/leaf vocabulary; every historical numbered match was read fully."
+    ],
+    "skipped": [
+      "Shard 1: 31 of 36 schema test files were not read line-by-line after exhaustive pinned searches found no routed-reference annotations; no matching .spec.ts files exist.",
+      "All lane-07 secondary scope outside the two routed pointers — explicitly excluded by the round-2 addendum.",
+      "Test suite and build execution — explicitly prohibited by the user."
+    ],
+    "pointers": [
+      "Routed pointer 1 produced L07-111; it concerns misleading historical annotations, not lane-06-owned test shape.",
+      "Routed pointer 2 produced L07-112; runtime prevention and recovery implementation remains covered by banked L06-103."
+    ],
+    "cut": []
+  }
+}

@@ -109,6 +109,8 @@ type ArtifactIndex = {
   readonly byFile: ReadonlyMap<string, CoverageFileEvidence>;
 };
 
+type ArtifactResultBase = Pick<ArtifactCoverageResult, "label" | "path" | "format">;
+
 const AGREEMENT_ORDER: Readonly<Record<CorrelationAgreement, number>> = {
   "covered-but-unused": 0,
   "uncovered-and-unused": 1,
@@ -144,7 +146,7 @@ function rowForSymbol(
   options: CorrelateOptions,
 ): Omit<CoverageUnusedCorrelationRow, "rank"> {
   const hasLocation = symbol.line !== undefined;
-  const coverage = indexes.map((index) => resultForArtifact(symbol, index, hasLocation));
+  const coverage = indexes.map((index) => resultForArtifact(symbol, index));
   const extraCaveats = options.caveatLabeler?.(symbol) ?? [];
   return {
     category: symbol.category,
@@ -163,39 +165,28 @@ function rowForSymbol(
 function resultForArtifact(
   symbol: UnusedExportSymbol,
   index: ArtifactIndex,
-  hasLocation: boolean,
 ): ArtifactCoverageResult {
   const base = { label: index.label, path: index.path, format: index.format };
-  if (!hasLocation || symbol.line === undefined) {
-    return {
-      ...base,
-      state: "unavailable",
-      hits: null,
-      matchedLine: null,
-      matchedEndLine: null,
-      matchKind: "none",
-      pathMatch: "none",
-      note: "symbol has no source location from knip; cannot align it to a coverage range",
-    };
+  if (symbol.line === undefined) {
+    return unavailable(
+      base,
+      "none",
+      "symbol has no source location from knip; cannot align it to a coverage range",
+    );
   }
   const fileMatch = matchFile(index, toPosix(symbol.file));
   if (fileMatch === null) {
-    return {
-      ...base,
-      state: "unavailable",
-      hits: null,
-      matchedLine: null,
-      matchedEndLine: null,
-      matchKind: "none",
-      pathMatch: "none",
-      note: `file '${toPosix(symbol.file)}' not present in this artifact (path / source-map mismatch)`,
-    };
+    return unavailable(
+      base,
+      "none",
+      `file '${toPosix(symbol.file)}' not present in this artifact (path / source-map mismatch)`,
+    );
   }
   return resultFromFile(base, fileMatch, symbol.line);
 }
 
 function resultFromFile(
-  base: Pick<ArtifactCoverageResult, "label" | "path" | "format">,
+  base: ArtifactResultBase,
   fileMatch: { readonly file: CoverageFileEvidence; readonly pathMatch: "exact" | "suffix" },
   line: number,
 ): ArtifactCoverageResult {
@@ -203,16 +194,11 @@ function resultFromFile(
     fileMatch.pathMatch === "suffix" ? "matched by path suffix; verify source-map alignment" : null;
   const within = matchInFile(fileMatch.file, line);
   if (within === null) {
-    return {
-      ...base,
-      state: "unavailable",
-      hits: null,
-      matchedLine: null,
-      matchedEndLine: null,
-      matchKind: "none",
-      pathMatch: fileMatch.pathMatch,
-      note: joinNotes(`no coverage record at ${fileMatch.file.file}:${line}`, suffixNote),
-    };
+    return unavailable(
+      base,
+      fileMatch.pathMatch,
+      joinNotes(`no coverage record at ${fileMatch.file.file}:${line}`, suffixNote),
+    );
   }
   return {
     ...base,
@@ -223,6 +209,23 @@ function resultFromFile(
     matchKind: within.kind,
     pathMatch: fileMatch.pathMatch,
     note: suffixNote,
+  };
+}
+
+function unavailable(
+  base: ArtifactResultBase,
+  pathMatch: PathMatchKind,
+  note: string,
+): ArtifactCoverageResult {
+  return {
+    ...base,
+    state: "unavailable",
+    hits: null,
+    matchedLine: null,
+    matchedEndLine: null,
+    matchKind: "none",
+    pathMatch,
+    note,
   };
 }
 

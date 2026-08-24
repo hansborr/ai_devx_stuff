@@ -3,13 +3,9 @@ import path from "node:path";
 
 import { Node, type Project, type SourceFile } from "ts-morph";
 
-import type { WritePlan } from "../lib/trpc-shared-schema.js";
-import {
-  createProject,
-  moduleSource,
-  sortImportBlocks,
-  writeOrPreviewFiles,
-} from "../lib/trpc-shared-schema.js";
+import { moduleSource } from "../lib/codemod-imports.js";
+import { createProject } from "../lib/codemod-project.js";
+import { writeOrPreviewFiles, type WritePlan } from "../lib/codemod-writes.js";
 import { contextForKnown } from "./barrel-context.js";
 import { CODEMOD_NAME, KNOWN_PACKAGE_BARRELS } from "./constants.js";
 import { buildSymbolMap } from "./export-map.js";
@@ -29,7 +25,7 @@ export function runOne(context: BarrelContext, root: string, dryRun: boolean): v
     if (!changed) continue;
     plans.push({
       path: filePath,
-      text: sortImportBlocks(sourceFile.getFullText(), filePath),
+      text: sourceFile.getFullText(),
     });
   }
 

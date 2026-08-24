@@ -12,20 +12,15 @@
 import { readFileSync } from "node:fs";
 
 import { DRIFT_AI_ADVISORY_BANNER } from "./advisory-common.js";
-import { DriftAiHelp } from "./cli-args.js";
-import { loadDriftAiConfig, type LoadedDriftAiConfig } from "./config.js";
-import { DriftAiError } from "./errors.js";
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
+import type { LoadedDriftAiConfig } from "./config.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
 import { tagSectionsWithBaseline } from "./hotspots-actionability.js";
-import {
-  type ConcreteHotspotLens,
-  LENS_SELECTIONS,
-  type ParsedHotspotsArgs,
-  parseHotspotsArgs,
-} from "./hotspots-args.js";
+import { lensSelection, type ParsedHotspotsArgs, parseHotspotsArgs } from "./hotspots-args.js";
 import { reduceChurn } from "./hotspots-churn.js";
 import { reduceCoupling } from "./hotspots-coupling.js";
 import {
+  type ConcreteHotspotLens,
   formatHotspotsJson,
   formatHotspotsText,
   type HotspotLens,
@@ -39,6 +34,7 @@ import {
   type CommitRecord,
   defaultHistoryGitRunner,
 } from "./hotspots-history.js";
+import { selectionNeedsSuppressionScan } from "./hotspots-lens-registry.js";
 import {
   collectSuppressionChurnRecords,
   reduceSuppressionChurn,
@@ -46,7 +42,7 @@ import {
 import { reduceThrash } from "./hotspots-thrash.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import {
-  loadBaseline,
+  prepareSubcommandInputs,
   type SubcommandBaseOptions,
   writeSubcommandOutput,
 } from "./subcommand-args.js";
@@ -61,10 +57,7 @@ export type HotspotsRunOptions = {
   readonly readBaseline?: (path: string) => string; // injected for tests; defaults to fs
 };
 
-export type HotspotsRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type HotspotsRunResult = DriftAiCommandResult;
 
 export function runHotspots(options: HotspotsRunOptions): HotspotsRunResult {
   const parsed = parseHotspotsForRun(options.argv);
@@ -80,11 +73,7 @@ function parseHotspotsForRun(argv: readonly string[]): ParsedOrResult {
   try {
     return { ok: true, args: parseHotspotsArgs(argv) };
   } catch (err) {
-    if (err instanceof DriftAiHelp)
-      return { ok: false, result: { exitCode: 0, stdout: err.message } };
-    if (err instanceof DriftAiError)
-      return { ok: false, result: { exitCode: 2, stdout: err.message } };
-    throw err;
+    return { ok: false, result: sentinelToCommandResult(err) };
   }
 }
 
@@ -94,7 +83,11 @@ function runParsedHotspots(
 ): HotspotsRunResult {
   const git = options.git ?? defaultGitRunner();
   const repoRoot = resolveRepoRoot(git);
-  const prepared = prepareInputs(parsed, repoRoot, options.readBaseline ?? defaultReadBaseline);
+  const prepared = prepareSubcommandInputs(
+    parsed,
+    repoRoot,
+    options.readBaseline ?? defaultReadBaseline,
+  );
   if (!prepared.ok) return prepared.result;
   // The collector walks numstat over the window — far larger than the small
   // rev-parse output above — so it needs the large-buffer runner. An injected
@@ -126,36 +119,6 @@ function renderAdvisory(
 
 function defaultReadBaseline(path: string): string {
   return readFileSync(path, "utf8");
-}
-
-type PreparedInputs =
-  | {
-      readonly ok: true;
-      readonly config: LoadedDriftAiConfig;
-      readonly baseline: unknown;
-    }
-  | { readonly ok: false; readonly result: HotspotsRunResult };
-
-// Load the (optional) --config and --baseline up front; both map a DriftAiError to
-// the standard exit-2 message like the main command, rather than escaping as a
-// stack trace + exit 1.
-function prepareInputs(
-  parsed: ParsedHotspotsArgs,
-  repoRoot: string,
-  read: (path: string) => string,
-): PreparedInputs {
-  try {
-    const config = loadDriftAiConfig({
-      repoRoot,
-      ...(parsed.base.configPath === null ? {} : { configPath: parsed.base.configPath }),
-    });
-    const baseline = parsed.baselinePath === null ? null : loadBaseline(parsed.baselinePath, read);
-    return { ok: true, config, baseline };
-  } catch (err) {
-    if (err instanceof DriftAiError)
-      return { ok: false, result: { exitCode: 2, stdout: err.message } };
-    throw err;
-  }
 }
 
 function buildAdvisory(
@@ -207,7 +170,7 @@ function buildSections(
   history: CollectedHistory,
   suppressionRecords: SuppressionChurnInput,
 ): HotspotSection[] {
-  return LENS_SELECTIONS[parsed.lens].map((lens) =>
+  return lensSelection(parsed.lens).map((lens) =>
     reduceSection(lens, { parsed, history, suppressionRecords }),
   );
 }
@@ -245,7 +208,9 @@ function collectSuppressionRecordsForLens(
   history: CollectedHistory,
   ignore: LoadedDriftAiConfig["config"]["ignore"],
 ): SuppressionChurnInput {
-  if (!LENS_SELECTIONS[lens].includes("suppression-churn")) {
+  // Gate the `git log -G` content scan on the registry's per-lens declaration,
+  // not a lens-name literal, so a future lens needing the scan cannot be missed.
+  if (!selectionNeedsSuppressionScan(lensSelection(lens))) {
     return { records: [], skipReason: null };
   }
   if (!history.linesAvailable) {

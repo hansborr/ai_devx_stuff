@@ -1,0 +1,518 @@
+{
+  "contractVersion": 1,
+  "step": "2b-round-4",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewShaConfirmed": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "consults": [
+    {
+      "chunk": "gate-r4-01",
+      "files": 9
+    },
+    {
+      "chunk": "gate-r4-02",
+      "files": 8
+    }
+  ],
+  "results": [
+    {
+      "file": "253-converge-typecheck-fan-out-on-the-shared-parallel.md",
+      "promotionId": "R4B-011",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 5,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The direction says the existing typecheck smoke cases characterize `signal-safe completion`, but `scripts/tests/test-typecheck.sh:113-203` checks lane prefixes/headings, diagnostics, and matching/differing exit aggregation. The entire smoke file contains no INT/TERM delivery or signal-cleanup case; its `timeout 5s` is only a hang guard.",
+          "correction": {
+            "oldString": "signal-safe completion, ",
+            "newString": ""
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record covers convergence of `scripts/typecheck.sh` onto `scripts/lib/parallel-runner.sh`.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All eight path/line citations match the audit target, the intra-pack link resolves, and all five uniquely named script paths exist. Packet metadata, settled direction, constraints, and no-residual statement otherwise match."
+    },
+    {
+      "file": "254-route-current-inventory-through-the-canonical-ignore.md",
+      "promotionId": "R4B-021",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "R4B-021 names no prior-pack record and its packet declares no prior-pack residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All six Evidence bullets and the repeated Scope citations are accurate. The link to leaf 134 resolves and that leaf's source/test taxonomy scope does not cover ignore matching. No runnable command is named."
+    },
+    {
+      "file": "255-make-exact-token-collection-explicit-at-the.md",
+      "promotionId": "R4B-022",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The unqualified claim that there are exactly two production NearDuplicateRunner callers is false. Besides the invocations at `scripts/drift-ai/clone-candidates-command.ts:88` and `scripts/drift-ai/near-duplicates-check.ts:45`, `scripts/sensor-near-duplicates-core.ts:58` explicitly supplies `includeExactTokens: false` at :68 and `scripts/benchmark-near-duplicates.ts:74` supplies `state === \"fuzzy-exact\"` at :84. Naming the two compared callers preserves the finding.",
+          "correction": {
+            "oldString": "The two production runner callers intentionally need different behavior, but\nonly one states its choice.",
+            "newString": "The clone-candidates and registered drift-check production runner callers\nintentionally need different behavior, but only the drift check states its\nchoice."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The test at `near-duplicates.test.ts:380-397` omits `includeExactTokens` and observes empty exact tokens, but it analyzes `src/totals.ts`. `isExactCloneFileEligible` accepts only `scripts/` and `eslint-rules/`, so this test would produce no exact tokens even when the option is true and does not characterize the omitted-option behavior.",
+          "correction": {
+            "oldString": "- `scripts/drift-ai/near-duplicates.test.ts:380-397` — existing runner\n  characterization confirms that omission produces functions with no exact\n  tokens.",
+            "newString": "- `scripts/drift-ai/near-duplicates.test.ts:380-397` — existing runner\n  coverage omits the option and observes functions with no exact tokens, but\n  `src/totals.ts` is not exact-clone eligible, so this test does not isolate the\n  omitted-option behavior."
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The direction asks to add two tests already present: `near-duplicates.test.ts:609-631` asserts that the registered drift check passes true, and :401-428 proves that true collects tokens only for eligible production files. Only the clone-candidates false caller-boundary assertion is missing.",
+          "correction": {
+            "oldString": "Add caller-boundary assertions that\nclone-candidates supplies false and the registered drift check supplies true,\nplus runner coverage showing that true still collects only for eligible\nproduction files.",
+            "newString": "Add a caller-boundary assertion that clone-candidates supplies false. Retain\nthe existing drift-check assertion that this caller supplies true, plus the\nexisting runner coverage showing that true collects only for eligible\nproduction files."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record; both state that no prior-pack residual applies.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All seven cited ranges were opened. The source citations establish the opposite defaults and preserve the core finding. Leaf 173 resolves and remains a move-only proposal excluding production semantics."
+    },
+    {
+      "file": "004-character-creation-large-pseudo-module-loose.md",
+      "promotionId": "R4B-031",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 16,
+        "commandsChecked": 5,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "05-router-and-service-boundaries.md",
+          "SERVER-COMMENTS-PLAN.md"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "Live prior-pack rulings concern rest-service promotion and prepared-spell organization; neither covers character-create organization or the starting-equipment capability.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The HEAD~1 predecessor's claims and binding rulings remain intact. The augmentation exactly records the `DbClient | TxClient` boundary, narrows the post-move stage to `TxClient`, adapts relocated tests, and preserves transaction shape, ordering, errors, and persistence behavior. The 640-line count, importer censuses, module-doc census, and `module:index` command were re-derived or checked."
+    },
+    {
+      "file": "033-attunement-game-rule-lives-request-schema.md",
+      "promotionId": "R4B-032",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 11,
+        "commandsChecked": 1,
+        "linksChecked": 4,
+        "priorPackRecordsOpened": [
+          "21-shared-constants-single-source.md",
+          "SHARED-CLUSTER-PLAN.md"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The citation `inventory-service.ts:154-158` starts after the count query. The count is at :153; :154-158 contains only the threshold check and `BAD_REQUEST`.",
+          "correction": {
+            "oldString": "`:154-158` —\n  `assertAttunementLimit` enforces",
+            "newString": "`:153-158` —\n  `assertAttunementLimit` enforces"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Problem's unqualified `three other files`/`Every consumer` census omits `inventory-inputs.test.ts`, which also imports the constant. There are three production importers and one test importer.",
+          "correction": {
+            "oldString": "authoritative game rule three other files depend on. Every consumer — a server",
+            "newString": "authoritative game rule three production files depend on. Every production consumer — a server"
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "The same-file coordination block says leaf 041 edits `inventory-tab.tsx`, but leaf 041 explicitly identifies that tab's update call as item-ID-scoped and unchanged. Its inventory slice narrows the create action; this tab only consumes `updateItem`, so no edit is directed there.",
+          "correction": {
+            "oldString": "  [041-character-hooks-expose-second-identity.md](./041-character-hooks-expose-second-identity.md)\n  edits `inventory-tab.tsx`, and\n",
+            "newString": ""
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "Several exact or zero-result measurements lack reproducible invocations: the importer census, the declaration-only occurrence and four request-bound usages, absence of an inventory rules module, absence of old-location citations in service docs, the two service-test mentions, and the claim that no other current leaf edits `inventory-panel.tsx`. The file only says one census was `verified by grep` without giving the command.",
+          "correction": {
+            "oldString": "## Evidence\n",
+            "newString": "## Evidence\n\nReproducible censuses used below:\n\n- Importers: `git grep -n -E 'import .*MAX_ATTUNED_ITEMS|MAX_ATTUNED_ITEMS,' ebf096580b31f604861fadb3d4cbd4079da4f017 -- packages`.\n- Request-bound declarations and uses: `git grep -n -E 'MAX_QUANTITY|MAX_WEIGHT|MAX_SORT_ORDER|DEFAULT_PAGE_SIZE|MAX_ATTUNED_ITEMS' ebf096580b31f604861fadb3d4cbd4079da4f017 -- packages/shared/src/schemas/inventory-inputs.ts`.\n- Rules-module inventory: `find packages/shared/src/rules -maxdepth 1 -type f -print | sort`.\n- Service-doc zero-census: `test -z \"$(git grep -n -E 'MAX_ATTUNED_ITEMS|schemas/inventory-inputs' ebf096580b31f604861fadb3d4cbd4079da4f017 -- packages/server/src/services/README.md 'packages/server/src/services/*MODULE.md' || true)\"`.\n- Service-test mentions: `git grep -n 'MAX_ATTUNED_ITEMS' ebf096580b31f604861fadb3d4cbd4079da4f017 -- packages/server/src/services/inventory-service.test.ts`.\n- Current-pack coordination: `rg -l 'inventory-panel\\.tsx' docs/agent_notes/backlog/code-quality-2026-08-01/[0-9][0-9][0-9]-*.md`.\n"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live prior-pack leaf 21 is Done and its linked plan records the landed placement conventions, but neither covers `MAX_ATTUNED_ITEMS` or the misleading transaction guarantee.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The pivotal high-severity quotation is exact: `inventory-service.ts:33-36` says the shared transaction means a concurrent attune cannot slip past the limit. Create at :221-244 and update at :270-279 use default callback transactions with no lock, conditional write, isolation option, or client-wide transaction option, so the promised exclusion is not provided. HEAD~1 claims remain intact and the augmentation honors its comment-only boundary."
+    },
+    {
+      "file": "256-constrain-class-caster-metadata-with-database-enums.md",
+      "promotionId": "R4B-033",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 4,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet and leaf name no prior-pack record; the residual is not claimed as covered elsewhere.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations match. Packet metadata and direction match R4B-033. The leaf preserves value validation before migration, leaf 006's `routers/srd.ts`/narrowing-helper boundary, and runtime parsing at wider structural, JSON, and transport seams. The server `db:migrate`, `prisma:generate`, root `db:migration-safety`, and server `db:push` command surfaces exist."
+    },
+    {
+      "file": "257-delete-the-no-op-auth-configuration-validator.md",
+      "promotionId": "R4B-034",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The live prior pack's only `config/auth.ts` mention preserves an unrelated timing-oracle comment, while linked current-pack leaf 205 covers only the service-path rename.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five evidence bullets match the pin. The intra-pack link resolves, packet metadata and direction match, and both author constraints are explicit."
+    },
+    {
+      "file": "258-share-inventory-draft-fields-between-add-and-edit.md",
+      "promotionId": "R4B-051",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "Live prior-pack references concern unrelated weapon-catalog and Homebrew membership/remount work; none covers sharing the add/edit five-field body.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited ranges match the audit target. Metadata, constraints, and settled direction match R4B-051. No commands or Markdown links occur."
+    },
+    {
+      "file": "259-extract-a-one-pass-homebrew-item-read-adapter.md",
+      "promotionId": "R4B-052",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-173"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "ruled-out",
+      "priorPackNote": "CQ25-173 dropped shared persisted-schema normalization, and the live constraint preserves `twoHandedDice` as the storage spelling; client-local React separation and one-pass parsing remain uncovered.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four anchors are exact. The tab normalizes, parses, and returns null on failure; each row parses for display and invokes a converter that parses again. Known damage types are canonicalized case-insensitively, unknown strings remain for rejection by the closed schema, all three links resolve, and the packet's three constraints are explicit."
+    },
+    {
+      "file": "260-rename-create-only-map-layer-actions-as-enable.md",
+      "promotionId": "R4B-053",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named. Current-pack leaf 215 exists and separately covers reset/clear confirmations.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations match the pin. Fog and drawing handlers are create-only; no-layer branches use toggle-named callbacks with Enable labels; intermediate contracts propagate those names. Metadata, direction, constraints, and the sole link are correct."
+    },
+    {
+      "file": "261-debounce-notes-search-before-changing-its.md",
+      "promotionId": "R4B-054",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-207"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "Lines 79-84 show the input calling onSearchChange, but not that this updates panel search state. That wiring is at notes-panel.tsx:279-280, where onSearchChange={setSearch}.",
+          "correction": {
+            "oldString": "`packages/client/src/components/campaign/notes/notes-panel.tsx:79-84` — every",
+            "newString": "`packages/client/src/components/campaign/notes/notes-panel.tsx:79-84` and\n  `packages/client/src/components/campaign/notes/notes-panel.tsx:279-280` — every"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The primitive-only DebouncableValue definition supporting the claim that the hook holds a primitive is on line 13, outside the cited 15-38 range.",
+          "correction": {
+            "oldString": "`packages/client/src/hooks/use-debounced-value.ts:15-38` —",
+            "newString": "`packages/client/src/hooks/use-debounced-value.ts:13-38` —"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "Line 55 lists useDebouncedValue, but the cited range omits the External Entry Points heading at line 36 needed to establish the 'advertised entry point' characterization.",
+          "correction": {
+            "oldString": "`packages/client/src/hooks/MODULE.md:45-55` —",
+            "newString": "`packages/client/src/hooks/MODULE.md:36-55` —"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-207 governs retention and freshness policy, explicitly leaves notes normally staleable, and does not cover typing-time request or query-key frequency.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The query and active-filter citation is accurate, the prior-pack link resolves, and packet metadata, direction, and constraints match."
+    },
+    {
+      "file": "262-single-source-the-class-and-subclass-feature-codec.md",
+      "promotionId": "R4B-055",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The serialization citation starts after toPositiveInt, so it does not establish the fallback condition. The claim is also too broad: parseInt accepts prefixes such as \"1.5\" or \"1suffix\" as 1; fallback occurs only when the parsed value is non-finite or below one.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/homebrew/class/class-form-data.ts:132-138` —\n  class serialization writes those same three fields and falls back to level\n  one when the submitted level is not a positive integer.",
+            "newString": "- `packages/client/src/components/homebrew/class/class-form-data.ts:126-138` —\n  class serialization writes those same three fields, parses submitted levels\n  with `parseInt`, and falls back to level one when the parsed value is\n  non-finite or below one."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record or residual is named.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All other citations match. Leaf 238 resolves and remains limited to caster-selector presentation while preserving entity form-data ownership. Packet metadata, direction, and constraints match."
+    },
+    {
+      "file": "263-preserve-closed-vocabularies-through-homebrew-form.md",
+      "promotionId": "R4B-056",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 0,
+        "linksChecked": 4,
+        "priorPackRecordsOpened": [
+          "CQ25-117"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The direction says to retain rendered select-change coverage, but none exists at the pin: magic-item tests do not change a select, and no test renders SpellCombatFields. The callback-boundary coverage must be added.",
+          "correction": {
+            "oldString": "sentinel, and valid build/parse round trips. Retain rendered select coverage\nfor representative category, rarity, attack-type, and saving-throw changes so\nthe checked callback boundary remains exercised.",
+            "newString": "sentinel, and valid build/parse round trips. Add rendered select coverage\nfor representative category, rarity, attack-type, and saving-throw changes so\nthe checked callback boundary remains exercised."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Live CQ25-117 covers shared homebrew form-value helper deduplication only, not closed-vocabulary form-state typing.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All evidence citations substantively match, all four link occurrences resolve, and packet metadata, direction, and all constraints are present."
+    },
+    {
+      "file": "264-make-ad-hoc-fastify-test-teardown-failure-safe.md",
+      "promotionId": "R4C-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 1,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-121"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Problem says all six tests close after readiness, requests, and assertions, but the socket-enabled and socket-disabled tests perform no request or injection; they only ready the app and check decorator assertions.",
+          "correction": {
+            "oldString": "only after readiness, requests, and assertions have succeeded.",
+            "newString": "only after readiness and assertions—and, where present, requests—have succeeded."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-121 landed the suite-scoped useTestApp beforeAll/afterAll lifecycle; it does not cover these six local per-test instances.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The exact rg command returns 12 matches forming six construction/close pairs. All cited ranges otherwise match. Fastify onClose genuinely invokes Socket.IO cleanup. Both links resolve and packet constraints are honored."
+    },
+    {
+      "file": "265-document-cross-worktree-status-modes.md",
+      "promotionId": "R4C-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 7,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-5"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The cited 64-109 range does not cover the complete Recovery section, which continues through line 122. A negative claim about both the multi-lane and Recovery sections must include the entire latter section.",
+          "correction": {
+            "oldString": "`docs/guides/per-worktree-dev.md:64-109`",
+            "newString": "`docs/guides/per-worktree-dev.md:64-122`"
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Live CQ25-5 covers worktree-db.sh state-codec consolidation and future shell decomposition, not documentation of these status modes.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The root script and all named status command forms exist and route to the implemented dispatcher. The link resolves; metadata, settled direction, and both mode-boundary constraints match."
+    },
+    {
+      "file": "266-add-a-human-focused-contribution-entrypoint.md",
+      "promotionId": "R4C-003",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 1,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The Problem's exclusivity claim is too broad. README.md:98-125 already documents focused single-file verification and the normal commit gate, while .github/pull_request_template.md:1-22 is a human-facing PR checklist. These fragments do not provide the missing contribution entrypoint, but the expectations are not discoverable only through automation instructions or hook failure.",
+          "correction": {
+            "oldString": "Branch, commit-message, focused-verification, commit-gate, push, and pull-request\nexpectations are therefore discoverable only inside automation instructions or\nafter a hook rejects prepared work. That makes the public onboarding path\ncomplete for running the project but incomplete for contributing to it.",
+            "newString": "Branch, commit-message, push, and pull-request expectations are therefore\ndiscoverable only inside automation instructions or late-stage surfaces.\n`README.md:98-125` already documents focused verification and the commit gate,\nand `.github/pull_request_template.md:1-22` provides a PR checklist, but neither\nforms a human contribution entrypoint. The public onboarding path is complete\nfor running the project but incomplete for contributing to it."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "The live prior pack contains no record covering the missing human contribution entrypoint.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All eight evidence bullets match, the exact CONTRIBUTING measurement returns 0, both links resolve, and the command exists. Packet metadata, settled direction, and constraints match."
+    },
+    {
+      "file": "189-downstream-packages-keep-semantic-copies.md",
+      "promotionId": "R4C-004",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 22,
+        "commandsChecked": 0,
+        "linksChecked": 6,
+        "priorPackRecordsOpened": [
+          "CQ25-110",
+          "20-rules-tables-to-formulas.md"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-110 remains the binding whole-tree semantic-straggler criterion. Prior CR-table work covers formatCr/parseCr, not CR-to-proficiency homing or the description-limit addition.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All 22 citations and six links match. HEAD~1 confirms the description-limit augmentation preserves the host's earlier claims and round-2 additions; the host header remains unchanged. The Scope decomposition is consistent: description-limit behavior change plus six other mechanical consolidations plus one SRD-rule homing move equals eight authorities."
+    }
+  ],
+  "orchestratorRulings": [
+    {
+      "subject": "high-severity comment quotations",
+      "ruling": "verified by the gate, no orchestrator call needed",
+      "detail": "Both high-severity findings rest on a single comparison between a code comment and the code beneath it, so the gate was told to open the comment itself. It did: leaf 033's quotation of inventory-service.ts:33-36 is exact and the default callback transactions at :221-244 and :270-279 provide no lock, conditional write or isolation option, so the promised exclusion is genuinely absent; leaf 004's widened DbClient | TxClient boundary is real. Neither high survived on the author's word alone."
+    },
+    {
+      "subject": "twice-augmented leaf 189",
+      "ruling": "clean",
+      "detail": "189 carried round 2's R2C-005 material into round 4's R4C-004 augmentation; the gate compared against the HEAD~1 predecessor and found the round-2 claims intact and uncontradicted."
+    }
+  ],
+  "corrections": {
+    "proposed": 16,
+    "applied": 16,
+    "skipped": 0,
+    "skippedDetail": []
+  },
+  "summary": {
+    "filesChecked": 17,
+    "clean": 8,
+    "needsFix": 9,
+    "kill": 0,
+    "defectsByKind": {
+      "evidence": 12,
+      "command": 0,
+      "link": 0,
+      "priorPack": 0,
+      "packetFidelity": 0,
+      "coherence": 4
+    },
+    "notes": [
+      "The prior-pack review SHA is unchanged.",
+      "Both assigned high-severity augmentations were checked directly: leaf 004's widened client type is real, and leaf 033 quotes a guarantee the default transaction does not provide.",
+      "Every proposed oldString occurs exactly once in its target file.",
+      "The prior-pack review SHA remains unchanged.",
+      "No files were modified and no tests or builds were run."
+    ]
+  }
+}

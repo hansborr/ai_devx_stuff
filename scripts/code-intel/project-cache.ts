@@ -5,9 +5,14 @@ import { Project } from "ts-morph";
 import { CodeIntelError } from "./errors.js";
 import { computeWorkspaceManifest } from "./graph-cache.js";
 import { toSlash } from "./path-utils.js";
-import { createReferenceProject, discoverWorkspaceSourcePaths } from "./source-project.js";
+import {
+  createReferenceProject,
+  discoverSupportedSourcePaths,
+  isSupportedRelativePath,
+  unsupportedScopeError,
+} from "./source-project.js";
 import type { ProjectBucket } from "./types.js";
-import { SCRIPT_SOURCE_DIR, WORKSPACE_PACKAGE_DIRS } from "./types.js";
+import { SCRIPT_SOURCE_DIR } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
 import { createWorkspaceResolver } from "./workspace-resolver.js";
 
@@ -81,7 +86,7 @@ function defaultProjectRebuild(repoRoot: string): CachedProjectEntry {
 
 function createGraphProject(repoRoot: string): Project {
   const project = new Project({ skipAddingFilesFromTsConfig: true });
-  project.addSourceFilesAtPaths(discoverWorkspaceSourcePaths(repoRoot));
+  project.addSourceFilesAtPaths(discoverSupportedSourcePaths(repoRoot));
   return project;
 }
 
@@ -100,11 +105,19 @@ function createTsconfigProject(repoRoot: string, tsConfigPath: string): Project 
 
 function projectBucketForFile(repoRoot: string, file: string): ProjectBucket {
   const relative = toSlash(path.relative(repoRoot, path.resolve(repoRoot, file)));
+  // Repo-relative in the error, matching existingRelativeFile, so the same
+  // out-of-scope path reports identically across every command.
+  if (!isSupportedRelativePath(relative)) throw unsupportedScopeError(relative);
   for (const config of PACKAGE_BUCKETS) {
     if (relative.startsWith(`${config.packageDir}/`)) return config.bucket;
   }
   if (relative.startsWith(`${SCRIPT_SOURCE_DIR}/`)) return "scripts";
+  // Reachable only when APPLICATION_PACKAGE_DIRS admits a package that the
+  // hand-maintained PACKAGE_BUCKETS above does not map. Fail loudly rather
+  // than silently resolving against tsconfig.scripts.json, which would let
+  // daemon answers drift from one-shot createProjectForFile
+  // (docs/guides/code-intel.md#supported-scope).
   throw new CodeIntelError(
-    `File must be under ${WORKSPACE_PACKAGE_DIRS.join(", ")} or ${SCRIPT_SOURCE_DIR}: ${file}`,
+    `No project bucket maps ${relative}; update PACKAGE_BUCKETS in scripts/code-intel/project-cache.ts`,
   );
 }

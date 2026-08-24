@@ -1,5 +1,6 @@
 {
-  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) \u2014 keep them out of the manifest so there is one source of truth. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
+  "$schema": "./schemas/harness.controls.schema.json",
+  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. This file owns every control kind EXCEPT `lint-rule`: those are derived from the rule files on disk plus their activation surfaces into harness.controls.lint-rules.generated.json (`bun run harness:lint-rule-controls`), which scripts/harness/harness-manifest.ts merges in for every reader. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) \u2014 keep them out of the manifest so there is one source of truth. For `kind: hook` controls, the `hookWiring` facet is the POLICY authority (event, order, body, timeout, statusMessage, outputs, notes); once a facet declares an adapter `surface` (allowed only on the tool-use events PreToolUse/PostToolUse/PostToolUseFailure, whose matchers are pure adapter syntax), its `matcher` and `command` strings stop being free text and become canonical-checked copies: `matcher` of the projection tables in scripts/harness/hook-wiring-schema.ts, `command` of those same tables applied to this facet's own `body`. Repair drift in the copy, not in the tables \u2014 rewrite the manifest string to the projection the validator prints; renaming a `body` legitimately rewrites its commands with no table edit; edit a table itself only for a deliberate adapter-syntax change (a harness changing its matcher vocabulary or shim directory), never to make one binding's typo validate everywhere. The aggregators and claude-only lifecycle hooks declare no `surface`: they record the asymmetry in `notes`, keyed to the harness it explains \u2014 an omitted harness needs a note, and so does a wired harness whose command is not the projection of `body`. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
   "scriptParityExemptions": [
     "verify:async:changed",
     "verify:async:slow",
@@ -34,245 +35,824 @@
     "harness:check"
   ],
   "ciGateControlIds": ["verify-wrapper/verify"],
+  "verifySlotCatalog": [
+    {
+      "name": "lint",
+      "full": { "script": "lint" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode lints changed files with lint:changed; full mode lints the whole tree with lint.",
+        "slot": { "script": "lint:changed" }
+      },
+      "requiresArtifact": "dist-outputs"
+    },
+    {
+      "name": "suppressions",
+      "full": { "script": "lint:suppressions" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode scans suppressions in changed files; full mode audits suppression policy across the whole tree.",
+        "slot": { "script": "lint:suppressions:changed" }
+      }
+    },
+    {
+      "name": "suppression-ledger",
+      "full": { "script": "lint:suppressions:ledger" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode gates the suppression identity ledger over the paths the register scanners read for the change; full mode gates the whole-tree identity set.",
+        "slot": { "script": "lint:suppressions:ledger:changed" }
+      }
+    },
+    {
+      "name": "ratchet",
+      "full": {
+        "script": "lint:ratchet",
+        "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+      },
+      "changed": { "kind": "inherit" },
+      "requiresArtifact": "dist-outputs"
+    },
+    {
+      "name": "zero-baseline",
+      "full": { "script": "lint:ratchet:zero-baseline" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "debt-accounting",
+      "full": { "script": "lint:ratchet:check-debt-accounting" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode checks the staged index with --staged; full mode audits the worktree baseline.",
+        "slot": { "script": "lint:ratchet:check-debt-accounting", "args": ["--", "--staged"] }
+      }
+    },
+    {
+      "name": "local-rule-starter",
+      "full": { "script": "docs:local-eslint-rule-starter:check" },
+      "changed": {
+        "kind": "omit",
+        "reason": "The standalone documentation starter check is intentionally full-tree-only."
+      }
+    },
+    {
+      "name": "adr",
+      "full": { "script": "adr:check" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "knip-unused-exports",
+      "full": { "script": "sensor:knip-unused-exports" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "near-duplicates",
+      "full": { "script": "sensor:near-duplicates", "args": ["--", "--check-baseline"] },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode checks pairs touching staged files; full mode checks the whole-tree baseline.",
+        "slot": { "script": "sensor:near-duplicates" }
+      }
+    },
+    {
+      "name": "max-lines-exceptions",
+      "full": { "script": "lint:max-lines-exceptions" },
+      "changed": { "kind": "inherit" }
+    },
+    {
+      "name": "coverage-map",
+      "full": { "script": "docs:lint-coverage-map:audit" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode runs the reach-free whole-map check; full mode adds the whole-tree ESLint-reach probe.",
+        "slot": { "script": "docs:lint-coverage-map:check" }
+      }
+    },
+    {
+      "name": "format-check",
+      "full": { "script": "format:check" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode format-checks changed files; full mode checks the whole tree.",
+        "slot": { "script": "format:changed:check" }
+      }
+    },
+    {
+      "name": "typecheck",
+      "full": { "script": "typecheck" },
+      "changed": { "kind": "inherit" },
+      "produces": "dist-outputs"
+    },
+    {
+      "name": "test",
+      "full": {
+        "script": "test",
+        "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+      },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode runs test:changed; full mode runs the whole test suite with the same static reporters.",
+        "slot": {
+          "script": "test:changed",
+          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
+        }
+      }
+    },
+    {
+      "name": "scripts",
+      "full": { "script": "test:scripts" },
+      "changed": {
+        "kind": "replace",
+        "reason": "Changed mode runs test:scripts:changed through the staged-script classifier; full mode runs the whole script smoke suite.",
+        "slot": {
+          "script": "test:scripts:changed",
+          "condition": "when changed hook/script/harness inputs require script smoke",
+          "dynamic": "staged-script-classifier"
+        }
+      }
+    }
+  ],
+  "commandPolicy": [
+    {
+      "id": "hook-bypass",
+      "order": 1,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_HOOK_BYPASS",
+        "text": "Hook bypass is not allowed. Pre-commit hooks must always run."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_husky_zero_prefix"
+        },
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_git_commit_hook_bypass_flag"
+        },
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_git_push_hook_bypass_flag"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git commit *--no-verify*)",
+          "Bash(git commit --no-verify*)",
+          "Bash(git -c * commit *--no-verify*)"
+        ],
+        "partialReason": "The native matchers cover only direct `git commit ... --no-verify` forms. The shared rule also denies short `-n` commit flags, `git push --no-verify`, `HUSKY=0` prefixes, unprojected Git global-option forms, and commands behind shell, environment, or runner prefixes or within compound commands; the shared hook remains authoritative for those arms."
+      }
+    },
+    {
+      "id": "postgres-cli",
+      "order": 2,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_POSTGRES",
+        "text": "Do not use PostgreSQL CLI tools directly. You are in a container - use Prisma for all DB operations: 'bun run --filter @musi/server db:push' for schema, 'bun run --filter @musi/server db:seed' for seeding, or Prisma CLI commands routed through the repo scripts. Credentials are in .devcontainer/.env."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "(psql|pgcli|pg_dump|pg_restore|pg_isready|createdb|dropdb)$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: the whole value of this rule is the shared policy's remediation text (which Prisma or repo script replaces the CLI), and a native deny preempts it with a bare refusal. A rule is projected only where denying before the hook can speak is worth losing its message; here the message is the rule."
+      }
+    },
+    {
+      "id": "redis-cli",
+      "order": 3,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_REDIS",
+        "text": "Do not use redis-cli directly. You are in a container - Redis is managed by the app. If you need to inspect Redis state, read the app code or use 'bun run' scripts."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "redis-cli$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected, for the same reason as postgres-cli: the shared policy's message is the remediation, and native denial would replace it with a bare refusal."
+      }
+    },
+    {
+      "id": "docker-cli",
+      "order": 4,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_DOCKER",
+        "text": "Do not run docker or docker-compose commands. You are in a container - PostgreSQL and Redis are already running and managed by the dev container. Use Prisma CLI for database operations."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "docker(-compose)?$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected, for the same reason as postgres-cli: the shared policy's message is the remediation, and native denial would replace it with a bare refusal."
+      }
+    },
+    {
+      "id": "database-password-literal",
+      "order": 5,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_CHANGEME",
+        "text": "Wrong database credentials. 'ThisIsNotTheRealDatabasePassword' is not the password for this environment. Read .devcontainer/.env for the correct credentials."
+      },
+      "matchers": [
+        {
+          "kind": "literal",
+          "literal": "ThisIsNotTheRealDatabasePassword"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: this rule matches a credential literal anywhere in the command text rather than a command prefix, and Claude's Bash(...) matchers are prefix-anchored globs with no faithful bare-substring form."
+      }
+    },
+    {
+      "id": "protected-file-write",
+      "order": 6,
+      "class": "hard",
+      "scope": "checkout",
+      "message": {
+        "from": "predicate"
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_bash_protected_file_violation_reason"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: checkout-scoped. The protected-path table itself is static (the case block in scripts/ai-hooks/protected-files.sh), but the verdict flips on whether the checkout the hook resolves carries the repo-wide .allow-protected-edits override marker, which no static command matcher can see."
+      }
+    },
+    {
+      "id": "git-commit-amend",
+      "order": 7,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_AMEND",
+        "text": "Git commit amend is not allowed from agents because it rewrites local history. The amend did NOT run — HEAD and your staged changes are untouched. Stage your changes and create a NEW follow-up commit instead. If the previous commit genuinely must be amended, ask the user to do it manually."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}commit[^;&|]*[[:space:]]--amend$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git commit *--amend*)",
+          "Bash(git commit --amend*)",
+          "Bash(git -c * commit *--amend*)"
+        ],
+        "partialReason": "Claude-native Bash globs cover only the projected direct Git prefixes; the shared rule also recognizes amend commands using other Git global options or appearing behind shell, environment, or runner prefixes or within compound commands."
+      }
+    },
+    {
+      "id": "git-rebase",
+      "order": 8,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_REBASE",
+        "text": "Git rebase is not allowed from agents because it rewrites local history. Use merge or add follow-up commits; if a rebase is required, ask the user to run it."
+      },
+      "haystackTransform": "ai_policy_strip_allowed_rebase_controls",
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}rebase$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}rebase[[:space:]]+"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: the rule matches only the residue left after ai_policy_strip_allowed_rebase_controls removes the deliberately allowed --continue/--abort/--skip/--quit forms, so a static `git rebase*` matcher would deny commands this policy allows."
+      }
+    },
+    {
+      "id": "git-dangerous-reset",
+      "order": 9,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_RESET",
+        "text": "Dangerous git reset modes are not allowed from agents. Use path-scoped 'git restore --staged <path>' or ask the user to run the reset."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_dangerous_git_reset"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git reset *--hard*)",
+          "Bash(git reset *--soft*)",
+          "Bash(git reset *--merge*)",
+          "Bash(git reset *--keep*)",
+          "Bash(git reset HEAD~*)",
+          "Bash(git reset * HEAD~*)",
+          "Bash(git reset HEAD^*)",
+          "Bash(git reset * HEAD^*)",
+          "Bash(git reset ORIG_HEAD*)",
+          "Bash(git reset * ORIG_HEAD*)"
+        ],
+        "partialReason": "The native matchers cannot soundly cover every reset to an arbitrary non-option target such as a branch name or object id. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms."
+      }
+    },
+    {
+      "id": "git-worktree-loss",
+      "order": 10,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_WORKTREE_LOSS",
+        "text": "Git worktree-discarding commands are not allowed from agents because they can destroy uncommitted work. Use non-destructive inspection commands, path-scoped staged-only restores, or ask the user to run the discard."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_git_worktree_loss"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git checkout *--force*)",
+          "Bash(git checkout -f*)",
+          "Bash(git checkout * -f*)",
+          "Bash(git checkout -- *)",
+          "Bash(git checkout * -- *)",
+          "Bash(git checkout .)",
+          "Bash(git switch *--force*)",
+          "Bash(git switch -f*)",
+          "Bash(git switch * -f*)",
+          "Bash(git restore *--worktree*)",
+          "Bash(git restore -W*)",
+          "Bash(git restore * -W*)",
+          "Bash(git restore -- .)",
+          "Bash(git restore .)"
+        ],
+        "partialReason": "Claude-native Bash globs cannot distinguish destructive restore targets such as `git restore HEAD -- .` from allowed staged-only forms such as `git restore --staged -- .`. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms."
+      }
+    },
+    {
+      "id": "git-stash",
+      "order": 11,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_STASH",
+        "text": "Git stash mutations are not allowed from repository agents because stash ownership cannot be proven across agent work. Commit the work, inspect it with 'git diff' or 'git show HEAD:<path>', copy a file aside for an A/B comparison, or ask the user."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_disallowed_git_stash"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected, and pinned as such by scripts/ai-hooks/test.sh: a native stash deny fires before the shared hook can speak, and this rule's whole point is the contextual reason it supplies (stash refs are shared by every linked worktree, so ownership cannot be proven, and the message names the commit / git diff / copy-aside alternatives). The record-level corpus fails if this row gains native matchers; harness:check fails if the native deny array stops matching the projection."
+      }
+    },
+    {
+      "id": "git-history-rewrite",
+      "order": 12,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_HISTORY_REWRITE",
+        "text": "Git history rewrite and direct ref manipulation are not allowed from agents. Add a follow-up commit or ask the user to run the rewrite."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}(filter-branch|filter-repo|replace|update-ref)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}reflog[[:space:]]+expire[^;&|]*--expire=now[^;&|]*--all"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git filter-branch*)",
+          "Bash(git filter-repo*)",
+          "Bash(git replace*)",
+          "Bash(git update-ref*)",
+          "Bash(git reflog expire *--expire=now*--all*)"
+        ],
+        "partialReason": "Claude-native Bash globs cover only direct Git prefixes; the shared rule also recognizes these history-rewrite commands with Git global options or behind shell, environment, or runner prefixes or within compound commands."
+      }
+    },
+    {
+      "id": "git-force-push",
+      "order": 13,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_FORCE_PUSH",
+        "text": "Git force-push, remote ref pruning, and remote branch deletion are not allowed from agents. Push normal feature-branch updates only, or ask the user to perform the remote mutation."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]((--force|--force-with-lease)(=[^[:space:];|&'\"]*)?|--mirror|--delete|--prune)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]-[A-Za-z]*[fd][A-Za-z]*$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]\\+[^[:space:];|&'\"]+"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}push[^;&|]*[[:space:]]:[^[:space:];|&'\"]+"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git push *--force*)",
+          "Bash(git push *--mirror*)",
+          "Bash(git push *--delete*)",
+          "Bash(git push *--prune*)",
+          "Bash(git push -f*)",
+          "Bash(git push * -f*)",
+          "Bash(git push -d*)",
+          "Bash(git push * -d*)",
+          "Bash(git push +*)",
+          "Bash(git push * +*)",
+          "Bash(git push :*)",
+          "Bash(git push * :*)"
+        ],
+        "partialReason": "The native matchers cannot soundly cover every short-option cluster containing `f` or `d` when those letters are not first. They also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms."
+      }
+    },
+    {
+      "id": "git-push-to-main",
+      "order": 14,
+      "class": "hard",
+      "scope": "checkout",
+      "message": {
+        "constant": "AI_POLICY_GIT_PUSH_MAIN",
+        "text": "Pushing to main or master is not allowed from agents. Push a feature branch or ask the user to push the protected branch."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_git_push_to_main"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: checkout-scoped. Beyond the explicit main/master refspecs, the verdict depends on the branch of the resolved target checkout, which a static command matcher cannot resolve."
+      }
+    },
+    {
+      "id": "git-branch-force-delete",
+      "order": 15,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_BRANCH_FORCE_DELETE",
+        "text": "Force-updating or force-deleting branches and tags, and force-removing worktrees, are not allowed from agents. Use non-force ref operations or 'bun run worktree:drop', or ask the user to perform the destructive update."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-D$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*D[A-Za-z]*$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*d[A-Za-z]*$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*[[:space:]]-[A-Za-z]*d[A-Za-z]*"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*--delete[^;&|]*--force"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*--force[^;&|]*--delete"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*--delete[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*[^;&|]*--delete"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}branch[^;&|]*[[:space:]](--force|-[A-Za-z]*[fMC][A-Za-z]*)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}tag[^;&|]*[[:space:]]+(-[A-Za-z]*d[A-Za-z]*|--delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}tag[^;&|]*[[:space:]]+(--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}worktree[[:space:]]+remove[^;&|]*[[:space:]]--force$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}worktree[[:space:]]+remove[^;&|]*[[:space:]]-[A-Za-z]*f[A-Za-z]*$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git branch *--force*)",
+          "Bash(git branch *--delete*--force*)",
+          "Bash(git branch *--force*--delete*)",
+          "Bash(git branch -D*)",
+          "Bash(git branch * -D*)",
+          "Bash(git branch -f*)",
+          "Bash(git branch * -f*)",
+          "Bash(git branch -df*)",
+          "Bash(git branch * -df*)",
+          "Bash(git branch -fd*)",
+          "Bash(git branch * -fd*)",
+          "Bash(git branch -M*)",
+          "Bash(git branch * -M*)",
+          "Bash(git branch -C*)",
+          "Bash(git branch * -C*)",
+          "Bash(git tag *--delete*)",
+          "Bash(git tag *--force*)",
+          "Bash(git tag -d*)",
+          "Bash(git tag * -d*)",
+          "Bash(git tag -f*)",
+          "Bash(git tag * -f*)",
+          "Bash(git worktree remove *--force*)",
+          "Bash(git worktree remove -f*)",
+          "Bash(git worktree remove * -f*)"
+        ],
+        "partialReason": "The native matchers cannot soundly cover every force/delete short-option cluster. They also cover only direct Git prefixes, while the shared rule recognizes forms such as `git -C . branch -D ...`, other Git global options, and shell, environment, runner, and compound-command forms."
+      }
+    },
+    {
+      "id": "git-clean-force",
+      "order": 16,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GIT_CLEAN_FORCE",
+        "text": "Git clean with force is not allowed from agents because it destroys untracked files. Remove specific generated files by name or ask the user to clean the tree."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "${AI_POLICY_GIT_CMD}clean[^;&|]*[[:space:]](--force|-[A-Za-z]*f[A-Za-z]*)$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(git clean -f*)",
+          "Bash(git clean -df*)",
+          "Bash(git clean * -f*)",
+          "Bash(git clean * -df*)",
+          "Bash(git clean *--force*)"
+        ],
+        "partialReason": "Claude-native Bash globs cannot recognize every short-option cluster containing `f` without over-denying allowed dry-run or exclusion operands such as `git clean -n -e dist/foo`; the shared hook remains authoritative for uncovered force clusters such as `-xdf` and `-nf`. Native globs also cover only direct Git prefixes, while the shared rule recognizes Git global options and shell, environment, runner, and compound-command forms."
+      }
+    },
+    {
+      "id": "gh-auth",
+      "order": 17,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GH_AUTH",
+        "text": "GitHub auth token output and auth reconfiguration are not allowed from agents. Use 'gh auth status' for read-only auth checks, or ask the user to manage authentication."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+auth[[:space:]]+(token|login|logout|refresh|setup-git)$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": true,
+        "matchers": [
+          "Bash(gh auth login:*)",
+          "Bash(gh auth logout:*)",
+          "Bash(gh auth token:*)",
+          "Bash(gh auth refresh:*)",
+          "Bash(gh auth setup-git:*)"
+        ],
+        "partialReason": "Claude-native Bash globs cover direct `gh auth` prefixes only; the shared rule also recognizes these commands behind shell, environment, or runner prefixes or within compound commands."
+      }
+    },
+    {
+      "id": "gh-remote-mutation",
+      "order": 18,
+      "class": "hard",
+      "scope": "command",
+      "message": {
+        "constant": "AI_POLICY_GH_REMOTE_MUTATION",
+        "text": "GitHub remote mutations are not allowed from agents. Use read-only 'gh ... view/list/status' commands, or ask the user to perform the mutation."
+      },
+      "matchers": [
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+pr[[:space:]]+(create|comment|merge|close|reopen|ready|edit|lock|unlock|review)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+issue[[:space:]]+(create|comment|close|reopen|edit|delete|develop|lock|unlock|transfer|pin|unpin)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+repo[[:space:]]+(create|fork|delete|archive|rename|transfer|edit|sync|set-default)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+repo[[:space:]]+deploy-key[[:space:]]+(add|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+release[[:space:]]+(create|edit|delete|delete-asset|upload)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+workflow[[:space:]]+(disable|enable|run)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+run[[:space:]]+(cancel|rerun|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+cache[[:space:]]+delete$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+secret[[:space:]]+(set|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+variable[[:space:]]+(set|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_gh_api_mutation"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+codespace[[:space:]]+(create|delete|edit|rebuild|stop)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+gist[[:space:]]+(create|edit|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+(gpg-key|ssh-key)[[:space:]]+(add|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+label[[:space:]]+(create|edit|delete|clone)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+alias[[:space:]]+(set|delete)$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+config[[:space:]]+set$AI_POLICY_CMD_END"
+        },
+        {
+          "kind": "pattern",
+          "pattern": "gh[[:space:]]+extension[[:space:]]+(install|remove|upgrade)$AI_POLICY_CMD_END"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: the rule's `gh api` arm is flag-contextual — an explicit --method GET and a visible GraphQL query= payload are deliberately allowed — so projecting only the subcommand arms would split one rule across two authorities and leave its contextual arm silently unprojected."
+      }
+    },
+    {
+      "id": "git-commit-on-main",
+      "order": 19,
+      "class": "hard",
+      "scope": "checkout",
+      "message": {
+        "constant": "AI_POLICY_GIT_COMMIT_ON_MAIN",
+        "text": "Committing on main or master is not allowed from agents. Create a feature branch ('git switch -c feat/...') and commit there; reviewers merge to the protected branch."
+      },
+      "matchers": [
+        {
+          "kind": "predicate",
+          "predicate": "ai_policy_has_git_commit_on_main"
+        }
+      ],
+      "nativePermissions": {
+        "projected": false,
+        "reason": "Not projected: checkout-scoped. A plain `git commit` is allowed everywhere except the protected branch of the resolved target checkout, and a static command matcher cannot see that branch."
+      }
+    }
+  ],
   "controls": [
     {
-      "id": "lint/local/bad-comparison-sequence",
-      "kind": "lint-rule",
-      "ruleName": "local/bad-comparison-sequence",
-      "source": "eslint-rules/bad-comparison-sequence.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/bad-min-max-func",
-      "kind": "lint-rule",
-      "ruleName": "local/bad-min-max-func",
-      "source": "eslint-rules/bad-min-max-func.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/concurrency-guard",
-      "kind": "lint-rule",
-      "ruleName": "local/concurrency-guard",
-      "source": "eslint-rules/concurrency-guard.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/e2e-prefer-role-selectors",
-      "kind": "lint-rule",
-      "ruleName": "local/e2e-prefer-role-selectors",
-      "source": "eslint-rules/e2e-prefer-role-selectors.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/max-lines",
-      "kind": "lint-rule",
-      "ruleName": "local/max-lines",
-      "source": "eslint-rules/max-lines.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/missing-throw",
-      "kind": "lint-rule",
-      "ruleName": "local/missing-throw",
-      "source": "eslint-rules/missing-throw.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-arbitrary-tailwind-value",
-      "kind": "lint-rule",
-      "ruleName": "local/no-arbitrary-tailwind-value",
-      "source": "eslint-rules/no-arbitrary-tailwind-value.js",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "lint/local/no-async-array-callbacks",
-      "kind": "lint-rule",
-      "ruleName": "local/no-async-array-callbacks",
-      "source": "eslint-rules/no-async-array-callbacks.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-barrel",
-      "kind": "lint-rule",
-      "ruleName": "local/no-barrel",
-      "source": "eslint-rules/no-barrel.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-broadcast-in-transaction",
-      "kind": "lint-rule",
-      "ruleName": "local/no-broadcast-in-transaction",
-      "source": "eslint-rules/no-broadcast-in-transaction.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-commented-out-code",
-      "kind": "lint-rule",
-      "ruleName": "local/no-commented-out-code",
-      "source": "eslint-rules/no-commented-out-code.js",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "lint/local/no-effect-misuse",
-      "kind": "lint-rule",
-      "ruleName": "local/no-effect-misuse",
-      "source": "eslint-rules/no-effect-misuse.js",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "lint/local/no-explicit-any",
-      "kind": "lint-rule",
-      "ruleName": "local/no-explicit-any",
-      "source": "eslint-rules/no-explicit-any.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-llm-artifacts",
-      "kind": "lint-rule",
-      "ruleName": "local/no-llm-artifacts",
-      "source": "eslint-rules/no-llm-artifacts.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-incorrect-sort",
-      "kind": "lint-rule",
-      "ruleName": "local/no-incorrect-sort",
-      "source": "eslint-rules/no-incorrect-sort.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-outer-client-in-transaction",
-      "kind": "lint-rule",
-      "ruleName": "local/no-outer-client-in-transaction",
-      "source": "eslint-rules/no-outer-client-in-transaction.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-plain-error-in-trpc",
-      "kind": "lint-rule",
-      "ruleName": "local/no-plain-error-in-trpc",
-      "source": "eslint-rules/no-plain-error-in-trpc.js",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "lint/local/no-redundant-central-mock",
-      "kind": "lint-rule",
-      "ruleName": "local/no-redundant-central-mock",
-      "source": "eslint-rules/no-redundant-central-mock.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-retired-parse-success-import",
-      "kind": "lint-rule",
-      "ruleName": "local/no-retired-parse-success-import",
-      "source": "eslint-rules/no-retired-parse-success-import.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-swallowed-errors",
-      "kind": "lint-rule",
-      "ruleName": "local/no-swallowed-errors",
-      "source": "eslint-rules/no-swallowed-errors.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/socket-listener-cleanup",
-      "kind": "lint-rule",
-      "ruleName": "local/socket-listener-cleanup",
-      "source": "eslint-rules/socket-listener-cleanup.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/socket-registry-broadcasts",
-      "kind": "lint-rule",
-      "ruleName": "local/socket-registry-broadcasts",
-      "source": "eslint-rules/socket-registry-broadcasts.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/strict-shared-schemas",
-      "kind": "lint-rule",
-      "ruleName": "local/strict-shared-schemas",
-      "source": "eslint-rules/strict-shared-schemas.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/strict-trpc-input",
-      "kind": "lint-rule",
-      "ruleName": "local/strict-trpc-input",
-      "source": "eslint-rules/strict-trpc-input.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/structured-logging",
-      "kind": "lint-rule",
-      "ruleName": "local/structured-logging",
-      "source": "eslint-rules/structured-logging.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/test-file-location",
-      "kind": "lint-rule",
-      "ruleName": "local/test-file-location",
-      "source": "eslint-rules/test-file-location.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/trpc-require-output-schema",
-      "kind": "lint-rule",
-      "ruleName": "local/trpc-require-output-schema",
-      "source": "eslint-rules/trpc-require-output-schema.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/trpc-shared-input-schema",
-      "kind": "lint-rule",
-      "ruleName": "local/trpc-shared-input-schema",
-      "source": "eslint-rules/trpc-shared-input-schema.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/trpc-shared-output-schema",
-      "kind": "lint-rule",
-      "ruleName": "local/trpc-shared-output-schema",
-      "source": "eslint-rules/trpc-shared-output-schema.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/type-assertion-boundary",
-      "kind": "lint-rule",
-      "ruleName": "local/type-assertion-boundary",
-      "source": "eslint-rules/type-assertion-boundary.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/uninvoked-array-callback",
-      "kind": "lint-rule",
-      "ruleName": "local/uninvoked-array-callback",
-      "source": "eslint-rules/uninvoked-array-callback.js",
-      "invocation": "bun run lint"
-    },
-    {
-      "id": "lint/local/no-unbounded-promise-all",
-      "kind": "lint-rule",
-      "ruleName": "local/no-unbounded-promise-all",
-      "source": "eslint-rules/no-unbounded-promise-all.js",
-      "invocation": "bun run lint"
+      "id": "check/concurrency-relation-graph-generator",
+      "kind": "check",
+      "category": "behavior",
+      "principle": "Generate the Prisma relation subgraph and repair metadata for every gated delegate, including live docs/CONCURRENCY.md repair anchors and payload-envelope scalar collisions used by the nested-write runtime guard and author-time lint; --check and the always-on drift suite fail when schema, documentation headings, or concurrency policy leave the checked-in descriptor stale.",
+      "pairedGuide": "docs/guides/add-race-sensitive-mutation.md",
+      "repairKind": "autofix",
+      "source": "scripts/codemods/concurrency-guard/generate-relation-graph.ts",
+      "invocation": "bun run concurrency:relation-graph",
+      "generatedSurface": {
+        "triggerPaths": [
+          "docs/CONCURRENCY.md",
+          "packages/server/prisma/schema.prisma",
+          "scripts/codemods/concurrency-guard/constants.ts",
+          "scripts/codemods/concurrency-guard/generate-relation-graph.ts",
+          "scripts/codemods/concurrency-guard/relation-graph-generator.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts"
+        ],
+        "outputPaths": [
+          "packages/server/src/prisma/concurrency-relation-graph.generated.json",
+          "packages/server/src/prisma/concurrency-relation-graph.generated.ts"
+        ],
+        "checkScript": "concurrency:relation-graph:check",
+        "warnLabel": "concurrency relation graph",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixtureExtras": [
+          {
+            "path": "docs/CONCURRENCY.md",
+            "reason": "Runtime source parsed when the fixture regenerates the concurrency relation graph."
+          },
+          {
+            "path": "packages/server/prisma/schema.prisma",
+            "reason": "Runtime Prisma schema input parsed by the relation-graph generator."
+          },
+          {
+            "path": "packages/server/src/prisma/concurrency-relation-graph.generated.json",
+            "reason": "Generated JSON is a runtime parity input in the reduced fixture."
+          }
+        ]
+      }
     },
     {
       "id": "ratchet/local-no-arbitrary-tailwind-value-client",
       "kind": "ratchet",
       "category": "maintainability",
       "pairedGuide": "docs/guides/lint-ratchet.md",
-      "repairKind": "manual",
-      "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
-      "invocation": "bun run lint:ratchet"
-    },
-    {
-      "id": "ratchet/local-no-effect-misuse-client",
-      "kind": "ratchet",
-      "category": "architecture-fitness",
-      "pairedGuide": "docs/guides/client-effects.md",
       "repairKind": "manual",
       "source": "scripts/lint-ratchet/lint-ratchet-config.ts",
       "invocation": "bun run lint:ratchet"
@@ -513,7 +1093,7 @@
       "id": "sensor/max-lines-exceptions",
       "kind": "sensor",
       "category": "maintainability",
-      "principle": "Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps shared-policy.js feeds eslint cannot drift from a hand edit.",
+      "principle": "Keep the per-file max-lines cap exceptions baseline (eslint-config/max-lines-exceptions.baseline.json) normalized and framework-valid so the caps loaded by eslint-config/max-lines-policy.js cannot drift from a hand edit.",
       "pairedGuide": "docs/ai-harness.md",
       "repairKind": "manual",
       "source": "scripts/max-lines-exceptions.ts",
@@ -608,238 +1188,29 @@
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify",
-      "slots": [
-        {
-          "name": "lint",
-          "script": "lint"
-        },
-        {
-          "name": "suppressions",
-          "script": "lint:suppressions"
-        },
-        {
-          "name": "suppression-ledger",
-          "script": "lint:suppressions:ledger"
-        },
-        {
-          "name": "ratchet",
-          "script": "lint:ratchet",
-          "env": {
-            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
-          }
-        },
-        {
-          "name": "zero-baseline",
-          "script": "lint:ratchet:zero-baseline"
-        },
-        {
-          "name": "debt-accounting",
-          "script": "lint:ratchet:check-debt-accounting"
-        },
-        {
-          "name": "local-rule-starter",
-          "script": "docs:local-eslint-rule-starter:check"
-        },
-        {
-          "name": "adr",
-          "script": "adr:check"
-        },
-        {
-          "name": "knip-unused-exports",
-          "script": "sensor:knip-unused-exports"
-        },
-        {
-          "name": "near-duplicates",
-          "script": "sensor:near-duplicates",
-          "args": ["--", "--check-baseline"]
-        },
-        {
-          "name": "max-lines-exceptions",
-          "script": "lint:max-lines-exceptions"
-        },
-        {
-          "name": "coverage-map",
-          "script": "docs:lint-coverage-map:audit"
-        },
-        {
-          "name": "format-check",
-          "script": "format:check"
-        },
-        {
-          "name": "typecheck",
-          "script": "typecheck"
-        },
-        {
-          "name": "test",
-          "script": "test",
-          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
-        },
-        {
-          "name": "scripts",
-          "script": "test:scripts"
-        }
-      ]
+      "slotProfile": { "mode": "full" }
     },
     {
       "id": "verify-wrapper/verify-changed",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and test:scripts:changed in parallel against the changed-file set; default edit-loop gate before commit; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed",
-      "slots": [
-        {
-          "name": "lint",
-          "script": "lint:changed"
-        },
-        {
-          "name": "suppressions",
-          "script": "lint:suppressions:changed"
-        },
-        {
-          "name": "suppression-ledger",
-          "script": "lint:suppressions:ledger:changed"
-        },
-        {
-          "name": "ratchet",
-          "script": "lint:ratchet",
-          "env": {
-            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
-          }
-        },
-        {
-          "name": "zero-baseline",
-          "script": "lint:ratchet:zero-baseline"
-        },
-        {
-          "name": "debt-accounting",
-          "script": "lint:ratchet:check-debt-accounting",
-          "args": ["--", "--staged"]
-        },
-        {
-          "name": "adr",
-          "script": "adr:check"
-        },
-        {
-          "name": "knip-unused-exports",
-          "script": "sensor:knip-unused-exports"
-        },
-        {
-          "name": "near-duplicates",
-          "script": "sensor:near-duplicates"
-        },
-        {
-          "name": "max-lines-exceptions",
-          "script": "lint:max-lines-exceptions"
-        },
-        {
-          "name": "coverage-map",
-          "script": "docs:lint-coverage-map:check",
-          "args": ["--", "--staged"]
-        },
-        {
-          "name": "format-check",
-          "script": "format:changed:check"
-        },
-        {
-          "name": "typecheck",
-          "script": "typecheck"
-        },
-        {
-          "name": "test",
-          "script": "test:changed",
-          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
-        },
-        {
-          "name": "scripts",
-          "script": "test:scripts:changed",
-          "condition": "when changed hook/script/harness inputs require script smoke",
-          "dynamic": "staged-script-classifier"
-        }
-      ]
+      "slotProfile": { "mode": "changed" }
     },
     {
       "id": "verify-wrapper/verify-parallel",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; when packages/{shared,server}/dist is missing, the wrapper defers lint and ratchet until the existing typecheck slot has produced those ignored outputs.",
+      "principle": "Run the full lint, suppression policy registers, ratchet, zero-baseline lifecycle check, debt-accounting integrity gate, standalone local-rule starter check, ADR cross-link validation, knip unused-export floor and whole-tree near-duplicate baseline, coverage-map, format check, typecheck, test, and scripts suites in parallel; reduces full-verify wall time when the full script suite fits the selected timeout or cached state; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:parallel",
-      "slots": [
-        {
-          "name": "lint",
-          "script": "lint"
-        },
-        {
-          "name": "suppressions",
-          "script": "lint:suppressions"
-        },
-        {
-          "name": "suppression-ledger",
-          "script": "lint:suppressions:ledger"
-        },
-        {
-          "name": "ratchet",
-          "script": "lint:ratchet",
-          "env": {
-            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
-          }
-        },
-        {
-          "name": "zero-baseline",
-          "script": "lint:ratchet:zero-baseline"
-        },
-        {
-          "name": "debt-accounting",
-          "script": "lint:ratchet:check-debt-accounting"
-        },
-        {
-          "name": "local-rule-starter",
-          "script": "docs:local-eslint-rule-starter:check"
-        },
-        {
-          "name": "adr",
-          "script": "adr:check"
-        },
-        {
-          "name": "knip-unused-exports",
-          "script": "sensor:knip-unused-exports"
-        },
-        {
-          "name": "near-duplicates",
-          "script": "sensor:near-duplicates",
-          "args": ["--", "--check-baseline"]
-        },
-        {
-          "name": "max-lines-exceptions",
-          "script": "lint:max-lines-exceptions"
-        },
-        {
-          "name": "coverage-map",
-          "script": "docs:lint-coverage-map:audit"
-        },
-        {
-          "name": "format-check",
-          "script": "format:check"
-        },
-        {
-          "name": "typecheck",
-          "script": "typecheck"
-        },
-        {
-          "name": "test",
-          "script": "test",
-          "args": ["--reporter=dot", "--reporter=json", "--outputFile.json=$TIMINGS_FILE"]
-        },
-        {
-          "name": "scripts",
-          "script": "test:scripts"
-        }
-      ]
+      "slotProfile": { "mode": "full" }
     },
     {
       "id": "verify-wrapper/verify-slow",
@@ -1125,7 +1496,7 @@
       "id": "doc-generator/baseline-conflict-recipes",
       "kind": "doc-generator",
       "category": "maintainability",
-      "principle": "Project the per-baseline merge-conflict recovery recipes into the merge runbook from the driver's own print_conflict_recovery cases (keyed by baseline), so the docs and scripts/git/baseline-merge-driver.sh never carry differently-worded recipes; --check fails on drift.",
+      "principle": "Project the per-baseline merge-conflict recovery recipes into the merge runbook from their live authorities: the package renderer for lint-ratchet and scripts/git/baseline-merge-driver.sh for Musi's other families; --check fails on drift.",
       "pairedGuide": "docs/guides/lint-ratchet-merges.md",
       "repairKind": "autofix",
       "source": "scripts/generate-baseline-conflict-recipes.ts",
@@ -1134,16 +1505,23 @@
         "triggerPaths": [
           "scripts/generate-baseline-conflict-recipes.ts",
           "scripts/git/baseline-merge-driver.sh",
-          "scripts/lib/doc-generator.ts"
+          "scripts/lib/doc-generator.ts",
+          "scripts/lint-ratchet/workflow-vocabulary.ts",
+          "tools/lint-ratchet/src/git-rail/conflict-recovery.ts"
         ],
         "outputPaths": ["docs/guides/lint-ratchet-merges.md"],
         "checkScript": "docs:baseline-conflict-recipes:check",
         "warnLabel": "baseline conflict recovery recipes",
         "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/generate-baseline-conflict-recipes.ts",
-          "scripts/git/baseline-merge-driver.sh",
-          "docs/guides/lint-ratchet-merges.md"
+        "fixtureExtras": [
+          {
+            "path": "scripts/git/baseline-merge-driver.sh",
+            "reason": "Non-walkable shell recipe consumed by the documentation generator."
+          },
+          {
+            "path": "docs/guides/lint-ratchet-merges.md",
+            "reason": "Generated guide is read back as the check-mode comparison target."
+          }
         ]
       }
     },
@@ -1151,7 +1529,7 @@
       "id": "doc-generator/lint-coverage-map",
       "kind": "doc-generator",
       "category": "maintainability",
-      "principle": "Generate the direct-child scripts/drift-ai TypeScript coverage row from tracked files, fail-closed ESLint reach, and live ratchet membership while preserving the hand-maintained coverage-map document outside one marker-delimited block; --check fails on generated-block drift.",
+      "principle": "Render docs/generated/lint-coverage-map.md end to end from the typed coverage manifest, deriving the direct-child scripts/drift-ai TypeScript row from tracked files, fail-closed ESLint reach, and live ratchet membership; the document is pure generator output with no hand-maintained span, and --check fails on any drift from the manifest.",
       "pairedGuide": "docs/guides/lint-ratchet.md",
       "repairKind": "autofix",
       "source": "scripts/lint-coverage-map-gen.ts",
@@ -1167,9 +1545,27 @@
           "scripts/lib/git.ts",
           "scripts/lint-coverage-map-check-eslint-reach.ts",
           "scripts/lint-coverage-map-check-io.ts",
-          "scripts/lint-coverage-map-check-types.ts",
           "scripts/lint-coverage-map-gen-core.ts",
           "scripts/lint-coverage-map-gen.ts",
+          "scripts/lint-coverage-map-manifest-codemods.ts",
+          "scripts/lint-coverage-map-manifest-config-files.ts",
+          "scripts/lint-coverage-map-manifest-config-sensors.ts",
+          "scripts/lint-coverage-map-manifest-docs.ts",
+          "scripts/lint-coverage-map-manifest-drift-ai.ts",
+          "scripts/lint-coverage-map-manifest-harness-scripts.ts",
+          "scripts/lint-coverage-map-manifest-lint-rules-and-shell.ts",
+          "scripts/lint-coverage-map-manifest-linted-scripts-a.ts",
+          "scripts/lint-coverage-map-manifest-linted-scripts-b.ts",
+          "scripts/lint-coverage-map-manifest-misc.ts",
+          "scripts/lint-coverage-map-manifest-packages.ts",
+          "scripts/lint-coverage-map-manifest-portable-tooling.ts",
+          "scripts/lint-coverage-map-manifest-prose.ts",
+          "scripts/lint-coverage-map-manifest-ratchet-runtime.ts",
+          "scripts/lint-coverage-map-manifest-schema.ts",
+          "scripts/lint-coverage-map-manifest-script-entrypoints.ts",
+          "scripts/lint-coverage-map-manifest-script-fixtures.ts",
+          "scripts/lint-coverage-map-manifest-sections.ts",
+          "scripts/lint-coverage-map-manifest.ts",
           "scripts/lint-ratchet/lint-ratchet-config.ts",
           "scripts/lint-ratchet/registry-builders.ts",
           "tools/lint-ratchet/package.json",
@@ -1179,24 +1575,17 @@
         ],
         "outputPaths": ["docs/generated/lint-coverage-map.md"],
         "checkScript": "docs:lint-coverage-map:generate:check",
-        "warnLabel": "lint coverage-map generated block",
+        "warnLabel": "lint coverage-map document",
         "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": [
-          "docs/generated/lint-coverage-map.md",
-          "eslint-config/config-surface-manifest.json",
-          "eslint-config/config-surfaces.js",
-          "eslint-config/max-lines-exceptions-codec.js",
-          "eslint-config/max-lines-exceptions.baseline.json",
-          "eslint-config/shared-policy.js",
-          "scripts/lib/codepoint-compare.ts",
-          "scripts/lib/doc-generator.ts",
-          "scripts/lib/git.ts",
-          "scripts/lint-coverage-map-check-eslint-reach.ts",
-          "scripts/lint-coverage-map-check-io.ts",
-          "scripts/lint-coverage-map-gen-core.ts",
-          "scripts/lint-coverage-map-gen.ts",
-          "scripts/lint-ratchet/lint-ratchet-config.ts",
-          "scripts/lint-ratchet/registry-builders.ts"
+        "fixtureExtras": [
+          {
+            "path": "docs/generated/lint-coverage-map.md",
+            "reason": "Generated document is read back as the check-mode comparison target."
+          },
+          {
+            "path": "eslint-config/config-surface-manifest.json",
+            "reason": "Runtime JSON input is loaded outside the static TypeScript import graph."
+          }
         ]
       }
     },
@@ -1204,7 +1593,7 @@
       "id": "doc-generator/harness-controls",
       "kind": "doc-generator",
       "category": "maintainability",
-      "principle": "Generate the agent-facing harness controls map from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.",
+      "principle": "Generate the agent-facing harness controls map and command-policy projection reference from harness.controls.json (lint-rule entries re-projected from each rule's meta.docs); --check fails on drift between the manifest and the generated markdown.",
       "pairedGuide": "none",
       "repairKind": "autofix",
       "source": "scripts/harness/generate-harness-controls.ts",
@@ -1212,16 +1601,21 @@
       "generatedSurface": {
         "triggerPaths": [
           "eslint-config/config-surfaces.js",
-          "eslint-config/max-lines-exceptions-codec.js",
-          "eslint-config/shared-policy.js",
+          "eslint-config/path-glob-policy.js",
+          "eslint-config/script-test-policy.js",
           "harness.controls.json",
+          "harness.controls.lint-rules.generated.json",
+          "scripts/harness/command-policy-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-harness-controls-validation.ts",
           "scripts/harness/generate-harness-controls.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
+          "scripts/harness/hook-wiring-doc.ts",
           "scripts/harness/hook-wiring-schema.ts",
+          "scripts/harness/verify-step-artifacts.ts",
           "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
@@ -1233,11 +1627,7 @@
         "outputPaths": ["docs/generated/harness-controls.md"],
         "checkScript": "docs:harness-controls:check",
         "warnLabel": "harness controls docs",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/generate-harness-controls.ts",
-          "scripts/harness/generate-harness-controls-validation.ts"
-        ]
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
       }
     },
     {
@@ -1251,7 +1641,7 @@
       "invocation": "bun run docs:lint-guidance",
       "generatedSurface": {
         "triggerPaths": [
-          "eslint-config/local-plugin.js",
+          "eslint-config/local-plugin.generated.js",
           "eslint-rules/",
           "scripts/generate-lint-guidance.ts",
           "scripts/lib/doc-generator.ts",
@@ -1261,8 +1651,36 @@
         "outputPaths": ["docs/generated/local-lint-rules.md"],
         "checkScript": "docs:lint-guidance:check",
         "warnLabel": "lint guidance",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": ["scripts/generate-lint-guidance.ts", "scripts/lib/lint-rule-docs.ts"]
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+      }
+    },
+    {
+      "id": "doc-generator/manifest-json-schema",
+      "kind": "doc-generator",
+      "category": "maintainability",
+      "principle": "Publish the JSON Schema for harness.controls.json by projecting it from the Zod contract that already validates the manifest, so an external adopter can validate a manifest, get editor completion, and see format changes as a schema diff without reverse-engineering the in-repo parser; --check fails when the published schema drifts from the contract.",
+      "pairedGuide": "docs/guides/harness-manifest-parser.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-manifest-json-schema.ts",
+      "invocation": "bun run harness:manifest-schema",
+      "generatedSurface": {
+        "triggerPaths": [
+          "scripts/harness/control-field-validation.ts",
+          "scripts/harness/generate-manifest-json-schema.ts",
+          "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts"
+        ],
+        "outputPaths": ["schemas/harness.controls.schema.json"],
+        "checkScript": "harness:manifest-schema:check",
+        "warnLabel": "published manifest JSON Schema",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
       }
     },
     {
@@ -1386,6 +1804,9 @@
           "scripts/harness/hook-shim-files.ts",
           "scripts/harness/hook-shims.ts",
           "scripts/harness/hook-wiring-schema.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-schema.ts",
           "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/atomic-write.ts",
           "scripts/lib/codepoint-compare.ts",
@@ -1402,17 +1823,27 @@
         "checkScript": "harness:wiring:check",
         "warnLabel": "AI hook wiring",
         "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/generate-hook-wiring.ts",
-          "scripts/harness/hook-shim-files.ts",
-          "scripts/harness/hook-shims.ts",
-          "scripts/harness/hook-wiring-schema.ts",
-          "scripts/lib/atomic-write.ts",
-          "scripts/ai-hooks/check-wiring.sh",
-          "scripts/ai-hooks/bun-run-quiet.sh",
-          "scripts/ai-hooks/git-commit-quiet.sh",
-          ".claude/hooks/bun-run-quiet.sh",
-          ".claude/hooks/git-commit-quiet.sh"
+        "fixtureExtras": [
+          {
+            "path": "scripts/ai-hooks/check-wiring.sh",
+            "reason": "Non-walkable shell validator executed by harness:check in the fixture."
+          },
+          {
+            "path": "scripts/ai-hooks/bun-run-quiet.sh",
+            "reason": "Generated hook wiring validates this non-walkable shell target."
+          },
+          {
+            "path": "scripts/ai-hooks/git-commit-quiet.sh",
+            "reason": "Generated hook wiring validates this non-walkable shell target."
+          },
+          {
+            "path": ".claude/hooks/bun-run-quiet.sh",
+            "reason": "Fixture wiring checks compare the committed Claude shell shim."
+          },
+          {
+            "path": ".claude/hooks/git-commit-quiet.sh",
+            "reason": "Fixture wiring checks compare the committed Claude shell shim."
+          }
         ]
       }
     },
@@ -1436,6 +1867,10 @@
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-timeout-constants.ts",
           "scripts/harness/hook-wiring-schema.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/records.ts"
@@ -1444,11 +1879,89 @@
         "checkScript": "harness:hook-timeouts:check",
         "warnLabel": "hook timeout constants",
         "bunHook": { "refresh": "bypass", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/generate-hook-timeout-constants.ts",
-          "scripts/harness/hook-timeout-constants.ts",
-          "scripts/ai-hooks/hook-timeouts.generated.sh"
+        "fixtureExtras": [
+          {
+            "path": "scripts/ai-hooks/hook-timeouts.generated.sh",
+            "reason": "Generated shell constants are read back by the fixture freshness check."
+          }
         ]
+      }
+    },
+    {
+      "id": "check/pre-push-scope-trigger-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate the .husky/pre-push near-duplicates boundary trigger ERE from the scanner's own source-extension truth (BUILT_IN_SOURCE_EXTENSIONS plus drift-ai.config.json additionalSourceExtensions) and the whole-file detector inputs; the hook sources the fragment and fails closed when it is missing, and --check fails on drift.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-pre-push-scope-trigger.ts",
+      "invocation": "bun run harness:pre-push-trigger",
+      "generatedSurface": {
+        "triggerPaths": [
+          "drift-ai.config.json",
+          "scripts/drift-ai/scope.ts",
+          "scripts/drift-ai/types.ts",
+          "scripts/harness/generate-pre-push-scope-trigger.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/pre-push-scope-trigger.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/path-taxonomy.ts",
+          "scripts/lib/records.ts"
+        ],
+        "outputPaths": ["scripts/harness/pre-push-scope-trigger.generated.sh"],
+        "checkScript": "harness:pre-push-trigger:check",
+        "warnLabel": "pre-push near-duplicates scope trigger",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "fixtureExtras": [
+          {
+            "path": "drift-ai.config.json",
+            "reason": "Runtime scanner config read for additionalSourceExtensions when the fixture regenerates the trigger."
+          },
+          {
+            "path": "scripts/harness/pre-push-scope-trigger.generated.sh",
+            "reason": "Generated shell trigger is read back as the check-mode comparison target."
+          }
+        ]
+      }
+    },
+    {
+      "id": "check/command-policy-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Render the ordered hard-deny command policy from the root commandPolicy rows into the fail-closed shell fragment the agent hooks consume, and derive the Claude-native permissions.deny array from the same rows; --check fails when the committed fragment is stale or when the native deny array stops matching the projection.",
+      "pairedGuide": "none",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-command-policy.ts",
+      "invocation": "bun run harness:command-policy",
+      "generatedSurface": {
+        "triggerPaths": [
+          ".claude/settings.json",
+          "harness.controls.json",
+          "scripts/ai-hooks/command-normalize.sh",
+          "scripts/ai-hooks/command-paths.sh",
+          "scripts/ai-hooks/git-classify.sh",
+          "scripts/ai-hooks/policy-eval.sh",
+          "scripts/ai-hooks/policy.sh",
+          "scripts/harness/command-policy-projection.ts",
+          "scripts/harness/command-policy-schema.ts",
+          "scripts/harness/control-field-validation.ts",
+          "scripts/harness/generate-command-policy.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-manifest-loader.ts",
+          "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts"
+        ],
+        "outputPaths": ["scripts/ai-hooks/policy-rules.generated.sh"],
+        "checkScript": "harness:command-policy:check",
+        "warnLabel": "agent command policy rules and native deny projection",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
       }
     },
     {
@@ -1463,8 +1976,10 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness-registration-check.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-verify-steps.ts",
+          "scripts/harness/generated-surface-dependencies.ts",
           "scripts/harness/generated-surfaces-loader.ts",
           "scripts/harness/generated-surfaces.ts",
           "scripts/harness/harness-check-validation.ts",
@@ -1472,13 +1987,25 @@
           "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest-schema.ts",
           "scripts/harness/harness-paths.ts",
-          "scripts/harness/verify-step-bridge-divergences.ts",
+          "scripts/harness/registration-explain.ts",
+          "scripts/harness/registration-explain-cli.ts",
+          "scripts/harness/registration-explain-describe.ts",
+          "scripts/harness/registration-explain-matchers.ts",
+          "scripts/harness/registration-explain-model.ts",
+          "scripts/harness/registration-explain-render.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-artifacts.ts",
           "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/records.ts",
-          "scripts/lint-ratchet/ratchet-manifest-message.ts"
+          "scripts/lint-ratchet/ratchet-manifest-message.ts",
+          "scripts/path-policy/path-policy-smoke-subjects.ts",
+          "scripts/path-policy/path-policy-smoke-subjects-data.ts",
+          "scripts/import-closure/closure-walk.ts",
+          "scripts/import-closure/runtime-imports.ts",
+          "scripts/import-closure/runtime-resolution.ts"
         ],
         "outputPaths": [
           "scripts/verify/steps.generated.sh",
@@ -1496,43 +2023,35 @@
             "sensor:context-budget": "wrapped"
           }
         },
-        "fixturePaths": [
-          "scripts/drift-ai/scope.ts",
-          "scripts/harness-check.ts",
-          "scripts/harness/control-field-validation.ts",
-          "scripts/harness/fixture-closure-check.ts",
-          "scripts/harness/generate-verify-steps.ts",
-          "scripts/harness/generated-surfaces-loader.ts",
-          "scripts/harness/generated-surfaces.ts",
-          "scripts/harness/harness-check-validation.ts",
-          "scripts/harness/harness-gate-parity.ts",
-          "scripts/harness/harness-manifest-schema.ts",
-          "scripts/harness/harness-manifest-loader.ts",
-          "scripts/harness/harness-manifest.ts",
-          "scripts/harness/harness-paths.ts",
-          "scripts/harness/local-rule-config.ts",
-          "scripts/harness/manifest-contract-check.ts",
-          "scripts/harness/porting-knob-parity.ts",
-          "scripts/harness/pre-push-scope-pin.ts",
-          "scripts/harness/registration-check.ts",
-          "scripts/harness/registration-generated-checks.ts",
-          "scripts/harness/registration-manifest-checks.ts",
-          "scripts/harness/registration-preflight-wiring.ts",
-          "scripts/harness/verify-step-bridge-divergences.ts",
-          "scripts/harness/verify-step-schema.ts",
-          "scripts/lib/codepoint-compare.ts",
-          "scripts/lib/doc-generator.ts",
-          "scripts/lib/records.ts",
-          "scripts/lib/test-worker-count.sh",
-          "scripts/lib/verify-engine.sh",
-          "scripts/lint-ratchet/ratchet-manifest-message.ts",
-          "scripts/verify/memory-budget.sh",
-          "scripts/verify/steps-lib.sh",
-          "scripts/worktree-seed-import-closure.ts",
-          "scripts/worktree-seed-runtime-loader-exports.ts",
-          "scripts/worktree-seed-runtime-loader-identifiers.ts",
-          "scripts/worktree-seed-runtime-loader-validation.ts",
-          "scripts/worktree-seed-runtime-loaders.ts"
+        "fixtureExtras": [
+          {
+            "path": "scripts/lib/test-worker-count.sh",
+            "reason": "Non-walkable verify helper executed by the reduced fixture."
+          },
+          {
+            "path": "scripts/lib/verify-engine.sh",
+            "reason": "Non-walkable verify engine executed by the reduced fixture."
+          },
+          {
+            "path": "scripts/lib/verify-evidence-transaction.sh",
+            "reason": "Internal verify-engine evidence library sourced by the reduced fixture."
+          },
+          {
+            "path": "scripts/lib/verify-lifecycle.sh",
+            "reason": "Internal verify-engine lifecycle library sourced by the reduced fixture."
+          },
+          {
+            "path": "scripts/lib/verify-policy-validation.sh",
+            "reason": "Internal verify-engine policy library sourced by the reduced fixture."
+          },
+          {
+            "path": "scripts/verify/memory-budget.sh",
+            "reason": "Non-walkable verify helper sourced by the reduced fixture."
+          },
+          {
+            "path": "scripts/verify/steps-lib.sh",
+            "reason": "Non-walkable verify library sourced by the reduced fixture."
+          }
         ]
       }
     },
@@ -1548,8 +2067,6 @@
       "generatedSurface": {
         "triggerPaths": [
           "eslint-config/config-surfaces.js",
-          "eslint-config/max-lines-exceptions-codec.js",
-          "eslint-config/shared-policy.js",
           "scripts/harness/generate-config-surfaces.ts",
           "scripts/lib/doc-generator.ts"
         ],
@@ -1557,13 +2074,11 @@
         "checkScript": "harness:config-surfaces:check",
         "warnLabel": "config surface tsconfig",
         "bunHook": { "refresh": "wrapped", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/generate-config-surfaces.ts",
-          "eslint-config/shared-policy.js",
-          "eslint-config/config-surfaces.js",
-          "eslint-config/config-surface-manifest.json",
-          "eslint-config/max-lines-exceptions-codec.js",
-          "eslint-config/max-lines-exceptions.baseline.json"
+        "fixtureExtras": [
+          {
+            "path": "eslint-config/config-surface-manifest.json",
+            "reason": "Runtime JSON input is loaded outside the static JavaScript import graph."
+          }
         ]
       }
     },
@@ -1571,7 +2086,7 @@
       "id": "check/harness-registration-preflight",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates.",
+      "principle": "Reject deterministic harness registration drift before fast-commit mode may reuse a marker, bridge manual verification, or skip the expensive test and scripts slots; behavioral assertions remain in the full harness and scripts gates. The same entrypoint hosts the read-only --explain provenance query, which joins controls, package scripts, generated surfaces, verify slots, hooks, and smoke subjects for one explicitly typed path, control, or script selector without changing check behavior or exit codes.",
       "pairedGuide": "docs/guides/verify-gate-lifecycle.md",
       "repairKind": "manual",
       "source": "scripts/harness-registration-check.ts",
@@ -1612,12 +2127,12 @@
           "scripts/path-policy/fixture-seeding-annotations.ts",
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts",
+          "scripts/path-policy/segment-pattern.ts",
+          "scripts/path-policy/smoke-test-files.ts",
           "scripts/path-policy/smoke-subject-headers.ts",
-          "scripts/worktree-seed-import-closure.ts",
-          "scripts/worktree-seed-runtime-loader-exports.ts",
-          "scripts/worktree-seed-runtime-loader-identifiers.ts",
-          "scripts/worktree-seed-runtime-loader-validation.ts",
-          "scripts/worktree-seed-runtime-loaders.ts"
+          "scripts/import-closure/closure-walk.ts",
+          "scripts/import-closure/runtime-imports.ts",
+          "scripts/import-closure/runtime-resolution.ts"
         ],
         "outputPaths": [
           ".codex/skills/",
@@ -1627,30 +2142,7 @@
         ],
         "checkScript": "harness:skills:check",
         "warnLabel": "skill mirrors and smoke routing",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/check-skill-inventory.ts",
-          "scripts/harness/generate-skill-artifacts.ts",
-          "scripts/harness/harness-manifest.ts",
-          "scripts/harness/skill-artifact-projection.ts",
-          "scripts/harness/skill-inventory-schema.ts",
-          "scripts/harness/skill-overlay-content.ts",
-          "scripts/harness/skill-projection-files.ts",
-          "scripts/harness/skill-smoke-subject-block.ts",
-          "scripts/lib/atomic-write.ts",
-          "scripts/lib/codepoint-compare.ts",
-          "scripts/lib/doc-generator.ts",
-          "scripts/path-policy/fixture-copy-expressions.ts",
-          "scripts/path-policy/fixture-helper-calls.ts",
-          "scripts/path-policy/fixture-import-closure.ts",
-          "scripts/path-policy/fixture-loop-bindings.ts",
-          "scripts/path-policy/fixture-sandbox-model.ts",
-          "scripts/path-policy/fixture-seed-statements.ts",
-          "scripts/path-policy/fixture-seeding-annotations.ts",
-          "scripts/path-policy/fixture-shell-dependencies.ts",
-          "scripts/path-policy/fixture-shell-scope.ts",
-          "scripts/path-policy/smoke-subject-headers.ts"
-        ]
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
       }
     },
     {
@@ -1675,13 +2167,13 @@
           "scripts/path-policy/fixture-shell-dependencies.ts",
           "scripts/path-policy/fixture-shell-scope.ts",
           "scripts/path-policy/generate-smoke-subjects.ts",
+          "scripts/path-policy/segment-pattern.ts",
+          "scripts/path-policy/smoke-test-files.ts",
           "scripts/path-policy/smoke-subject-headers.ts",
           "scripts/tests/",
-          "scripts/worktree-seed-import-closure.ts",
-          "scripts/worktree-seed-runtime-loader-exports.ts",
-          "scripts/worktree-seed-runtime-loader-identifiers.ts",
-          "scripts/worktree-seed-runtime-loader-validation.ts",
-          "scripts/worktree-seed-runtime-loaders.ts"
+          "scripts/import-closure/closure-walk.ts",
+          "scripts/import-closure/runtime-imports.ts",
+          "scripts/import-closure/runtime-resolution.ts"
         ],
         "outputPaths": [
           "scripts/path-policy/path-policy-smoke-subjects-data.ts",
@@ -1689,20 +2181,7 @@
         ],
         "checkScript": "test:scripts:subjects:check",
         "warnLabel": "script smoke-subject metadata",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/path-policy/generate-smoke-subjects.ts",
-          "scripts/path-policy/smoke-subject-headers.ts",
-          "scripts/path-policy/fixture-copy-expressions.ts",
-          "scripts/path-policy/fixture-helper-calls.ts",
-          "scripts/path-policy/fixture-import-closure.ts",
-          "scripts/path-policy/fixture-loop-bindings.ts",
-          "scripts/path-policy/fixture-sandbox-model.ts",
-          "scripts/path-policy/fixture-seed-statements.ts",
-          "scripts/path-policy/fixture-seeding-annotations.ts",
-          "scripts/path-policy/fixture-shell-dependencies.ts",
-          "scripts/path-policy/fixture-shell-scope.ts"
-        ]
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
       }
     },
     {
@@ -1719,7 +2198,7 @@
       "id": "check/lint-coverage-map",
       "kind": "check",
       "category": "maintainability",
-      "principle": "Detect drift between the Leaf 41 lint coverage map and tracked repository paths, cited ratchet IDs, and status vocabulary so the hand-maintained inventory stays load-bearing.",
+      "principle": "Detect drift between the typed coverage manifest and tracked repository paths, cited ratchet IDs, asserted file counts, and ESLint reach so the inventory stays load-bearing; the status vocabulary, the normal-lint/status agreement, and well-formed ratchet references are enforced by the manifest's Zod schema at load time.",
       "pairedGuide": "docs/generated/lint-coverage-map.md",
       "repairKind": "manual",
       "source": "scripts/lint-coverage-map-check.ts",
@@ -1776,6 +2255,59 @@
       "invocation": "bun run lint:import-cycles"
     },
     {
+      "id": "check/lint-rule-controls-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Derive every kind=lint-rule harness control from the rule files on disk, flat-config enablement, and the ratchet registry, so a rule's identity, source, and enforcement command cannot be re-typed into the manifest and drift from the surface that actually runs it; generation fails when a discovered rule is activated nowhere.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-lint-rule-controls.ts",
+      "invocation": "bun run harness:lint-rule-controls",
+      "generatedSurface": {
+        "triggerPaths": [
+          "eslint-config/",
+          "eslint-rules/",
+          "eslint.config.js",
+          "scripts/harness/generate-lint-rule-controls.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/local-rule-config.ts",
+          "scripts/harness/local-rule-discovery.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/records.ts",
+          "scripts/lint-ratchet/lint-ratchet-config.ts",
+          "scripts/lint-ratchet/registry-builders.ts"
+        ],
+        "outputPaths": ["harness.controls.lint-rules.generated.json"],
+        "checkScript": "harness:lint-rule-controls:check",
+        "warnLabel": "lint-rule harness controls",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+      }
+    },
+    {
+      "id": "check/local-plugin-generator",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Generate the local ESLint plugin registry from the rule modules on disk so adding a rule needs no hand-maintained import list, and the registry cannot drift from the filesystem, lose alphabetical order, or silently register a helper module.",
+      "pairedGuide": "docs/guides/local-eslint-rules.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-local-plugin.ts",
+      "invocation": "bun run lint:local-plugin",
+      "generatedSurface": {
+        "triggerPaths": [
+          "eslint-rules/",
+          "scripts/harness/generate-local-plugin.ts",
+          "scripts/harness/local-rule-discovery.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts"
+        ],
+        "outputPaths": ["eslint-config/local-plugin.generated.js"],
+        "checkScript": "lint:local-plugin:check",
+        "warnLabel": "local plugin registry",
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+      }
+    },
+    {
       "id": "check/restricted-disable-rules-generator",
       "kind": "check",
       "category": "maintainability",
@@ -1788,7 +2320,8 @@
         "triggerPaths": [
           "eslint-config/config-surfaces.js",
           "eslint-config/max-lines-exceptions-codec.js",
-          "eslint-config/shared-policy.js",
+          "eslint-config/path-glob-policy.js",
+          "eslint-config/script-test-policy.js",
           "scripts/harness/generate-restricted-disable-rules.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
@@ -1798,12 +2331,7 @@
         "outputPaths": ["eslint-config/ratchet-restricted-disable-rules.generated.js"],
         "checkScript": "lint:restricted-disable-rules:check",
         "warnLabel": "restricted-disable rule metadata",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
-        "fixturePaths": [
-          "scripts/harness/generate-restricted-disable-rules.ts",
-          "scripts/lint-ratchet/lint-ratchet-config.ts",
-          "scripts/lint-ratchet/registry-builders.ts"
-        ]
+        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
       }
     },
     {
@@ -1980,10 +2508,9 @@
       "id": "codemod/concurrency-guard",
       "kind": "codemod",
       "category": "behavior",
-      "principle": "Rewrite direct Prisma writes on concurrency-gated delegates to documented helper boundaries; name-based, so aliases and destructured handles still need manual review.",
+      "principle": "Scan for direct Prisma writes that bypass concurrency-gated helper boundaries, raw-client imports, and drift in sanctioned helper shapes; report findings without rewriting source. Nested diagnostics belong to ESLint and the runtime guard.",
       "pairedGuide": "docs/guides/add-race-sensitive-mutation.md",
-      "repairKind": "codemod",
-      "repairCommand": "bun run codemod:concurrency-guard",
+      "repairKind": "manual",
       "source": "scripts/codemods/concurrency-guard.ts",
       "invocation": "bun run codemod:concurrency-guard"
     },
@@ -2032,87 +2559,49 @@
       "invocation": "bun run codemod:trpc-shared-output"
     },
     {
+      "id": "check/staged-source-nul",
+      "kind": "check",
+      "category": "maintainability",
+      "principle": "Reject literal NUL bytes in every source-relevant staged add, copy, modify, or rename blob before source-skip and verification-marker shortcuts can admit the commit.",
+      "pairedGuide": "docs/guides/verify-gate-lifecycle.md",
+      "repairKind": "manual",
+      "source": "scripts/lib/verify-path-policy.sh",
+      "invocation": "git commit"
+    },
+    {
       "id": "hook/pre-commit",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; when packages/{shared,server}/dist is missing, defer lint and ratchet until the existing typecheck slot has produced those ignored outputs. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
+      "principle": "Run lint:changed, suppression policy registers, lint:ratchet, the zero-baseline lifecycle check, the debt-accounting integrity gate, ADR cross-link validation, the knip unused-export and staged near-duplicate floors, coverage-map, format:changed:check, typecheck, test:changed, and conditionally test:scripts:changed in parallel before allowing the commit; a slot that declares a required build artifact is deferred while that artifact is missing from the tree, until the slot that declares itself the artifact's producer has written it. Opt-in fast-commit mode (musi-fast-commit marker in the Git common dir) first runs the structural harness registration admission before marker or bridge evaluation, then skips exactly the slots declared fastCommitSkip here (test, scripts); the skip set is generated into steps.generated.sh, never hand-coded.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".husky/pre-commit",
       "invocation": "git commit",
-      "slots": [
-        {
-          "name": "lint",
-          "script": "lint:changed"
-        },
-        {
-          "name": "suppressions",
-          "script": "lint:suppressions:changed"
-        },
-        {
-          "name": "suppression-ledger",
-          "script": "lint:suppressions:ledger:changed"
-        },
-        {
-          "name": "ratchet",
-          "script": "lint:ratchet",
-          "env": {
-            "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+      "slotProfile": {
+        "mode": "changed",
+        "overrides": [
+          {
+            "name": "test",
+            "reason": "Pre-commit runs test:changed with a dynamic per-run timings reporter; changed verify uses static json and timings reporters.",
+            "slot": {
+              "script": "test:changed",
+              "args": ["--reporter=dot"],
+              "dynamic": "precommit-test-timings",
+              "fastCommitSkip": true
+            }
+          },
+          {
+            "name": "scripts",
+            "reason": "Pre-commit preserves staged-input wording for its documentation-only condition and makes this slot fast-commit skippable; changed verify preserves changed-input wording and always runs it.",
+            "slot": {
+              "script": "test:scripts:changed",
+              "dynamic": "staged-script-classifier",
+              "condition": "when staged hook/script/harness inputs require script smoke",
+              "fastCommitSkip": true
+            }
           }
-        },
-        {
-          "name": "zero-baseline",
-          "script": "lint:ratchet:zero-baseline"
-        },
-        {
-          "name": "debt-accounting",
-          "script": "lint:ratchet:check-debt-accounting",
-          "args": ["--", "--staged"]
-        },
-        {
-          "name": "adr",
-          "script": "adr:check"
-        },
-        {
-          "name": "knip-unused-exports",
-          "script": "sensor:knip-unused-exports"
-        },
-        {
-          "name": "near-duplicates",
-          "script": "sensor:near-duplicates"
-        },
-        {
-          "name": "max-lines-exceptions",
-          "script": "lint:max-lines-exceptions"
-        },
-        {
-          "name": "coverage-map",
-          "script": "docs:lint-coverage-map:check",
-          "args": ["--", "--staged"]
-        },
-        {
-          "name": "format-check",
-          "script": "format:changed:check"
-        },
-        {
-          "name": "typecheck",
-          "script": "typecheck"
-        },
-        {
-          "name": "test",
-          "script": "test:changed",
-          "args": ["--reporter=dot"],
-          "dynamic": "precommit-test-timings",
-          "fastCommitSkip": true
-        },
-        {
-          "name": "scripts",
-          "script": "test:scripts:changed",
-          "dynamic": "staged-script-classifier",
-          "condition": "when staged hook/script/harness inputs require script smoke",
-          "fastCommitSkip": true
-        }
-      ]
+        ]
+      }
     },
     {
       "id": "hook/pre-push",
@@ -2187,6 +2676,7 @@
         "event": "PreToolUse",
         "body": "scripts/ai-hooks/no-direct-db.sh",
         "order": 10,
+        "surface": "bash",
         "harnesses": {
           "claude": {
             "matcher": "Bash",
@@ -2222,6 +2712,7 @@
         },
         "notes": {
           "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Codex's Bash aggregator model.",
+          "codex": "Aggregator, so the command is not the per-hook projection of body: Codex routes every Bash PreToolUse through the one fixed .codex/hooks/pre-tool-use.sh shim, which dispatches the shared aggregate body.",
           "copilot": "Copilot runs the same shared Bash aggregate body through hook/ai-copilot-pre-tool-use."
         }
       }
@@ -2248,7 +2739,8 @@
         },
         "notes": {
           "claude": "Claude deliberately uses direct Bash PreToolUse adapters because it does not have Copilot's aggregator model.",
-          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use."
+          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-pre-tool-use.",
+          "copilot": "Aggregator, so the command is not the per-hook projection of body: Copilot routes every bash|powershell preToolUse through the one fixed .copilot/hooks/pre-tool-use.sh shim, which normalizes the payload and dispatches the shared aggregate body."
         }
       }
     },
@@ -2265,6 +2757,7 @@
         "event": "PreToolUse",
         "body": "scripts/ai-hooks/git-commit-quiet.sh",
         "order": 20,
+        "surface": "bash",
         "harnesses": {
           "claude": {
             "matcher": "Bash",
@@ -2291,6 +2784,7 @@
         "event": "PreToolUse",
         "body": "scripts/ai-hooks/bun-run-quiet.sh",
         "order": 30,
+        "surface": "bash",
         "harnesses": {
           "claude": {
             "matcher": "Bash",
@@ -2318,6 +2812,7 @@
         "body": "scripts/ai-hooks/protected-files.sh",
         "outputs": ["additionalContext", "decisionBlock"],
         "order": 40,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2350,6 +2845,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/prisma-generate.sh",
         "order": 10,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2383,6 +2879,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/doc-length.sh",
         "order": 20,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2415,6 +2912,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/backlog-note-lint.sh",
         "order": 25,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2448,6 +2946,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/tidy-edited-file.sh",
         "order": 30,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2472,7 +2971,7 @@
       "id": "hook/ai-lint-coverage-check",
       "kind": "hook",
       "category": "maintainability",
-      "principle": "After AI edits, advise when changed TypeScript surfaces lack an expected lint coverage-map row so new script and code surfaces do not silently escape lint policy.",
+      "principle": "After AI edits, advise when changed TypeScript surfaces lack an expected entry in the typed lint coverage manifest so new script and code surfaces do not silently escape lint policy.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/ai-hooks/lint-coverage-check.sh",
@@ -2481,6 +2980,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/lint-coverage-check.sh",
         "order": 40,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2514,6 +3014,7 @@
         "event": "PostToolUse",
         "body": "scripts/ai-hooks/ratchet-regression-check.sh",
         "order": 50,
+        "surface": "edit",
         "harnesses": {
           "claude": {
             "matcher": "Edit|Write",
@@ -2557,6 +3058,7 @@
         },
         "notes": {
           "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.",
+          "codex": "Aggregator, so the command is not the per-hook projection of body: Codex routes every Bash PostToolUse through the one fixed .codex/hooks/post-tool-use.sh shim, which dispatches the shared aggregate body.",
           "copilot": "Copilot runs the same shared Bash aggregate body through hook/ai-copilot-post-tool-use."
         }
       }
@@ -2583,7 +3085,8 @@
         },
         "notes": {
           "claude": "Claude deliberately keeps commit output handling in its git-commit-quiet adapter instead of using a Bash PostToolUse aggregator.",
-          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use."
+          "codex": "Codex runs the same shared Bash aggregate body through hook/ai-codex-post-tool-use.",
+          "copilot": "Aggregator, so the command is not the per-hook projection of body: Copilot routes every bash|powershell postToolUse through the one fixed .copilot/hooks/post-tool-use.sh shim, which normalizes the payload and dispatches the shared aggregate body."
         }
       }
     },
@@ -2600,6 +3103,7 @@
         "event": "PostToolUseFailure",
         "body": "scripts/ai-hooks/failure-guidance.sh",
         "order": 10,
+        "surface": "bash",
         "outputs": ["additionalContext"],
         "harnesses": {
           "claude": {
@@ -2697,7 +3201,7 @@
       "id": "skill/agent-cli",
       "kind": "skill",
       "category": "maintainability",
-      "principle": "Keep the agent-cli skill's shared instructions and references aligned across Claude and Codex while preserving only the declared harness-specific workflow, metadata, and dispatch-script overlays.",
+      "principle": "Keep the agent-cli skill's shared instructions and references aligned across Claude and Codex while preserving only the declared harness-specific workflow and metadata overlays.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": ".claude/skills/agent-cli/SKILL.md",
@@ -2717,10 +3221,6 @@
               {
                 "path": "SKILL.md",
                 "kind": "harness-block"
-              },
-              {
-                "path": "scripts",
-                "kind": "canonical-only"
               },
               {
                 "path": "agents",
@@ -2772,46 +3272,6 @@
           "!.claude/skills/playwright-cli/**",
           "!.codex/skills/playwright-cli/",
           "!.codex/skills/playwright-cli/**"
-        ]
-      }
-    },
-    {
-      "id": "skill/ts-graph",
-      "kind": "skill",
-      "category": "maintainability",
-      "principle": "Keep TS Graph instructions aligned across Claude and Codex while permitting only Claude's command allowlist frontmatter and Codex discovery metadata.",
-      "pairedGuide": "none",
-      "repairKind": "manual",
-      "source": ".claude/skills/ts-graph/SKILL.md",
-      "invocation": "bun run harness:check",
-      "skillWiring": {
-        "canonical": ".claude/skills/ts-graph",
-        "targets": [
-          {
-            "harness": "claude",
-            "path": ".claude/skills/ts-graph",
-            "overlays": []
-          },
-          {
-            "harness": "codex",
-            "path": ".codex/skills/ts-graph",
-            "overlays": [
-              {
-                "path": "SKILL.md",
-                "kind": "frontmatter-field",
-                "field": "allowed-tools"
-              },
-              {
-                "path": "agents",
-                "kind": "target-only"
-              }
-            ]
-          }
-        ],
-        "gitignoreOptIns": [
-          "!.claude/skills/ts-graph/",
-          "!.codex/skills/ts-graph/",
-          "!.codex/skills/ts-graph/**"
         ]
       }
     }

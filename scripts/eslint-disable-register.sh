@@ -145,7 +145,7 @@ emit_identity() {
 }
 
 PATTERN='(^|[[:space:]])(//|/\*)[[:space:]]*eslint-disable(-next-line|-line)?($|[[:space:]])'
-ALLOWLIST_FILE="$SCRIPT_DIR/data/eslint-disable-broad-allowlist.txt"
+ALLOWLIST_FILE="$REPO_ROOT/scripts/data/eslint-disable-broad-allowlist.txt"
 BROAD_ALLOWLIST=()
 if [[ ! -r "$ALLOWLIST_FILE" ]]; then
   printf 'FAIL: eslint-disable register cannot read allowlist: scripts/data/eslint-disable-broad-allowlist.txt\n' >&2
@@ -160,6 +160,7 @@ while IFS= read -r entry || [[ -n "$entry" ]]; do
   fi
   BROAD_ALLOWLIST+=("$entry")
 done < "$ALLOWLIST_FILE"
+BROAD_ALLOWLIST_MATCHED=()
 
 total=0
 inline=0
@@ -219,16 +220,18 @@ extract_rules() {
 
 is_broad_rule_allowed() {
   local path="$1" rule="$2"
-  local entry pattern allowed_rule
-  for entry in "${BROAD_ALLOWLIST[@]}"; do
+  local index entry pattern allowed_rule matched=1
+  for index in "${!BROAD_ALLOWLIST[@]}"; do
+    entry="${BROAD_ALLOWLIST[$index]}"
     pattern="${entry%%|*}"
     allowed_rule="${entry#*|}"
     # shellcheck disable=SC2053  # allowlist entries intentionally use glob patterns.
     if [[ "$path" == $pattern && "$rule" == "$allowed_rule" ]]; then
-      return 0
+      BROAD_ALLOWLIST_MATCHED[$index]=1
+      matched=0
     fi
   done
-  return 1
+  return "$matched"
 }
 
 record_match() {
@@ -406,6 +409,15 @@ while IFS= read -r -d '' file; do
   done < "$REPO_ROOT/$file"
 done < <(scan_files)
 
+unused_allowlist_entries=()
+if [[ "$SCAN_SCOPE" == full ]]; then
+  for index in "${!BROAD_ALLOWLIST[@]}"; do
+    if [[ "${BROAD_ALLOWLIST_MATCHED[$index]:-0}" -ne 1 ]]; then
+      unused_allowlist_entries+=("${BROAD_ALLOWLIST[$index]}")
+    fi
+  done
+fi
+
 if [[ "$MODE" == changed ]]; then
   printf 'PASS: eslint-disable register scope=%s total=%d inline=%d broad=%d\n' \
     "$SCAN_SCOPE" "$total" "$inline" "$broad"
@@ -435,7 +447,17 @@ else
     "$broad"
 fi
 
-if (( missing_total > 0 || broad_disallowed > 0 )); then
+if (( ${#unused_allowlist_entries[@]} > 0 )); then
+  printf 'FAIL: eslint-disable register unused broad allowlist entries total=%d — remove permissions with no live broad directive\n' \
+    "${#unused_allowlist_entries[@]}"
+  for entry in "${unused_allowlist_entries[@]}"; do
+    printf '  - %s\n' "$entry"
+  done
+elif [[ "$SCAN_SCOPE" == full ]]; then
+  printf 'PASS: eslint-disable register unused broad allowlist entries total=0\n'
+fi
+
+if (( missing_total > 0 || broad_disallowed > 0 || ${#unused_allowlist_entries[@]} > 0 )); then
   exit 1
 fi
 exit 0

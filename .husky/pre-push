@@ -212,6 +212,47 @@ musi_pre_push_main() {
   return 1
 }
 
+# Loads the generated near-duplicates boundary trigger. The ERE is data, not
+# hook policy: it is rendered from the scanner's own source-extension truth
+# (BUILT_IN_SOURCE_EXTENSIONS in scripts/drift-ai/scope.ts plus
+# drift-ai.config.json additionalSourceExtensions) together with the whole-file
+# inputs that change detector truth without touching any scanned source. The
+# hook used to carry that pattern by hand with a checker re-parsing this file;
+# sourcing the fragment removes both the seam and the parser. Fail closed: a
+# missing or empty fragment means the trigger cannot be evaluated, and silently
+# skipping the boundary scan is exactly the drift this check exists to stop.
+musi_pre_push_load_scope_trigger() {
+  local fragment="$REPO_ROOT/scripts/harness/pre-push-scope-trigger.generated.sh"
+
+  # Only the generated fragment may satisfy the guard below. An inherited
+  # export of the same name — a stale value left in the environment by a shell
+  # profile, a wrapper, or an earlier checkout — would otherwise pass the -n
+  # test and hand the scan an obsolete ERE, which is the silent skip this
+  # fail-closed contract exists to stop.
+  unset MUSI_PRE_PUSH_NEAR_DUPLICATES_TRIGGER
+
+  if [ -f "$fragment" ]; then
+    # shellcheck source=../scripts/harness/pre-push-scope-trigger.generated.sh
+    . "$fragment"
+  fi
+
+  if [ -n "${MUSI_PRE_PUSH_NEAR_DUPLICATES_TRIGGER:-}" ]; then
+    return 0
+  fi
+
+  cat >&2 <<EOF
+pre-push: the generated near-duplicates boundary trigger is missing or empty.
+pre-push: expected MUSI_PRE_PUSH_NEAR_DUPLICATES_TRIGGER from $fragment.
+pre-push: without it this hook cannot tell whether the pushed range touches scanned source, so
+pre-push: the whole-tree baseline boundary check would be skipped silently. Regenerate and commit:
+  bun run harness:pre-push-trigger
+
+Bypass caveat: git push --no-verify skips this local hook. Repository AI policy
+blocks agent-issued push bypass attempts. Regenerate the fragment instead of bypassing.
+EOF
+  return 1
+}
+
 # Blocking integration-boundary check for the near-duplicates baseline.
 #
 # Parallel-lane integration can assemble a branch whose committed
@@ -223,12 +264,16 @@ musi_pre_push_main() {
 # integration, so gate it here.
 #
 # The whole-tree --check-baseline scan runs only when a pushed ref update touches
-# scanned TypeScript source or the baseline file — a docs/config-only push pays
-# no scan — and is deliberately NOT conditional on the merge-driver marker.
-# --check-baseline exits 0 (truthful), 1 (stale FAIL verdict), or 2/127/other
-# (an environment failure that never evaluated staleness). Fail closed only on a
-# genuine stale verdict; surface an environment failure and let the push proceed
-# so an infra outage cannot wedge integration.
+# an input of the generated trigger: a file whose extension the scanner walks
+# (the TypeScript and JavaScript families, not just .ts/.tsx), the baseline
+# file, or drift-ai.config.json. A docs-only push pays no scan; a config-only
+# push does, because the config changes detector truth. The scan is deliberately
+# NOT conditional on the merge-driver marker.
+# --check-baseline exits 0 (truthful), 3 (stale whole-repo verdict), 6
+# (unreviewed working-tree baseline growth over HEAD), or 1/2/127/other (an
+# unclassified or environment failure that never established a verdict). Fail
+# closed only on codes 3 and 6; surface an environment failure and let the push
+# proceed so an infra outage cannot wedge integration.
 musi_pre_push_near_duplicates_boundary() {
   local updates="$1"
   local baseline="sensor-near-duplicates.baseline.json"
@@ -237,6 +282,8 @@ musi_pre_push_near_duplicates_boundary() {
 
   [ -f "$REPO_ROOT/$baseline" ] || return 0
   [ -n "$updates" ] || return 0
+
+  musi_pre_push_load_scope_trigger || return 1
 
   # The whole-tree --check-baseline scan below reads the current worktree
   # checkout, so its verdict is only evidence about HEAD. Mirror the fast-commit
@@ -254,17 +301,14 @@ musi_pre_push_near_duplicates_boundary() {
        && git -C "$REPO_ROOT" cat-file -e "$remote_sha^{commit}" 2>/dev/null; then
       changed=$(git -C "$REPO_ROOT" diff --name-only "$remote_sha" "$local_sha" 2>/dev/null || true)
       # The trigger must track the scanner's real truth inputs, not just .ts/.tsx:
-      #   - source extensions: BUILT_IN_SOURCE_EXTENSIONS in
-      #     scripts/drift-ai/scope.ts is .ts .tsx .js .jsx .mjs .cjs (the walk
-      #     seeds from that set, so --check-baseline scans .js/.jsx/.mjs/.cjs
-      #     too — the committed baseline already lists eslint-rules/*.js pairs);
+      #   - source extensions: the walk seeds from BUILT_IN_SOURCE_EXTENSIONS in
+      #     scripts/drift-ai/scope.ts, so --check-baseline scans .js/.jsx/.mjs/.cjs
+      #     too — the committed baseline already lists eslint-rules/*.js pairs;
       #   - config: drift-ai.config.json feeds thresholds/exclusions, so a
       #     config-only push changes detector truth without touching any source.
-      # This alternation is pinned to the scanner's extension set
-      # (BUILT_IN_SOURCE_EXTENSIONS + drift-ai.config.json
-      # additionalSourceExtensions) by scripts/harness/pre-push-scope-pin.ts;
-      # `bun run harness:check` fails with the exact replacement on drift.
-      if grep -qE '(^|/)(sensor-near-duplicates\.baseline|drift-ai\.config)\.json$|\.(ts|tsx|js|jsx|mjs|cjs)$' <<< "$changed"; then
+      # musi_pre_push_load_scope_trigger sourced that ERE from the generated
+      # fragment above, so it cannot drift from the scanner by hand.
+      if grep -qE "$MUSI_PRE_PUSH_NEAR_DUPLICATES_TRIGGER" <<< "$changed"; then
         ref_needs_scan=1
       fi
     else
@@ -305,9 +349,9 @@ EOF
     return 0
   fi
 
-  # Match the FAIL verdict from a herestring, never `printf ... | grep -q`, so a
-  # report larger than the pipe buffer cannot SIGPIPE and misclassify.
-  if [ "$check_status" -eq 1 ] && grep -qE '^FAIL:' <<< "$check_output"; then
+  # The near-duplicates --check-baseline verdict contract assigns exit 3 to a
+  # stale baseline. Output is presentation only and never controls push policy.
+  if [ "$check_status" -eq 3 ]; then
     cat >&2 <<EOF
 pre-push: near-duplicates whole-tree baseline is STALE at the integration boundary.
 pre-push: the committed sensor-near-duplicates.baseline.json does not match the assembled tree.
@@ -324,6 +368,19 @@ pre-push: commit the regenerated baseline before pushing.
 
 Bypass caveat: git push --no-verify skips this local hook. Repository AI policy
 blocks agent-issued push bypass attempts. Fix the baseline instead of bypassing.
+EOF
+    printf '%s\n' "$check_output" | tail -n 30 >&2
+    return 1
+  fi
+
+  # Exit 6 is a separate verdict: the worktree baseline itself proposes debt
+  # growth over committed HEAD, before the whole-tree truth comparison runs.
+  if [ "$check_status" -eq 6 ]; then
+    cat >&2 <<EOF
+pre-push: near-duplicates working-tree baseline proposes unreviewed growth over HEAD.
+pre-push: undo the baseline growth, remove the duplicate, or record the reviewed identity:
+  bun run sensor:near-duplicates -- --admit <identity> --reason "<why it is intended>"
+pre-push: commit the reviewed result before pushing.
 EOF
     printf '%s\n' "$check_output" | tail -n 30 >&2
     return 1

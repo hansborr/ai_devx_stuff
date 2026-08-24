@@ -5,6 +5,7 @@ import { dirname, isAbsolute, join, resolve } from "node:path";
 
 import type { prisma as prismaSingleton } from "../packages/server/src/prisma/client.js";
 import { DEFAULT_TEST_DATABASE_NAME } from "../packages/server/src/test/test-database-url.js";
+import { errorMessage } from "./lib/error-message.js";
 
 type PrismaSingleton = typeof prismaSingleton;
 
@@ -243,7 +244,7 @@ async function reportTestDatabasesPresent(
       );
     }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     console.warn("WARN: could not enumerate databases —", message);
   }
 }
@@ -276,7 +277,7 @@ async function reportRuntimeDatabaseStatus(prisma: PrismaSingleton): Promise<boo
     await prisma.$queryRaw`SELECT 1`;
     console.log("OK  : connected to database");
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     console.error("FAIL: cannot connect —", message);
     return false;
   }
@@ -342,7 +343,7 @@ async function main(): Promise<void> {
 
 if (import.meta.main) {
   void main().catch((err: unknown) => {
-    const message = err instanceof Error ? err.message : String(err);
+    const message = errorMessage(err);
     console.error("FAIL: db status crashed —", message);
     process.exit(1);
   });

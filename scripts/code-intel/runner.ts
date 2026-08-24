@@ -8,7 +8,7 @@ import type { ParsedCli } from "./types.js";
 export function runParsedCodeIntel(parsed: ParsedCli, context: CodeIntelContext = {}): string {
   const { command, format } = parsed;
   if (command.kind === "help") return usage(command.topic);
-  return formatCodeIntelQueryResult(executeCodeIntelQuery(command, context), format);
+  return formatCodeIntelQueryResult(executeCodeIntelQuery(command, context), format, command.kind);
 }
 
 export function runCodeIntel(args: string[], context: CodeIntelContext = {}): string {

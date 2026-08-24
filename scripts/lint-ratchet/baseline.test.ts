@@ -1,11 +1,11 @@
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 
+import { harnessDiagnosticsSchema } from "@musi/harness-diagnostics/schema.js";
 import {
   buildLintRatchetBaseline,
   compareCurrentToBaseline,
   formatLintRatchetBaseline,
-  LINT_RATCHET_CONFIG_HASH_PREFIX,
   type LintRatchetBaseline,
   type LintRatchetComparison,
   type LintRatchetCurrentById,
@@ -14,7 +14,7 @@ import {
 } from "@musi/lint-ratchet/kernel/baseline.js";
 import {
   createLintRatchetBaselineVersionPolicy,
-  LINT_RATCHET_BASELINE_REGENERATE,
+  LINT_RATCHET_CONFIG_HASH_PREFIX,
 } from "@musi/lint-ratchet/kernel/baseline-constants.js";
 import type { LintRatchetConfig } from "@musi/lint-ratchet/kernel/config-types.js";
 import { itemsFromResults } from "@musi/lint-ratchet/kernel/current-collector.js";
@@ -22,15 +22,17 @@ import type { LintRatchetComplexityFunction } from "@musi/lint-ratchet/kernel/me
 import { Linter } from "eslint";
 import { describe, expect, it } from "vitest";
 
-import { harnessDiagnosticsSchema } from "../../packages/shared/src/schemas/harness-diagnostics.js";
 import type { RuleDocsEntry } from "../lib/lint-rule-docs.js";
 import {
   assertCheckBaselineComparisonClean,
   buildEnvelope,
   buildEnvelopeFromComparison,
 } from "../lint-ratchet.js";
+import { musiLintRatchetWorkflowVocabulary } from "./engine-binding.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 import { baselinePath, repoRoot } from "./paths.js";
+
+const LINT_RATCHET_BASELINE_REGENERATE = musiLintRatchetWorkflowVocabulary.updateCommand;
 
 const baseRatchet: LintRatchetConfig = {
   id: "ratchet/local-type-assertion-boundary",
@@ -40,7 +42,6 @@ const baseRatchet: LintRatchetConfig = {
   ruleOptions: [],
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture base ratchet principle.",
 };
 
@@ -57,7 +58,6 @@ const thirdPartyRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture third-party ratchet principle.",
 };
 
@@ -71,7 +71,6 @@ const coreRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "message-count",
-  repairKind: "manual",
   principle: "Fixture core ratchet principle.",
 };
 
@@ -83,7 +82,6 @@ const maxLinesRatchet = {
   ruleOptions: [{ max: 300, skipBlankLines: true, skipComments: true }],
   mode: "no-new",
   metric: "effective-line-count",
-  repairKind: "manual",
   principle: "Fixture max-lines ratchet principle.",
 } as unknown as LintRatchetConfig;
 
@@ -97,7 +95,6 @@ const complexityRatchet: LintRatchetConfig = {
   parserProfile: "minimal-ts",
   mode: "no-new",
   metric: "complexity-severity",
-  repairKind: "manual",
   principle: "Fixture complexity ratchet principle.",
 };
 
@@ -235,6 +232,7 @@ function oneTestBaseline(paths: readonly [string, number][]): LintRatchetBaselin
     [baseRatchet],
     current([[baseRatchet.id, paths.map(([path, count]) => [path, count])]]),
     fixtureRuleSourceHashes,
+    { workflowVocabulary: musiLintRatchetWorkflowVocabulary },
   );
 }
 
@@ -289,7 +287,6 @@ describe("production function structure ratchets", () => {
       ruleOptions,
       mode: "no-new",
       metric: "message-count",
-      repairKind: "manual",
     });
   });
 
@@ -310,6 +307,7 @@ describe("production function structure ratchets", () => {
       [ratchet],
       new Map([[ratchet.id, baselineItems]]),
       new Map([[ratchet.id, FIXTURE_RULE_SOURCE_HASH]]),
+      { workflowVocabulary: musiLintRatchetWorkflowVocabulary },
     );
 
     const grownItems = maxLinesPerFunctionItems(ratchet, path, [
@@ -321,6 +319,7 @@ describe("production function structure ratchets", () => {
       baseline,
       [ratchet],
       new Map([[ratchet.id, grownItems]]),
+      musiLintRatchetWorkflowVocabulary,
     );
     expect(grownComparison.regressions).toEqual([]);
     expect(grownComparison.improvements).toEqual([]);
@@ -337,6 +336,7 @@ describe("production function structure ratchets", () => {
       baseline,
       [ratchet],
       new Map([[ratchet.id, newDebtItems]]),
+      musiLintRatchetWorkflowVocabulary,
     );
     expect(newDebtComparison.regressions).toEqual([
       expect.objectContaining({
@@ -381,7 +381,6 @@ describe("direct Git exec ratchet", () => {
       ],
       mode: "no-new",
       metric: "message-count",
-      repairKind: "manual",
     });
   });
 
@@ -984,11 +983,16 @@ describe("lint ratchet diagnostics envelope", () => {
 describe("lint ratchet baseline parsing", () => {
   it("round-trips the committed baseline byte-identically", () => {
     const committed = readFileSync(baselinePath, "utf8");
-    const parsed = parseLintRatchetBaselineStructure(committed);
+    const parsed = parseLintRatchetBaselineStructure(committed, musiLintRatchetWorkflowVocabulary);
 
     expect(parsed.failures).toEqual([]);
     expect(parsed.baseline).toBeDefined();
-    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(committed);
+    expect(
+      formatLintRatchetBaseline(
+        parsed.baseline ?? oneTestBaseline([]),
+        musiLintRatchetWorkflowVocabulary,
+      ),
+    ).toBe(committed);
   });
 
   it("round-trips committed v1 bytes under a write-version-2 engine", () => {
@@ -998,11 +1002,20 @@ describe("lint ratchet baseline parsing", () => {
       { cwd: repoRoot, encoding: "utf8" },
     );
     const writeV2 = createLintRatchetBaselineVersionPolicy(2);
-    const parsed = parseLintRatchetBaselineStructure(committed, writeV2);
+    const parsed = parseLintRatchetBaselineStructure(
+      committed,
+      musiLintRatchetWorkflowVocabulary,
+      writeV2,
+    );
 
     expect(parsed.failures).toEqual([]);
     expect(parsed.baseline?.version).toBe(1);
-    expect(formatLintRatchetBaseline(parsed.baseline ?? oneTestBaseline([]))).toBe(committed);
+    expect(
+      formatLintRatchetBaseline(
+        parsed.baseline ?? oneTestBaseline([]),
+        musiLintRatchetWorkflowVocabulary,
+      ),
+    ).toBe(committed);
   });
 
   it.each(COMMITTED_BASELINE_ARTIFACTS)(
@@ -1017,8 +1030,11 @@ describe("lint ratchet baseline parsing", () => {
         cwd: repoRoot,
         encoding: "utf8",
       });
-      const before = parseLintRatchetBaselineStructure(beforeText);
-      const after = parseLintRatchetBaselineStructure(afterText);
+      const before = parseLintRatchetBaselineStructure(
+        beforeText,
+        musiLintRatchetWorkflowVocabulary,
+      );
+      const after = parseLintRatchetBaselineStructure(afterText, musiLintRatchetWorkflowVocabulary);
 
       expect(before.failures).toEqual([]);
       expect(after.failures).toEqual([]);

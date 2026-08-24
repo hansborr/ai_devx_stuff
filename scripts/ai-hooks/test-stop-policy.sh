@@ -187,13 +187,17 @@ fi
 
 printf 'write-fail\n' >> "$STOP_REPO/file.txt"
 STOP_MARKER=$(ai_stop_marker_path "$STOP_REPO")
-rm -f "$STOP_MARKER"
+printf 'ORIGINAL=1\n' > "$STOP_MARKER"
+stop_marker_files_before="$(find "$(dirname "$STOP_MARKER")" -maxdepth 1 -type f -printf '%f\n' | sort)"
 STOP_MSG=$(
   mv() { return 1; }
   ai_stop_commit_reminder "$STOP_REPO"
 ) || fail "marker write failure should not suppress reminder"
 assert_contains "$STOP_MSG" "uncommitted changes on branch 'feature/dirty'"
-[ ! -f "$STOP_MARKER" ] || fail "failed marker write should not leave a marker behind"
+[ "$(cat "$STOP_MARKER")" = "ORIGINAL=1" ] \
+  || fail "failed marker write should preserve existing state"
+[ "$(find "$(dirname "$STOP_MARKER")" -maxdepth 1 -type f -printf '%f\n' | sort)" = "$stop_marker_files_before" ] \
+  || fail "failed marker write should clean up scratch files"
 git -C "$STOP_REPO" checkout -- file.txt >/dev/null 2>&1 || fail "failed to clean stop fixture"
 
 # --- fresh state root: marker writer must create its own directory ------------
@@ -275,6 +279,14 @@ git -C "$E2E_REPO" commit -m "base" >/dev/null 2>&1 || fail "failed to commit e2
 E2E_MARKER="$AI_BUN_LOG_DIR/last.e2e"
 E2E_COUNTER=$(ai_stop_e2e_counter_path "$E2E_REPO")
 E2E_FP=$(ai_worktree_fingerprint "$E2E_REPO")
+
+# The e2e counter writer must create a fresh state directory like the other
+# Stop counter writers do.
+FRESH_E2E_COUNTER="$TMP_ROOT/fresh-e2e-counter/missing/e2e.counter"
+ai_stop_e2e_write_counter "$FRESH_E2E_COUNTER" "$E2E_FP" feature/e2e 1 \
+  || fail "e2e counter writer should create a missing state directory"
+[ -f "$FRESH_E2E_COUNTER" ] \
+  || fail "e2e counter writer should persist into the newly created directory"
 
 # Cache miss: no stop-hook e2e launch, no message, no marker churn.
 rm -f "$E2E_MARKER" "$E2E_COUNTER"

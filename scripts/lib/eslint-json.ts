@@ -2,7 +2,7 @@
 // `--format=json` parser, mirroring `scripts/lib/atomic-write.ts`. The parser
 // is an entry of the package's utility contract (generic helpers exported for
 // adapter convenience — lint-arch-review leaf 14, `docs/agent_notes/backlog/`
-// `lint-ratchet-arch` review pack `14-enumerated-subpath-exports.md`), kept as
+// `lint-arch-review-2026-07/14-enumerated-subpath-exports.md`), kept as
 // one shared implementation because `scripts/lint-agent.ts` and the kernel's
 // `eslint-runner` deliberately deduplicated their previously drifting copies.
 // Every `scripts/` consumer imports from here, not from

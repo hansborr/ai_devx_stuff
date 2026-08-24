@@ -4,8 +4,8 @@
 
 import {
   buildKnipDuplicateFindings,
-  parseKnipDuplicates,
   type ParseKnipDuplicatesResult,
+  projectKnipDuplicates,
 } from "./knip-duplicates.js";
 import {
   knipDuplicatesCheckConfig,
@@ -21,7 +21,7 @@ export const knipDuplicatesCheck = defineKnipPassThroughCheck<
   ParsedKnipDuplicates
 >({
   ...knipDuplicatesCheckConfig,
-  parseReport: parseKnipDuplicates,
+  projectReport: projectKnipDuplicates,
   buildFindings: (parsed, ctx, provenance) =>
     buildKnipDuplicateFindings(parsed.groups, ctx.detectorScope, provenance),
 });

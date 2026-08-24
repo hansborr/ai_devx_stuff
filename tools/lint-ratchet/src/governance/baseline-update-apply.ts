@@ -8,9 +8,10 @@ import {
   type LintRatchetUpdateOptions,
   parseLintRatchetBaselineStructure,
 } from "../kernel/baseline.js";
+import { sameCanonicalValue } from "../kernel/baseline-merge-values.js";
 import type { LintRatchetConfig } from "../kernel/config-types.js";
 import { type LintRatchetEngineContext, relativeToRepoRoot } from "../kernel/engine-context.js";
-import { ConfigError } from "../kernel/metrics-types.js";
+import { ConfigError, type LintRatchetMetricItem } from "../kernel/metrics-types.js";
 import type { LintRatchetDebtLogEntry } from "./debt-log-schema.js";
 import {
   appendValidatedDebtLogEntries,
@@ -39,7 +40,7 @@ const defaultRunUpdateDeps: RunUpdateDeps = {
   },
 };
 
-export type ApplyLintRatchetUpdateOptions = LintRatchetUpdateOptions;
+export type ApplyLintRatchetUpdateOptions = Omit<LintRatchetUpdateOptions, "workflowVocabulary">;
 
 export interface ApplyLintRatchetUpdateParams {
   readonly context: LintRatchetEngineContext;
@@ -55,10 +56,105 @@ function hasAcceptedDebt(decision: LintRatchetUpdateDecision): boolean {
   return decision.regressions.length > 0 || decision.orphanRemovals.length > 0;
 }
 
-function parseCommittedStructure(text: string): LintRatchetBaseline {
-  const parsed = parseLintRatchetBaselineStructure(text);
+function parseCommittedStructure(
+  context: LintRatchetEngineContext,
+  text: string,
+): LintRatchetBaseline {
+  const parsed = parseLintRatchetBaselineStructure(
+    text,
+    context.workflowVocabulary,
+    undefined,
+    relativeToRepoRoot(context.repoRoot, context.baselinePath),
+  );
   if (parsed.baseline === undefined) throw new ConfigError(parsed.failures.join("\n"));
   return parsed.baseline;
+}
+
+function withoutRuleSourceHashes(baseline: LintRatchetBaseline): unknown {
+  return {
+    ...baseline,
+    tests: Object.fromEntries(
+      Object.entries(baseline.tests).map(([testId, test]) => {
+        const { ruleSourceHash: _ruleSourceHash, ...rest } = test;
+        return [testId, rest];
+      }),
+    ),
+  };
+}
+
+function ruleSourceHashRefreshCount(
+  committed: LintRatchetBaseline,
+  generated: LintRatchetBaseline,
+): number {
+  return Object.entries(generated.tests).filter(([testId, generatedTest]) => {
+    const committedTest = committed.tests[testId];
+    return (
+      committedTest !== undefined && committedTest.ruleSourceHash !== generatedTest.ruleSourceHash
+    );
+  }).length;
+}
+
+function debtFloorValue(item: LintRatchetMetricItem | undefined): unknown {
+  if (item === undefined) return undefined;
+  const { messagesFingerprint: _messagesFingerprint, ...floor } = item;
+  return floor;
+}
+
+function debtFloorDeltaCount(
+  committed: LintRatchetBaseline,
+  generated: LintRatchetBaseline,
+): number {
+  const testIds = new Set([...Object.keys(committed.tests), ...Object.keys(generated.tests)]);
+  let count = 0;
+  for (const testId of testIds) {
+    const committedItems = committed.tests[testId]?.items ?? {};
+    const generatedItems = generated.tests[testId]?.items ?? {};
+    const paths = new Set([...Object.keys(committedItems), ...Object.keys(generatedItems)]);
+    for (const path of paths) {
+      if (
+        !sameCanonicalValue(
+          debtFloorValue(committedItems[path]),
+          debtFloorValue(generatedItems[path]),
+        )
+      ) {
+        count += 1;
+      }
+    }
+  }
+  return count;
+}
+
+function formatUpdateClassification(
+  committed: LintRatchetBaseline,
+  generated: LintRatchetBaseline,
+): string | undefined {
+  const hashRefreshes = ruleSourceHashRefreshCount(committed, generated);
+  if (hashRefreshes === 0) return undefined;
+  const hashLabel = `${String(hashRefreshes)} ruleSourceHash value${hashRefreshes === 1 ? "" : "s"}`;
+  if (sameCanonicalValue(withoutRuleSourceHashes(committed), withoutRuleSourceHashes(generated))) {
+    return (
+      `lint:ratchet:update rule source identity refresh only — refreshed ${hashLabel}; ` +
+      "debt floors unchanged."
+    );
+  }
+  const floorDeltas = debtFloorDeltaCount(committed, generated);
+  return (
+    `lint:ratchet:update mixed baseline refresh — refreshed ${hashLabel}; ` +
+    `${String(floorDeltas)} debt-floor delta${floorDeltas === 1 ? "" : "s"}.`
+  );
+}
+
+function reportUpdateClassification(
+  context: LintRatchetEngineContext,
+  committedText: string,
+  generated: LintRatchetBaseline,
+): void {
+  if (committedText.length === 0) return;
+  const classification = formatUpdateClassification(
+    parseCommittedStructure(context, committedText),
+    generated,
+  );
+  if (classification !== undefined) console.error(classification);
 }
 
 // Gate the committed baseline against the generated one: throw on a refused worse
@@ -70,10 +166,10 @@ function gateCommittedBaseline(
 ): LintRatchetUpdateDecision | undefined {
   if (!deps.existsSync(params.context.baselinePath)) return undefined;
   const decision = decideLintRatchetUpdate(
-    parseCommittedStructure(deps.readFileSync(params.context.baselinePath, "utf8")),
+    parseCommittedStructure(params.context, deps.readFileSync(params.context.baselinePath, "utf8")),
     params.generated,
     params.registry,
-    params.options,
+    { ...params.options, workflowVocabulary: params.context.workflowVocabulary },
   );
   if (!decision.allowed) throw new WorseBaselineError(decision.failures.join("\n"));
   for (const warning of decision.warnings) console.error(`⚠ ${warning}`);
@@ -155,6 +251,7 @@ export function applyLintRatchetUpdate(params: ApplyLintRatchetUpdateParams): bo
     `lint:ratchet:update OK — wrote ${baselineName} with ${String(params.currentFindingCount)} current finding(s).` +
       (recordedDebt ? ` Recorded the debt acceptance in ${debtLogName}.` : ""),
   );
+  reportUpdateClassification(params.context, currentText, params.generated);
   if (decision?.retiredRatchetId !== undefined) {
     console.error(
       `Retired ratchet ${decision.retiredRatchetId} (was at zero findings); coverage promoted, retirement recorded in ${debtLogName}. No debt logged.`,

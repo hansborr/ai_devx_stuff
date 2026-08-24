@@ -1,12 +1,15 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { commitBlock } from "./git-log-fixture.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 import { runDriftAi } from "./runner.js";
+
+const tmpRepo = registerTempRootCleanup();
 
 describe("ownership subcommand", () => {
   it("runs bounded full history and emits prototype advisory JSON", () => {
@@ -47,12 +50,7 @@ describe("ownership subcommand", () => {
         "--agent-identity-pattern",
         "codex@example\\.com",
       ],
-      git: (args) => {
-        calls.push([...args]);
-        if (args[0] === "rev-parse") return "/repo\n";
-        if (args[0] === "config") return "";
-        return "";
-      },
+      git: currentRepoGit("/repo"),
       boundedGit: (args) => {
         calls.push([...args]);
         if (args[0] === "config") return "";
@@ -91,7 +89,7 @@ describe("ownership subcommand", () => {
   it("prints ownership usage on help", () => {
     const result = runDriftAi({
       argv: ["ownership", "--help"],
-      git: (args) => (args[0] === "rev-parse" ? "/repo\n" : ""),
+      git: currentRepoGit("/repo"),
     });
 
     expect(result.exitCode).toBe(0);
@@ -100,7 +98,7 @@ describe("ownership subcommand", () => {
   });
 
   it("honors configured ignore paths during bounded history collection", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "drift-ownership-config-"));
+    const dir = tmpRepo.makeTempRepo("drift-ownership-config-");
     const configPath = path.join(dir, "drift-ai.config.json");
     writeFileSync(configPath, JSON.stringify({ ignore: { prefixes: ["generated/"] } }), "utf8");
     const output = commitBlock(
@@ -116,7 +114,7 @@ describe("ownership subcommand", () => {
 
     const result = runDriftAi({
       argv: ["ownership", "--config", configPath, "--format", "json"],
-      git: (args) => (args[0] === "rev-parse" ? `${dir}\n` : ""),
+      git: currentRepoGit(dir),
       boundedGit: (args) => {
         if (args[0] === "config") return "";
         if (args[0] === "check-mailmap") return `${args[1] ?? ""}\n`;
@@ -135,7 +133,7 @@ describe("ownership subcommand", () => {
   it("rejects invalid agent identity regexes", () => {
     const result = runDriftAi({
       argv: ["ownership", "--agent-identity-pattern", "["],
-      git: (args) => (args[0] === "rev-parse" ? "/repo\n" : ""),
+      git: currentRepoGit("/repo"),
     });
 
     expect(result.exitCode).toBe(2);

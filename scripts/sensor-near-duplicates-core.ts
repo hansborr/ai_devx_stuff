@@ -34,6 +34,7 @@ import {
 } from "./sensor-near-duplicates-cli-options.js";
 
 const CLI_ERROR_EXIT_CODE = 2;
+const STALE_BASELINE_EXIT_CODE = 3;
 
 export type RunNearDuplicatesCliOptions = {
   readonly argv: readonly string[];
@@ -194,7 +195,7 @@ function fullBaselineResult(
     };
   }
   return {
-    exitCode: 1,
+    exitCode: STALE_BASELINE_EXIT_CODE,
     stdout: [
       "FAIL: whole-repo near-duplicate baseline is stale after integration",
       ...regressions(gate).map((key) => `  + ${key}`),

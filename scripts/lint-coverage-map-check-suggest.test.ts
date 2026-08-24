@@ -1,273 +1,99 @@
+import { matchesAny } from "@musi/lint-ratchet/kernel/ratchet-globs.js";
 import { describe, expect, it } from "vitest";
 
-import {
-  extractPathPatterns,
-  parseRows,
-  trackedFileIsInScope,
-} from "./lint-coverage-map-check-patterns.js";
+import { trackedFileIsInScope } from "./lint-coverage-map-check-scope.js";
 import { buildSuggestions } from "./lint-coverage-map-check-suggest.js";
-import type { PathPattern, TableRow } from "./lint-coverage-map-check-types.js";
+import type { CoveragePattern } from "./lint-coverage-map-check-types.js";
 
-const MAP = `# Fixture
-
-| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |
-| --- | --- | --- | --- | --- | --- | --- | --- |
-| \`scripts/code-intel.ts\` | 1 .ts | yes | none | ESLint | none | linted | — |
-| \`scripts/code-intel/**/*.ts\` | 3 .ts | yes | none | ESLint | none | linted | — |
-`;
-
-function patternsFromMap(): ReturnType<typeof extractPathPatterns> {
-  return parseRows(MAP).flatMap(extractPathPatterns);
+function pattern(entryId: string, glob: string): CoveragePattern {
+  return { entryId, glob, matcher: (file) => matchesAny(file, [glob]) };
 }
 
+// Two entries whose globs mirror the real `scripts/code-intel` rows: one literal
+// path (which can absorb a sibling) and one directory glob (which cannot).
+const PATTERNS: readonly CoveragePattern[] = [
+  pattern("scripts-code-intel-facade", "scripts/code-intel.ts"),
+  pattern("scripts-code-intel-modules", "scripts/code-intel/**/*.ts"),
+];
+
 describe("buildSuggestions", () => {
-  it("suggests appending a bare filename to the existing same-directory row, naming its line", async () => {
+  it("suggests extending the same-directory entry's globs, naming that entry id", async () => {
     const lines = await buildSuggestions({
       unaccountedFiles: ["scripts/new-helper.ts"],
-      pathPatterns: patternsFromMap(),
+      patterns: PATTERNS,
       isRatchetCovered: () => false,
       isEslintReachable: () => true,
     });
 
     const joined = lines.join("\n");
-    // `scripts/code-intel.ts` lives on line 5 and establishes base dir `scripts`.
-    expect(joined).toContain("line 5");
-    expect(joined).toContain("scripts/new-helper.ts");
-    // Should propose the bare filename for appending to the base-dir row.
-    expect(joined).toContain("new-helper.ts");
+    // The literal `scripts/code-intel.ts` glob roots an entry in `scripts/`, so
+    // the new sibling is proposed as an extra glob on THAT entry, by id.
+    expect(joined).toContain("entry `scripts-code-intel-facade`");
+    expect(joined).toContain('add `"scripts/new-helper.ts"` to the `globs`');
+    // Adding the glob alone is an edit `:check` rejects: the entry's `Files`
+    // count is gated against the tree, so the suggestion has to carry it.
+    expect(joined).toContain("`files`");
+    expect(joined).toContain("one more `.ts`");
+    // Never a Markdown row or a line-number target.
+    expect(joined).not.toContain("| Path / group |");
+    expect(joined).not.toMatch(/line \d/u);
   });
 
-  it("emits a ready-to-paste new row when no existing base-dir row matches", async () => {
+  it("emits a ready-to-paste manifest entry when no existing entry shares the directory", async () => {
     const lines = await buildSuggestions({
       unaccountedFiles: ["packages/server/src/new.ts"],
-      pathPatterns: patternsFromMap(),
+      patterns: PATTERNS,
       isRatchetCovered: () => false,
       isEslintReachable: () => true,
     });
 
     const joined = lines.join("\n");
-    // A full markdown table row with the real header columns.
-    expect(joined).toContain("`packages/server/src/new.ts`");
-    expect(joined).toContain("| 1 .ts |");
-    // ESLint-reachable + no ratchet => linted, Normal lint yes.
-    expect(joined).toContain("linted");
+    expect(joined).toContain('id: "packages-server-src-new-ts"');
+    expect(joined).toContain('globs: ["packages/server/src/new.ts"]');
+    // ESLint-reachable + no ratchet => normal lint covered, status `linted`.
+    expect(joined).toContain("normalLint: { covered: true }");
+    expect(joined).toContain('status: ["linted"]');
   });
 
-  it("derives status from ratchet membership when not ESLint-reachable", async () => {
+  it("derives the status placeholder from ratchet membership when not ESLint-reachable", async () => {
     const lines = await buildSuggestions({
       unaccountedFiles: ["packages/server/src/raw.sql"],
-      pathPatterns: patternsFromMap(),
+      patterns: PATTERNS,
       isRatchetCovered: () => false,
       isEslintReachable: () => false,
     });
 
     const joined = lines.join("\n");
-    expect(joined).toContain("`packages/server/src/raw.sql`");
-    // Not linted, not ratcheted => the agent must classify; default to a
-    // not-code/excluded placeholder rather than asserting linted.
-    expect(joined).not.toContain("| linted |");
-    expect(joined).toContain(
-      "choose `excluded` for intentional non-lint code, `not-code` for docs/generated/binary/vendor, or `proposed` when a lint/ratchet floor should be added",
-    );
+    expect(joined).toContain('globs: ["packages/server/src/raw.sql"]');
+    // Neither linted nor ratcheted => the agent must classify; never assert
+    // `linted` on the agent's behalf.
+    expect(joined).toContain('status: ["excluded" | "not-code"]');
+    expect(joined).toContain("normalLint: { covered: false }");
+    expect(joined).toContain("choose `excluded` for intentional non-lint code,");
+  });
+
+  it("marks a ratcheted-but-unreachable file as `ratcheted`", async () => {
+    const lines = await buildSuggestions({
+      unaccountedFiles: ["tools/lint-ratchet/src/kernel/new.ts"],
+      patterns: PATTERNS,
+      isRatchetCovered: () => true,
+      isEslintReachable: () => false,
+    });
+
+    expect(lines.join("\n")).toContain('status: ["ratcheted"]');
   });
 });
 
 /**
- * Direct unit coverage for the lint-coverage-map pattern engine
- * (`parseRows`, `extractPathPatterns`, `trackedFileIsInScope`). The internal
- * base-dir inference (`stableBaseForPattern`/`shouldUpdateBase`/`sourceIsRooted`)
- * and the glob-to-regex matcher (`expandBraces`/`globVariantToRegExp`) are pinned
- * indirectly by asserting the resolved `pattern` strings and the boolean results
- * of the `matcher(file)` closures. Per mutation-coverage backlog finding 74.
+ * Direct unit coverage for the coverage-map scope predicate, colocated in this
+ * sibling test file (rather than a new `lint-coverage-map-check-scope.test.ts`)
+ * so the file stays accounted for by the coverage-map row that already lists
+ * this checker's tests. Per mutation-coverage backlog finding 74.
  *
- * Colocated in this sibling test file (rather than a new
- * `lint-coverage-map-check-patterns.test.ts`) so the file stays accounted for by
- * the existing coverage-map row that already lists this checker's tests.
+ * The Markdown table reader and the private glob-to-RegExp engine that used to
+ * be pinned here are gone: coverage policy is the typed manifest and membership
+ * is matched only by `ratchet-globs`, whose own suite owns that behaviour.
  */
-
-function patternRow(pathGroup: string, line = 1): TableRow {
-  return { line, pathGroup, normalLint: "yes", ratchets: "none", status: "linted" };
-}
-
-/** Resolve the single path-group cell of a one-row table into its patterns. */
-function patternsFor(pathGroup: string): readonly PathPattern[] {
-  return extractPathPatterns(patternRow(pathGroup));
-}
-
-/** Build the matcher closure for a single-pattern path-group cell. */
-function matcherFor(pathGroup: string): (file: string) => boolean {
-  const patterns = patternsFor(pathGroup);
-  const first = patterns[0];
-  if (first === undefined) throw new Error(`no pattern parsed from ${pathGroup}`);
-  return first.matcher;
-}
-
-describe("parseRows", () => {
-  it("skips non-table lines, the header row, and the separator row", () => {
-    const map = [
-      "# Heading prose, not a table",
-      "",
-      "| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |",
-      "| --- | --- | --- | --- | --- | --- | --- | --- |",
-      "| `scripts/x.ts` | 1 .ts | yes | none | ESLint | none | linted | — |",
-      "trailing prose line that does not start with a pipe",
-    ].join("\n");
-
-    const rows = parseRows(map);
-
-    // Only the single data row survives — header, separator, and the two prose
-    // lines are all dropped (kills the L21 `startsWith("|")`, L31 header, and
-    // L32 separator conditional flips).
-    expect(rows).toHaveLength(1);
-    expect(rows[0]?.pathGroup).toBe("`scripts/x.ts`");
-    expect(rows[0]?.ratchets).toBe("none");
-    expect(rows[0]?.status).toBe("linted");
-    // Line number is the 1-based source position of the data row (5th line).
-    expect(rows[0]?.line).toBe(5);
-  });
-
-  it("rejects a colon-aligned separator row with the same shape as `:---:`", () => {
-    const map = [
-      "| Path / group | Files | Normal lint | Existing ratchet/floor | Parser/tool | Proposed rule/tool | Status | Blocker/follow-up |",
-      "| :--- | :---: | ---: | --- | --- | --- | --- | --- |",
-      "| `scripts/y.ts` | 1 .ts | yes | none | ESLint | none | linted | — |",
-    ].join("\n");
-
-    const rows = parseRows(map);
-
-    expect(rows.map((r) => r.pathGroup)).toEqual(["`scripts/y.ts`"]);
-  });
-});
-
-describe("extractPathPatterns base-dir inference", () => {
-  it("resolves a bare filename under the base dir established by a preceding rooted path", () => {
-    const patterns = patternsFor("`scripts/a/foo.ts`, `bar.ts`");
-
-    // The rooted full path stays verbatim and establishes base dir `scripts/a`.
-    expect(patterns[0]?.source).toBe("scripts/a/foo.ts");
-    expect(patterns[0]?.pattern).toBe("scripts/a/foo.ts");
-    // The bare filename is resolved under that inferred base dir, NOT left bare
-    // and NOT placed at the row root (kills L40/L43 stableBaseForPattern and
-    // L48/L49/L50 shouldUpdateBase flips).
-    expect(patterns[1]?.source).toBe("bar.ts");
-    expect(patterns[1]?.pattern).toBe("scripts/a/bar.ts");
-
-    const barMatcher = patterns[1]?.matcher;
-    expect(barMatcher?.("scripts/a/bar.ts")).toBe(true);
-    expect(barMatcher?.("bar.ts")).toBe(false);
-    expect(barMatcher?.("scripts/bar.ts")).toBe(false);
-    expect(barMatcher?.("scripts/a/other.ts")).toBe(false);
-  });
-
-  it("does not advance the base dir from a single-segment globstar pattern", () => {
-    // `scripts/**/*.ts` has a single-segment stable base (`scripts`), so
-    // shouldUpdateBase returns false on the `**` branch (L50 `> 1`): the
-    // following bare filename must stay bare rather than gain a `scripts/` prefix.
-    const patterns = patternsFor("`scripts/**/*.ts`, `bar.ts`");
-
-    expect(patterns[0]?.pattern).toBe("scripts/**/*.ts");
-    expect(patterns[1]?.source).toBe("bar.ts");
-    expect(patterns[1]?.pattern).toBe("bar.ts");
-  });
-
-  it("does advance the base dir from a multi-segment globstar pattern", () => {
-    // `scripts/a/**/*.ts` has a two-segment stable base (`scripts/a`), so the
-    // L50 `> 1` guard passes and the following bare filename is resolved under it.
-    const patterns = patternsFor("`scripts/a/**/*.ts`, `bar.ts`");
-
-    expect(patterns[0]?.pattern).toBe("scripts/a/**/*.ts");
-    expect(patterns[1]?.source).toBe("bar.ts");
-    expect(patterns[1]?.pattern).toBe("scripts/a/bar.ts");
-  });
-
-  it("treats a known root prefix as rooted but prepends the base dir for an unknown prefix", () => {
-    // `unknownroot/...` is not in ROOT_PATH_PREFIXES, so sourceIsRooted is false
-    // and the base dir is prepended even though the source already contains a
-    // slash (pins the sourceIsRooted boundary used by resolvePatternSource).
-    const patterns = patternsFor("`scripts/a/foo.ts`, `unknownroot/baz.ts`");
-
-    expect(patterns[1]?.source).toBe("unknownroot/baz.ts");
-    expect(patterns[1]?.pattern).toBe("scripts/a/unknownroot/baz.ts");
-
-    // A second cell whose bare-with-slash source starts with a KNOWN root prefix
-    // is rooted, so it is left at the row root rather than nested under the base.
-    const rooted = patternsFor("`scripts/a/foo.ts`, `packages/server/x.ts`");
-    expect(rooted[1]?.pattern).toBe("packages/server/x.ts");
-  });
-
-  it("ignores empty and whitespace-only code spans without advancing the base", () => {
-    const patterns = patternsFor("`scripts/a/foo.ts`, ` `, `bar.ts`");
-
-    // The blank span is dropped; the bare filename still resolves under the base
-    // dir set by the first rooted path.
-    expect(patterns).toHaveLength(2);
-    expect(patterns[1]?.pattern).toBe("scripts/a/bar.ts");
-  });
-});
-
-describe("createMatcher glob semantics", () => {
-  it("expands globstar-with-slash to span zero or more intermediate directories", () => {
-    const matcher = matcherFor("`src/**/*.ts`");
-
-    // Zero intermediate dirs (kills the L119 globstar-with-slash optional-dir
-    // branch: a `.*` fallback would force at least one slash after `src/`).
-    expect(matcher("src/c.ts")).toBe(true);
-    // Multiple intermediate dirs.
-    expect(matcher("src/a/b/c.ts")).toBe(true);
-    // Wrong extension is rejected by the trailing `*.ts`.
-    expect(matcher("src/a/b/c.tsx")).toBe(false);
-    // The leading literal segment is anchored.
-    expect(matcher("other/c.ts")).toBe(false);
-  });
-
-  it("does not let a single `*` cross a slash", () => {
-    const matcher = matcherFor("`src/*.ts`");
-
-    expect(matcher("src/b.ts")).toBe(true);
-    // `*` is `[^/]*`, so it cannot span the `a/` directory (kills the L125 `*`
-    // non-slash branch).
-    expect(matcher("src/a/b.ts")).toBe(false);
-  });
-
-  it("matches `?` against exactly one non-slash character", () => {
-    const matcher = matcherFor("`src/?.ts`");
-
-    expect(matcher("src/a.ts")).toBe(true);
-    // Two characters do not satisfy a single `?` (kills the L128 `?` branch).
-    expect(matcher("src/ab.ts")).toBe(false);
-    // Zero characters do not satisfy `?`.
-    expect(matcher("src/.ts")).toBe(false);
-    // `?` is `[^/]`, so it cannot match a slash.
-    expect(matcher("src//.ts")).toBe(false);
-  });
-
-  it("expands brace alternations into each variant", () => {
-    const matcher = matcherFor("`foo.{ts,tsx}`");
-
-    expect(matcher("foo.ts")).toBe(true);
-    expect(matcher("foo.tsx")).toBe(true);
-    expect(matcher("foo.js")).toBe(false);
-  });
-
-  it("normalizes a duplicate-extension variant so the collapsed form also matches", () => {
-    // `foo.ts.ts` keeps the literal form AND a DUPLICATE_EXTENSION_PATTERN-collapsed
-    // `foo.ts` variant, so both files match (pins normalizePatternVariants).
-    const matcher = matcherFor("`foo.ts.ts`");
-
-    expect(matcher("foo.ts.ts")).toBe(true);
-    expect(matcher("foo.ts")).toBe(true);
-    expect(matcher("foo.tsx")).toBe(false);
-  });
-
-  it("escapes regex metacharacters in literal pattern segments", () => {
-    // A `.` in the pattern must match a literal dot, not any character.
-    const matcher = matcherFor("`a.b.ts`");
-
-    expect(matcher("a.b.ts")).toBe(true);
-    expect(matcher("aXb.ts")).toBe(false);
-  });
-});
-
 describe("trackedFileIsInScope", () => {
   it("excludes files under generated/build/cache directories", () => {
     expect(trackedFileIsInScope("node_modules/x.ts")).toBe(false);

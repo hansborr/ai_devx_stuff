@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
 import type { ParseResult } from "@musi/lint-ratchet/kernel/entry-baseline.js";
+import { z } from "zod";
 
 import {
   defaultKnipRunner,
@@ -12,6 +13,7 @@ import {
 } from "./drift-ai/knip-runner.js";
 import { parseKnipUnusedExports } from "./drift-ai/knip-unused-exports.js";
 import { writeFileAtomicallySync } from "./lib/atomic-write.js";
+import { parseCli } from "./lib/cli.js";
 import {
   compareKnipUnusedExports,
   formatKnipUnusedExportsBaseline,
@@ -28,7 +30,8 @@ export {
 
 const DEFAULT_BASELINE_PATH = "sensor-knip-unused-exports.baseline.json";
 const DEFAULT_CONFIG_PATH = "knip.config.ts";
-const HELP_FLAGS = new Set(["--help", "-h"]);
+const SUMMARY_DRIFT_EXIT_CODE = 4;
+const CORRUPT_BASELINE_EXIT_CODE = 5;
 
 export type RunKnipUnusedExportsCliOptions = {
   readonly argv: readonly string[];
@@ -67,6 +70,11 @@ class KnipUnusedExportsCliError extends Error {
   }
 }
 
+const cliOptionsSchema = z.object({
+  "--baseline": z.string().default(DEFAULT_BASELINE_PATH),
+  "--update": z.boolean().default(false),
+});
+
 function warnIfMergeDriverMissing(options: RunKnipUnusedExportsCliOptions, cwd: string): void {
   if (options.warn === undefined) return;
   forwardMissingMergeDriverWarning({
@@ -85,6 +93,7 @@ function usage(): string {
     "  bun scripts/sensor-knip-unused-exports.ts --baseline=<path>",
     "",
     "Fails when knip's unused exported symbol identities differ from the committed baseline.",
+    "Exit codes: 0 clean; 1 unclassified failure; 2 usage or transient failure; 3 stale entries; 4 summary drift; 5 corrupt or unreadable baseline.",
   ].join("\n");
 }
 
@@ -117,7 +126,9 @@ export function runKnipUnusedExportsCli(
   }
 
   const baseline = readBaseline(baselinePath);
-  if (!baseline.ok) return { exitCode: 2, stdout: `ERROR: ${baseline.error}` };
+  if (!baseline.ok) {
+    return { exitCode: CORRUPT_BASELINE_EXIT_CODE, stdout: `ERROR: ${baseline.error}` };
+  }
 
   const comparison = compareKnipUnusedExports(baseline.value, collected.value);
   const warningLines = baseline.warnings?.map((warning) => `WARN: ${warning}`) ?? [];
@@ -138,7 +149,7 @@ function checkResult(
   }
   if (warningLines.length > 0) {
     return {
-      exitCode: 1,
+      exitCode: SUMMARY_DRIFT_EXIT_CODE,
       stdout: [
         ...warningLines,
         comparison.stdout,
@@ -179,37 +190,25 @@ function parseCliOptions(argv: readonly string[]): ParsedCliOptions {
 }
 
 function parseArgs(argv: readonly string[]): CliOptions {
-  let baselinePath = DEFAULT_BASELINE_PATH;
-  let update = false;
-
-  for (let index = 0; index < argv.length; index += 1) {
-    const arg = argv[index];
-    if (arg === undefined) continue;
-    if (HELP_FLAGS.has(arg)) throw new KnipUnusedExportsHelp();
-    if (arg === "--update") {
-      update = true;
-      continue;
-    }
-    if (arg === "--baseline") {
-      const next = argv[index + 1];
-      if (next === undefined || next.startsWith("--")) {
-        throw new KnipUnusedExportsCliError("--baseline requires a path.");
-      }
-      baselinePath = next;
-      index += 1;
-      continue;
-    }
-    if (arg.startsWith("--baseline=")) {
-      baselinePath = arg.slice("--baseline=".length);
-      if (baselinePath.length === 0) {
-        throw new KnipUnusedExportsCliError("--baseline requires a path.");
-      }
-      continue;
-    }
-    throw new KnipUnusedExportsCliError(`Unknown argument: ${arg}\n${usage()}`);
-  }
-
-  return { baselinePath, update };
+  const parsed = parseCli({
+    argv,
+    usage: usage(),
+    createError: (message) => new KnipUnusedExportsCliError(message),
+    allowEmptyArgs: true,
+    rejectPositionals: true,
+    options: [
+      { name: "--baseline", kind: "value", valueErrorMessage: "--baseline requires a path." },
+      { name: "--update", kind: "flag" },
+    ],
+    schema: cliOptionsSchema,
+    onHelp: () => {
+      throw new KnipUnusedExportsHelp();
+    },
+  });
+  return {
+    baselinePath: parsed.options["--baseline"],
+    update: parsed.options["--update"],
+  };
 }
 
 type CollectOptions = {
@@ -252,11 +251,10 @@ function resolveRunner(options: CollectOptions): ParseResult<KnipRunner> {
       ok: true,
       value: defaultKnipRunner({
         analyzedRepoRoot: options.cwd,
+        commandLabel: "sensor:knip-unused-exports",
         includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES,
         knipBin: resolution.binPath,
-        warn: (message) => {
-          warn(formatRunnerWarning(message));
-        },
+        warn,
       }),
     };
   }
@@ -264,14 +262,11 @@ function resolveRunner(options: CollectOptions): ParseResult<KnipRunner> {
     ok: true,
     value: defaultKnipRunner({
       analyzedRepoRoot: options.cwd,
+      commandLabel: "sensor:knip-unused-exports",
       includeCategories: KNIP_SYMBOL_INCLUDE_CATEGORIES,
       knipBin: resolution.binPath,
     }),
   };
-}
-
-function formatRunnerWarning(message: string): string {
-  return message.replace(/^drift:ai:/u, "sensor:knip-unused-exports:");
 }
 
 function formatKnipRunFailure(

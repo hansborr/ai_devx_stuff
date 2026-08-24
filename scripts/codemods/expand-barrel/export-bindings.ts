@@ -2,7 +2,7 @@ import path from "node:path";
 
 import { Node, type SourceFile } from "ts-morph";
 
-import { moduleSource } from "../lib/trpc-shared-schema.js";
+import { moduleSource } from "../lib/codemod-imports.js";
 import { fail } from "./errors.js";
 import { resolveExportModulePath } from "./paths.js";
 import type { DirectExportBinding, ExportBinding, ExportMap } from "./types.js";

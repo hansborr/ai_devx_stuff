@@ -1,0 +1,788 @@
+{
+  "contractVersion": 1,
+  "consult": "R2B",
+  "step": "1b-round-2",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "itemDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[12]",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reasoning": "Opened `.claude/settings.json:5-88`, `scripts/ai-hooks/policy.sh:1059-1213`, and `scripts/ai-hooks/test.sh:253-301,515-522`. Claude carries 81 hand-authored native deny patterns while shared hooks separately implement the corresponding destructive Git and GitHub policies. The family-level parity smoke mitigates current drift but does not derive either representation and already needs a stash exception to preserve contextual policy behavior.",
+      "promotionIds": [
+        "R2B-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[13]",
+      "lane": "lane-01-harness-core",
+      "disposition": "promote",
+      "reasoning": "Opened `scripts/ai-hooks/edited-paths.sh:8-62`, `tidy-edited-file.sh:31-67,143-154`, `lint-coverage-check.sh:21-32`, and `stop-policy.sh:705-715`. Tidy privately repeats the shared apply-patch and file-path extraction, while three hooks carry equivalent full ESLint extension classifiers. Payload or extension changes can therefore make formatting, coverage advice, and Stop warnings observe different edited-file sets.",
+      "promotionIds": [
+        "R2B-002"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[18]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened `scripts/sensor-context-budget.ts:2-23,64-182,190-258` and its focused tests. Markdown stripping, Claude `@path` grammar, four-hop recursion, shortest-depth traversal, cycle handling, and home-relative resolution directly implement this vendor-specific sensor's documented measurement contract. A generic Markdown parser would not eliminate the vendor import semantics and would add machinery to a terminal advisory; CQ25-34 also treats the sensor as a sanctioned flat companion.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[24]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened `scripts/generate-baseline-conflict-recipes.ts:30-109`, its focused tests, and authored leaf 128. The extractor is formatting-sensitive but bounded to one case arm and fails loudly when the function label, arm, unquoted heredoc, or terminator shape changes. Leaf 128 explicitly retains the driver as the hand-authored recipe source and its case-arm extraction rather than making the hook-critical driver a generated splice target.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::coverage.cut[27]",
+      "lane": "lane-01-harness-core",
+      "disposition": "uphold",
+      "reasoning": "Opened `package.json:15-17`, the three workflow files, and `examples/lint-ratchet-demo/smoke.sh`. Root CI and slow drift consistently use Bun 1.3.11, matching the root package manager; only the path-scoped public demo smoke uses 1.3.14 in a fresh throwaway adopter workspace. The package's runtime contract is Bun >=1.3.0, so this provides incidental cross-patch coverage rather than demonstrated harmful inconsistency.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[9]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened `scripts/drift-ai/near-duplicates-runner.ts` and the near-duplicates documentation. The optional binary is installed without a version pin, its human-readable delimiters are parsed privately, and status 0 is accepted even when parsing recognizes no pairs. An upstream presentation change can therefore silently certify an empty successful result.",
+      "promotionIds": [
+        "R2B-003"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[15]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened all 249 lines of `scripts/drift-triage/triage-report-support.ts` and `scripts/drift-triage/MODULE.md`. The module deliberately owns shared parse/build helpers; concrete risks in the grouping are already covered by leaf 134, leaf 139, and CQ25-45. Splitting the remaining small location, merge, provenance, and deferral helpers would add internal files without a distinct failure or maintenance mechanism.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[16]",
+      "lane": "lane-02-analyzers",
+      "disposition": "promote",
+      "reasoning": "Opened `triage-packets.ts`, `triage-verdict-types.ts`, `triage-packet-types.ts`, and `triage-verdict-input.ts`. Packet production hand-copies verdict, severity, confidence, and required-field lists while runtime parsing enforces separate canonical arrays. The packet type widens the closed vocabularies to strings, so either copy can drift and instruct reviewers to produce records the collector rejects.",
+      "promotionIds": [
+        "R2B-004"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::coverage.cut[21]",
+      "lane": "lane-02-analyzers",
+      "disposition": "uphold",
+      "reasoning": "Opened `hotspots-actionability.ts`, `hotspots.ts`, their focused tests, and authored leaf 135. Baseline behavior is prominently documented in the file header and its dedicated section beginning at line 122; keeping row-actionability initialization and baseline tagging together is coherent. The demonstrated stringly lens-registration hazard in that section is already precisely covered by leaf 135.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[6]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened `packages/server/src/services/character-delete.ts` and its focused harness. The service first loads the character's active participant rows, then awaits another participant-list query inside a loop for every active encounter before entering the delete transaction. The test harness explicitly models that 1+N query shape, and no active-encounter-count bound exists.",
+      "promotionIds": [
+        "R2B-005"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[7]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened all of `inventory-service.ts`, its router consumer, and the services charter. Mapping, list aggregates, and create/update orchestration are sections of one cohesive inventory boundary and reuse the same mapper in request-facing operations. The documented flat-service convention favors keeping this closely related 283-line concern together; the title shows different implementation techniques but no harmful ownership split.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[10]",
+      "lane": "lane-03-server",
+      "disposition": "promote",
+      "reasoning": "Opened the manual-log service, `broadcast-helpers.ts`, and `encounter-combat/MODULE.md`. Manual logs reconstruct chat options and directly invoke encounter plus chat broadcasts, while the canonical coordinator owns that ordered fan-out for other encounter-combat mutations. The module charter explicitly says request-facing entry points including `addCombatLog` own fan-out through that coordinator, so source and declared boundary disagree.",
+      "promotionIds": [
+        "R2B-006"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::coverage.cut[13]",
+      "lane": "lane-03-server",
+      "disposition": "uphold",
+      "reasoning": "Opened the complete character-live-state plan surface, its module document, and focused tests. The sole current producer returns one character id, but the module explicitly defines multiplicity as the post-transaction contract for future compound commands, and tests pin deduplication and multi-character behavior. The generality costs only a short Set loop and creates no incorrect state or maintenance fork.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[3]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Verified the cited Tailwind sequence in 16 production sheet files and inspected representative panels. The repeated material is a fixed token sequence, while panels differ substantially in conditional rendering, headers, controls, dynamic borders, and empty states. No behavioral or visual drift was demonstrated, so a configurable wrapper would replace conventional Tailwind repetition without establishing a useful invariant.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[7]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened `hooks/use-surface-reset.ts:7-33`, all three callers, `stores/MODULE.md`, and CQ25-117. The options interface admits only the three named stores and requires a surface key; actual combinations correspond directly to map, combat map, and encounter tracker boundaries. The module explicitly records this hook as owner of an intentionally explicit reset set, and no invalid caller or drift is present.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[9]",
+      "lane": "lane-05-client",
+      "disposition": "uphold",
+      "reasoning": "Opened `use-monster-attack.ts:14-26,64-83`, the sole predicate consumer, and the drawer module maps. `StructuredMonsterAction` and its predicate define exactly which actions the mutation hook can execute; presentation consumes that public contract to decide whether to expose the matching Attack button. Moving twelve lines to a third module would not reduce coupling or prevent a demonstrated inconsistency.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[30]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened the shared `GridType` vocabulary and the three client declarations widening it to string. `GridBody` recognizes only square and hex, so an invalid string type-checks and silently renders no grid; the primary toolbar similarly suppresses template tools for every value except square. These direct `MapDetail.gridType` boundaries discard useful exhaustiveness.",
+      "promotionIds": [
+        "R2B-007"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[34]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened `campaign-homebrew-section.tsx:158-165` and other navigation to the same destination. The empty-state link is a literal anchor to `/homebrew`, while established callers use TanStack Router Link. This path therefore performs a document navigation and unnecessarily discards in-memory application state.",
+      "promotionIds": [
+        "R2B-008"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[35]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened the established homebrew field-error contract and representative bypassing forms. Shared fields announce and associate errors with `role=alert`, `aria-invalid`, an error id, and `aria-describedby`; eleven error-bearing homebrew field components instead render visual destructive paragraphs without control association. This is a bounded accessibility residual rather than the rejected style-only 49-site field sweep.",
+      "promotionIds": [
+        "R2B-009"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[37]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened both complete caster-selection blocks and the shared homebrew module charter. Class and subclass independently render the same caster-type and spellcasting-ability selects, including the `_none` conversion and duplicate display labels, despite already sharing options and parsing. The class-only Ritual Adept checkbox lies outside the duplicated block, and the charter admits two-consumer presentation primitives.",
+      "promotionIds": [
+        "R2B-010"
+      ]
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[39]",
+      "lane": "lane-05-client",
+      "disposition": "promote",
+      "reasoning": "Opened both deletion dialogs and the existing ordinary `DeleteConfirmDialog`. Collection and entry deletion duplicate confirm-name state, trimmed matching, submit guarding, dialog/input wiring, pending cancellation, mutation-error presentation, and footer state; only entity copy and mutation side effects differ. The ordinary shared dialog does not model typed-name confirmation.",
+      "promotionIds": [
+        "R2B-011"
+      ]
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "R2B-001",
+      "title": "Project Claude's native destructive-command denies from shared command-policy data",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": ".claude/settings.json",
+          "line": 5,
+          "endLine": 88,
+          "measurement": null,
+          "note": "Claude's native permissions contain the separately maintained 81-entry deny array."
+        },
+        {
+          "path": "scripts/ai-hooks/policy.sh",
+          "line": 1059,
+          "endLine": 1213,
+          "measurement": null,
+          "note": "Shared hooks independently implement the hard destructive Git and GitHub command policies represented in Claude settings."
+        },
+        {
+          "path": "scripts/ai-hooks/test.sh",
+          "line": 253,
+          "endLine": 301,
+          "measurement": null,
+          "note": "A bespoke classifier and two-way family corpus are required to keep the representations aligned but do not derive either one."
+        },
+        {
+          "path": "scripts/ai-hooks/test.sh",
+          "line": 515,
+          "endLine": 522,
+          "measurement": null,
+          "note": "The split already needs an explicit stash exclusion because native denial would preempt the shared policy's contextual reason."
+        }
+      ],
+      "problem": "One safety policy is encoded in two languages: Claude matcher strings and procedural shared-shell rules for other harnesses. Family-level parity mitigates current drift but preserves synchronized edits and cannot guarantee that individual native patterns remain projections of policy authority.",
+      "proposedDirection": "Extend the declarative command-policy work with a native-Claude projection for context-free hard denies, generating or freshness-checking the deny array while preserving intentional non-projections such as stash.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[12]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Claude settings maintain an independent 81-entry deny list alongside shared hook policy.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-122",
+          "residual": "The landed shim-generation plan owns adapter hook registration and shims, not the hand-maintained native permissions array."
+        },
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-129",
+          "residual": "The refusal covers replacing the localized hooks-key scanner with jsonc-parser, not projecting native deny data from shared policy."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 107 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-002",
+      "title": "Share edited-path extraction and ESLint file classification across AI hooks",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/ai-hooks/edited-paths.sh",
+          "line": 8,
+          "endLine": 62,
+          "measurement": null,
+          "note": "This module declares and implements the adapter-neutral edited-path translation point."
+        },
+        {
+          "path": "scripts/ai-hooks/tidy-edited-file.sh",
+          "line": 31,
+          "endLine": 67,
+          "measurement": null,
+          "note": "Tidy repeats the tool-name reader, apply-patch parser, and direct file-path extraction."
+        },
+        {
+          "path": "scripts/ai-hooks/tidy-edited-file.sh",
+          "line": 143,
+          "endLine": 154,
+          "measurement": null,
+          "note": "Tidy owns a private full ESLint-supported extension predicate."
+        },
+        {
+          "path": "scripts/ai-hooks/lint-coverage-check.sh",
+          "line": 21,
+          "endLine": 32,
+          "measurement": null,
+          "note": "Lint coverage repeats the same full extension predicate."
+        },
+        {
+          "path": "scripts/ai-hooks/stop-policy.sh",
+          "line": 705,
+          "endLine": 715,
+          "measurement": null,
+          "note": "Stop-time lint warnings repeat the same full extension predicate a third time."
+        }
+      ],
+      "problem": "Post-edit hooks do not share the translation and classification seams their documentation implies. Payload-dialect or extension changes require synchronized shell edits, and a missed copy makes formatting, coverage advice, and Stop warnings disagree about edited files.",
+      "proposedDirection": "Have tidy consume `edited-paths.sh` while retaining its worktree-aware resolution, and extract the identical full ESLint extension predicate for the three matching consumers. Keep ratchet regression's intentionally narrower classifier local.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-01.json::coverage.cut[13]",
+          "lane": "lane-01-harness-core",
+          "originalTitle": "Edited-path translation and the same extension classifier are repeated across AI hooks.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-003",
+      "title": "Fail closed when similarity-ts stdout no longer matches the supported protocol",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-ai/README.md",
+          "line": 536,
+          "endLine": 539,
+          "measurement": null,
+          "note": "The documented install command fetches the current similarity-ts release without pinning a supported version."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-runner.ts",
+          "line": 156,
+          "endLine": 159,
+          "measurement": null,
+          "note": "A zero subprocess status is accepted as success even when parsing recognizes no pairs."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-runner.ts",
+          "line": 180,
+          "endLine": 198,
+          "measurement": null,
+          "note": "The parser silently skips unrecognized stdout and has no completeness or unexpected-output signal."
+        },
+        {
+          "path": "scripts/drift-ai/near-duplicates-runner.ts",
+          "line": 215,
+          "endLine": 246,
+          "measurement": null,
+          "note": "Pair and score decoding depend on exact human-text markers, spacing, range punctuation, and percent formatting."
+        }
+      ],
+      "problem": "The optional analyzer integrates an unpinned external binary through a private parser for human-readable stdout. A presentation change with status 0 can yield no rows and be reported as a clean successful result, creating silent false negatives.",
+      "proposedDirection": "Declare and check a supported version or use structured output if available. Treat nonempty but unrecognized successful output as a run failure and pin clean, malformed, and changed-protocol cases.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[9]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "Similarity-ts stdout is an unversioned text protocol",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 140 — hint only"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-004",
+      "title": "Single-source drift-triage's advertised and enforced verdict contract",
+      "area": "harness",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "scripts/drift-triage/triage-packets.ts",
+          "line": 18,
+          "endLine": 33,
+          "measurement": null,
+          "note": "Packet production independently lists reviewer-facing verdicts, severities, confidences, and required fields."
+        },
+        {
+          "path": "scripts/drift-triage/triage-verdict-types.ts",
+          "line": 1,
+          "endLine": 19,
+          "measurement": null,
+          "note": "Separate canonical literal arrays define the values accepted by the verdict model."
+        },
+        {
+          "path": "scripts/drift-triage/triage-verdict-input.ts",
+          "line": 58,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Runtime parsing enforces the canonical arrays and record shape independently of packet instructions."
+        },
+        {
+          "path": "scripts/drift-triage/triage-packet-types.ts",
+          "line": 39,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The reviewer-facing type widens the three closed vocabularies and does not bind requiredFields to verdict keys."
+        }
+      ],
+      "problem": "Reviewer instructions and collector acceptance are maintained as independent lists. Drift can generate valid packets that instruct reviewers to return values or fields rejected during collection after review work is complete.",
+      "proposedDirection": "Define reviewer-facing metadata beside the canonical verdict constants and derive its vocabularies directly. Bind required fields to verdict keys or one shared runtime schema.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-02.json::coverage.cut[16]",
+          "lane": "lane-02-analyzers",
+          "originalTitle": "The advertised verdict contract duplicates canonical verdict constants",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-47",
+          "residual": "CQ25-47 concerns optional Zod narrowing of the separate report-contract parser family and explicitly excludes triage-verdict-input; it does not connect packet metadata to verdict constants."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-005",
+      "title": "Character deletion serially reloads every active encounter's participant list",
+      "area": "server",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/character-delete.ts",
+          "line": 29,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The service first loads every active participant belonging to the character."
+        },
+        {
+          "path": "packages/server/src/services/character-delete.ts",
+          "line": 68,
+          "endLine": 73,
+          "measurement": null,
+          "note": "An awaited participant-list query then runs inside the loop for each active encounter."
+        },
+        {
+          "path": "packages/server/src/services/character-delete.test.ts",
+          "line": 66,
+          "endLine": 94,
+          "measurement": null,
+          "note": "The focused harness codifies one initial query followed by encounter-keyed ordered-list queries."
+        }
+      ],
+      "problem": "Character deletion performs 1+N pre-transaction reads, with the N participant queries awaited serially. Many active encounters increase user-visible latency and widen the interval between the reconciliation snapshot and the transaction applying it.",
+      "proposedDirection": "Bulk-load ordered participants for all affected encounter ids and group them in memory, or select the relation with the initial load, while preserving adjustment and CAS semantics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[6]",
+          "lane": "lane-03-server",
+          "originalTitle": "Character deletion uses one participant-list query per active encounter.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 007 — hint only; leaf 007 covers the in-transaction cascade protocol, not these pre-delete reads"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-006",
+      "title": "Manual combat logs bypass the encounter-combat fan-out coordinator",
+      "area": "server",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/server/src/services/encounter-combat/combat-log.ts",
+          "line": 18,
+          "endLine": 25,
+          "measurement": null,
+          "note": "The manual-log file reconstructs combat-chat options already assembled by the standard coordinator."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/combat-log.ts",
+          "line": 50,
+          "endLine": 70,
+          "measurement": null,
+          "note": "After persistence, manual logs directly issue encounter and combat-chat fan-out."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/broadcast-helpers.ts",
+          "line": 25,
+          "endLine": 54,
+          "measurement": null,
+          "note": "The canonical coordinator owns encounter, character, and chat delivery."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/MODULE.md",
+          "line": 43,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The module contract says its request-facing entry points own fan-out through `fanOutBroadcasts`."
+        }
+      ],
+      "problem": "One encounter-combat mutation maintains a private copy of the post-persistence fan-out sequence. Changes to ordering, failure policy, logging, or payload construction can miss manual logs, while the module documentation falsely presents one boundary.",
+      "proposedDirection": "Route `addCombatLog` through `fanOutBroadcasts` using no affected characters and its chat payload, or narrow the coordinator input to the common fields. Delete the local chat-options adapter.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-03.json::coverage.cut[10]",
+          "lane": "lane-03-server",
+          "originalTitle": "Manual combat logs bypass encounter-combat's standard fan-out path.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-75",
+          "residual": "CQ25-75 records the services-versus-utils placement question for combat chat, not duplicate fan-out within encounter-combat."
+        }
+      ],
+      "existingLeafHints": [
+        "looks close to leaf 001 — hint only; leaf 001 covers cross-feature chat policy, while this is an intra-module coordinator bypass"
+      ],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-007",
+      "title": "Preserve GridType through client map component boundaries",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/map.ts",
+          "line": 41,
+          "endLine": 45,
+          "measurement": null,
+          "note": "The shared contract defines the exhaustive square, hex, and none GridType vocabulary."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps/map-canvas-grid.tsx",
+          "line": 88,
+          "endLine": 102,
+          "measurement": null,
+          "note": "GridBody widens the prop to string, then recognizes only square and hex."
+        },
+        {
+          "path": "packages/client/src/components/campaign/maps",
+          "line": null,
+          "endLine": null,
+          "measurement": "3 widened declarations (`rg -n 'readonly gridType: string' packages/client/src/components/campaign/maps --glob '*.tsx'`)",
+          "note": "The widening occurs in GridBody, MapToolbar, and PrimaryToolSection."
+        }
+      ],
+      "problem": "A schema-derived closed vocabulary becomes unrestricted at three adjacent component boundaries. Invalid values compile and degrade into silent UI omissions, while future additions receive no exhaustiveness pressure.",
+      "proposedDirection": "Use the shared GridType for all three props, preserving each component's intentional handling of `none`.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[30]",
+          "lane": "lane-05-client",
+          "originalTitle": "GridType is widened to string across three map boundaries.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-008",
+      "title": "Route the campaign homebrew empty-state link through TanStack Router",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/campaign/homebrew-link/campaign-homebrew-section.tsx",
+          "line": 161,
+          "endLine": 163,
+          "measurement": null,
+          "note": "The internal Homebrew destination is rendered as a raw anchor."
+        },
+        {
+          "path": "packages/client/src/pages/collection-detail-page.tsx",
+          "line": 172,
+          "endLine": 178,
+          "measurement": null,
+          "note": "Another navigation to the same route correctly uses TanStack Router Link."
+        }
+      ],
+      "problem": "One internal navigation bypasses the router and forces a document load, dropping in-memory application state and diverging from route-aware navigation used for the same destination.",
+      "proposedDirection": "Replace the raw anchor with TanStack Router Link while preserving copy and styling.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[34]",
+          "lane": "lane-05-client",
+          "originalTitle": "An internal homebrew link uses a raw anchor.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-009",
+      "title": "Associate homebrew validation errors with their controls",
+      "area": "client",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/shared/homebrew-textarea-field.tsx",
+          "line": 28,
+          "endLine": 47,
+          "measurement": null,
+          "note": "The established homebrew field contract wires invalid state and described-by association to an identified alert."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/species/species-form-fields.tsx",
+          "line": 58,
+          "endLine": 68,
+          "measurement": null,
+          "note": "The species-name error is a visual paragraph only, with no invalid state or control relationship."
+        },
+        {
+          "path": "packages/client/src/components/homebrew",
+          "line": null,
+          "endLine": null,
+          "measurement": "11 error-bearing field components (`rg -l 'fieldErrors' packages/client/src/components/homebrew --glob '*.tsx' | xargs rg -l '<p[^>]*className=\"text-sm text-destructive\"' | wc -l`)",
+          "note": "The accessibility-contract bypass is distributed across homebrew entity forms."
+        }
+      ],
+      "problem": "Many homebrew validation messages are only visually adjacent to controls. Those controls are not marked invalid and do not reference their messages, so assistive-technology users may miss new errors or lose the relationship when returning to a field.",
+      "proposedDirection": "Limit work to controls that render validation errors. Reuse established field primitives where they fit and wire equivalent alert, invalid-state, id, and described-by semantics for selects, groups, and list rows.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[35]",
+          "lane": "lane-05-client",
+          "originalTitle": "Most homebrew validation errors bypass the established field contract.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "do-not-reopen",
+          "ref": "CQ25-187",
+          "residual": "CQ25-187 rejected a style-driven sweep of roughly 49 hand-rolled Label/Input triples. This candidate excludes controls without validation errors and addresses the narrower verified accessibility failure in 11 error-bearing components."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": "Overturns CQ25-187 only for the error-bearing homebrew subset. The refusal addressed an unbounded component-normalization sweep with no demonstrated defect; the current tree exposes a bounded set that violates the since-landed aria-invalid and aria-describedby contract. This retains the prior bans on polymorphic FormField expansion and hoisting FormFieldError."
+    },
+    {
+      "promotionId": "R2B-010",
+      "title": "Share class and subclass caster-selection fields",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/class/class-form-fields.tsx",
+          "line": 121,
+          "endLine": 172,
+          "measurement": null,
+          "note": "Class renders caster type and spellcasting ability selectors with local labels and sentinel conversion."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/subclass/subclass-form-fields.tsx",
+          "line": 33,
+          "endLine": 85,
+          "measurement": null,
+          "note": "Subclass repeats the same selectors, labels, options, and none-sentinel conversion."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/shared/MODULE.md",
+          "line": 25,
+          "endLine": 28,
+          "measurement": null,
+          "note": "The module's admission rule places two-consumer presentation primitives in the shared homebrew folder."
+        }
+      ],
+      "problem": "Two forms independently own identical caster labels, selector markup, option iteration, and sentinel conversion even though their data helpers are shared. Presentation or normalization changes can drift between class and subclass authoring.",
+      "proposedDirection": "Extract a focused shared caster-selection component with an id prefix and explicit value/change props. Keep Ritual Adept in the class form.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[37]",
+          "lane": "lane-05-client",
+          "originalTitle": "Class and subclass duplicate caster-selection UI.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    },
+    {
+      "promotionId": "R2B-011",
+      "title": "Extract the duplicated homebrew confirm-by-name deletion dialog",
+      "area": "client",
+      "category": "duplication",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/homebrew/collections/delete-collection-dialog.tsx",
+          "line": 26,
+          "endLine": 105,
+          "measurement": null,
+          "note": "Collection deletion implements the complete confirm-by-name state and dialog stack."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/delete-entry-dialog.tsx",
+          "line": 26,
+          "endLine": 105,
+          "measurement": null,
+          "note": "Entry deletion repeats the same matching, submit guard, input, pending, error, and footer behavior."
+        },
+        {
+          "path": "packages/client/src/components/common/delete-confirm-dialog.tsx",
+          "line": 13,
+          "endLine": 54,
+          "measurement": null,
+          "note": "The existing shared deletion dialog handles ordinary confirmation but not typed-name confirmation."
+        }
+      ],
+      "problem": "Two homebrew deletion paths maintain parallel confirmation implementations whose interaction and accessibility policy can drift, while mutation-specific effects are embedded alongside duplicated presentation state.",
+      "proposedDirection": "Extract a confirm-by-name shell owning name state, matching, submit gating, pending controls, and error presentation. Keep mutation, invalidation, toast, and entity copy in thin wrappers.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "R2B",
+          "sourceItemId": "wave-1/lane-05.json::coverage.cut[39]",
+          "lane": "lane-05-client",
+          "originalTitle": "Collection and entry deletion duplicate confirm-by-name dialog stacks.",
+          "rejectionReason": "coverage cut; recorded rationale: none — the cut carries only its title"
+        }
+      ],
+      "priorPackOverlaps": [],
+      "existingLeafHints": [
+        "looks close to leaf 215 — hint only"
+      ],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": [
+    "Audited exactly 21 assigned cuts across lanes 01, 02, 03, and 05 using direct pinned-tree, module-document, authored-leaf, dedup-corpus, and prior-ruling reads.",
+    "No tests or builds were run and no files were modified.",
+    "For lane-01 cut[13], the narrower classifier in ratchet-regression-check.sh was inspected and excluded as intentional semantic scope.",
+    "The validation promotion deliberately narrows and explicitly challenges CQ25-187 rather than silently re-proposing its rejected 49-site form sweep."
+  ]
+}

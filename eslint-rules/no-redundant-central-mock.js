@@ -99,6 +99,8 @@ export const CANONICAL_FACTORY_SOURCES = {
     (await import("@/test/mock-use-srd-lookups.js")).buildMockUseSrdLookups()`,
   "@/hooks/use-ability-roll.js": `async () =>
     (await import("@/test/mock-use-ability-roll.js")).buildMockUseAbilityRoll()`,
+  "@/hooks/use-weapon-roll.js": `async () =>
+    (await import("@/test/mock-use-weapon-roll.js")).buildMockUseWeaponRoll()`,
   "@/hooks/vtt-drawer/use-monster-hp-update.js": `async () =>
     (await import("@/test/mock-use-monster-hp-update.js")).buildMockUseMonsterHpUpdate()`,
   "@/hooks/vtt-drawer/use-weapon-attack.js": `async () =>

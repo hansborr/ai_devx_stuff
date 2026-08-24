@@ -1,0 +1,50 @@
+{
+  "contractVersion": 1,
+  "step": "2b-round-6",
+  "verdict": "defects",
+  "findings": [
+    {
+      "priority": "P0",
+      "file": "084-backlog-simultaneously-action-queue-evidence.md",
+      "line": 85,
+      "kind": "bad-citation",
+      "finding": "The citation `scripts/backlog-lint-metadata.ts:22-27` does not support the claimed undelimited scan: it shows constants and field vocabularies, but not the extraction loop or delimiter behavior.",
+      "evidence": "Opened `scripts/backlog-lint-metadata.ts`: lines 22-27 define the 30-line limit and accepted field names/pattern, while lines 46-61 parse fields and lines 86-102 perform the non-contiguous first-30-lines scan.",
+      "remedy": "Change the citation to `scripts/backlog-lint-metadata.ts:22-27`, `:46-61`, and `:86-102`."
+    },
+    {
+      "priority": "P0",
+      "file": "094-two-documents-both-claim-be-authoritative.md",
+      "line": 61,
+      "kind": "bad-citation",
+      "finding": "The guide-table count and omission list are false because `docs/guides/code-intel.md` is already represented at `docs/ai-harness.md:396` in the same uninterrupted Guides table.",
+      "evidence": "Parsed the complete table at `docs/ai-harness.md:359-396`: 20 data rows contain direct guide paths and represent 21 unique guide files. The table omissions are only `lint-message-evals.md`, `lint-ratchet-merges.md`, and `lint-ratchet-reference.md`; whole-file references still cover 22 guides, leaving the latter two absent entirely.",
+      "remedy": "Write 24 guide files, 21 represented in 20 Guides-table rows, 22 referenced anywhere, and 2 absent entirely. Remove `code-intel.md` from the omission list and from the proposed added rows; add only the remaining three table omissions."
+    }
+  ],
+  "checks": {
+    "allCitationsResolve": false,
+    "allCountsReDerived": true,
+    "allCommandsExist": true,
+    "divergenceClaimReproduces": true,
+    "constraintsHonored": true,
+    "noLeafWeakened": true,
+    "shapeConforms": true,
+    "scopeClean": true
+  },
+  "measurements": {
+    "backlogLintLines": 1393,
+    "guideFiles": 24,
+    "guidesInTable": 21,
+    "guidesReferenced": 22,
+    "guidesAbsent": 2,
+    "hookWiringControls": 18
+  },
+  "notes": [
+    "The nine non-test `scripts/backlog-lint*.ts` modules are real and contain 220, 124, 61, 109, 103, 310, 103, 310, and 53 lines, totaling 1,393.",
+    "The verify-step producer, checker, and preflight contain 4 mappings, 4 mappings, and 4 paths respectively; all four paths equal the manifest outputPaths.",
+    "The supplied hookWiring jq projection returns 18 controls.",
+    "Using an in-memory duplicate-LAST_TS marker, the real verify-logs summary emitted `lint OK*` and `verify (full) 0s ago`; `musi_read_success_marker` rejected the same marker.",
+    "All added Bun scripts exist in root package.json, all cited shell entrypoints exist, prior-pack rulings survive at the pinned commit, and the five commits touched only the five named leaves."
+  ]
+}

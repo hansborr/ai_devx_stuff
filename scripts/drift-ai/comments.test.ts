@@ -2,7 +2,6 @@ import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import type { ChangedFile } from "../drift-ai.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import {
   analyzeCommentMetrics,
@@ -13,6 +12,7 @@ import {
 } from "./comments.js";
 import type { DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+import type { ChangedFile } from "./types.js";
 
 function makeReader(files: Record<string, string>): FileReader {
   return (filePath) => files[filePath];

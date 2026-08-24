@@ -1,15 +1,13 @@
 #!/usr/bin/env bash
-# Thin per-driver entry point for the lint-ratchet baseline post-merge/post-commit
-# truth-up. The shared body (baseline-post-merge-truth-up.sh) is SOURCED in-process
-# — not re-dispatched through bun — so the driver's own check command stays the
-# only subprocess, matching the husky hooks and the bun-invocation-log test stubs.
+# Thin per-driver entry point retained for the shared root dispatcher. The
+# versioned package owns truth-up behavior.
 set -uo pipefail
 
-# shellcheck disable=SC2034 # consumed by the sourced shared truth-up body.
-MUSI_TRUTH_UP_KEY="lint-ratchet"
-# Resolve the shared body next to this shim with pure-bash expansion (no dirname):
-# the truth-up hooks run under a deliberately minimal PATH that may omit coreutils.
-_truth_up_shim_dir="${BASH_SOURCE[0]%/*}"
-[ "$_truth_up_shim_dir" = "${BASH_SOURCE[0]}" ] && _truth_up_shim_dir="."
-# shellcheck source=scripts/git/baseline-post-merge-truth-up.sh
-. "$_truth_up_shim_dir/baseline-post-merge-truth-up.sh"
+# Git GUI hook environments can omit Bun from PATH. Truth-up is advisory and
+# must preserve any pending marker for the next capable invocation.
+command -v bun >/dev/null 2>&1 || exit 0
+
+args=(post-merge --adapter scripts/lint-ratchet/engine-binding.ts --)
+[ "${MUSI_RATCHET_POSTMERGE:-}" = "full" ] && args+=(--full)
+args+=("${1:-post-merge}")
+exec bun -e 'import("@musi/lint-ratchet/git-rail/executable-cli.js").then(module => module.runLintRatchetGitRailCliMain(process.argv.slice(1)))' -- "${args[@]}"

@@ -1,0 +1,308 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-09-lint-machinery",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L09-101",
+      "title": "TypeScript consumers depend on a hand-written shadow of checked JavaScript policy",
+      "area": "harness",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/eslint-config-shared-policy.d.ts",
+          "line": 1,
+          "endLine": 113,
+          "measurement": null,
+          "note": "One ambient file manually declares five wildcard JavaScript modules, duplicates ConfigSurfaceEntry across two module blocks, and restates max-lines policy and codec shapes."
+        },
+        {
+          "path": "eslint-config/max-lines-exceptions-codec.js",
+          "line": 14,
+          "endLine": 17,
+          "measurement": null,
+          "note": "The checked-JavaScript codec explicitly routes TypeScript consumers through the ambient declaration instead of exposing a declaration derived from its JSDoc contract."
+        },
+        {
+          "path": "scripts/eslint-config-shared-policy.d.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "113 lines declare 5 wildcard modules; 10 non-test production TypeScript files directly import one of those modules, measured with rg over the pinned tree excluding test/spec/test-helper and declaration files.",
+          "note": "The hand-maintained bridge serves lint coverage, path policy, ratchet, codemod, config-surface, and max-lines tooling."
+        }
+      ],
+      "problem": "Runtime policy lives in checked JavaScript while TypeScript consumers compile against an independently authored ambient model. Contributors must synchronize semantic types across runtime validation or JSDoc, a distant wildcard declaration, and bespoke shallow-parity machinery; adopters of the public harness reference inherit the same custom bridge.",
+      "proposedDirection": "Generate declarations from the checked JavaScript/JSDoc contract or establish one declaration-emitting policy-data boundary consumed by both ESLint config and TypeScript scripts, retaining only a thin binding if module resolution still requires one.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-102",
+      "title": "Path-policy gives single-segment glob two incompatible private grammars",
+      "area": "harness",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/path-policy/path-policy.ts",
+          "line": 24,
+          "endLine": 27,
+          "measurement": null,
+          "note": "Changed-file policy exposes a selector explicitly named single-segment-glob."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 37,
+          "endLine": 44,
+          "measurement": null,
+          "note": "Its private matcher escapes question marks and brackets and translates only asterisks."
+        },
+        {
+          "path": "scripts/path-policy/fixture-copy-expressions.ts",
+          "line": 16,
+          "endLine": 16,
+          "measurement": null,
+          "note": "The fixture analyzer calls a pattern a glob when it contains an asterisk, question mark, or opening bracket."
+        },
+        {
+          "path": "scripts/path-policy/fixture-copy-expressions.ts",
+          "line": 38,
+          "endLine": 64,
+          "measurement": null,
+          "note": "A second single-segment compiler translates asterisks and question marks, passes bracket syntax into RegExp semantics, and refuses globs in directory segments."
+        },
+        {
+          "path": "scripts/path-policy/fixture-loop-bindings.ts",
+          "line": 39,
+          "endLine": 52,
+          "measurement": null,
+          "note": "Loop-list parsing relies on the fixture compiler and then separately rejects anything still recognized as glob-shaped."
+        }
+      ],
+      "problem": "Within one module family, the same vocabulary denotes different languages and failure behavior. Contributors extending changed-file selectors or fixture analysis must discover which punctuation is literal, supported, RegExp-like, or rejected in each implementation.",
+      "proposedDirection": "Define one documented segment-pattern codec and matcher, or give deliberately narrower dialects distinct types and names; share it with lint-coverage machinery only where the semantics truly match.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-17",
+        "novelty": "The prior fixture-analyzer work documented composition and annotation vocabulary; this identifies conflicting path-pattern languages spanning the changed-file query and fixture analyzer."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L09-103",
+      "title": "Bulk codemod modes write one target at a time instead of building one plan",
+      "area": "harness",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/expand-barrel/run.ts",
+          "line": 21,
+          "endLine": 42,
+          "measurement": null,
+          "note": "runOne creates its own project, scans all package files, and writes its plan immediately."
+        },
+        {
+          "path": "scripts/codemods/expand-barrel/run.ts",
+          "line": 48,
+          "endLine": 56,
+          "measurement": null,
+          "note": "The --all mode loops over independently writing runOne operations, repeating package discovery and project construction for each barrel."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-engine.ts",
+          "line": 51,
+          "endLine": 113,
+          "measurement": null,
+          "note": "Each shared-schema single run creates a fresh project and writes its router and target pair."
+        },
+        {
+          "path": "scripts/codemods/lib/trpc-shared-engine.ts",
+          "line": 126,
+          "endLine": 149,
+          "measurement": null,
+          "note": "Its --all mode preflights only discovery errors before looping over the independently validating and writing single-target operation."
+        }
+      ],
+      "problem": "The reusable-looking bulk modes are orchestration loops over single-target commands rather than cohesive bulk operations. They repeatedly construct projects and scan files, expose intermediate repository states, and make contributors reason about recovery target by target instead of reviewing one complete plan.",
+      "proposedDirection": "Separate analysis from commit: use one project, validate every target, merge plans with collision detection, and invoke the shared writer once after the complete bulk plan succeeds.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L09-104",
+      "title": "The debt-log union uses the absence of a discriminator as an entry kind",
+      "area": "harness",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 23,
+          "endLine": 28,
+          "measurement": null,
+          "note": "Accepted-debt entries are the only persisted union variant without a kind field."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 62,
+          "endLine": 90,
+          "measurement": null,
+          "note": "Four entry variants require four predicates; accepted debt is recognized indirectly through acceptanceReason."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log-schema.ts",
+          "line": 409,
+          "endLine": 420,
+          "measurement": null,
+          "note": "The parser routes every absent or unrecognized kind through the accepted-debt schema."
+        },
+        {
+          "path": "tools/lint-ratchet/src/governance/debt-log.ts",
+          "line": 103,
+          "endLine": 160,
+          "measurement": null,
+          "note": "Classification and rendering repeat predicate chains instead of using an exhaustive discriminated-union switch."
+        }
+      ],
+      "problem": "A persisted four-variant event family lacks a uniform discriminator. Adding an entry kind requires coordinated schema, predicate, parser, classification, and rendering edits, while TypeScript cannot provide straightforward exhaustive dispatch. The historical kind-less shape has become the current authoring contract rather than an isolated compatibility path.",
+      "proposedDirection": "Write new accepted-debt records with an explicit kind, isolate compatibility parsing for existing kind-less version-1 lines, and dispatch normalized records through exhaustive kind switches.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Extract central-mock factory sources from the ESLint rule",
+      "ref": "CQ25-201",
+      "reason": "The recorded decision rejects the extraction and related config-test relocation."
+    },
+    {
+      "title": "Share or simplify the nested concurrency-write walker",
+      "ref": "CQ25-19",
+      "reason": "Scheduled prior work already owns nested-walker simplification."
+    },
+    {
+      "title": "Generalize ESLint AST classification and merge helper homes",
+      "ref": "CQ25-218",
+      "reason": "The recorded decision rejects generalized helper classification and merging."
+    },
+    {
+      "title": "Replace the Stryker lint-ratchet adapter route",
+      "ref": "CQ25-221",
+      "reason": "The .mjs route is a recorded landed decision and must not be re-derived."
+    },
+    {
+      "title": "Clean up path-policy dead data and eager smoke-name discovery",
+      "ref": "CQ25-64",
+      "reason": "The sourceRelevant, excluded-directory, format-predicate, and smoke-name work is already an exact blocked plan slice."
+    },
+    {
+      "title": "Bulk-convert remaining local argv walkers",
+      "ref": "CQ25-127",
+      "reason": "The prior pack records opportunistic convergence rather than a bulk sweep."
+    },
+    {
+      "title": "Merge the tRPC input and output candidate finders",
+      "ref": "CQ25-81",
+      "reason": "The standing ruling deliberately keeps the two candidate finders separate."
+    },
+    {
+      "title": "Replace the generated concurrency graph with hand-maintained relations",
+      "ref": "CQ25-100",
+      "reason": "The generated relation graph remains the authoritative representation by standing ruling."
+    },
+    {
+      "title": "Rename remaining tRPC domain schemas",
+      "ref": "CQ25-175",
+      "reason": "The recorded decision permits those renames only alongside its specified candidate-finder fix."
+    },
+    {
+      "title": "Repeat portable-kernel vocabulary cleanup",
+      "ref": "CQ25-12",
+      "reason": "The named cleanup landed; remaining command leakage is already banked as L09-002."
+    },
+    {
+      "title": "Rename testId to ratchetId",
+      "ref": "CQ25-74",
+      "reason": "The package-wide optional rename is already recorded."
+    },
+    {
+      "title": "Parameterize the merge-driver family",
+      "ref": "CQ25-83",
+      "reason": "The shared driver bodies are already parameterized."
+    },
+    {
+      "title": "Move allowEmpty out of the lint-ratchet kernel",
+      "ref": "CQ25-133",
+      "reason": "The standing ruling identifies allowEmpty as kernel behavior."
+    },
+    {
+      "title": "Strengthen exitPath semantic validation",
+      "ref": "CQ25-208",
+      "reason": "Semantic ownership and anchor validation were explicitly excluded."
+    },
+    {
+      "title": "Refactor the fixture analyzer as a broad shell interpreter",
+      "ref": "CQ25-17",
+      "reason": "The prior leaf already owns the analyzer broadly; only the novel conflicting glob-language seam remains reportable."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Smoke-subject projection validates disk sources instead of supplied source overrides",
+      "paths": [
+        "scripts/path-policy/smoke-subject-headers.ts:167",
+        "scripts/path-policy/smoke-subject-headers.ts:171",
+        "scripts/path-policy/smoke-subject-headers.ts:172"
+      ],
+      "whySuspectedBug": "projectSmokeSubjectOutputs accepts sourceOverrides and uses them when parsing definitions, but validateFixtureShellDependencies reads the on-disk smoke files, so one projection can validate and generate from different source states.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "[config_bridge shard: eslint-config/** production/config files, both JSON registries, and scripts/eslint-config-shared-policy.d.ts]",
+      "[path_policy shard: scripts/path-policy/** production modules except the repetitive generated smoke-subject payload]",
+      "[codemods shard: all 45 scripts/codemods/** production/config implementations and all 90 fixtures/**/case.json descriptors]",
+      "[rules shard: tools/stryker-lint-ratchet.mjs and eslint-rules/{all-local-rules.js,ast-helpers.js,binding-resolution.js,max-lines.js,no-swallowed-errors.js,structured-logging.js,shared-schema-prefix.js}]",
+      "[ratchet shard: scripts/lint-message-eval/** production files; scripts/lint-ratchet/{lint-ratchet-config.ts,engine-binding.ts,registry-builders.ts}; tools/lint-ratchet package surface and governance debt-log modules]"
+    ],
+    "sampled": [
+      "[config_bridge shard: scripts/lint-coverage-map*.ts — all filenames inventoried; focused reading of orchestration, row parsing, private glob matching, config-surface bridging, ESLint reach, consistency, and suggestions]",
+      "[config_bridge shard: docs/generated/lint-coverage-map.md — generation sections and ambient-shim inventory row only, as routed-pointer context]",
+      "[rules shard: remaining eslint-rules/** production files — all structurally surveyed by imports, exports, metadata, option schemas, path coupling, and symbol-use searches; deep reading focused on rule-authoring and ambient-bridge seams]",
+      "[path_policy shard: scripts/path-policy/path-policy-smoke-subjects-data.ts — header, object shape, and representative early, middle, late, and lint-coverage entries]",
+      "[ratchet shard: remaining tools/lint-ratchet/** and scripts/lint-ratchet/** production files — export inventory, suspicious-term scan, and focused call-site tracing]",
+      "[ratchet shard: examples/lint-ratchet-demo/** — adoption, adapter, CLI, and Git-rail surfaces revisited against banked L09-003]"
+    ],
+    "skipped": [
+      "All test/spec/test-helper files in the partitioned globs — lane-06 precedence",
+      "scripts/codemods/fixtures/**/before/** and scripts/codemods/fixtures/**/after/** — every case descriptor was read; source bodies were unnecessary for retained implementation claims",
+      "eslint-rules concurrency corpora and restricted-syntax resolution snapshot — not reread because wave-1 read them fully and banked the relevant concurrency findings",
+      "lint-ratchet.baseline.json — not reread in the top-up because banked L09-001 owns its workflow and churn evidence",
+      "Unrelated portions of docs/generated/lint-coverage-map.md — documentation content is lane-07-owned and only routed-pointer context was sampled",
+      "All test suites and builds — prohibited by user instruction and assumed passing"
+    ],
+    "pointers": [
+      "Lane 06: eslint-rules/all-local-rules.js, rule-tester.js, and eslint-config-resolution-timeout.js are test-support modules without test-shaped filenames; assess whether their production-looking placement obscures ownership."
+    ],
+    "cut": [
+      "The routed lint-coverage-map private-dialect pointer is fully covered by banked L01-013; its Markdown state grammar and local glob-to-regex engine were not re-reported.",
+      "Codemods maintain a 643-line shadow TypeScript symbol model — cut because the candidate combined distinct reference-classification and barrel-resolution concerns without a sufficiently narrow shared boundary.",
+      "A private singleton debt-log append wrapper has no production caller — concrete but too small to outrank the retained top-up findings.",
+      "Structured-logging codemod responsibility splitting and import-normalization duplication remain lower-value wave-1 cuts.",
+      "Config-surface coverageStatus metadata is presently singleton-valued, but that alone did not justify a separate finding."
+    ]
+  }
+}

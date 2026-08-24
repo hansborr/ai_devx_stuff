@@ -15,16 +15,21 @@ const ruleTester = makeRuleTester();
 const linter = new Linter();
 
 /**
- * The nested branch is implemented twice — here and in the ts-morph codemod at
- * `scripts/codemods/concurrency-guard/nested-writes.ts`. This corpus is the
- * only thing that makes "they recognise the same programs" a checked claim;
- * the codemod side runs it in `concurrency-guard-drift.test.ts`.
- *
  * @type {{ cases: { name: string, filename: string, code: string, expected: { relation: string, method: string, delegate: string }[] }[] }}
  */
-const corpus = JSON.parse(
+const nestedCorpus = JSON.parse(
   readFileSync(
     path.join(path.dirname(fileURLToPath(import.meta.url)), "concurrency-guard-nested-corpus.json"),
+    "utf8",
+  ),
+);
+
+/**
+ * @type {{ cases: { name: string, filename: string, code: string, expected: { method: string, delegate: string }[] }[] }}
+ */
+const directCorpus = JSON.parse(
+  readFileSync(
+    path.join(path.dirname(fileURLToPath(import.meta.url)), "concurrency-guard-direct-corpus.json"),
     "utf8",
   ),
 );
@@ -32,7 +37,7 @@ const corpus = JSON.parse(
 describe("concurrency-guard", () => {
   it("does not point the diagnostic at the broad concurrency guide", () => {
     expect(rule.meta.messages.noDirectWrite).not.toContain("docs/CONCURRENCY.md");
-    expect(rule.meta.messages.noDirectWrite).toContain("ADR-0001");
+    expect(rule.meta.messages.noDirectWrite).toContain("ADR-0007");
   });
 
   it("blocks direct writes to gated Prisma delegates outside mutation helpers", () => {
@@ -86,7 +91,7 @@ describe("concurrency-guard", () => {
                 delegate: "characterStats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -101,7 +106,7 @@ describe("concurrency-guard", () => {
                 delegate: "encounterParticipant",
                 method: "update",
                 suggestion:
-                  "Use updateParticipantStatsLocked/updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant for documented metadata.",
+                  "Route encounterParticipant writes through updateParticipantStatsLocked, updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant in packages/server/src/utils/participant-stats-mutations.ts; use blindUpdateParticipant only for documented metadata, and follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -109,8 +114,8 @@ describe("concurrency-guard", () => {
         {
           filename: "packages/server/src/services/rest-service.ts",
           code: "await tx.encounter.updateMany({ where: { id }, data });",
-          // Pin the map-selected {{suggestion}} so a mis-edited
-          // DIRECT_WRITE_SUGGESTIONS["encounter"] entry fails this case.
+          // Pin the descriptor-selected {{suggestion}} so generated policy
+          // drift fails this case.
           errors: [
             {
               messageId: "noDirectWrite",
@@ -118,7 +123,7 @@ describe("concurrency-guard", () => {
                 delegate: "encounter",
                 method: "updateMany",
                 suggestion:
-                  "Use the encounter-state helpers in utils/encounter-state-mutations.ts.",
+                  "Route encounter writes through advanceTurnCompound, setEncounterState, setCurrentTurnIndex, assertTurnLock, or updateEncounterMeta in packages/server/src/utils/encounter-state-mutations.ts; follow docs/CONCURRENCY.md#pattern-c--compound-updatemany-with-the-precondition-in-where.",
               },
             },
           ],
@@ -133,7 +138,7 @@ describe("concurrency-guard", () => {
                 delegate: "characterSpellSlot",
                 method: "upsert",
                 suggestion:
-                  "Use consumeSpellSlot/recoverSpellSlot or the documented spell-slot sync helpers.",
+                  "Use consumeSpellSlot or recoverSpellSlot from packages/server/src/utils/spell-slot-mutations.ts for characterSpellSlot writes, and use the documented slot-sync helpers for synchronization flows; follow docs/CONCURRENCY.md#pattern-b--counter-as-cas.",
               },
             },
           ],
@@ -151,43 +156,7 @@ describe("concurrency-guard", () => {
                 delegate: "characterClass",
                 method: "update",
                 suggestion:
-                  "Use spendHitDice/advanceClassLevel/setSubclass or the documented rest helpers.",
-              },
-            },
-          ],
-        },
-        {
-          filename: "packages/server/src/routers/character.ts",
-          code: [
-            "const stats = ctx.prisma.characterStats;",
-            "await stats.update({ where: { characterId }, data });",
-          ].join("\n"),
-          errors: [
-            {
-              messageId: "noDirectWrite",
-              data: {
-                delegate: "characterStats",
-                method: "update",
-                suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
-              },
-            },
-          ],
-        },
-        {
-          filename: "packages/server/src/routers/character.ts",
-          code: [
-            "const { characterStats: stats } = ctx.prisma;",
-            "await stats.updateMany({ where: { characterId }, data });",
-          ].join("\n"),
-          errors: [
-            {
-              messageId: "noDirectWrite",
-              data: {
-                delegate: "characterStats",
-                method: "updateMany",
-                suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Use spendHitDice, advanceClassLevel, or setSubclass from packages/server/src/utils/character-class-mutations.ts for characterClass writes, and use the documented rest helpers for rest flows; follow docs/CONCURRENCY.md#pattern-b--counter-as-cas.",
               },
             },
           ],
@@ -198,7 +167,38 @@ describe("concurrency-guard", () => {
 
   it("does not point the nested diagnostic at the broad concurrency guide", () => {
     expect(rule.meta.messages.noNestedWrite).not.toContain("docs/CONCURRENCY.md");
-    expect(rule.meta.messages.noNestedWrite).toContain("ADR-0001");
+    expect(rule.meta.messages.noNestedWrite).toContain("ADR-0007");
+  });
+
+  it("matches the shared direct-write corpus the codemod is also run against", () => {
+    expect(directCorpus.cases, "shared direct-write corpus").not.toHaveLength(0);
+
+    for (const entry of directCorpus.cases) {
+      const messages = linter
+        .verify(
+          entry.code,
+          {
+            files: ["**/*.ts"],
+            languageOptions: {
+              parser: tseslint.parser,
+              parserOptions: { ecmaVersion: 2022, sourceType: "module" },
+            },
+            plugins: { local: { rules: { "concurrency-guard": rule } } },
+            rules: { "local/concurrency-guard": "error" },
+          },
+          entry.filename,
+        )
+        .filter((message) => message.messageId === "noDirectWrite");
+
+      expect(
+        messages.map((message) => message.message),
+        entry.name,
+      ).toEqual(
+        entry.expected.map((expected) =>
+          expect.stringContaining(`direct ${expected.delegate}.${expected.method} writes`),
+        ),
+      );
+    }
   });
 
   it("blocks nested relation writes that reach gated tables through a non-gated parent", () => {
@@ -211,9 +211,16 @@ describe("concurrency-guard", () => {
           code: "await ctx.prisma.character.create({ data: { stats: { create: { maxHp: 10 } } } });",
         },
         {
-          // Nested connect/set/disconnect are not writes to the gated row.
+          // `MapToken` owns this FK, so connect does not write the gated row.
           filename: "packages/server/src/routers/map-token.ts",
           code: "await ctx.prisma.mapToken.update({ where: { id }, data: { encounterParticipant: { connect: { id: pid } } } });",
+        },
+        {
+          // Deliberate v1 non-goal: `CharacterClass` owns this FK, so this does
+          // write the gated row, but connect/disconnect/set stay outside the
+          // operation gate pending a separate blast-radius decision.
+          filename: "packages/server/src/routers/character.ts",
+          code: "await ctx.prisma.character.update({ where: { id }, data: { classes: { connect: { id: classId } } } });",
         },
         {
           // A relation name that reaches no gated model.
@@ -255,19 +262,75 @@ describe("concurrency-guard", () => {
           code: "await ctx.prisma.spell.update({ where: { id }, data: { classes: { update: { a: 1 } } } });",
         },
         {
+          // `Notification.data` is arbitrary JSON. Keys inside it can spell a
+          // real relation path and Prisma envelope without becoming a nested
+          // relation write; reporting this type-valid payload would turn an
+          // author-time diagnostic into a production-blocking false positive.
+          filename: "packages/server/src/routers/notification.ts",
+          code: [
+            "const metadata = { user: { update: { data: { campaignMembers: { update: { data: { character: { update: { data: { stats: { update: { currentHp: 0 } } } } } } } } } } } };",
+            "await ctx.prisma.notification.update({ where: { id }, data: { data: metadata } });",
+          ].join("\n"),
+        },
+        {
           // A non-Prisma `.update({ where, ... })` API. Rooting on the receiver
           // model is what keeps this out; the `where` key alone did not.
           filename: "packages/server/src/services/character-live-state/mapping.ts",
           code: "await store.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
         },
         {
-          // Receiver resolves to no Prisma model, so there is no parent to
-          // check the relation against. Reported as a miss, not a guess.
+          // A computed relation key names nothing static, so there is no
+          // relation to look up. Same treatment the ESTree `Property` node
+          // already gets from `staticKeyName`.
           filename: "packages/server/src/routers/character.ts",
-          code: "const chars = tx.character; await chars.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+          code: "await tx.character.update({ where: { id }, data: { [relation]: { update: { currentHp: 0 } } } });",
         },
       ],
       invalid: [
+        {
+          // The generated reachable graph keeps model identity across the
+          // non-gated CampaignMember.character hop. The former flat table
+          // dropped it.
+          filename: "packages/server/src/routers/campaign.ts",
+          code: "await tx.campaignMember.update({ where: { id }, data: { character: { update: { data: { stats: { update: { currentHp: 0 } } } } } } });",
+          errors: [{ messageId: "noNestedWrite" }],
+        },
+        {
+          // Parent-model rooting and receiver-alias resolution are independent.
+          // Requiring a literal member expression conflated them and let one
+          // local binding defeat the author-time diagnostic on this path.
+          filename: "packages/server/src/routers/character.ts",
+          code: "const chars = tx.character; await chars.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+          errors: [{ messageId: "noNestedWrite" }],
+        },
+        {
+          filename: "packages/server/src/routers/character.ts",
+          code: "const { character } = tx; await character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+          errors: [{ messageId: "noNestedWrite" }],
+        },
+        {
+          // A quoted key is ordinary TypeScript, not evasion, and a computed
+          // string literal denotes the same property as the dotted form.
+          filename: "packages/server/src/routers/character.ts",
+          code: 'await tx["character"]["update"]({ where: { id }, data: { "stats": { update: { currentHp: 0 } } } });',
+          errors: [{ messageId: "noNestedWrite" }],
+        },
+        {
+          // Array elements get the same one-hop `const` resolution the scalar
+          // form does; Prisma accepts both spellings of `updateMany`.
+          filename: "packages/server/src/services/rest-service.ts",
+          code: "const reset = { where: { id: classId }, data: { hitDiceUsed: 0 } }; await tx.character.update({ where: { id }, data: { classes: { updateMany: [reset] } } });",
+          errors: [{ messageId: "noNestedWrite" }],
+        },
+        {
+          // The disclosed cost of rooting on a name: a receiver spelled exactly
+          // like a Prisma call — model name, relation name, gated mutator and a
+          // `where` key — cannot be told apart from one without type
+          // information, and is reported rather than guessed past.
+          filename: "packages/server/src/services/character-live-state/mapping.ts",
+          code: "await repository.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
+          errors: [{ messageId: "noNestedWrite" }],
+        },
         {
           filename: "packages/server/src/routers/character.ts",
           code: "await tx.character.update({ where: { id }, data: { stats: { update: { currentHp: 0 } } } });",
@@ -279,7 +342,7 @@ describe("concurrency-guard", () => {
                 relation: "stats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -295,7 +358,7 @@ describe("concurrency-guard", () => {
                 relation: "encounters",
                 method: "updateMany",
                 suggestion:
-                  "Use the encounter-state helpers in utils/encounter-state-mutations.ts.",
+                  "Route encounter writes through advanceTurnCompound, setEncounterState, setCurrentTurnIndex, assertTurnLock, or updateEncounterMeta in packages/server/src/utils/encounter-state-mutations.ts; follow docs/CONCURRENCY.md#pattern-c--compound-updatemany-with-the-precondition-in-where.",
               },
             },
           ],
@@ -313,7 +376,7 @@ describe("concurrency-guard", () => {
                 relation: "encounterParticipant",
                 method: "update",
                 suggestion:
-                  "Use updateParticipantStatsLocked/updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant for documented metadata.",
+                  "Route encounterParticipant writes through updateParticipantStatsLocked, updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant in packages/server/src/utils/participant-stats-mutations.ts; use blindUpdateParticipant only for documented metadata, and follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -329,7 +392,7 @@ describe("concurrency-guard", () => {
                 relation: "classes",
                 method: "updateMany",
                 suggestion:
-                  "Use spendHitDice/advanceClassLevel/setSubclass or the documented rest helpers.",
+                  "Use spendHitDice, advanceClassLevel, or setSubclass from packages/server/src/utils/character-class-mutations.ts for characterClass writes, and use the documented rest helpers for rest flows; follow docs/CONCURRENCY.md#pattern-b--counter-as-cas.",
               },
             },
             {
@@ -339,7 +402,7 @@ describe("concurrency-guard", () => {
                 relation: "spellSlots",
                 method: "updateMany",
                 suggestion:
-                  "Use consumeSpellSlot/recoverSpellSlot or the documented spell-slot sync helpers.",
+                  "Use consumeSpellSlot or recoverSpellSlot from packages/server/src/utils/spell-slot-mutations.ts for characterSpellSlot writes, and use the documented slot-sync helpers for synchronization flows; follow docs/CONCURRENCY.md#pattern-b--counter-as-cas.",
               },
             },
           ],
@@ -356,7 +419,7 @@ describe("concurrency-guard", () => {
                 relation: "encounters",
                 method: "update",
                 suggestion:
-                  "Use the encounter-state helpers in utils/encounter-state-mutations.ts.",
+                  "Route encounter writes through advanceTurnCompound, setEncounterState, setCurrentTurnIndex, assertTurnLock, or updateEncounterMeta in packages/server/src/utils/encounter-state-mutations.ts; follow docs/CONCURRENCY.md#pattern-c--compound-updatemany-with-the-precondition-in-where.",
               },
             },
             {
@@ -366,7 +429,7 @@ describe("concurrency-guard", () => {
                 relation: "participants",
                 method: "updateMany",
                 suggestion:
-                  "Use updateParticipantStatsLocked/updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant for documented metadata.",
+                  "Route encounterParticipant writes through updateParticipantStatsLocked, updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant in packages/server/src/utils/participant-stats-mutations.ts; use blindUpdateParticipant only for documented metadata, and follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -388,7 +451,7 @@ describe("concurrency-guard", () => {
                 relation: "stats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -410,7 +473,7 @@ describe("concurrency-guard", () => {
                 relation: "stats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -430,7 +493,7 @@ describe("concurrency-guard", () => {
                 relation: "stats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -450,7 +513,7 @@ describe("concurrency-guard", () => {
                 relation: "stats",
                 method: "update",
                 suggestion:
-                  "Use updateCharacterStatsLocked/updateCharacterStatsLockedWithExpectedVersion from utils/character-stats-mutations.ts.",
+                  "Route characterStats writes through updateCharacterStatsLocked or updateCharacterStatsLockedWithExpectedVersion in packages/server/src/utils/character-stats-mutations.ts; follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -468,7 +531,7 @@ describe("concurrency-guard", () => {
                 relation: "participants",
                 method: "updateMany",
                 suggestion:
-                  "Use updateParticipantStatsLocked/updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant for documented metadata.",
+                  "Route encounterParticipant writes through updateParticipantStatsLocked, updateParticipantStatsLockedWithExpectedVersion, or blindUpdateParticipant in packages/server/src/utils/participant-stats-mutations.ts; use blindUpdateParticipant only for documented metadata, and follow docs/CONCURRENCY.md#pattern-a--version-cas-via-a-locked-helper.",
               },
             },
           ],
@@ -476,8 +539,11 @@ describe("concurrency-guard", () => {
       ],
     });
   });
-  it("matches the shared nested-write corpus the codemod is also run against", () => {
-    for (const entry of corpus.cases) {
+
+  it("matches the lint-only nested-write regression corpus", () => {
+    expect(nestedCorpus.cases, "nested-write regression corpus").toHaveLength(45);
+
+    for (const entry of nestedCorpus.cases) {
       const messages = linter
         .verify(
           entry.code,
@@ -494,8 +560,6 @@ describe("concurrency-guard", () => {
         )
         .filter((message) => message.messageId === "noNestedWrite");
 
-      // The template embeds all three identifying facts, so matching it pins
-      // what the detector decided, not merely how many findings it produced.
       expect(
         messages.map((message) => message.message),
         entry.name,

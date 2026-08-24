@@ -4,14 +4,18 @@
 // knip-orphan-files-check.ts. This is a Tier-1 pass-through adapter (adapter
 // contract §1): it surfaces the target's OWN knip verdict verbatim.
 
-import { errorMessage } from "../lib/error-message.js";
 import { isRecord } from "../lib/records.js";
 import { discoverToolConfig, type PathProbe } from "./adapter-support.js";
 import type { CheckRunContext } from "./check-plugin.js";
 import type { FileReader } from "./comments.js";
+import {
+  type KnipReportIssueRows,
+  type KnipReportParseFailure,
+  parseKnipReportEnvelope,
+} from "./knip-report-envelope.js";
 import type { KnipRunner } from "./knip-runner.js";
-import { changedFilesFromScope, sortFindingsByFileMessage, toPosix } from "./path-util.js";
-import type { DetectorScope } from "./scope.js";
+import { sortFindingsByFileMessage, toPosix } from "./path-util.js";
+import { changedFilesFromScope, type DetectorScope } from "./scope.js";
 import type {
   ConfigSource,
   DriftCheckId,
@@ -78,26 +82,22 @@ export function toolTimedOutReason(detail: string): string {
 
 export type ParseKnipOrphanFilesResult =
   | { readonly ok: true; readonly files: readonly string[] }
-  | { readonly ok: false; readonly error: string };
+  | KnipReportParseFailure;
 
-// Parse the `files` category from `knip --reporter json` (knip 6.14.1 shape,
+// Parse the `files` category from `knip --reporter json` (knip 6.26.0 shape,
 // confirmed against the pinned version): `{ "issues": [ { "file": "<path>",
 // "files": [ { "name": "<path>" } ] } ] }`. A row is an orphaned file when its
 // `files` array is non-empty; the orphan path is the row's `file`. Other
 // categories (exports/deps) are ignored even if present.
 export function parseKnipOrphanFiles(jsonText: string): ParseKnipOrphanFilesResult {
-  // knip always prints `{"issues":[]}` even when clean, so empty output means the
-  // run never produced a report (attempted-and-failed), not "no orphans".
-  if (jsonText.trim().length === 0) return { ok: false, error: "knip produced no JSON output" };
-  let raw: unknown;
-  try {
-    raw = JSON.parse(jsonText);
-  } catch (err) {
-    return { ok: false, error: errorMessage(err) };
-  }
-  if (!isRecord(raw)) return { ok: false, error: "expected a JSON object with an 'issues' array" };
-  const issues = raw["issues"];
-  if (!Array.isArray(issues)) return { ok: true, files: [] };
+  const envelope = parseKnipReportEnvelope(jsonText);
+  if (!envelope.ok) return envelope;
+  return projectKnipOrphanFiles(envelope.issues);
+}
+
+export function projectKnipOrphanFiles(
+  issues: KnipReportIssueRows,
+): Extract<ParseKnipOrphanFilesResult, { readonly ok: true }> {
   const files: string[] = [];
   for (const row of issues) {
     const orphan = orphanFileFromRow(row);

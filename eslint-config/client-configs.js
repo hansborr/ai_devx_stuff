@@ -5,11 +5,8 @@ import jsxA11y from "eslint-plugin-jsx-a11y";
 import pluginReact from "eslint-plugin-react";
 import reactHooks from "eslint-plugin-react-hooks";
 
-import {
-  clientSourceFiles,
-  clientTestAndHelperSourceFiles,
-  sharedSchemasBarrelRestrictedImportPattern,
-} from "./shared-policy.js";
+import { restrictedImportsRule } from "./package-boundary-policy.js";
+import { clientSourceFiles, clientTestAndHelperSourceFiles } from "./path-glob-policy.js";
 
 export const clientFrameworkConfigs = [
   {
@@ -109,21 +106,13 @@ export const clientRuntimeBoundaryConfigs = [
     ignores: ["packages/client/src/hooks/socket-context.tsx", "**/*.test.{ts,tsx}"],
     rules: {
       // Keep the Socket.io client lifecycle centralized in SocketProvider.
-      // Repeat the schemas-barrel restriction because flat-config rule entries
-      // replace by key.
-      "@typescript-eslint/no-restricted-imports": [
-        "error",
+      "@typescript-eslint/no-restricted-imports": restrictedImportsRule([
         {
-          patterns: [
-            sharedSchemasBarrelRestrictedImportPattern,
-            {
-              group: ["socket.io-client"],
-              message:
-                "Use the app SocketProvider/useSocket hooks instead of constructing another Socket.io client.",
-            },
-          ],
+          group: ["socket.io-client"],
+          message:
+            "Use the app SocketProvider/useSocket hooks instead of constructing another Socket.io client.",
         },
-      ],
+      ]),
     },
   },
 
@@ -132,6 +121,13 @@ export const clientRuntimeBoundaryConfigs = [
     ignores: clientTestAndHelperSourceFiles,
     rules: {
       "local/socket-listener-cleanup": "error",
+      // Promoted out of ratchet/local-no-effect-misuse-client, which drained to
+      // zero and was then retired through the proven-retirement path (its
+      // retirement record is in lint-ratchet.debt-log.jsonl): a new
+      // imperative-fetch or derived-state-only effect now fails `bun run lint`
+      // outright instead of landing in a baseline. This rule IS that floor now
+      // — do not weaken it to `warn`. See docs/guides/client-effects.md.
+      "local/no-effect-misuse": "error",
     },
   },
 

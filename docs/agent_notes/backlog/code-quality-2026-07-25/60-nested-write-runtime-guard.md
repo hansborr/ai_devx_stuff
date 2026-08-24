@@ -1,6 +1,9 @@
 # 60. Nested relation writes could be closed at runtime by a Prisma `$extends` query guard, not only by a lint
 
-Status: Proposed — design decided 2026-07-28, not started
+Status: **Done 2026-07-31** on branch
+`fix/cq-60-nested-write-runtime-guard`; see [Landed](./00-index.md#landed). The
+design-panel decision below was followed with the review-driven refinements
+recorded in `## Outcome`.
 Theme: Concurrency gate enforcement strength · Area: server · Severity: low · Size: M
 
 Source: server-cluster pre-merge review panel, 2026-07-27 (raised by one
@@ -128,8 +131,9 @@ side's row, so they can blind-write a gated row when the gated model owns the FK
 Worked example to cite — `Map.encounters` is the inverse side while gated
 `Encounter` owns `mapId`, so connecting or disconnecting through `Map` updates
 existing gated `Encounter` rows, whereas `MapToken.encounterParticipant` is
-source-owned and correctly allowed today. This is why ownership is generated into
-the artifact even though v1 does not gate on it.
+source-owned and correctly allowed today. This was the panel's reason for
+generating ownership even though v1 did not gate on it; post-implementation
+review removed that unused machinery as recorded in `## Outcome`.
 
 `fix/cq-server-postmerge` later confirmed the same hole on a much more ordinary
 call: `character.update({ data: { classes: { connect: { id } } } })` writes
@@ -181,17 +185,50 @@ interactive-callback forms** — two panelists flagged this as the assumption th
 if false, means the guard covers less than the docs would claim. If it does not
 hold, stop before writing the doc rewrite.
 
-**Documentation.** Four blocks currently assert the lint is the only enforcement
-on this path and all four are load-bearing: `docs/CONCURRENCY.md`, the
+**Documentation.** At decision time, four blocks asserted the lint was the only
+enforcement on this path and all four are load-bearing: `docs/CONCURRENCY.md`, the
 `prisma-types.ts` header, `docs/adr/0001-race-sensitive-writes.md` (Consequences
 plus its `enforced_by` front-matter), and the Status lines on leaves 50 and 60.
 Also update `docs/guides/add-race-sensitive-mutation.md`. This is where the review
 risk concentrates, not in the code — leaving them would have the docs *overstate*
 the gate, the mirror image of the sin leaf 50 exists to correct.
 
+## Outcome
+
+The premise reproduced: a helper/spread-assembled
+`CampaignMember.update → character.update → stats.update` escaped lint and type
+checks before the mandatory query extension was installed.
+
+Reviews narrowed the panel's artifact design to a sparse reachable relation
+map. Only `HomebrewEntry`, `MapLayer`, and `Notification` carry scalar-`data`
+collision metadata; wrapper/data traversal in both consumers prevents their
+JSON from being reinterpreted as Prisma envelopes. Unused ownership, inverse
+pairing, unreachable records, reachability duplication, per-model wrappers,
+and the cast-defeatable client brand were deleted.
+
+The design-panel ban on `generated/prisma/internal/class.ts` is a production
+source-of-truth boundary. The scripts-only drift test reads that generated file
+as text—without importing it—to obtain Prisma's independently generated runtime
+datamodel as an oracle over the checked-in graph. It fails loudly if Prisma
+changes the encoding and is not part of the server or generator runtime.
+
+Indicative second-panel timing came from Opus 5 directly calling
+`assertNoGatedNestedWrite` over in-memory payloads, without a Prisma query or
+database round trip: about 1.9 µs for an ordinary `Character.update`, 5.9 µs for
+three nested relation envelopes, 0.5 µs for a 500-key JSON value under
+`Notification.data`, and 739 µs for a 2,000-row nested `create`. These are
+reviewer-produced scale indicators, not repository benchmark results or
+end-to-end latency measurements.
+
+The nested ts-morph implementation remains retired, while all 45 former parity
+cases now form a lint-only regression corpus. ADR-0007 supersedes ADR-0001 and
+records the mandatory runtime decision and its active gates.
+
 ## Verify
 
 ```
-bun run test -- --project server src/utils/serializable-isolation.test.ts
+bun run test -- packages/server/src/prisma/nested-write-guard.test.ts
 bun run test:scripts:file -- scripts/codemods/concurrency-guard/concurrency-guard-drift.test.ts
+bun run test:eslint-rules -- eslint-rules/concurrency-guard.test.js
+bun run verify
 ```

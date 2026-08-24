@@ -34,6 +34,8 @@ REPO_ROOT="$(git -C "$SCRIPT_DIR" rev-parse --show-toplevel 2>/dev/null || git r
 . "$SCRIPT_DIR/ai-hooks/output-filter.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/lib/verify-metadata.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/harness-finding.sh"
 
 PRECOMMIT_LOG_DIR="${MUSI_VERIFY_LOG_DIR:-$(musi_standard_verify_log_dir "$REPO_ROOT")}"
 BUN_LOG_DIR="${AI_BUN_LOG_DIR:-$(musi_standard_bun_log_dir "$REPO_ROOT")}"
@@ -185,31 +187,17 @@ read_marker_state() {
   if [ "$LAST_EXIT" -eq 0 ]; then MARK_STATE=OK; else MARK_STATE=FAIL; fi
 }
 
-# Reads a verify/pre-commit wrapper marker (LAST_TS / LAST_HEAD / LAST_HASH)
-# into MARK_AGE only — wrapper markers don't carry per-task exit codes.
-# Returns 1 if the marker is missing, incomplete, has unknown keys, or has a
-# malformed timestamp/hash.
+# Adapts the canonical verify/pre-commit success-marker codec to the viewer's
+# two output channels: MARK_AGE for direct callers and LAST_TS on stdout for
+# command-substitution callers. Wrapper markers don't carry per-task exits.
 read_wrapper_marker_ts() {
   local marker="$1"
   MARK_AGE=""
-  [ -n "$marker" ] && [ -f "$marker" ] || return 1
-  local LAST_TS="" LAST_HEAD="" LAST_HASH="" k v saw_ts=0 saw_head=0 saw_hash=0
-  while IFS='=' read -r k v; do
-    case "$k" in
-      LAST_TS)   LAST_TS=$v; saw_ts=1 ;;
-      LAST_HEAD) LAST_HEAD=$v; saw_head=1 ;;
-      LAST_HASH) LAST_HASH=$v; saw_hash=1 ;;
-      *) return 1 ;;
-    esac
-  done < "$marker"
-  [ "$saw_ts" -eq 1 ] && [ "$saw_head" -eq 1 ] && [ "$saw_hash" -eq 1 ] || return 1
-  [[ "$LAST_TS" =~ ^[0-9]+$ ]] || return 1
-  [ "$LAST_TS" -gt 0 ] || return 1
-  [ -n "$LAST_HEAD" ] || return 1
-  [[ "$LAST_HASH" =~ ^[0-9a-f]{64}$ ]] || return 1
-  MARK_AGE=$(( $(date +%s) - LAST_TS ))
+  [ -n "$marker" ] || return 1
+  musi_read_success_marker "$marker" || return 1
+  MARK_AGE=$(( $(date +%s) - MUSI_MARKER_LAST_TS ))
   [ "$MARK_AGE" -lt 0 ] && MARK_AGE=0
-  printf '%s' "$LAST_TS"
+  printf '%s' "$MUSI_MARKER_LAST_TS"
 }
 
 # Returns the most recent wrapper-marker timestamp across verify (full),
@@ -649,7 +637,7 @@ emit_summary_json() {
   # pipe. A brace group on the left of a pipe runs in a subshell, so a
   # mid-loop `exit` would not terminate the script and pipefail only exposes
   # the last command's status — silent finding-drop. Writing to a temp file
-  # keeps each jq invocation in the parent shell where its exit code matters.
+  # keeps each finding emission in the parent shell where its exit code matters.
   local findings_ndjson
   findings_ndjson="$(mktemp)"
   trap 'rm -f "$findings_ndjson"' RETURN
@@ -665,14 +653,15 @@ emit_summary_json() {
     marker=$(marker_for_log "$log")
     if [ -n "$marker" ] && read_marker_state "$marker"; then
       if [ "$MARK_EXIT" -ne 0 ]; then
-        jq -nc \
-          --arg path "$log" \
-          --arg messageId "$task-failure" \
-          --arg why "verify task '$task' last exited with code $MARK_EXIT (recorded $(human_age "$MARK_AGE") ago)." \
-          --arg howToFix "Re-run \`bun run verify:changed\` (or \`bun run e2e\` for e2e); inspect $log via \`bun run verify:logs $task\`." \
-          '{control:"verify-wrapper/verify-logs",severity:"warn",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+        emit_harness_finding \
+          "verify-wrapper/verify-logs" \
+          "warn" \
+          "verify task '$task' last exited with code $MARK_EXIT (recorded $(human_age "$MARK_AGE") ago)." \
+          "Re-run \`bun run verify:changed\` (or \`bun run e2e\` for e2e); inspect $log via \`bun run verify:logs $task\`." \
+          "$log" \
+          "$task-failure" \
           >> "$findings_ndjson" || {
-            printf 'verify:logs: jq failed to construct failure finding for %s\n' "$task" >&2
+            printf 'verify:logs: failed to construct failure finding for %s\n' "$task" >&2
             return 1
           }
       fi
@@ -682,14 +671,15 @@ emit_summary_json() {
     else
       local age=$(( now - mtime ))
       [ "$age" -lt 0 ] && age=0
-      jq -nc \
-        --arg path "$log" \
-        --arg messageId "$task-state-unknown" \
-        --arg why "verify task '$task' has a log ($(human_age "$age") old) but no per-task marker and no fresh wrapper marker; state cannot be confirmed." \
-        --arg howToFix "Re-run \`bun run verify:changed\` to refresh state; or inspect $log via \`bun run verify:logs $task\`." \
-        '{control:"verify-wrapper/verify-logs",severity:"info",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+      emit_harness_finding \
+        "verify-wrapper/verify-logs" \
+        "info" \
+        "verify task '$task' has a log ($(human_age "$age") old) but no per-task marker and no fresh wrapper marker; state cannot be confirmed." \
+        "Re-run \`bun run verify:changed\` to refresh state; or inspect $log via \`bun run verify:logs $task\`." \
+        "$log" \
+        "$task-state-unknown" \
         >> "$findings_ndjson" || {
-          printf 'verify:logs: jq failed to construct state-unknown finding for %s\n' "$task" >&2
+          printf 'verify:logs: failed to construct state-unknown finding for %s\n' "$task" >&2
           return 1
         }
     fi
@@ -702,14 +692,15 @@ emit_summary_json() {
     name=${label%%:*}
     path=${label#*:}
     if [ -f "$path" ] && ! read_wrapper_marker_ts "$path" >/dev/null; then
-      jq -nc \
-        --arg path "$path" \
-        --arg messageId "wrapper-marker-corrupt-$name" \
-        --arg why "wrapper marker $path is corrupt or unreadable; the $name run cannot be promoted to OK*." \
-        --arg howToFix "Delete the marker (\`rm $path\`) and re-run the corresponding wrapper to regenerate it." \
-        '{control:"verify-wrapper/verify-logs",severity:"warn",path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
+      emit_harness_finding \
+        "verify-wrapper/verify-logs" \
+        "warn" \
+        "wrapper marker $path is corrupt or unreadable; the $name run cannot be promoted to OK*." \
+        "Delete the marker (\`rm $path\`) and re-run the corresponding wrapper to regenerate it." \
+        "$path" \
+        "wrapper-marker-corrupt-$name" \
         >> "$findings_ndjson" || {
-          printf 'verify:logs: jq failed to construct corrupt-marker finding for %s\n' "$name" >&2
+          printf 'verify:logs: failed to construct corrupt-marker finding for %s\n' "$name" >&2
           return 1
         }
     fi

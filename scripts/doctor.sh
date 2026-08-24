@@ -51,6 +51,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$SCRIPT_DIR/prisma-client-freshness.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/lib/test-dist-preflight.sh"
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/harness-finding.sh"
 
 PASS_COUNT=0
 WARN_COUNT=0
@@ -83,36 +85,14 @@ emit_finding() {
   [[ "$JSON_MODE" -eq 1 ]] || return 0
   local control="$1" severity="$2" messageId="$3" why="$4" howToFix="$5"
   local path="${6:-}" line="${7:-}"
-  if [[ -n "$line" ]] && ! [[ "$line" =~ ^[0-9]+$ ]]; then
-    printf 'doctor: emit_finding non-numeric line %q\n' "$line" >&2
-    return 1
-  fi
-  local jq_rc=0
-  if [[ -n "$path" && -n "$line" ]]; then
-    jq -nc \
-      --arg control "$control" --arg severity "$severity" \
-      --arg messageId "$messageId" --arg why "$why" --arg howToFix "$howToFix" \
-      --arg path "$path" --argjson line "$line" \
-      '{control:$control,severity:$severity,path:$path,line:$line,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
-      >> "$DOCTOR_FINDINGS_NDJSON" || jq_rc=$?
-  elif [[ -n "$path" ]]; then
-    jq -nc \
-      --arg control "$control" --arg severity "$severity" \
-      --arg messageId "$messageId" --arg why "$why" --arg howToFix "$howToFix" \
-      --arg path "$path" \
-      '{control:$control,severity:$severity,path:$path,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
-      >> "$DOCTOR_FINDINGS_NDJSON" || jq_rc=$?
-  else
-    jq -nc \
-      --arg control "$control" --arg severity "$severity" \
-      --arg messageId "$messageId" --arg why "$why" --arg howToFix "$howToFix" \
-      '{control:$control,severity:$severity,messageId:$messageId,why:$why,howToFix:$howToFix,repairKind:"manual"}' \
-      >> "$DOCTOR_FINDINGS_NDJSON" || jq_rc=$?
-  fi
-  if (( jq_rc != 0 )); then
-    printf 'doctor: emit_finding jq failed (rc=%d) for control=%q severity=%q messageId=%q\n' \
-      "$jq_rc" "$control" "$severity" "$messageId" >&2
-    return "$jq_rc"
+  local emit_rc=0
+  emit_harness_finding \
+    "$control" "$severity" "$why" "$howToFix" "$path" "$messageId" "$line" \
+    >> "$DOCTOR_FINDINGS_NDJSON" || emit_rc=$?
+  if (( emit_rc != 0 )); then
+    printf 'doctor: emit_finding failed (rc=%d) for control=%q severity=%q messageId=%q\n' \
+      "$emit_rc" "$control" "$severity" "$messageId" >&2
+    return "$emit_rc"
   fi
 }
 
@@ -882,7 +862,7 @@ run_report_subcommand "always-loaded context budget" \
   bun run sensor:context-budget
 
 run_harness_check "harness manifest parity" \
-  "reconcile harness.controls.json with the rule/script set — see the per-control diagnostics above" \
+  "reconcile the harness manifest with the rule/script set: lint-rule controls are generated (bun run harness:lint-rule-controls), every other kind is authored in harness.controls.json — see the per-control diagnostics above" \
   "verify-wrapper/doctor"
 
 if (( JSON_MODE )); then

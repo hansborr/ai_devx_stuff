@@ -18,8 +18,8 @@ These anchors were checked on 2026-06-01. Reconfirm with `rg` before editing.
 - `scripts/drift-ai/harness-freshness.ts`
   - Owns `extractBacktickPathReferences`, `staleBacktickPathFindings`, guide
     discovery, and JSON/text formatting for the existing freshness check.
-- `scripts/drift-ai/harness-freshness-io.ts`
-  - Owns path existence, ignore checks, and path normalization helpers.
+- `scripts/drift-ai/repo-ignore.ts`
+  - Owns the `git check-ignore` probe and path normalization helpers.
 - `scripts/drift-ai/check-registry.ts`
   - Owns drift check registration.
 - `scripts/drift-ai/types.ts`

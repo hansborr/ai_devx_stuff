@@ -2,55 +2,91 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import type { ArrayLiteralExpression, SourceFile, TypeNode } from "ts-morph";
+import type { SourceFile, TypeNode } from "ts-morph";
 import { Node, Project, SyntaxKind } from "ts-morph";
 import { describe, expect, it } from "vitest";
 
+import runtimeRelationGraph from "../../../packages/server/src/prisma/concurrency-relation-graph.generated.js";
+import { delegateCall } from "./ast.js";
 import {
-  DIRECT_WRITE_SUGGESTIONS,
+  DIRECT_WRITE_REPAIR_SUGGESTIONS,
   GATED_DELEGATES,
   GATED_MUTATORS,
-  GATED_RELATION_FIELDS,
   PRISMA_TYPES_RELATIVE,
 } from "./constants.js";
-import { nestedRelationWrites } from "./nested-writes.js";
+import {
+  assertRepairSuggestionReferences,
+  buildRelationGraph,
+} from "./relation-graph-generator.js";
 
-// The concurrency gate's delegate/mutator vocabulary is declared three times,
-// once per enforcement surface, and is intentionally NOT shared at runtime:
-//   1. eslint-rules/concurrency-guard.js — plain ESLint-loadable JS.
-//   2. this directory's constants.ts — the scripts-project codemod.
-//   3. packages/server/src/utils/prisma-types.ts — the gate encoded in the
-//      type system (restricted delegates that brand banned methods as
-//      non-callable `ConcurrencyGatedWrite` properties).
-// The three copies cannot import a common runtime module (they live in three
-// different loader worlds), so nothing forces them to agree. A sixth gated
-// delegate added to prisma-types would silently miss lint AND the codemod.
-// This guard fails the moment the three copies drift, mirroring the
-// `no-redundant-central-mock` drift guard in eslint-rules/. See
-// docs/CONCURRENCY.md for why the surface is scoped the way it is.
+// The hand-chosen delegate/mutator policy remains canonical in constants.ts and
+// is checked against prisma-types. The reachable relation subgraph is generated
+// from that policy and schema.prisma, then consumed by lint and the runtime
+// guard. These tests fail if either policy or generated topology drifts.
 
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 const ESLINT_RULE_PATH = path.join(REPO_ROOT, "eslint-rules", "concurrency-guard.js");
+const ESLINT_NESTED_ANALYZER_PATH = path.join(
+  REPO_ROOT,
+  "eslint-rules",
+  "concurrency-guard-nested.js",
+);
+const ESLINT_GRAPH_PATH = path.join(REPO_ROOT, "eslint-rules", "concurrency-guard-graph.js");
+const SCANNER_PATH = path.join(REPO_ROOT, "scripts", "codemods", "concurrency-guard", "scanner.ts");
 const PRISMA_TYPES_PATH = path.join(REPO_ROOT, PRISMA_TYPES_RELATIVE);
 const PRISMA_SCHEMA_PATH = path.join(REPO_ROOT, "packages", "server", "prisma", "schema.prisma");
-const CORPUS_PATH = path.join(REPO_ROOT, "eslint-rules", "concurrency-guard-nested-corpus.json");
+const CONCURRENCY_GUIDE_PATH = path.join(REPO_ROOT, "docs", "CONCURRENCY.md");
+const RELATION_GRAPH_PATH = path.join(
+  REPO_ROOT,
+  "packages",
+  "server",
+  "src",
+  "prisma",
+  "concurrency-relation-graph.generated.json",
+);
+const DIRECT_CORPUS_PATH = path.join(
+  REPO_ROOT,
+  "eslint-rules",
+  "concurrency-guard-direct-corpus.json",
+);
 
-interface NestedWriteCorpusCase {
+interface DirectWriteCorpusCase {
   name: string;
   filename: string;
   code: string;
-  expected: { relation: string; method: string; delegate: string }[];
+  expected: { method: string; delegate: string }[];
 }
 
-interface NestedWriteCorpus {
-  cases: NestedWriteCorpusCase[];
+interface DirectWriteCorpus {
+  cases: DirectWriteCorpusCase[];
 }
+
+interface GeneratedRelationGraph {
+  dataScalarModels: string[];
+  generatedBy: string;
+  gatedModels: string[];
+  gatedOperations: string[];
+  payloadEnvelopeKeys: string[];
+  repairSuggestions: Record<string, string>;
+  models: Record<string, Record<string, string>>;
+}
+
+interface RuntimeDataModel {
+  models: Record<string, { fields: { kind: string; name: string; type: string }[] }>;
+}
+
+const generatedRelationGraph = JSON.parse(
+  readFileSync(RELATION_GRAPH_PATH, "utf8"),
+) as GeneratedRelationGraph;
 
 const project = new Project({
   skipAddingFilesFromTsConfig: true,
   compilerOptions: { allowJs: true },
 });
 const ruleSource = project.addSourceFileAtPath(ESLINT_RULE_PATH);
+const nestedAnalyzerSource = project.addSourceFileAtPath(ESLINT_NESTED_ANALYZER_PATH);
+const lintGraphSource = project.addSourceFileAtPath(ESLINT_GRAPH_PATH);
+const scannerSource = project.addSourceFileAtPath(SCANNER_PATH);
 const prismaSource = project.addSourceFileAtPath(PRISMA_TYPES_PATH);
 
 // Type aliases in prisma-types.ts of the form `Restricted<Name>Delegate`: one
@@ -65,87 +101,21 @@ function sorted(values: Iterable<string>): string[] {
   return [...values].sort();
 }
 
-function sortedEntries(map: Map<string, string>): [string, string][] {
-  return [...map.entries()].sort(([a], [b]) => (a < b ? -1 : 1));
+function prismaRuntimeDataModel(): RuntimeDataModel {
+  const source = readFileSync(
+    path.join(REPO_ROOT, "packages/server/src/generated/prisma/internal/class.ts"),
+    "utf8",
+  );
+  const match = source.match(/config\.runtimeDataModel = JSON\.parse\(("(?:\\.|[^"\\])*")\)/u);
+  if (match?.[1] === undefined) throw new Error("generated Prisma runtime datamodel is absent");
+  const encoded: unknown = JSON.parse(match[1]);
+  if (typeof encoded !== "string") throw new Error("Prisma runtime datamodel is not encoded JSON");
+  return JSON.parse(encoded) as RuntimeDataModel;
 }
-
-// ---------------------------------------------------------------------------
-// Nested-relation surface, derived from the Prisma schema.
-//
-// The delegate gate is a *name* gate, and Prisma reaches every gated table as
-// a relation of a non-gated one. The relation-field names are therefore a
-// fourth thing the enforcement copies must agree on — but unlike the delegate
-// and mutator sets they are not a hand-chosen policy: they are a fact about
-// `schema.prisma`. Deriving them here means a new relation to a gated model
-// fails this test instead of silently widening the escape.
-// ---------------------------------------------------------------------------
 
 /** Prisma delegate name for a model: `CharacterStats` -> `characterStats`. */
 function delegateNameForModel(model: string): string {
   return model.charAt(0).toLowerCase() + model.slice(1);
-}
-
-interface SchemaRelation {
-  parent: string;
-  field: string;
-  target: string;
-}
-
-function schemaModelBodies(): Map<string, string> {
-  const source = readFileSync(PRISMA_SCHEMA_PATH, "utf-8");
-  const models = new Map<string, string>();
-  for (const match of source.matchAll(/^model\s+(\w+)\s*\{([\s\S]*?)^\}/gmu)) {
-    models.set(match[1] ?? "", match[2] ?? "");
-  }
-  return models;
-}
-
-function schemaModelNames(): string[] {
-  return [...schemaModelBodies().keys()];
-}
-
-/** Every `<name> <Type>` field in the schema, split by whether Type is a model. */
-function schemaFields(): { parent: string; field: string; target: string }[] {
-  const fields: { parent: string; field: string; target: string }[] = [];
-  for (const [parent, body] of schemaModelBodies()) {
-    for (const line of body.split("\n")) {
-      const trimmed = line.trim();
-      if (trimmed === "" || trimmed.startsWith("//") || trimmed.startsWith("@@")) continue;
-      const match = /^(\w+)\s+(\w+)/u.exec(trimmed);
-      const [, name, target] = match ?? [];
-      if (name === undefined || target === undefined) continue;
-      fields.push({ field: name, parent, target });
-    }
-  }
-  return fields;
-}
-
-function schemaRelations(): SchemaRelation[] {
-  const models = schemaModelBodies();
-  return schemaFields().filter(({ target }) => models.has(target));
-}
-
-/** Fields whose declared type is not a model — scalars, enums, `Json`. */
-function schemaScalarFields(): { parent: string; field: string; target: string }[] {
-  const models = schemaModelBodies();
-  return schemaFields().filter(({ target }) => !models.has(target));
-}
-
-/**
- * `<parent delegate>.<relation field>` -> the gated delegate a nested write
- * through it reaches. Qualified by the declaring model because relation *names*
- * are not unique across the schema, and not even unique to relations: `classes`
- * is a `CharacterClass[]` relation on `Character` and a `Json` scalar on
- * `Spell`.
- */
-function schemaGatedRelationFields(relations: SchemaRelation[]): Map<string, string> {
-  const result = new Map<string, string>();
-  for (const { field, parent, target } of relations) {
-    const delegate = delegateNameForModel(target);
-    if (!GATED_DELEGATES.has(delegate)) continue;
-    result.set(`${delegateNameForModel(parent)}.${field}`, delegate);
-  }
-  return result;
 }
 
 function stringLiteralText(node: Node | undefined, context: string): string {
@@ -153,52 +123,6 @@ function stringLiteralText(node: Node | undefined, context: string): string {
     throw new Error(`expected a string literal for ${context}`);
   }
   return node.getLiteralText();
-}
-
-/** The array-literal argument of a top-level `new Set([...])` / `new Map([...])`. */
-function newExpressionArgArray(source: SourceFile, name: string): ArrayLiteralExpression {
-  const initializer = source.getVariableDeclarationOrThrow(name).getInitializerOrThrow();
-  if (!Node.isNewExpression(initializer)) {
-    throw new Error(`${name} is not a \`new Set(...)\`/\`new Map(...)\` expression`);
-  }
-  const [arg] = initializer.getArguments();
-  if (!arg || !Node.isArrayLiteralExpression(arg)) {
-    throw new Error(`${name} is not constructed from an array literal`);
-  }
-  return arg;
-}
-
-/** Members of a `new Set(["a", "b", ...])`. */
-function setLiteralMembers(source: SourceFile, name: string): Set<string> {
-  const elements = newExpressionArgArray(source, name).getElements();
-  return new Set(elements.map((element) => stringLiteralText(element, `${name} element`)));
-}
-
-/** Entries of a `new Map([["a", "x"], ["b", "y"]])` whose values are strings. */
-function mapStringEntries(source: SourceFile, name: string): Map<string, string> {
-  const entries = newExpressionArgArray(source, name).getElements();
-  return new Map(
-    entries.map((entry): [string, string] => {
-      if (!Node.isArrayLiteralExpression(entry)) {
-        throw new Error(`${name} entry is not a [key, value] tuple`);
-      }
-      const [key, value] = entry.getElements();
-      return [stringLiteralText(key, `${name} key`), stringLiteralText(value, `${name} value`)];
-    }),
-  );
-}
-
-/** Keys of a `new Map([["a", ...], ["b", ...]])`. */
-function mapKeyLiterals(source: SourceFile, name: string): Set<string> {
-  const entries = newExpressionArgArray(source, name).getElements();
-  return new Set(
-    entries.map((entry) => {
-      if (!Node.isArrayLiteralExpression(entry)) {
-        throw new Error(`${name} entry is not a [key, value] tuple`);
-      }
-      return stringLiteralText(entry.getElements()[0], `${name} key`);
-    }),
-  );
 }
 
 /** String-literal members of a `"a" | "b" | ...` union type node. */
@@ -368,11 +292,18 @@ function typeLiteralProperties(source: SourceFile, typeAliasName: string): Map<s
 }
 
 describe("concurrency-guard triple drift guard", () => {
-  it("keeps the gated-delegate set in lockstep across rule, codemod, and prisma-types", () => {
-    const ruleDelegates = setLiteralMembers(ruleSource, "GATED_DELEGATES");
+  it("keeps the runtime and lint relation-graph payloads identical", () => {
+    const { generatedBy: _generatedBy, ...lintRelationGraph } = generatedRelationGraph;
+
+    expect(runtimeRelationGraph).toEqual(lintRelationGraph);
+  });
+
+  it("keeps the gated-delegate set in lockstep across graph, codemod, and prisma-types", () => {
     const prismaDelegates = restrictedDelegateTypes(prismaSource);
 
-    expect(sorted(ruleDelegates)).toEqual(sorted(GATED_DELEGATES));
+    expect(sorted(generatedRelationGraph.gatedModels.map(delegateNameForModel))).toEqual(
+      sorted(GATED_DELEGATES),
+    );
     expect(sorted(prismaDelegates.keys())).toEqual(sorted(GATED_DELEGATES));
     for (const [delegate, restrictedTypeName] of prismaDelegates) {
       expect(
@@ -382,9 +313,8 @@ describe("concurrency-guard triple drift guard", () => {
     }
   });
 
-  it("keeps the gated-mutator set in lockstep across rule, codemod, and prisma-types", () => {
-    const ruleMutators = setLiteralMembers(ruleSource, "GATED_MUTATORS");
-    expect(sorted(ruleMutators)).toEqual(sorted(GATED_MUTATORS));
+  it("keeps the gated-mutator set in lockstep across graph, codemod, and prisma-types", () => {
+    expect(sorted(generatedRelationGraph.gatedOperations)).toEqual(sorted(GATED_MUTATORS));
     expect(
       sorted(
         stringLiteralUnionMembers(
@@ -425,88 +355,169 @@ describe("concurrency-guard triple drift guard", () => {
     );
   });
 
-  it("keeps the nested-relation set in lockstep with the schema, the rule, and the codemod", () => {
-    const expected = schemaGatedRelationFields(schemaRelations());
-
-    // Sanity: the derivation found something, and every value is a gated
-    // delegate. A silently-empty derivation would make the next two
-    // assertions vacuous.
-    expect(expected.size).toBeGreaterThan(0);
-    expect(sorted(new Set(expected.values()))).toEqual(sorted(GATED_DELEGATES));
-
-    expect(sortedEntries(mapStringEntries(ruleSource, "GATED_RELATION_FIELDS"))).toEqual(
-      sortedEntries(expected),
+  it("keeps the generated descriptor fresh against schema, policy, and live docs anchors", () => {
+    assertRepairSuggestionReferences(
+      readFileSync(CONCURRENCY_GUIDE_PATH, "utf8"),
+      DIRECT_WRITE_REPAIR_SUGGESTIONS,
+      REPO_ROOT,
     );
-    expect(sortedEntries(GATED_RELATION_FIELDS)).toEqual(sortedEntries(expected));
-  });
+    const expected = buildRelationGraph(
+      readFileSync(PRISMA_SCHEMA_PATH, "utf8"),
+      [...GATED_DELEGATES],
+      [...GATED_MUTATORS],
+      DIRECT_WRITE_REPAIR_SUGGESTIONS,
+    );
 
-  it("keeps every nested-relation key rooted on a model that exists in the schema", () => {
-    // Both enforcement copies match a nested write on `<parent>.<relation>`,
-    // never on the relation key alone. Key-only matching was unsound: relation
-    // names are not unique across models, and are not even unique to relations
-    // — `classes` is a `CharacterClass[]` relation on `Character` and a `Json`
-    // scalar on `Spell`, so `spell.update({ data: { classes: { update } } })`
-    // was a hard error. This pins that every key still names a real model, so
-    // a half-qualified entry cannot silently match nothing.
-    const models = new Set(schemaModelNames().map(delegateNameForModel));
-    const unrooted = [...GATED_RELATION_FIELDS.keys()].filter((key) => {
-      const [parent, field, ...rest] = key.split(".");
-      return rest.length > 0 || field === undefined || parent === undefined || !models.has(parent);
+    expect(generatedRelationGraph).toEqual({
+      generatedBy: "scripts/codemods/concurrency-guard/generate-relation-graph.ts",
+      ...expected,
     });
-
-    expect(unrooted).toEqual([]);
+    expect(Object.keys(generatedRelationGraph.models).length).toBeGreaterThan(0);
+    expect(
+      Object.values(generatedRelationGraph.models).reduce(
+        (count, relations) => count + Object.keys(relations).length,
+        0,
+      ),
+    ).toBeGreaterThan(0);
   });
 
-  it("would mis-flag a scalar field if matching ever went back to relation keys alone", () => {
-    // The live counterexample, asserted rather than described: at least one
-    // non-relation field in the schema shares its name with a gated relation.
-    // While this holds, dropping the parent qualification reintroduces a false
-    // positive on a hard-error rule.
-    const relationFields = new Set(
-      schemaRelations().map(({ parent, field }) => `${parent}.${field}`),
-    );
-    const gatedNames = new Set(
-      [...schemaGatedRelationFields(schemaRelations()).keys()].map((key) => key.split(".")[1]),
-    );
-    const scalarCollisions = schemaScalarFields().filter(
-      ({ parent, field }) => gatedNames.has(field) && !relationFields.has(`${parent}.${field}`),
+  it("rejects a renamed live repair heading in the always-on drift gate", () => {
+    const concurrencyGuide = readFileSync(CONCURRENCY_GUIDE_PATH, "utf8").replace(
+      "## Pattern C — compound `updateMany` with the precondition in `where`",
+      "## Pattern C — renamed encounter-state heading",
     );
 
-    expect(scalarCollisions.length).toBeGreaterThan(0);
+    expect(() => {
+      assertRepairSuggestionReferences(
+        concurrencyGuide,
+        DIRECT_WRITE_REPAIR_SUGGESTIONS,
+        REPO_ROOT,
+      );
+    }).toThrow(
+      "repair suggestion anchor for encounter does not resolve to a docs/CONCURRENCY.md heading: " +
+        "docs/CONCURRENCY.md#pattern-c--compound-updatemany-with-the-precondition-in-where",
+    );
   });
 
-  it("keeps the direct-write suggestion keys aligned with the gated delegates", () => {
-    // DIRECT_WRITE_SUGGESTIONS lives only in the rule and the codemod (prisma
-    // encodes its guidance in @deprecated JSDoc, not a keyed map). Both key sets
-    // must cover exactly the gated delegates.
-    expect(sorted(mapKeyLiterals(ruleSource, "DIRECT_WRITE_SUGGESTIONS"))).toEqual(
+  it("matches Prisma's independently generated runtime datamodel", () => {
+    const runtime = prismaRuntimeDataModel();
+    const gated = new Set(generatedRelationGraph.gatedModels);
+    function reachesGated(model: string, seen = new Set<string>()): boolean {
+      if (gated.has(model)) return true;
+      if (seen.has(model)) return false;
+      seen.add(model);
+      return (
+        runtime.models[model]?.fields.some(
+          (field) => field.kind === "object" && reachesGated(field.type, seen),
+        ) ?? false
+      );
+    }
+    const reachable = new Set(Object.keys(runtime.models).filter((model) => reachesGated(model)));
+
+    expect(generatedRelationGraph.models).toEqual(
+      Object.fromEntries(
+        sorted(reachable).map((model) => [
+          model,
+          Object.fromEntries(
+            runtime.models[model]?.fields
+              .filter((field) => field.kind === "object" && reachable.has(field.type))
+              .map((field) => [field.name, field.type]) ?? [],
+          ),
+        ]),
+      ),
+    );
+    expect(generatedRelationGraph.dataScalarModels).toEqual(
+      sorted(reachable).filter((model) =>
+        runtime.models[model]?.fields.some(
+          (field) => field.name === "data" && field.kind !== "object",
+        ),
+      ),
+    );
+  });
+
+  it("makes the generated graph the lint rule's sole relation source", () => {
+    const ruleImportPaths = ruleSource
+      .getImportDeclarations()
+      .map((declaration) => declaration.getModuleSpecifierValue());
+    const analyzerImportPaths = nestedAnalyzerSource
+      .getImportDeclarations()
+      .map((declaration) => declaration.getModuleSpecifierValue());
+    expect(ruleImportPaths).toContain("./concurrency-guard-graph.js");
+    expect(analyzerImportPaths).toContain("./concurrency-guard-graph.js");
+    const graphImportPaths = lintGraphSource
+      .getImportDeclarations()
+      .map((declaration) => declaration.getModuleSpecifierValue());
+    expect(graphImportPaths).toContain(
+      "../packages/server/src/prisma/concurrency-relation-graph.generated.json",
+    );
+    expect(ruleSource.getVariableDeclaration("GATED_RELATION_FIELDS")).toBeUndefined();
+    expect(nestedAnalyzerSource.getVariableDeclaration("GATED_RELATION_FIELDS")).toBeUndefined();
+  });
+
+  it("sources direct-write suggestions from the generated descriptor", () => {
+    expect(ruleSource.getVariableDeclaration("DIRECT_WRITE_SUGGESTIONS")).toBeUndefined();
+    expect(scannerSource.getVariableDeclaration("DIRECT_WRITE_SUGGESTIONS")).toBeUndefined();
+    expect(sorted(Object.keys(generatedRelationGraph.repairSuggestions))).toEqual(
       sorted(GATED_DELEGATES),
     );
-    expect(sorted(new Set(DIRECT_WRITE_SUGGESTIONS.keys()))).toEqual(sorted(GATED_DELEGATES));
+    const directWriteFindings = scannerSource.getFunctionOrThrow("directWriteFindings");
+    const suggestion = directWriteFindings
+      .getDescendantsOfKind(SyntaxKind.PropertyAssignment)
+      .find((property) => property.getName() === "suggestion");
+    if (suggestion === undefined) throw new Error("directWriteFindings has no suggestion property");
+    const initializer = suggestion.getInitializerOrThrow();
+    if (
+      !Node.isBinaryExpression(initializer) ||
+      initializer.getOperatorToken().getKind() !== SyntaxKind.QuestionQuestionToken
+    ) {
+      throw new Error("directWriteFindings suggestion does not use the generated fallback path");
+    }
+    expect(initializer.getLeft().getText()).toBe("REPAIR_SUGGESTIONS.get(target.delegate)");
+    expect(stringLiteralText(initializer.getRight(), "direct-write fallback suggestion")).toBe(
+      "Route race-sensitive writes through the documented helper boundary; see docs/CONCURRENCY.md.",
+    );
   });
-  it("recognises the same programs as the ESLint rule, over the shared corpus", () => {
-    // The name maps above prove the two copies share a *vocabulary*. They do
-    // not prove the two detectors share a *behaviour*: one could follow a
-    // binding the other does not, or root at a different node. The corpus is
-    // the behavioural half, and eslint-rules/concurrency-guard.test.js runs the
-    // identical file through the rule.
-    const corpus = JSON.parse(readFileSync(CORPUS_PATH, "utf8")) as NestedWriteCorpus;
+
+  it("keeps every suggested helper exported by its suggested module", () => {
+    for (const [delegate, suggestion] of DIRECT_WRITE_REPAIR_SUGGESTIONS) {
+      const helperClause = suggestion.match(
+        /^(?:Route \w+ writes through|Use) (.+?) (?:in|from) (packages\/server\/src\/utils\/[\w-]+-mutations\.ts)\b/u,
+      );
+      const helperNames = helperClause?.[1]?.split(/,\s+(?:or\s+)?|\s+or\s+/u);
+      const modulePath = helperClause?.[2];
+      if (helperNames === undefined || modulePath === undefined) {
+        throw new Error(`cannot parse repair helpers for ${delegate}`);
+      }
+      const helperSource = project.addSourceFileAtPath(path.join(REPO_ROOT, modulePath));
+
+      for (const helperName of helperNames) {
+        expect(
+          helperSource.getFunction(helperName)?.isExported(),
+          `${modulePath} does not export ${helperName}`,
+        ).toBe(true);
+      }
+    }
+  });
+
+  it("matches the ESLint rule for every declared direct corpus case", () => {
+    const corpus = JSON.parse(readFileSync(DIRECT_CORPUS_PATH, "utf8")) as DirectWriteCorpus;
     expect(corpus.cases.length).toBeGreaterThan(0);
 
-    const corpusProject = new Project({
+    const directProject = new Project({
       useInMemoryFileSystem: true,
       compilerOptions: { allowJs: true },
     });
 
     for (const entry of corpus.cases) {
-      const sourceFile = corpusProject.createSourceFile(entry.filename, entry.code, {
+      const sourceFile = directProject.createSourceFile(entry.filename, entry.code, {
         overwrite: true,
       });
-      const found = nestedRelationWrites(sourceFile).map(({ relation, method, delegate }) => ({
-        relation,
-        method,
-        delegate,
-      }));
+      const found = sourceFile
+        .getDescendantsOfKind(SyntaxKind.CallExpression)
+        .map(delegateCall)
+        .filter((call) => call !== undefined)
+        .map(({ delegate, method }) => ({ delegate, method }));
+
       expect(found, entry.name).toEqual(entry.expected);
     }
   });

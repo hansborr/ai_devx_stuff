@@ -152,7 +152,7 @@ emit_identity() {
 PATTERN_TS='(^|[[:space:]])(//|/\*)[[:space:]]*@ts-(expect-error|ignore|nocheck)($|[[:space:]])'
 PATTERN_STRYKER='(^|[[:space:]])(//|/\*)[[:space:]]*Stryker[[:space:]]+disable($|[[:space:]])'
 PATTERN_STRYKER_INLINE='Stryker[[:space:]]+disable[[:space:]]+next-line($|[[:space:]])'
-ALLOWLIST_FILE="$SCRIPT_DIR/data/ts-nocheck-allowlist.txt"
+ALLOWLIST_FILE="$REPO_ROOT/scripts/data/ts-nocheck-allowlist.txt"
 TS_NOCHECK_ALLOWLIST=()
 if [[ ! -r "$ALLOWLIST_FILE" ]]; then
   printf 'FAIL: suppression register cannot read allowlist: scripts/data/ts-nocheck-allowlist.txt\n' >&2
@@ -163,6 +163,7 @@ while IFS= read -r pattern || [[ -n "$pattern" ]]; do
   [[ -z "$pattern" || "$pattern" == \#* ]] && continue
   TS_NOCHECK_ALLOWLIST+=("$pattern")
 done < "$ALLOWLIST_FILE"
+TS_NOCHECK_ALLOWLIST_MATCHED=()
 
 total=0
 ts_expect_error=0
@@ -227,14 +228,16 @@ has_reason() {
 }
 
 is_ts_nocheck_allowed() {
-  local path="$1" pattern
-  for pattern in "${TS_NOCHECK_ALLOWLIST[@]}"; do
+  local path="$1" index pattern matched=1
+  for index in "${!TS_NOCHECK_ALLOWLIST[@]}"; do
+    pattern="${TS_NOCHECK_ALLOWLIST[$index]}"
     # shellcheck disable=SC2053  # allowlist entries intentionally use glob patterns.
     if [[ "$path" == $pattern ]]; then
-      return 0
+      TS_NOCHECK_ALLOWLIST_MATCHED[$index]=1
+      matched=0
     fi
   done
-  return 1
+  return "$matched"
 }
 
 stryker_scope() {
@@ -422,6 +425,15 @@ while IFS= read -r -d '' file; do
   done < "$REPO_ROOT/$file"
 done < <(scan_files)
 
+unused_allowlist_entries=()
+if [[ "$SCAN_SCOPE" == full ]]; then
+  for index in "${!TS_NOCHECK_ALLOWLIST[@]}"; do
+    if [[ "${TS_NOCHECK_ALLOWLIST_MATCHED[$index]:-0}" -ne 1 ]]; then
+      unused_allowlist_entries+=("${TS_NOCHECK_ALLOWLIST[$index]}")
+    fi
+  done
+fi
+
 if [[ "$MODE" == changed ]]; then
   printf 'PASS: suppression register scope=%s total=%d ts-expect-error=%d ts-ignore=%d ts-nocheck=%d stryker=%d\n' \
     "$SCAN_SCOPE" "$total" "$ts_expect_error" "$ts_ignore" "$ts_nocheck" "$stryker"
@@ -460,6 +472,16 @@ else
   printf 'PASS: suppression register @ts-nocheck allowlist clean total=0\n'
 fi
 
+if (( ${#unused_allowlist_entries[@]} > 0 )); then
+  printf 'FAIL: suppression register unused @ts-nocheck allowlist entries total=%d — remove permissions with no live directive\n' \
+    "${#unused_allowlist_entries[@]}"
+  for entry in "${unused_allowlist_entries[@]}"; do
+    printf '  - %s\n' "$entry"
+  done
+elif [[ "$SCAN_SCOPE" == full ]]; then
+  printf 'PASS: suppression register unused @ts-nocheck allowlist entries total=0\n'
+fi
+
 if (( stryker_broad > 0 )); then
   printf 'FAIL: suppression register broad Stryker disable total=%d — prefer Stryker disable next-line\n' \
     "$stryker_broad"
@@ -470,11 +492,11 @@ else
   printf 'PASS: suppression register broad Stryker disable clean total=0\n'
 fi
 
-if (( missing_total == 0 && ts_ignore_total == 0 && ts_nocheck_disallowed == 0 && stryker_broad == 0 )); then
+if (( missing_total == 0 && ts_ignore_total == 0 && ts_nocheck_disallowed == 0 && stryker_broad == 0 && ${#unused_allowlist_entries[@]} == 0 )); then
   printf 'PASS: suppression register all policy checks clean\n'
 fi
 
-if (( missing_total > 0 || ts_ignore_total > 0 || ts_nocheck_disallowed > 0 || stryker_broad > 0 )); then
+if (( missing_total > 0 || ts_ignore_total > 0 || ts_nocheck_disallowed > 0 || stryker_broad > 0 || ${#unused_allowlist_entries[@]} > 0 )); then
   exit 1
 fi
 

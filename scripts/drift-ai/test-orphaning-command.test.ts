@@ -1,10 +1,11 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { writeFileSync } from "node:fs";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
 
+import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { commitBlock as buildCommitBlock } from "./git-log-fixture.test-helper.js";
+import { currentRepoGit } from "./git-runner.test-helper.js";
 import { GIT_LOG_FORMAT } from "./hotspots-history.js";
 import { runDriftAi } from "./runner.js";
 
@@ -13,6 +14,8 @@ type MetaFields = {
   readonly authorDate: string;
   readonly subject: string;
 };
+
+const tmpRepo = registerTempRootCleanup();
 
 // These cases only vary hash/date/subject, so wrap the shared git-log builder
 // with the fixed author identity this file uses (committer date == author date).
@@ -48,10 +51,7 @@ describe("test-orphaning subcommand", () => {
 
     const result = runDriftAi({
       argv: ["test-orphaning", "--format", "json", "--top", "5", "--max-commits", "25"],
-      git: (args) => {
-        if (args[0] === "rev-parse") return "/repo\n";
-        return "";
-      },
+      git: currentRepoGit("/repo"),
       boundedGit: (args) => {
         calls.push([...args]);
         if (args[0] === "config") return "";
@@ -88,7 +88,7 @@ describe("test-orphaning subcommand", () => {
   it("prints test-orphaning usage on help", () => {
     const result = runDriftAi({
       argv: ["test-orphaning", "--help"],
-      git: (args) => (args[0] === "rev-parse" ? "/repo\n" : ""),
+      git: currentRepoGit("/repo"),
     });
 
     expect(result.exitCode).toBe(0);
@@ -97,7 +97,7 @@ describe("test-orphaning subcommand", () => {
   });
 
   it("honors configured ignore paths during bounded history collection", () => {
-    const dir = mkdtempSync(path.join(tmpdir(), "drift-test-orphaning-config-"));
+    const dir = tmpRepo.makeTempRepo("drift-test-orphaning-config-");
     const configPath = path.join(dir, "drift-ai.config.json");
     writeFileSync(configPath, JSON.stringify({ ignore: { prefixes: ["generated/"] } }), "utf8");
     const output = [
@@ -113,7 +113,7 @@ describe("test-orphaning subcommand", () => {
 
     const result = runDriftAi({
       argv: ["test-orphaning", "--config", configPath, "--format", "json"],
-      git: (args) => (args[0] === "rev-parse" ? `${dir}\n` : ""),
+      git: currentRepoGit(dir),
       boundedGit: (args) => {
         if (args[0] === "config") return "";
         if (args[0] === "log") return output;
@@ -135,7 +135,7 @@ describe("test-orphaning subcommand", () => {
   it("rejects a mapping template missing the {name} placeholder", () => {
     const result = runDriftAi({
       argv: ["test-orphaning", "--test-pattern", "{dir}/fixed.test.ts"],
-      git: (args) => (args[0] === "rev-parse" ? "/repo\n" : ""),
+      git: currentRepoGit("/repo"),
     });
 
     expect(result.exitCode).toBe(2);

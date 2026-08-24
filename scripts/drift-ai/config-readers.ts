@@ -1,3 +1,4 @@
+import { isRecord } from "../lib/records.js";
 import type { CheckConfigMetadata } from "./check-plugin.js";
 import type { DriftAiChecksConfig, GhostFileAllowedPair } from "./config.js";
 import { normalizeGlob, normalizePairPath } from "./config-paths.js";
@@ -6,10 +7,6 @@ import { uniqSorted } from "./path-util.js";
 import type { DriftCheckId } from "./types.js";
 
 export type UnknownRecord = Record<string, unknown>;
-
-export function isRecord(value: unknown): value is UnknownRecord {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
 
 export function assertKnownKeys(
   raw: UnknownRecord,
@@ -150,22 +147,35 @@ export function readExcludeGlobsOrDefault(
 }
 
 function readAllowedPair(raw: unknown, keyPath: string): GhostFileAllowedPair {
-  if (!Array.isArray(raw) || raw.length !== 2) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
+  if (!isRecord(raw)) {
+    throw new DriftAiError(
+      `drift:ai config '${keyPath}' must be an object with { files: [left, right], rationale }.`,
+    );
   }
-  const paths = raw.map((item, index) => {
+  assertKnownKeys(raw, ["files", "rationale"], keyPath);
+  const rawFiles = raw["files"];
+  if (!Array.isArray(rawFiles) || rawFiles.length !== 2) {
+    throw new DriftAiError(`drift:ai config '${keyPath}.files' must be a two-path array.`);
+  }
+  const paths = rawFiles.map((item, index) => {
     if (typeof item !== "string" || item.trim().length === 0) {
-      throw new DriftAiError(`drift:ai config '${keyPath}[${index}]' must be a non-empty string.`);
+      throw new DriftAiError(
+        `drift:ai config '${keyPath}.files[${index}]' must be a non-empty string.`,
+      );
     }
-    return normalizePairPath(item, `${keyPath}[${index}]`);
+    return normalizePairPath(item, `${keyPath}.files[${index}]`);
   });
   const left = paths[0];
   const right = paths[1];
   if (left === undefined || right === undefined) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must be a two-path array.`);
+    throw new DriftAiError(`drift:ai config '${keyPath}.files' must be a two-path array.`);
   }
   if (left === right) {
-    throw new DriftAiError(`drift:ai config '${keyPath}' must contain two distinct paths.`);
+    throw new DriftAiError(`drift:ai config '${keyPath}.files' must contain two distinct paths.`);
   }
-  return { files: left < right ? [left, right] : [right, left] };
+  const rationale = raw["rationale"];
+  if (typeof rationale !== "string" || rationale.trim().length === 0) {
+    throw new DriftAiError(`drift:ai config '${keyPath}.rationale' must be a non-empty string.`);
+  }
+  return { files: left < right ? [left, right] : [right, left], rationale };
 }

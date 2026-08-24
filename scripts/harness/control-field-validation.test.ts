@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { collectNonLintFieldIssues } from "./control-field-validation.js";
 import type { RawControl as GenerateRawControl } from "./generate-harness-controls.js";
 import { resolveControl } from "./generate-harness-controls-validation.js";
 import {
@@ -13,6 +14,67 @@ import {
 } from "./harness-check-validation.js";
 
 const tmpRepo = registerTempRootCleanup();
+
+describe("raw harness control fields", () => {
+  it("collects tagged non-lint issues without short-circuiting or live-tree lookups", () => {
+    expect(
+      collectNonLintFieldIssues(
+        {
+          ruleName: "local/fixture",
+          category: "invalid",
+          principle: "Keep the inventory from task 39.",
+          pairedGuide: 42,
+          repairKind: "codemod",
+          source: "missing/source.ts",
+          invocation: 42,
+        },
+        {
+          principleFromRegistry: false,
+          includeSource: true,
+          bareCoordinateCheck: true,
+        },
+      ),
+    ).toEqual([
+      { field: "ruleName", message: "ruleName is only allowed on lint-rule entries" },
+      {
+        field: "category",
+        message: "category must be one of: maintainability, architecture-fitness, behavior",
+      },
+      {
+        field: "principle",
+        message: "principle contains a bare backlog coordinate: task 39",
+      },
+      {
+        field: "pairedGuide",
+        message: 'pairedGuide must be "none" or a non-empty path string',
+      },
+      {
+        field: "repairCommand",
+        message: "repairCommand must be a non-empty string when repairKind is codemod",
+      },
+      { field: "invocation", message: "invocation must be a non-empty string" },
+    ]);
+  });
+
+  it("makes source placement and bare-coordinate checking explicit caller options", () => {
+    expect(
+      collectNonLintFieldIssues(
+        {
+          category: "maintainability",
+          principle: "Keep the inventory from task 39.",
+          pairedGuide: "none",
+          repairKind: "manual",
+          invocation: "bun run fixture",
+        },
+        {
+          principleFromRegistry: false,
+          includeSource: false,
+          bareCoordinateCheck: false,
+        },
+      ),
+    ).toEqual([]);
+  });
+});
 
 function makeRepoRoot(): string {
   return tmpRepo.makeTempRepo("control-field-validation-");
@@ -75,6 +137,34 @@ function expectNoCheckFailures(validate: (failures: Map<string, ControlFailures>
 }
 
 describe("shared harness control field rules", () => {
+  it("preserves the generator's assembled non-lint diagnostic order", () => {
+    const repoRoot = makeRepoRoot();
+
+    expect(
+      generateFailureMessages(
+        generateControl({
+          ruleName: "local/fixture",
+          category: "invalid",
+          principle: 42,
+          pairedGuide: 42,
+          repairKind: "codemod",
+          repairCommand: undefined,
+          source: 42,
+          invocation: 42,
+        }),
+        repoRoot,
+      ),
+    ).toEqual([
+      "ruleName is only allowed on lint-rule entries",
+      "category must be one of: maintainability, architecture-fitness, behavior",
+      "principle must be a non-empty string",
+      'pairedGuide must be "none" or a non-empty path string',
+      "repairCommand must be a non-empty string when repairKind is codemod",
+      "source must be a non-empty string",
+      "invocation must be a non-empty string",
+    ]);
+  });
+
   it("rejects source paths outside repo root in both validation callers", () => {
     const repoRoot = makeRepoRoot();
     const source = "../outside.ts";

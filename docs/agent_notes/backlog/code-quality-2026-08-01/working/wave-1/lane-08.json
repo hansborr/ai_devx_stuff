@@ -1,0 +1,1120 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-08-cross-cutting",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L08-001",
+      "title": "Harness diagnostics live in the application contract package while every consumer bypasses its package boundary",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/harness-diagnostics.ts",
+          "line": 3,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The application shared package defines a tool-id and harness-diagnostics transport contract."
+        },
+        {
+          "path": "scripts/drift-ai/diagnostics-projection.ts",
+          "line": 9,
+          "endLine": 17,
+          "measurement": null,
+          "note": "Drift analysis reaches directly into packages/shared/src instead of using a supported package export."
+        },
+        {
+          "path": "scripts/lint-ratchet/diagnostics.ts",
+          "line": 13,
+          "endLine": 22,
+          "measurement": null,
+          "note": "The lint-ratchet adapter repeats the source-relative coupling from another ownership area."
+        },
+        {
+          "path": "scripts",
+          "line": null,
+          "endLine": null,
+          "measurement": "11 non-test TypeScript consumers directly import packages/shared/src/schemas/harness-diagnostics.js; pinned git grep found zero client/server runtime consumers.",
+          "note": "The contract is entirely tooling-owned despite its application-layer home."
+        }
+      ],
+      "problem": "A harness-only protocol is owned one layer away from every real consumer. Harness, analyzer, and lint tools consequently depend on a repository-relative source location, while moving or extracting the harness requires application-package changes.",
+      "proposedDirection": "Move the envelope to a tooling-owned contract module or small workspace package with a stable export, then migrate harness, drift-ai, logs-audit, and lint-ratchet together.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "The landed harness cluster unified diagnostic helpers but did not address the schema's application-package placement or the surviving direct source imports."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-002",
+      "title": "Logging producers and their auditor separately encode the same protocol",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/app.ts",
+          "line": 38,
+          "endLine": 89,
+          "measurement": null,
+          "note": "The server defines redaction values, sensitive query parameters, and Pino redaction paths."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-redaction.ts",
+          "line": 14,
+          "endLine": 53,
+          "measurement": null,
+          "note": "The auditor independently defines accepted redaction values, sensitive keys, field paths, query parameters, and URL aliases."
+        },
+        {
+          "path": "packages/server/src/utils/request-logger.ts",
+          "line": 41,
+          "endLine": 79,
+          "measurement": null,
+          "note": "The producer owns closed authz event, reason, and outcome vocabularies; mutation and broadcast variants continue at lines 94-136."
+        },
+        {
+          "path": "scripts/logs-audit/logs-audit-event-fields.ts",
+          "line": 16,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The auditor duplicates the authz, mutation, and broadcast outcome vocabularies."
+        }
+      ],
+      "problem": "Adding a sensitive spelling or structured-event outcome requires synchronized edits in the server and its certification tool. The auditor is intended to police the producer, but currently shadows its policy, leaving authority and drift behavior unclear.",
+      "proposedDirection": "Extract a neutral structured logging-policy module that distinguishes producer paths, normalized audit aliases, sensitive URL parameters, event families, and allowed outcomes; derive both sides from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "H19 extracted logs-audit-local types; it did not unify the server producer contract with the audit policy."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-003",
+      "title": "Database URL selection is duplicated across server tests, E2E, root diagnostics, and devcontainer setup",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/test/test-database-url.ts",
+          "line": 46,
+          "endLine": 58,
+          "measurement": null,
+          "note": "Server test support owns TEST_DATABASE_URL and DATABASE_URL-derived test-database precedence."
+        },
+        {
+          "path": "e2e/global-setup.ts",
+          "line": 12,
+          "endLine": 26,
+          "measurement": null,
+          "note": "E2E setup independently implements E2E_DATABASE_URL, TEST_DATABASE_URL, and DATABASE_URL fallback rules."
+        },
+        {
+          "path": "scripts/db-status.ts",
+          "line": 61,
+          "endLine": 95,
+          "measurement": null,
+          "note": "The root diagnostic implements separate test and E2E resolvers and explicitly says it mirrors the test harness."
+        },
+        {
+          "path": ".devcontainer/post-create.sh",
+          "line": 126,
+          "endLine": 159,
+          "measurement": null,
+          "note": "Devcontainer provisioning mirrors the URL-to-name and fallback rules again in shell."
+        }
+      ],
+      "problem": "One database-selection contract spans root tooling, server test internals, E2E configuration, and shell provisioning. A contributor changing an environment variable or fallback must discover multiple copies, and the operational command imports a test-only module to recover one constant.",
+      "proposedDirection": "Extract a pure environment-parameterized test/E2E URL resolver behind a supported tooling boundary. Reuse it from Playwright, global setup, db-status, and server test setup; expose a narrow CLI result for shell provisioning.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-004",
+      "title": "Human-readable server messages act as client control-flow contracts",
+      "area": "cross-cutting",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/lib/invite-errors.ts",
+          "line": 1,
+          "endLine": 6,
+          "measurement": null,
+          "note": "The client classifies invite failures through case-sensitive substring matches on server prose."
+        },
+        {
+          "path": "packages/server/src/services/invite-service.ts",
+          "line": 114,
+          "endLine": 128,
+          "measurement": null,
+          "note": "Distinct CONFLICT reasons are represented only by their independently authored messages."
+        },
+        {
+          "path": "packages/client/src/pages/character-sheet-page.tsx",
+          "line": 51,
+          "endLine": 55,
+          "measurement": null,
+          "note": "The page branches on the exact character-not-found message."
+        },
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": 273,
+          "endLine": 280,
+          "measurement": null,
+          "note": "Account deletion contains two additional exact or substring message branches."
+        }
+      ],
+      "problem": "Changing capitalization or improving server copy can silently degrade invite, character-load, and account-deletion flows to generic errors. Contributors must discover an undocumented prose protocol because generic tRPC codes do not distinguish the domain reasons.",
+      "proposedDirection": "Add stable domain reason codes to application errors and centralize client narrowing. Keep human-readable messages presentation-only and migrate the three evidenced flows as a bounded first set.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-005",
+      "title": "A generic mutation acknowledgment is hidden under auth while weaker domain copies drift",
+      "area": "cross-cutting",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/auth.ts",
+          "line": 64,
+          "endLine": 72,
+          "measurement": null,
+          "note": "Auth owns the broadly reused `{ success: literal(true) }` contract."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew-campaign.ts",
+          "line": 5,
+          "endLine": 9,
+          "measurement": null,
+          "note": "Link and unlink redeclare weaker `{ success: boolean }` contracts."
+        },
+        {
+          "path": "packages/shared/src/schemas/inventory.ts",
+          "line": 116,
+          "endLine": 118,
+          "measurement": null,
+          "note": "Inventory defines another domain-local boolean acknowledgment."
+        },
+        {
+          "path": "packages/server/src/routers",
+          "line": null,
+          "endLine": null,
+          "measurement": "14 production router files reference successResponseSchema, measured with pinned git grep.",
+          "note": "The auth-named schema is already a cross-domain primitive."
+        }
+      ],
+      "problem": "New contributors must know that an auth module owns a repository-wide response primitive, while nearby domains expose subtly weaker copies. Endpoint contracts therefore depend on which definition a contributor happens to find.",
+      "proposedDirection": "Move or canonically alias the acknowledgment from a neutral shared response module and converge the weaker copies, retaining domain-specific type aliases only where they improve vocabulary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The shared-schema cleanup left three measured acknowledgment stragglers and the misleading auth ownership."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-006",
+      "title": "Shared weapon helpers force server persistence projections through double assertions",
+      "area": "cross-cutting",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 111,
+          "endLine": 121,
+          "measurement": null,
+          "note": "getWeaponDataFromItem requires a complete InventoryItem while reading only itemType, name, and properties."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/resolve-attack.ts",
+          "line": 22,
+          "endLine": 46,
+          "measurement": null,
+          "note": "The server deliberately queries narrow Prisma-facing item and proficiency shapes."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/resolve-attack.ts",
+          "line": 66,
+          "endLine": 93,
+          "measurement": null,
+          "note": "Those projections are widened through `as unknown as` assertions to satisfy the shared helper signatures."
+        },
+        {
+          "path": "packages/client/src/components/sheet/equipment-summary.tsx",
+          "line": 70,
+          "endLine": 93,
+          "measurement": null,
+          "note": "Client callers naturally possess complete wire entities, explaining why the over-broad signature is convenient in only one layer."
+        }
+      ],
+      "problem": "Rules helpers are coupled to transport entities rather than the minimal data they compute from. Server code must pretend partial Prisma rows are fully validated wire entities, obscuring the real boundary and coupling unrelated schema changes to attack resolution.",
+      "proposedDirection": "Define structural helper inputs containing only the fields used, derive the server participant shape from its Prisma selection, and remove the assertion bridges.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The landed weapon work addressed representation behavior, not the helper's public dependency surface or surviving server assertion boundaries."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-007",
+      "title": "Adding a homebrew entry type requires synchronizing seven parallel inventories",
+      "area": "cross-cutting",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 61,
+          "endLine": 73,
+          "measurement": null,
+          "note": "The shared enum defines the entry-type vocabulary."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 223,
+          "endLine": 234,
+          "measurement": null,
+          "note": "A separate exhaustive shared record maps the same keys to schemas."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 65,
+          "endLine": 75,
+          "measurement": null,
+          "note": "The client repeats the key set in EntryFormByType and repeats it again in the editor registry at lines 162-216."
+        },
+        {
+          "path": "packages/client/src/pages/collection-detail-page.tsx",
+          "line": 23,
+          "endLine": 36,
+          "measurement": null,
+          "note": "Filter labels and plurals live in another non-exhaustive array."
+        }
+      ],
+      "problem": "The schema and editor maps are type-checked, but create and filter option arrays can omit a new entry type without an error. Labels, plurals, ordering, schemas, and editors also lack an obvious canonical inventory.",
+      "proposedDirection": "Keep validation schemas in shared, but establish one exhaustive client metadata registry keyed by HomebrewEntryType and derive cards, creation options, filters, form typing, and editor lookup from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-008",
+      "title": "Code-intel excludes declared workspaces while hard-coding application topology repeatedly",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 6,
+          "endLine": 10,
+          "measurement": null,
+          "note": "The Bun workspace includes packages/*, tools/*, and examples/lint-ratchet-demo."
+        },
+        {
+          "path": "scripts/code-intel/types.ts",
+          "line": 3,
+          "endLine": 13,
+          "measurement": null,
+          "note": "Code-intel defines its workspace as only shared, server, client, and scripts."
+        },
+        {
+          "path": "scripts/code-intel/source-project.ts",
+          "line": 53,
+          "endLine": 66,
+          "measurement": null,
+          "note": "Queries reject files outside those fixed application and scripts directories."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "127 tracked TypeScript files under tools/ and examples/lint-ratchet-demo are excluded, counted at the audit pin with git ls-tree and rg.",
+          "note": "Declared workspaces cannot be targeted by the contributor-facing code-intel command."
+        }
+      ],
+      "problem": "A tool named around workspace analysis silently means only three application packages plus scripts. The supported topology is also repeated across discovery, project creation, caching, resolution, and result bucketing.",
+      "proposedDirection": "Create one project inventory derived from root workspace and tsconfig metadata. If application-only scope is intentional, rename the abstractions and emit an explicit supported-scope diagnostic.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "open-leaf",
+        "ref": "CQ25-11",
+        "novelty": "The open code-intel slices concern a context bag and cache abstraction; this is a separate root-workspace coverage mismatch with 127 excluded files."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-009",
+      "title": "Local lint rules lack one canonical registration catalog",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "eslint-config/local-plugin.js",
+          "line": 3,
+          "endLine": 70,
+          "measurement": null,
+          "note": "Every local rule is manually imported and paired with its string id."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": 2,
+          "endLine": 2,
+          "measurement": null,
+          "note": "Only meta.docs fields are projected; rule identity, source, invocation, and enforcement mode remain separately authored."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "32 kind=lint-rule controls repeat rule identity, source path, and enforcement command, counted from the manifest at the audit pin.",
+          "note": "The second inventory is large enough to make new-rule registration a recurring synchronization ritual."
+        },
+        {
+          "path": "scripts/harness/generate-harness-controls.ts",
+          "line": 132,
+          "endLine": 150,
+          "measurement": null,
+          "note": "The generator already discovers rule metadata and ratchet registrations programmatically."
+        }
+      ],
+      "problem": "Adding a rule requires creating the module, editing a static plugin map, choosing normal-lint or ratchet activation, and repeating its identity and invocation in the harness manifest. Drift checks catch omissions later but do not provide one obvious authoring surface.",
+      "proposedDirection": "Introduce a typed rule catalog or generated static registry owning id, module path, and enforcement mode once; derive the plugin map and lint-rule controls from it.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "The landed work single-sourced rule documentation fields but left identity, source, invocation, and enforcement mode duplicated."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-010",
+      "title": "Repository-path containment has several incompatible local dialects",
+      "area": "cross-cutting",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/codemods/concurrency-guard/cli.ts",
+          "line": 61,
+          "endLine": 68,
+          "measurement": null,
+          "note": "A write-oriented codemod resolves, relativizes, checks a broad `startsWith(\"..\")`, and adds an extension rule."
+        },
+        {
+          "path": "scripts/code-intel/path-utils.ts",
+          "line": 7,
+          "endLine": 13,
+          "measurement": null,
+          "note": "Analyzer tooling defines separate isInside and isSameOrInside semantics."
+        },
+        {
+          "path": "scripts/harness/skill-projection-files.ts",
+          "line": 30,
+          "endLine": 68,
+          "measurement": null,
+          "note": "Harness projection uses a stronger normalized, lexical, symlink, and physical-containment contract."
+        },
+        {
+          "path": "scripts/lib/git.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "At least five distinct containment implementations were located across codemods, code-intel, harness projection, and shared Git utilities using pinned git-grep searches.",
+          "note": "The implementations differ on root acceptance, separator boundaries, normalization, and symlinks."
+        }
+      ],
+      "problem": "Tools answer the same containment question differently, so contributors cannot tell which contract is reusable and fixes to path semantics must be rediscovered across ownership areas.",
+      "proposedDirection": "Provide two deliberately named primitives in scripts/lib: lightweight lexical containment for read-only analysis and hardened repository-target resolution for writers. Migrate callers according to semantics.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-119",
+        "novelty": "H14 unified normalization inside path-policy only; this evidence spans codemods, code-intel, harness projection, and Git utilities."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-011",
+      "title": "Magic-item seed validation shadows shared category and rarity contracts",
+      "area": "cross-cutting",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/magic-item.ts",
+          "line": 7,
+          "endLine": 29,
+          "measurement": null,
+          "note": "Shared exports the complete magic-item category and rarity enums."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-magic-items.ts",
+          "line": 12,
+          "endLine": 32,
+          "measurement": null,
+          "note": "The seed module repeats both literal lists in private schemas with the same names."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-magic-items.ts",
+          "line": 36,
+          "endLine": 49,
+          "measurement": null,
+          "note": "The duplicated validators are embedded in the raw seed-input schema."
+        },
+        {
+          "path": "packages/server/src/seed/seed-srd-spells.ts",
+          "line": 4,
+          "endLine": 5,
+          "measurement": null,
+          "note": "A neighboring seed path already imports shared spell contracts."
+        }
+      ],
+      "problem": "Adding or renaming a category or rarity requires synchronized edits in two packages with no type-level relationship. Drift is costly because the seed validates checked-in data while API paths validate against the other copy.",
+      "proposedDirection": "Import the shared magic-item category and rarity schemas into the seed module while retaining the deliberately seed-specific outer object shape.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-012",
+      "title": "The generic SRD getAll contract is a client-specific lookup read model",
+      "area": "cross-cutting",
+      "category": "naming",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/srd.ts",
+          "line": 423,
+          "endLine": 462,
+          "measurement": null,
+          "note": "The server explicitly selects five collections and fields for useSrdLookups."
+        },
+        {
+          "path": "packages/shared/src/schemas/srd.ts",
+          "line": 356,
+          "endLine": 373,
+          "measurement": null,
+          "note": "The partial cross-layer bundle is exposed through the generic getAllOutputSchema name."
+        },
+        {
+          "path": "packages/client/src/hooks/use-srd-lookups.ts",
+          "line": 60,
+          "endLine": 80,
+          "measurement": null,
+          "note": "The client converts the endpoint response into its actual lookup-map read model."
+        },
+        {
+          "path": "packages/client/src/hooks/use-srd-lookups.ts",
+          "line": 135,
+          "endLine": 159,
+          "measurement": null,
+          "note": "The named hook is the endpoint consumer and the reason for its selection shape."
+        }
+      ],
+      "problem": "The endpoint is neither all SRD data nor an explicitly named lookup bundle. Server selection, shared schema, and client maps must evolve together, but the generic name encourages contributors to treat it as a general aggregate.",
+      "proposedDirection": "Preserve the batched request but name and document a stable SRD lookup-bundle read model in shared, then type the hook directly from it.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-167",
+        "novelty": "This keeps routers/srd.ts intact and addresses the cross-layer read-model name rather than reopening the refused content-family split."
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "L08-013",
+      "title": "Authentication redirects depend on undocumented dual-prop precedence",
+      "area": "cross-cutting",
+      "category": "hack",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/client/src/components/common/auth-guard.tsx",
+          "line": 29,
+          "endLine": 41,
+          "measurement": null,
+          "note": "AuthGuard supplies both `to` and `href` to Navigate and explicitly requires href to win."
+        },
+        {
+          "path": "packages/client/src/components/common/guest-guard.tsx",
+          "line": 25,
+          "endLine": 37,
+          "measurement": null,
+          "note": "GuestGuard repeats the convention and adds a stand-down branch to avoid overwriting the destination."
+        },
+        {
+          "path": "e2e/join-return-to.spec.ts",
+          "line": 13,
+          "endLine": 24,
+          "measurement": null,
+          "note": "The real-router regression spec documents the precedence as an implementation detail that dependency upgrades may change."
+        },
+        {
+          "path": "packages/client/src/test/mock-react-router.tsx",
+          "line": 109,
+          "endLine": 121,
+          "measurement": null,
+          "note": "Unit tests use a local Navigate stub that exposes both props but cannot validate real-router precedence."
+        }
+      ],
+      "problem": "A core authentication flow carries duplicate destination representations and relies on unusual framework precedence. The contract is discoverable only through long comments and an E2E regression, making normal router maintenance hazardous.",
+      "proposedDirection": "Give the login route a validated returnTo search contract and use typed router navigation. Encapsulate dynamic post-login navigation in one real-router-tested adapter.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-014",
+      "title": "Repository command meaning changes silently with the current working directory",
+      "area": "cross-cutting",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "package.json",
+          "line": 22,
+          "endLine": 31,
+          "measurement": null,
+          "note": "At the root, dev starts the repository workflow and build composes all packages."
+        },
+        {
+          "path": "packages/shared/package.json",
+          "line": 34,
+          "endLine": 36,
+          "measurement": null,
+          "note": "Inside shared, the same vocabulary means package-local TypeScript work."
+        },
+        {
+          "path": "packages/server/package.json",
+          "line": 12,
+          "endLine": 22,
+          "measurement": null,
+          "note": "Inside server, dev starts only the server and root gates disappear."
+        },
+        {
+          "path": "scripts/README.md",
+          "line": 118,
+          "endLine": 124,
+          "measurement": null,
+          "note": "The repository explicitly documents that root-only commands fail from package directories because Bun selects the nearest package.json."
+        }
+      ],
+      "problem": "The same-looking command can start one package, watch only types, build everything, build one package, or fail depending on shell location. This is a code-side new-contributor tripwire repeated across all workspace packages.",
+      "proposedDirection": "Provide a stable repository dispatcher that resolves the Git top level from any subdirectory and use it as the human-facing entry point for repository workflows; retain package scripts as explicit implementation surfaces.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-015",
+      "title": "Validate concrete homebrew entry data before submission",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/homebrew.ts",
+          "line": 223,
+          "endLine": 255,
+          "measurement": null,
+          "note": "Shared already exports an exhaustive entry-type-to-Zod-schema registry and validator."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-editor-registry.ts",
+          "line": 65,
+          "endLine": 85,
+          "measurement": null,
+          "note": "The client already maintains an exhaustive type-correlated editor registry."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
+          "line": 176,
+          "endLine": 199,
+          "measurement": null,
+          "note": "Submission validates only the opaque outer create or update input."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/entries/entry-dialog.tsx",
+          "line": 217,
+          "endLine": 220,
+          "measurement": null,
+          "note": "A rejected mutation is reduced to a generic retry message instead of field feedback."
+        }
+      ],
+      "problem": "DMs and players authoring homebrew must submit invalid concrete data, wait for a server round trip, and still receive only a generic failure. The feature is cheap because exhaustive shared validation and client editor registries already exist.",
+      "proposedDirection": "Run the shared per-type schema before mutation and translate issue paths into the existing fieldErrors map, while retaining authoritative server validation.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-016",
+      "title": "Make notifications navigate to the campaign context already encoded in their payload",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/notification.ts",
+          "line": 48,
+          "endLine": 50,
+          "measurement": null,
+          "note": "Notification payloads already carry campaignId and messageId."
+        },
+        {
+          "path": "packages/server/src/routers/chat.ts",
+          "line": 82,
+          "endLine": 89,
+          "measurement": null,
+          "note": "Offline-whisper notifications populate both target identifiers."
+        },
+        {
+          "path": "packages/client/src/components/notifications/notification-item.tsx",
+          "line": 45,
+          "endLine": 56,
+          "measurement": null,
+          "note": "Clicking a notification only marks it read; payload data is ignored."
+        },
+        {
+          "path": "packages/client/src/routes/campaign-detail-route.ts",
+          "line": 21,
+          "endLine": 26,
+          "measurement": null,
+          "note": "The campaign route already supports validated tab deep links."
+        }
+      ],
+      "problem": "DMs and players must read a notification, close the popover, locate its campaign, and select the relevant tab even though the notification already identifies the destination. Payloads, producer wiring, and addressable campaign tabs make the missing navigation inexpensive.",
+      "proposedDirection": "Map notification types to destinations, marking read and navigating campaign-accepted notices to overview and offline whispers to the chat tab. Message anchoring can remain separate.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "Prior work stabilized Notification.data; this feature consumes those identifiers rather than changing the schema."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L08-017",
+      "title": "Add the campaign ownership transfer that account deletion already promises",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": 315,
+          "endLine": 326,
+          "measurement": null,
+          "note": "Account deletion instructs owners to transfer or delete their campaigns."
+        },
+        {
+          "path": "packages/client/src/pages/settings-page.tsx",
+          "line": 273,
+          "endLine": 280,
+          "measurement": null,
+          "note": "The client repeats that transfer instruction."
+        },
+        {
+          "path": "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx",
+          "line": 126,
+          "endLine": 219,
+          "measurement": null,
+          "note": "Campaign settings expose deletion but no ownership transfer."
+        },
+        {
+          "path": "packages/server/src/routers/auth.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "A pinned production search for campaign ownership transfer found only the server/client instructional messages and no mutation or UI action.",
+          "note": "The instructed alternative does not exist."
+        }
+      ],
+      "problem": "A DM with other campaign members cannot delete their account without destroying the campaign, despite being told transfer is available. Owner identity, member roles, authorization helpers, and campaign mutation infrastructure already make the addition comparatively bounded.",
+      "proposedDirection": "Add an owner-only mutation that transactionally promotes a selected member and updates ownerId, then expose it beside the campaign danger zone.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-018",
+      "title": "Expose a machine-queryable harness provenance view",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "scripts/README.md",
+          "line": 126,
+          "endLine": 140,
+          "measurement": null,
+          "note": "Contributors currently follow a manual checklist across smoke tests, path policy, package scripts, the manifest, and prose references."
+        },
+        {
+          "path": "scripts/harness/registration-check.ts",
+          "line": 66,
+          "endLine": 74,
+          "measurement": null,
+          "note": "The validator already materializes manifest and generated-surface relationships."
+        },
+        {
+          "path": "scripts/path-policy/path-policy-query-core.ts",
+          "line": 136,
+          "endLine": 154,
+          "measurement": null,
+          "note": "Changed-path-to-smoke relationships are already computed as structured data."
+        },
+        {
+          "path": "harness.controls.json",
+          "line": null,
+          "endLine": null,
+          "measurement": "The 2,859-line manifest contains source, invocation, verify-slot, generated-surface, hook-wiring, and skill-wiring facets.",
+          "note": "Most graph inputs exist; only a supported joined query is missing."
+        }
+      ],
+      "problem": "Contributors and harness users must manually correlate a large manifest, package scripts, generated Markdown, and path-policy output to learn why a path triggers a check or where a control runs. Existing typed readers and relationship data make a provenance query relatively cheap.",
+      "proposedDirection": "Add a read-only text/JSON query by path, control id, or package-script name that returns connecting controls, checks, generated outputs, slots, hooks, and source locations.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-019",
+      "title": "Let users rename a homebrew collection while importing it",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "e2e/page-objects/homebrew.po.ts",
+          "line": 50,
+          "endLine": 78,
+          "measurement": null,
+          "note": "The E2E page object must compare hidden hrefs because imported and original collections have no visible discriminator."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/collections/import-collection-dialog.tsx",
+          "line": 74,
+          "endLine": 87,
+          "measurement": null,
+          "note": "The client parses the typed envelope but submits its original collection name unchanged."
+        },
+        {
+          "path": "packages/server/src/services/homebrew-import-service.ts",
+          "line": 41,
+          "endLine": 47,
+          "measurement": null,
+          "note": "Persistence copies the envelope name directly into the new collection."
+        },
+        {
+          "path": "packages/client/src/components/homebrew/collections/collection-card.tsx",
+          "line": 68,
+          "endLine": 120,
+          "measurement": null,
+          "note": "Cards show name, visibility, and author but no import provenance."
+        }
+      ],
+      "problem": "Re-importing a private collection produces visually indistinguishable cards, forcing even E2E helpers to use internal URL identity. DMs and players exchanging or backing up homebrew benefit, and the existing envelope already accepts a renamed collection.",
+      "proposedDirection": "After parsing, present the collection name in an editable “Import as” field and submit a copied envelope containing the chosen name.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L08-020",
+      "title": "Enable the existing comment-density sensor for scripts with narrow exceptions",
+      "area": "cross-cutting",
+      "category": "feature",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "drift-ai.config.json",
+          "line": 2,
+          "endLine": 7,
+          "measurement": null,
+          "note": "Scripts and eslint-rules are first-class analyzer roots."
+        },
+        {
+          "path": "drift-ai.config.json",
+          "line": 32,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The comments check nevertheless excludes both trees wholesale."
+        },
+        {
+          "path": "scripts/drift-ai/comments.ts",
+          "line": 110,
+          "endLine": 123,
+          "measurement": null,
+          "note": "The detector already excludes tests, fixtures, declarations, and configurable prefixes."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "570 tracked source-like files are hidden by the two configured prefixes after excluding the detector's default tests, fixtures, declarations, and fixture-named files.",
+          "note": "The broad exclusions remove ongoing coverage from large tooling surfaces."
+        }
+      ],
+      "problem": "Harness users and contributors receive no automated comment-density signal for 570 tooling files and must repeat manual audits. The detector and its report-only calibration already exist, making narrower exceptions inexpensive.",
+      "proposedDirection": "Replace blanket scripts and eslint-rules exclusions with a small list of generated, vendored, or deliberately prose-heavy exceptions, initially retaining advisory behavior.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Converge remaining hand-written argument parsers immediately",
+      "ref": "CQ25-123",
+      "reason": "The prior pack records opportunistic-on-touch convergence as the governing policy."
+    },
+    {
+      "title": "Replace every remaining unknown-error ternary with one helper",
+      "ref": "CQ25-119",
+      "reason": "The dense sites were migrated and the remaining dependency-boundary-local tail was explicitly left to converge on touch."
+    },
+    {
+      "title": "Extract repeated normalized changed-path sets",
+      "ref": "CQ25-72",
+      "reason": "The same drift-ai modules and direction are already recorded as an optional follow-up."
+    },
+    {
+      "title": "Reshape CodeIntelContext and its cache",
+      "ref": "CQ25-65",
+      "reason": "The context-bag cleanup is an existing optional code-intel slice; CQ25-66 separately owns the cache abstraction."
+    },
+    {
+      "title": "Restructure the flat drift-ai directory",
+      "ref": "CQ25-146",
+      "reason": "The prior pack explicitly records that drift-ai stays flat."
+    },
+    {
+      "title": "Consolidate bounded subprocess runners or split drift-ai chunks",
+      "ref": "CQ25-155",
+      "reason": "Those analyzer decompositions were explicitly dropped."
+    },
+    {
+      "title": "Reorganize flat root scripts families",
+      "ref": "CQ25-34",
+      "reason": "The scripts layout family is already owned by the recorded move, exception, and defer plan."
+    },
+    {
+      "title": "Split the SRD router by content family",
+      "ref": "CQ25-167",
+      "reason": "The split was explicitly refused; L08-012 preserves the file and addresses only its read-model contract."
+    },
+    {
+      "title": "Move orchestration-shaped server utilities into services",
+      "ref": "CQ25-75",
+      "reason": "The utilities/service taxonomy is already recorded as optional future work."
+    },
+    {
+      "title": "Perform a repository-wide dateTimeField and toISOString conversion",
+      "ref": "CQ25-181",
+      "reason": "The prior plan explicitly declined this sweep."
+    },
+    {
+      "title": "Table-drive or rename server seed families",
+      "ref": "CQ25-171",
+      "reason": "The seed generator/reference-table restructuring and rename were parked."
+    },
+    {
+      "title": "Introduce a generic map or combat panel framework",
+      "ref": "CQ25-190",
+      "reason": "The generic MapCanvasFrame and panel directions were explicitly refused."
+    },
+    {
+      "title": "Replace SheetSharedProps threading with context",
+      "ref": "CQ25-193",
+      "reason": "The prior pack explicitly refused this responsive-sheet restructuring."
+    },
+    {
+      "title": "Add a broad campaign and homebrew labeled-field abstraction",
+      "ref": "CQ25-187",
+      "reason": "The repository-wide form-control sweep was permanently dropped."
+    },
+    {
+      "title": "Rename generic shared schema exports",
+      "ref": "CQ25-175",
+      "reason": "The prior pack dropped these renames as opportunistic-only."
+    },
+    {
+      "title": "Normalize twoHandedDice and versatileDice into one persisted spelling",
+      "ref": "CQ25-173",
+      "reason": "The prior pack retained the two representations behind the existing adapter."
+    },
+    {
+      "title": "Replace initiative's automatic tie order",
+      "ref": "CQ25-18",
+      "reason": "The DM-facing tie-resolution workflow is already scheduled."
+    },
+    {
+      "title": "Converge character, campaign, and note authorization caller shapes",
+      "ref": "CQ25-68",
+      "reason": "Existing optional authorization slices already own the conversion."
+    },
+    {
+      "title": "Split shell-smoke assertion preambles",
+      "ref": "CQ25-28",
+      "reason": "The shared assertion helper and first migrations are already scheduled."
+    },
+    {
+      "title": "Rebuild character fixtures to recover concrete stats",
+      "ref": "CQ25-48",
+      "reason": "The observed fixture casts are exactly the scheduled typed-intersection cleanup."
+    },
+    {
+      "title": "Split the client mock tRPC shadow router",
+      "ref": "CQ25-52",
+      "reason": "The remaining per-domain split is explicitly optional prior work."
+    },
+    {
+      "title": "Split the monolithic drift-ai and lint-ratchet test files",
+      "ref": "CQ25-155",
+      "reason": "Those test reorganizations were explicitly dropped; test-shaped work also belongs to lane 06."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Campaign description controls cap valid input at half the shared contract limit",
+      "paths": [
+        "packages/shared/src/constants.ts:52",
+        "packages/shared/src/schemas/campaign-inputs.ts:9",
+        "packages/client/src/components/campaign/settings/create-campaign-dialog.tsx:42",
+        "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx:75"
+      ],
+      "whySuspectedBug": "Shared campaign validation accepts descriptions up to 10,000 characters, while both browser controls hard-cap input at 5,000.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Duplicate homebrew entry names can bind imported references to an arbitrary entry",
+      "paths": [
+        "packages/shared/src/schemas/homebrew-export.ts:44",
+        "packages/server/prisma/schema.prisma:1449",
+        "packages/server/src/services/homebrew-import-service.ts:81",
+        "packages/server/src/services/homebrew-import-service.ts:103"
+      ],
+      "whySuspectedBug": "The envelope and database permit duplicate type/name entries, while import builds an overwriting name-to-id Map from an unordered query and uses it for subclass and background references.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Date-only campaign and note values may display one day early west of UTC",
+      "paths": [
+        "packages/client/src/components/campaign/settings/campaign-settings-panel.tsx:31",
+        "packages/client/src/components/campaign/settings/campaign-card.tsx:15",
+        "packages/client/src/components/campaign/notes/note-editor.tsx:45",
+        "packages/client/src/components/campaign/notes/note-card.tsx:65"
+      ],
+      "whySuspectedBug": "Date inputs are serialized at UTC midnight and later rendered with local-time toLocaleDateString, allowing negative UTC offsets to display the preceding calendar date.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Several path-containment predicates reject valid in-repo names beginning with two dots",
+      "paths": [
+        "scripts/codemods/concurrency-guard/cli.ts:61",
+        "scripts/codemods/structured-logging-fix.ts:111",
+        "scripts/code-intel/path-utils.ts:7",
+        "scripts/harness/skill-projection-files.ts:37"
+      ],
+      "whySuspectedBug": "The predicates use relative.startsWith(\"..\"), so a valid child such as `..generated/file.ts` is treated as outside; scripts/lib/git.ts uses the separator-aware boundary.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "Required audit material: docs/agent_notes/backlog/code-quality-2026-08-01/{ORCHESTRATION.md,working/dedup-corpus.md,working/hotspots.md} and docs/agent_notes/backlog/code-quality-2026-07-25/AUDIT-SUMMARY.md.",
+      "Harness slice representatives: harness.controls.json relationship sections; scripts/{README.md,harness-check.ts,db-status.ts}; scripts/harness/{harness-manifest-loader.ts,harness-manifest-schema.ts,registration-check.ts}; scripts/path-policy/path-policy-query-core.ts; hook and workflow configuration.",
+      "Analyzer slice representatives: drift-ai.config.json; all non-test scripts/logs-audit modules; drift-ai registry/config/comment/diagnostic modules; code-intel topology, source-project, cache, and graph modules.",
+      "Server slice representatives: package/config entry points; app.ts; health, homebrew, campaign, and SRD router regions; combat-actions and spell-casting service boundaries; spell-slot and logging utilities; relevant Prisma models and seed validators.",
+      "Shared slice representatives: package export map, constants, attack rules, campaign/homebrew/inventory/magic-item/SRD schemas, and harness diagnostics schema.",
+      "Client slice representatives: notification components/hook; invite error handling; homebrew collection and entry orchestrators; campaign settings; sheet/VTT rule consumers; authentication guards.",
+      "Test/E2E slice representatives: all test/build configuration files were read without execution; 20 of 21 e2e specs, core E2E helpers/page objects, auth-guard tests, and central package test helpers.",
+      "Docs/config slice representatives: root onboarding/config files, devcontainer and Docker setup, architecture/authorization/socket documents, ADR inventory, task-guide headings, and relevant module contracts.",
+      "Lint slice representatives: local rule registries, config surfaces, lint-ratchet package/adoption surfaces, path/codemod seams, and lint-message evaluation entry points."
+    ],
+    "sampled": [
+      "Partition 1 — harness core: `.claude/**`, `.codex/**`, `.copilot/**`, `.cursor/**`, `.github/**`, `.husky/**`, root harness/config files, and `scripts/**` excluding analyzer, lint, and test partitions. All 268 eligible script filenames were inventoried; searches covered package-internal imports, manifest readers, argument parsing, error normalization, control registration, and environment resolution, followed by focused full reads.",
+      "Partition 2 — analyzers: `scripts/{drift-ai/**,drift-triage/**,logs-audit/**,code-intel/**}` and their flat entry points. All 301 production filenames were inventoried; sampling was stratified across registries/configuration, path handling, runners/output, graph checks, external adapters, and largest files.",
+      "Partition 3 — server production: `packages/server/**` excluding generated output, tests/specs/helpers, fixtures, and test configs. All router/service/util/seed/socket filenames were inventoried and searched for shared-contract use, assertions, constants, error handling, logging, and package-internal imports; candidate families were read deeply.",
+      "Partition 4 — shared production: `packages/shared/**` excluding tests/specs/helpers, fixtures, generated data, and test configs. All 72 production source files and 9,785 lines were inventoried; searches covered constants, enum-like arrays, schemas, ids/dates, assertion boundaries, exports, and server/client consumers.",
+      "Partition 5 — client production: `packages/client/**` excluding tests/specs/helpers and test config. All 425 production filenames were inventoried; sampling covered sheet/VTT parallels, map/combat surfaces, homebrew, notifications, routes, hooks, error handling, validation limits, and shared/server counterparts.",
+      "Partition 6 — tests and E2E: all `**/*.{test,spec}.{ts,tsx,js,jsx}`, `**/*.test-helper.*`, `**/test/**`, `e2e/**`, fixtures, and Vitest/Playwright/Stryker configs. All 1,124 scoped files were inventoried; 584 package tests were searched for local builders and workarounds, E2E was read broadly, and large scripts suites were sampled by imports and suite boundaries.",
+      "Partition 7 — docs and DX: `docs/**`, root Markdown/config files, `**/MODULE.md`, `**/README.md`, `.devcontainer/**`, Docker/SQL setup, and package script surfaces. Every file and heading was indexed; core docs/configs were read fully and large generated/guide surfaces were sampled at boundary, command, and provenance sections.",
+      "Partition 8 — lint machinery: `eslint-config/**`, `eslint-rules/**`, `tools/lint-ratchet/**`, `examples/lint-ratchet-demo/**`, and `scripts/{lint-ratchet/**,lint-message-eval/**,path-policy/**,codemods/**}`. All 267 eligible files were inventoried and LOC-ranked; registries, adoption seams, path policies, CLIs, and the largest representatives were inspected."
+    ],
+    "skipped": [
+      "Generated Prisma output and generated SRD feature/data bodies — generated or declarative content was outside the cross-cutting comparison.",
+      "Most migration SQL bodies — filenames and relevant schema history were inventoried, but historical SQL was not read linearly.",
+      "Remaining package and scripts test bodies not selected by the test shard's sampling rules — sampled, not clean.",
+      "docs/agent_notes/** except the required orchestration, dedup, hotspot, ownership, and prior-summary artifacts.",
+      "docs/SRD_CC_v5.2.1.pdf and SRD content correctness.",
+      "Generated documentation row-by-row content, large skill/reference bodies, and large shell policy bodies not selected by targeted searches.",
+      "No tests, builds, formatters, mutation runs, or other verification suites were executed."
+    ],
+    "pointers": [
+      "Lane 06: packages/shared/package.json:25 exposes shared test helpers through the production package export map; assess whether the boundary should be explicitly test-only.",
+      "Lane 06: e2e/a11y.spec.ts:15 allowlists four serious or critical accessibility violations.",
+      "Lane 06: Stryker lanes acknowledge that a hard kill can leave the live worktree mutated at stryker.config.server.mjs:14, scripts/stryker-scripts.mjs:5, and tools/stryker-lint-ratchet.mjs:5.",
+      "Lane 06: 12 E2E specs use serial mode, 11 outside the constrained encounter narrative; review whether each remains necessary.",
+      "Lane 07: packages/client/src/hooks/use-map-image-upload.ts:86 references nonexistent packages/server/src/routes/uploads.ts; the implementation is upload-routes.ts.",
+      "Lane 07: packages/client/src/components/homebrew/entries/MODULE.md:13 claims the editor registry is the sole homebrew-type inventory, conflicting with shared and client inventories.",
+      "Lane 07: README.md:175 says all code is strict TypeScript although tsconfig.eslint-js.json deliberately covers JavaScript with strict:false.",
+      "Lane 07: init-test-db.sql and .devcontainer/init-test-db.sql are byte-for-byte duplicate compose assets."
+    ],
+    "cut": [
+      "Spell-slot synchronization privately redefines MAX_SPELL_LEVEL; accurate cross-package straggler, cut below the soft cap.",
+      "The shared constants export is the lone extensionless package subpath; recurring but low-impact DX inconsistency.",
+      "REST and tRPC health surfaces expose different contracts; low-value observation with no client consumer.",
+      "Logs-audit duplicates the shell-owned worktree state-path algorithm; strong but narrower than the selected policy and layering findings.",
+      "HTML maxLength duplication was routed to bugsSideList because the observed 5,000 versus 10,000 mismatch is behavior-shaped.",
+      "Dormant campaign settings controls; dropped as more speculative than the selected user-facing features.",
+      "Older-notification pagination; useful but lower value than actionable notification deep links.",
+      "Lint-ratchet initializer; existing adoption recipe is substantial but the feature would require broad productization judgment.",
+      "Lint-message trace recorder; useful for rule authors but narrower than the selected harness provenance feature.",
+      "Host-side bootstrap command; existing manual setup friction is documented, but secret and environment choices weaken the cheapness case.",
+      "Map/combat panel abstractions, desktop/mobile sheet context, and broad form-control primitives were excluded under CQ25-190, CQ25-193, and CQ25-187.",
+      "Client-only delete-dialog, sheet/VTT presentation, and local error-helper duplication were routed to lane 05 rather than promoted.",
+      "Ability and spell-school literal inventories were cut as lower-value semantic stragglers near recently landed shared-constant work.",
+      "No additional featureIdeas remain untriaged: the provenance and comment-sensor handoffs were promoted, while initializer, recorder, bootstrap, pagination, and campaign-settings leads are named above."
+    ]
+  }
+}

@@ -70,62 +70,27 @@ jobs:
           printf 'NODE_OPTIONS=%s\n' "$NODE_OPTIONS" >> "$GITHUB_ENV"
 
       # The core gate consumes scripts/verify/steps.generated.sh, generated from
-      # harness.controls.json. CI-only report, docs, and artifact steps stay
-      # hand-written around that generated core.
-      # harness-ci-gate: verify-wrapper/verify
+      # harness.controls.json. CI-only report-script invocations, docs, and
+      # artifact steps stay hand-written around that generated core.
+      #
+      # HARNESS_CI_GATE binds this step to its harness.controls.json control id;
+      # `bun run harness:check` parses this workflow and requires the step's
+      # `run` to equal that control's manifest invocation. Keep it in step env,
+      # not a comment: the check reads workflow data, not workflow prose.
       - name: Verify generated gate manifest
         id: verify
         env:
+          HARNESS_CI_GATE: verify-wrapper/verify
           FORCE_VERIFY: "1"
           MUSI_VERIFY_LOG_DIR: .musi-ci-verify-logs
         run: bun run verify
 
       - name: Lint ratchet step summary
         if: always()
-        run: |
-          diagnostics=".musi-ci-verify-logs/ratchet-diagnostics.json"
-          report_path="lint-ratchet-report.md"
-          artifact_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts"
-
-          if [ ! -s "$diagnostics" ]; then
-            {
-              echo "<!-- lint-ratchet-summary -->"
-              echo "### Lint ratchet"
-              echo
-              echo "Lint ratchet diagnostics envelope was not produced; the runner may have failed before emitting it."
-              echo
-              echo "Artifact: $artifact_url"
-              echo "Recovery: see the failed run/artifact above; runner/formatter failure, not a baseline movement."
-            } > "$report_path"
-          else
-            report_stdout="$(mktemp)"
-            report_stderr="$(mktemp)"
-            if LINT_RATCHET_REPORT_ARTIFACT_URL="$artifact_url" \
-              bun run lint:ratchet:report < "$diagnostics" > "$report_stdout" 2> "$report_stderr"; then
-              mv "$report_stdout" "$report_path"
-            else
-              {
-                echo "<!-- lint-ratchet-summary -->"
-                echo "### Lint ratchet"
-                echo
-                echo "Lint ratchet diagnostics envelope was produced, but the report formatter failed."
-                echo
-                echo "Formatter output:"
-                echo
-                # Indent instead of fencing: a triple-backtick in the formatter
-                # output would otherwise escape a ``` fence and inject markdown
-                # into the step summary and PR comment. An indented block cannot
-                # be broken by its own contents.
-                sed 's/^/    /' "$report_stdout" "$report_stderr"
-                echo
-                echo "Artifact: $artifact_url"
-                echo "Recovery: see the failed run/artifact above; runner/formatter failure, not a baseline movement."
-              } > "$report_path"
-            fi
-            rm -f "$report_stdout" "$report_stderr"
-          fi
-
-          cat "$report_path" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          LINT_RATCHET_ARTIFACT_URL: >-
+            ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}#artifacts
+        run: bash scripts/ci/lint-ratchet-summary.sh
 
       - name: Sticky PR comment for lint-ratchet report
         if: >-
@@ -134,35 +99,11 @@ jobs:
           github.event.pull_request.head.repo.full_name == github.repository
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          LINT_RATCHET_COMMENT_MARKER: "<!-- lint-ratchet-summary -->"
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          pr_number="${{ github.event.pull_request.number }}"
-          marker="<!-- lint-ratchet-summary -->"
-
-          post_comment() {
-            # With --paginate, gh runs --jq once per page, so a `// ""` default
-            # would emit one empty line per non-matching page and, on a PR with
-            # more than one page of comments, give comment_id embedded newlines.
-            # Emit only real matches (select drops non-matches with no default),
-            # then take the first non-empty line as the id.
-            if ! matching_ids="$(
-              gh api --paginate "repos/${{ github.repository }}/issues/$pr_number/comments" \
-                --jq ".[] | select(.body | contains(\"$marker\")) | .id"
-            )"; then
-              return 1
-            fi
-            comment_id="$(printf '%s\n' "$matching_ids" | grep -m1 . || true)"
-
-            if [ -n "$comment_id" ]; then
-              # gh --field body=@file reads the file contents into the request field.
-              gh api "repos/${{ github.repository }}/issues/comments/$comment_id" \
-                --method PATCH \
-                --field body=@lint-ratchet-report.md >/dev/null
-            else
-              gh pr comment "$pr_number" --body-file lint-ratchet-report.md >/dev/null
-            fi
-          }
-
-          if ! post_comment; then
+          if ! bash scripts/ci/sticky-pr-comment.sh; then
             echo "::warning::failed to post sticky PR comment"
             exit 0
           fi

@@ -17,6 +17,8 @@ export const GENERATED_VERIFY_STEPS_PATH = "scripts/verify/steps.generated.sh";
 export const GENERATED_SURFACE_FRESHNESS_PATH =
   "scripts/harness/generated-surface-freshness.generated.sh";
 export const GENERATED_HARNESS_CONTROLS_DOC_PATH = "docs/generated/harness-controls.md";
+export const GENERATED_PRE_PUSH_SCOPE_TRIGGER_PATH =
+  "scripts/harness/pre-push-scope-trigger.generated.sh";
 
 // Generated hook-config outputs, shared by the hook generators (which write
 // them), harness:check freshness, and path-policy source-relevance.
@@ -26,5 +28,20 @@ export const COPILOT_HOOKS_PATH = ".github/hooks/copilot.json";
 export const GENERATED_HOOK_TIMEOUT_CONSTANTS_PATH = "scripts/ai-hooks/hook-timeouts.generated.sh";
 export const GENERATED_CLASSIFIED_BUN_SCRIPTS_PATH =
   "scripts/ai-hooks/classified-bun-scripts.generated.sh";
+export const AI_HOOKS_POLICY_PATH = "scripts/ai-hooks/policy.sh";
+/**
+ * The shell files that together define the command policy the agent hooks
+ * evaluate: the `policy.sh` facade plus the bounded modules it sources. A
+ * manifest-named predicate or haystack transform may live in any of them, so
+ * the generator scans the whole set rather than the facade alone.
+ */
+export const AI_HOOKS_COMMAND_POLICY_SHELL_PATHS = [
+  AI_HOOKS_POLICY_PATH,
+  "scripts/ai-hooks/command-normalize.sh",
+  "scripts/ai-hooks/command-paths.sh",
+  "scripts/ai-hooks/git-classify.sh",
+  "scripts/ai-hooks/policy-eval.sh",
+] as const;
+export const GENERATED_COMMAND_POLICY_PATH = "scripts/ai-hooks/policy-rules.generated.sh";
 export const GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH =
   "scripts/tests/harness-check-fixture-manifest.generated.txt";

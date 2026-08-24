@@ -1,13 +1,8 @@
 import { existsSync, statSync } from "node:fs";
 import path from "node:path";
 
-import {
-  arrayProperty,
-  isRecord,
-  readJsonObject,
-  recordProperty,
-  stringProperty,
-} from "./json-utils.js";
+import { isRecord } from "../lib/records.js";
+import { arrayProperty, readJsonObject, recordProperty, stringProperty } from "./json-utils.js";
 import { isInside, toSlash } from "./path-utils.js";
 import type {
   AliasRule,
@@ -16,7 +11,7 @@ import type {
   WorkspaceModel,
   WorkspacePackageConfig,
 } from "./types.js";
-import { CLIENT_ALIAS_FALLBACK, JS_EXTENSIONS, WORKSPACE_PACKAGE_DIRS } from "./types.js";
+import { APPLICATION_PACKAGE_DIRS, CLIENT_ALIAS_FALLBACK, JS_EXTENSIONS } from "./types.js";
 
 const DOT_SLASH_PREFIX = "./";
 const EXPORT_PATTERN_PART_COUNT = 2;
@@ -58,6 +53,14 @@ export class WorkspaceResolver {
   relative(filePath: string): string {
     const sourcePath = this.mapFileToSource(filePath);
     return toSlash(path.relative(this.repoRoot, sourcePath));
+  }
+
+  // Repo-relative form of filePath without the dist -> src source mapping
+  // that relative() applies. Scope guards must judge the path the caller
+  // actually named: mapping a build artifact into src/ first would silently
+  // accept out-of-scope input (docs/guides/code-intel.md#supported-scope).
+  relativeRaw(filePath: string): string {
+    return toSlash(path.relative(this.repoRoot, this.absolute(filePath)));
   }
 
   resolveModule(specifier: string, importerFile?: string): string | undefined {
@@ -165,7 +168,7 @@ export function createWorkspaceModel(
 
 function readWorkspacePackages(repoRoot: string): WorkspacePackageConfig[] {
   const packages: WorkspacePackageConfig[] = [];
-  for (const packageRoot of WORKSPACE_PACKAGE_DIRS) {
+  for (const packageRoot of APPLICATION_PACKAGE_DIRS) {
     const packageJson = readJsonObject(path.join(repoRoot, packageRoot, "package.json"));
     const name = stringProperty(packageJson, "name");
     if (!name) continue;

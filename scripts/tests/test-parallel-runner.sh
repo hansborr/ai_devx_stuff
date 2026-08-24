@@ -35,6 +35,7 @@ ok "parallel-runner.sh passes bash -n"
   [ "$MUSI_PARALLEL_EXIT" -eq 0 ] || exit 1
   [ "${#MUSI_PARALLEL_PIDS[@]}" -eq 0 ] || exit 1
   [ "${#MUSI_PARALLEL_LABELS[@]}" -eq 0 ] || exit 1
+  [ "${#MUSI_PARALLEL_LOGS[@]}" -eq 0 ] || exit 1
   saved_dir="$MUSI_PARALLEL_TMP_DIR"
   musi_parallel_cleanup_all
   [ ! -d "$saved_dir" ] || exit 1
@@ -180,5 +181,55 @@ grep -qF '[SlowOK] slow child completed' <<< "$output" \
 grep -qF 'isolation: FastFail failed with exit 42' <<< "$output" \
   || fail "FastFail failure not reported: $output"
 ok "shell-only failure does not prevent unrelated parallel children from completing"
+
+# --- logged lanes retain prefixed output for a post-wait custom reporter -----
+output=$(
+  exec 2>&1
+  # shellcheck source=../lib/parallel-runner.sh
+  source "$PARALLEL_RUNNER"
+  report_failure() {
+    local label="$1" exit_code="$2" log_file="$3"
+    printf 'REPORT=%s|%s|%s|running=%s|readers=%s\n' \
+      "$label" "$exit_code" "${log_file##*/}" "$MUSI_PARALLEL_RUNNING" \
+      "${#MUSI_PARALLEL_READER_PIDS[@]}"
+    sed 's/^/LOG=/' "$log_file"
+  }
+  musi_parallel_init "musi-pr-test"
+  musi_parallel_install_traps
+  musi_parallel_start_logged "LoggedFail" "logged" \
+    bash -c 'printf "stdout line\n"; printf "stderr line\n" >&2; exit 42'
+  musi_parallel_wait_all "logged-context" report_failure
+  printf 'EXIT=%s\n' "$MUSI_PARALLEL_EXIT"
+  musi_parallel_cleanup_all
+)
+grep -qF 'REPORT=LoggedFail|42|logged.log|running=0|readers=0' <<< "$output" \
+  || fail "custom reporter should run after readers with the retained log path: $output"
+grep -qF 'LOG=[LoggedFail] stdout line' <<< "$output" \
+  || fail "logged stdout should retain the same prefixed text shown in the terminal: $output"
+grep -qF 'LOG=[LoggedFail] stderr line' <<< "$output" \
+  || fail "logged stderr should retain the same prefixed text shown in the terminal: $output"
+if grep -qF 'logged-context: LoggedFail failed with exit 42' <<< "$output"; then
+  fail "custom reporter should replace the generic failure message: $output"
+fi
+grep -qF 'EXIT=42' <<< "$output" \
+  || fail "custom reporting should not change aggregate exit status: $output"
+ok "logged lanes retain prefixed output and custom failure reporting runs after the shared wait lifecycle"
+
+# --- custom reporter receives an empty log path for an unlogged failed lane ---
+output=$(
+  # shellcheck source=../lib/parallel-runner.sh
+  source "$PARALLEL_RUNNER"
+  report_unlogged_failure() {
+    printf 'REPORT=%s|%s|%s\n' "$1" "$2" "$3"
+  }
+  musi_parallel_init "musi-pr-test"
+  musi_parallel_install_traps
+  musi_parallel_start "UnloggedFail" "unlogged" bash "$SANDBOX/child-fail-7.sh"
+  musi_parallel_wait_all "unlogged-context" report_unlogged_failure 2>&1
+  musi_parallel_cleanup_all
+)
+[ "$output" = $'=== UnloggedFail ===\nREPORT=UnloggedFail|7|' ] \
+  || fail "custom reporter should receive an empty optional log path for unlogged lanes: $output"
+ok "unlogged lanes keep log retention opt-in when using a custom failure reporter"
 
 printf 'parallel-runner tests passed (%d)\n' "$PASS"

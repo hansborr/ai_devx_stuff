@@ -1,5 +1,4 @@
 import { DEFAULT_CHECKS } from "../drift-ai/check-metadata.js";
-import type { ScopeMode } from "../drift-ai/scope.js";
 import type {
   NamedTriageInput,
   SkippedDriftCheckInput,
@@ -56,7 +55,7 @@ function summarizeDriftInput(
   const displayedRows = input.report.findings.length;
   const { scopeMode, roots, enabledChecks } = input.report;
   const inapplicableChecks = input.report.skippedChecks.filter((check) =>
-    isScopeInapplicable(check, scopeMode),
+    isScopeInapplicable(check),
   );
   const skippedChecks = input.report.skippedChecks.filter(
     (check) => !inapplicableChecks.includes(check),
@@ -89,13 +88,13 @@ function summarizeDriftInput(
   };
 }
 
-function isScopeInapplicable(check: SkippedDriftCheckInput, scopeMode: ScopeMode | null): boolean {
-  return (
-    check.code === "scope-inapplicable" ||
-    (scopeMode === "current" &&
-      check.check === "suppressions" &&
-      check.reason === "only available in changed scope")
-  );
+function isScopeInapplicable(check: SkippedDriftCheckInput): boolean {
+  // Dispatch on the machine-readable skip code drift-ai actually emits
+  // (`changed-scope-only`, drift-ai types.ts SkipReasonCode); the reason is
+  // presentation-only prose and may be reworded without moving a skip between
+  // inapplicableChecks and skippedChecks. No prose fallback: the schema pin
+  // guarantees accepted reports come from producers that always set the code.
+  return check.code === "changed-scope-only";
 }
 
 function driftCompleteness(

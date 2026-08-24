@@ -12,7 +12,11 @@ import { stableJson } from "../kernel/baseline-hash.js";
 import { validateBaselineTestForRatchet } from "../kernel/baseline-validation.js";
 import type { JsonObject, JsonValue, LintRatchetConfig } from "../kernel/config-types.js";
 import { collectCurrentForRatchet } from "../kernel/current-collector.js";
-import { type LintRatchetEngineBinding, relativeToRepoRoot } from "../kernel/engine-context.js";
+import {
+  type LintRatchetEngineBinding,
+  type LintRatchetWorkflowVocabulary,
+  relativeToRepoRoot,
+} from "../kernel/engine-context.js";
 import { usesEslintCache } from "../kernel/eslint-config.js";
 import { matchesRatchet } from "../kernel/ratchet-globs.js";
 import { buildRuleSourceHashesById } from "../kernel/rule-source.js";
@@ -26,6 +30,7 @@ export interface LintRatchetEditCheckEngine {
   readonly baselinePath: string;
   readonly registry: readonly LintRatchetConfig[];
   readonly binding: LintRatchetEngineBinding;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 // One (edited file, cacheable ratchet) pair the edit-time hook may check.
@@ -89,7 +94,12 @@ export function discoverEditCheckTargets(
   }
   if (targets.length === 0) return [];
   const structural = existsSync(engine.baselinePath)
-    ? parseLintRatchetBaselineStructure(readFileSync(engine.baselinePath, "utf8"))
+    ? parseLintRatchetBaselineStructure(
+        readFileSync(engine.baselinePath, "utf8"),
+        engine.workflowVocabulary,
+        undefined,
+        relativeToRepoRoot(engine.repoRoot, engine.baselinePath),
+      )
     : undefined;
   const baseline = structural?.baseline;
   const ruleSourceHashesById = buildRuleSourceHashesById(
@@ -199,7 +209,12 @@ function groupTargets(
     if (test === undefined) continue;
     const ruleSourceHash = ruleSourceHashesById.get(target.testId);
     if (ruleSourceHash === undefined) continue;
-    if (validateBaselineTestForRatchet(target.testId, test, ratchet, ruleSourceHash).length > 0) {
+    if (
+      validateBaselineTestForRatchet(target.testId, test, ratchet, {
+        expectedRuleSourceHash: ruleSourceHash,
+        workflowVocabulary: engine.workflowVocabulary,
+      }).length > 0
+    ) {
       continue;
     }
     let group = groups.get(target.testId);
@@ -232,6 +247,7 @@ async function regressionsForGroup(
   group: RatchetGroup,
   baseline: LintRatchetBaseline,
   binding: LintRatchetEngineBinding,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
 ): Promise<GroupResult> {
   // A mid-edit file that fails to parse throws here; treat it as a soft skip
   // (no rows, not checked) rather than a regression — the byte source is the
@@ -248,7 +264,12 @@ async function regressionsForGroup(
     return { regressions: [], checked: [] };
   }
   const currentById = new Map([[group.ratchet.id, items]]);
-  const comparison = compareCurrentToBaseline(baseline, [group.ratchet], currentById);
+  const comparison = compareCurrentToBaseline(
+    baseline,
+    [group.ratchet],
+    currentById,
+    workflowVocabulary,
+  );
   const regressions = comparison.regressions.map((regression) => ({
     path: regression.path,
     testId: regression.testId,
@@ -265,7 +286,7 @@ async function runGroupsWithConcurrency(
   groups: readonly RatchetGroup[],
   concurrency: number,
   baseline: LintRatchetBaseline,
-  binding: LintRatchetEngineBinding,
+  engine: Pick<LintRatchetEditCheckEngine, "binding" | "workflowVocabulary">,
 ): Promise<EditCheckResult> {
   const regressions: EditCheckRegression[] = [];
   const checked: string[] = [];
@@ -276,7 +297,12 @@ async function runGroupsWithConcurrency(
       const group = groups[index];
       index += 1;
       if (group === undefined) continue;
-      const result = await regressionsForGroup(group, baseline, binding);
+      const result = await regressionsForGroup(
+        group,
+        baseline,
+        engine.binding,
+        engine.workflowVocabulary,
+      );
       regressions.push(...result.regressions);
       checked.push(...result.checked);
     }
@@ -296,14 +322,14 @@ export async function runEditCheckRegressions(
 ): Promise<EditCheckResult> {
   if (targets.length === 0) return { regressions: [], checked: [] };
   if (!existsSync(engine.baselinePath)) return { regressions: [], checked: [] };
-  const structural = parseLintRatchetBaselineStructure(readFileSync(engine.baselinePath, "utf8"));
+  const structural = parseLintRatchetBaselineStructure(
+    readFileSync(engine.baselinePath, "utf8"),
+    engine.workflowVocabulary,
+    undefined,
+    relativeToRepoRoot(engine.repoRoot, engine.baselinePath),
+  );
   if (structural.baseline === undefined) return { regressions: [], checked: [] };
   const groups = groupTargets(engine, targets, structural.baseline);
-  const result = await runGroupsWithConcurrency(
-    groups,
-    concurrency,
-    structural.baseline,
-    engine.binding,
-  );
+  const result = await runGroupsWithConcurrency(groups, concurrency, structural.baseline, engine);
   return { regressions: [...result.regressions].sort(byPathThenTestId), checked: result.checked };
 }

@@ -1,0 +1,3089 @@
+{
+ "batch": "wave1-lanes-04-09-plus-wave2",
+ "pin": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "rowCount": 173,
+ "clusterNotes": "Clustered all 173 batch-2 rows into 171 candidates (D-001..D-171), ordered by first-member lane position. MERGES (2): (1) D-010 = L04-010 + L08-006 — same files (packages/shared/src/rules/attack-damage.ts + packages/server/src/services/combat-actions/resolve-attack.ts) and the same problem: rules helpers demand full wire entities while reading a few fields, forcing unknown-to-entity double assertions on the server's narrow Prisma projections; L08-006 adds the client equipment-summary consumer, both carry CQ25-115. (2) D-040 = L05-020 + L08-007 — overlapping file (entry-editor-registry.ts) and the same problem: the homebrew entry-type vocabulary enumerated in parallel non-compiler-enforced registries (selector list, card label map, form typing, create/filter arrays, shared enum/record) with the same fix direction, one exhaustive metadata registry keyed by HomebrewEntryType. NEAR-MISS PAIRS deliberately kept separate (same theme or files, different problems — orchestrator may want dependency/sequencing edges): D-065 (L06-103, Stryker in-place tooling fix) vs D-116 (L07-112, doc-side sandbox-claim correction that explicitly coordinates wording with L06-103); D-041 (L05-101 dead RollModeToggle removal) vs D-110 (L07-106 combat MODULE refresh) — the rows explicitly partition ownership; D-042 (L05-102 dead CharacterKeys filters) vs D-112 (L07-108 comment corrections) — same explicit split; D-101 (L07-017 worktree-guide prerequisite docs) vs D-136 (L08-102 worktree-db.sh credential-source code fix whose direction includes aligning L07-017); D-104 (L07-020 backfill operator runbook) vs D-137 (L08-103 backfill preview/apply safety code) on the same seed files; D-092 vs D-107 — both CONCURRENCY.md accuracy fixes (exhaustive-patterns claim vs participant-policy pointers/ordering) that could land as one doc pass but are distinct claims; D-093 (L07-009 doc correction on level-up rollback promise) vs D-144 (L08-110 level-history feature, rollback explicitly deferred); D-013 vs D-140 — both CQ25-110 downstream-copy findings but disjoint constants/files; D-082 (L06-120 smoke-discovery test seam) vs D-156 (L09-012 path-policy query-core layering), both CQ25-64 around the same smoke-subject surface from test vs production sides; D-066 vs D-080 — same generator test files (generate-hook-wiring/verify-steps), distinct problems (missing failure contract vs envelope duplication); D-074 vs D-077 — both center on scripts/lint-ratchet/output.test.ts but distinct problems (stale emitted type copies vs 32 serialized spawnSync runs); D-006/D-017/D-010/D-143 all touch attack-damage.ts with four distinct problems (module split, vocabulary widening, input over-demand, Finesse feature); D-004 vs D-008 — same encounter-inputs.ts file, distinct problems per the contract. BATCH-1 OVERLAPS (3, all \"extends\", none \"same\"): D-118→C-035 (logging-policy vocabulary duplication extended across producer/auditor boundary), D-122→C-021 (hard-coded Musi topology in code-intel extended with concrete workspace-exclusion evidence), D-170→C-038 (unused entrypoint pseudo-API pattern extended from code-intel.ts to drift-ai.ts). Considered but rejected as overlaps: D-153 (L09-009 ratchet CLI catalog) vs C-024 — same \"no typed CLI catalog\" pattern but an independent CLI stack (lint-ratchet vs the drift-ai/drift-triage shared parseCli), so fixes do not share artifacts; D-169 (L01-101) vs C-011 — stale-row downward-ratchet gap is a distinct problem from C-011's suppression-pipeline architecture, though C-011's typed core would be the natural home for the fix; D-108 (L07-104) vs C-043 — the homebrew router-layering doc contradiction is one of three boundaries in D-108 and would be resolved or reframed by C-043's code move (dependency edge, not the same problem); D-146/D-156/D-165 echo C-021's \"Musi policy inside reusable core\" pattern in packages C-021 does not cover (lint-ratchet package, path-policy, eslint-config), kept unmarked. Severity/size carried as max over members (both merges: medium/S and medium/M); priorPackRefs are the union of member refs verbatim.",
+ "candidates": [
+  {
+   "id": "D-001",
+   "title": "Shared production builds expose colocated test modules",
+   "area": "shared",
+   "category": "dx",
+   "members": [
+    "L04-001"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "A normal shared build emits 73 colocated test suites beside production modules, and 69 acquire valid wildcard package subpaths. Accidental test exposure is indistinguishable from the deliberate test-helper export.",
+   "directionSummary": "Use a production emitting project that excludes colocated suites while retaining the intentional test helper export and a separate no-emit test type-check path.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-002",
+   "title": "Saving-throw phases exchange oversized and independently derived state",
+   "area": "shared",
+   "category": "idiom",
+   "members": [
+    "L04-002"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The staged saving-throw API's phase boundaries do not express the data each phase needs, so callers carry large parallel input/check structures. One logical saving throw ends up with two unlinked sources of truth across shared rules and the server spell-resolution service.",
+   "directionSummary": "Introduce focused check and resolution inputs, making the check own its DC/modifier or recomputing derived state from natural rolls so incoherent pairs are unrepresentable.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-003",
+   "title": "Five summary projections hand-copy canonical entity fields",
+   "area": "shared",
+   "category": "duplication",
+   "members": [
+    "L04-003"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Five summary schemas maintain 33 parallel field declarations copied from canonical entity schemas. Multiple copies have already drifted from their canonical validators.",
+   "directionSummary": "Derive summaries with entitySchema.pick(...).extend(...), making any deliberately looser projection explicit in the extend step with a rationale.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-004",
+   "title": "Encounter inputs are a monolith spanning three router boundaries",
+   "area": "shared",
+   "category": "organization",
+   "members": [
+    "L04-004"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "One 329-line, 20-schema contract module mixes CRUD, state transitions, participants, turns, combat logs, and combat-map integration. Independent router work is forced onto one high-churn file that does not mirror the server's stable boundaries.",
+   "directionSummary": "Split contracts along the existing encounter, encounter-combat, and encounter-map boundaries, moving consumers atomically and extracting only genuinely shared fields into neutral fragments.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-005",
+   "title": "spellcasting.ts contains five independently changing rule areas",
+   "area": "shared",
+   "category": "organization",
+   "members": [
+    "L04-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Caster resolution, slot progression, prepared limits, cantrip fallback policy, and character-creation selection all converge on one 380-line file. Its broad name no longer identifies a useful review or navigation boundary.",
+   "directionSummary": "Split along the existing section boundaries, keeping each rule table beside the logic that interprets it and avoiding compatibility barrels.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-006",
+   "title": "attack-damage.ts is an eight-concern rules grab bag",
+   "area": "shared",
+   "category": "organization",
+   "members": [
+    "L04-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Eight distinct concerns (property normalization, ability selection, weapon/spell bonuses, inventory translation, aggregation, proficiency policy, formatting) accumulated in one file. The boundary reflects history rather than stable rule concepts.",
+   "directionSummary": "Split around weapon calculation, inventory adaptation, spellcasting-derived values, and formatting/proficiency, retaining direct concrete subpath imports.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-007",
+   "title": "Sorcery mechanics and the metamagic content catalog are tangled",
+   "area": "shared",
+   "category": "organization",
+   "members": [
+    "L04-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "An 82-line metamagic display/content catalog sits in the middle of the sorcery-point mechanics module. Content-copy and mechanical-rule changes share a module and conflict unnecessarily.",
+   "directionSummary": "Move the metamagic option catalog and identity lookup into a focused content module, keeping sorcery-point and combination mechanics in the rules module.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-008",
+   "title": "Monster provenance invariants disappear from the inferred contract",
+   "area": "shared",
+   "category": "idiom",
+   "members": [
+    "L04-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Monster-source mutual exclusion and homebrew id/version pairing live only in a superRefine that does not narrow z.infer. The inferred type admits states the parser rejects, and the separately exported monster schema bypasses the invariant entirely.",
+   "directionSummary": "Model custom, SRD, and homebrew sources as structural Zod union variants that preserve wire keys while making exclusion and id/version correlation visible to z.infer.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-009",
+   "title": "Condition and damage modules mix contracts, persistence repair, and rules",
+   "area": "shared",
+   "category": "layering",
+   "members": [
+    "L04-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Condition and damage modules simultaneously own vocabulary, Zod contracts, persisted-data repair, and executable rules. A type-only bidirectional dependency between rules and the encounter schema obscures dependency direction and concept ownership.",
+   "directionSummary": "Create one-way leaf modules for condition/damage contracts and persisted-value normalization, leaving executable behavior in rules and preserving tolerant read behavior.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-010",
+   "title": "Shared weapon rules helpers demand full entities and force server double assertions",
+   "area": "cross-cutting",
+   "category": "layering",
+   "members": [
+    "L04-010",
+    "L08-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "getWeaponDataFromItem and related attack-damage rules helpers demand complete wire entities (a full InventoryItem) while reading only a few fields. This forces the server's focused Prisma projection in resolve-attack.ts through documented unknown-to-InventoryItem double assertions and couples unrelated schema changes to attack resolution, with the same over-demanding inputs also constraining client consumers like equipment-summary.",
+   "directionSummary": "Define focused structural helper inputs containing only the used fields (itemType, name, unknown properties), retain weaponPropertiesSchema.safeParse at the boundary, derive the server participant shape from its Prisma selection, and remove the assertion bridges.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-011",
+   "title": "One metamagic constant controls two unrelated rule limits",
+   "area": "shared",
+   "category": "duplication",
+   "members": [
+    "L04-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Cast input validation uses METAMAGIC_PICKS_PER_LEVEL as its per-cast cap even though MAX_METAMAGIC_PER_CAST is the semantically distinct quantity. Changing how many options are learned would silently change per-cast limits.",
+   "directionSummary": "Export and consume a separately named per-cast limit, confining the milestone-pick constant to level-up selection.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-012",
+   "title": "Attack and spell contracts duplicate behavior-bearing field validators",
+   "area": "shared",
+   "category": "duplication",
+   "members": [
+    "L04-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Attack and spell-action contracts privately duplicate the same bonus bounds, dice-notation, and combat-name validators. Notation or bound changes require coordinated edits and can silently diverge.",
+   "directionSummary": "Move the shared field schemas and semantically shared bounds into a neutral combat-contract fragment consumed by both families.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-013",
+   "title": "Encounter calculators re-declare the participant discriminator twice",
+   "area": "shared",
+   "category": "duplication",
+   "members": [
+    "L04-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "DifficultyParticipant and XpParticipant hand-write the canonical three-member participant discriminator with no type relationship to the contract. Adding or renaming a kind requires coordinated edits TypeScript cannot connect.",
+   "directionSummary": "Derive calculator inputs from a small canonical participant contract, or type their discriminator through a dependency-safe leaf schema.",
+   "priorPackRefs": [
+    "CQ25-110"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-014",
+   "title": "The attunement game rule lives in a request-schema module",
+   "area": "shared",
+   "category": "layering",
+   "members": [
+    "L04-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "MAX_ATTUNED_ITEMS, the authoritative attunement business rule driving service enforcement and two UI surfaces, is declared among request bounds no schema in the file uses. Unrelated consumers are coupled to transport contracts.",
+   "directionSummary": "Move the constant into an inventory rules/vocabulary module and repoint service and UI consumers atomically.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-015",
+   "title": "Campaign-homebrew procedure contracts are split by input versus output",
+   "area": "shared",
+   "category": "organization",
+   "members": [
+    "L04-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "homebrew-campaign.ts is a tiny output-only module with no entity or vocabulary justifying the split. Following one procedure requires discovering its input and output halves in two files.",
+   "directionSummary": "Co-locate the outputs with their matching request contracts, or rename and document a genuinely independent campaign-link contract boundary.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-016",
+   "title": "The shared package exports 122 types with no non-test adopter",
+   "area": "shared",
+   "category": "dead-code",
+   "members": [
+    "L04-016"
+   ],
+   "severityHint": "low",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Of 422 exported type/interface declarations, 122 have no occurrence outside their own declaration in non-test code. The declaration surface looks like a supported API and obscures genuinely shared types.",
+   "directionSummary": "Prune the measured aliases by domain, retaining runtime schemas and consumed types, and require an adopter in the same change for future named aliases.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-017",
+   "title": "Weapon helpers widen closed vocabularies back to string",
+   "area": "shared",
+   "category": "idiom",
+   "members": [
+    "L04-017"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The weapon pipeline models closed WeaponCategory and DamageTypeName vocabularies, then discards their precision at the next helper boundaries (string damageType, Record<string,string> category map, string proficiency input). Coverage enforcement is lost.",
+   "directionSummary": "Use Record<WeaponCategory,string>, accept WeaponCategory in proficiency checks, and preserve DamageTypeName in WeaponAttackResult.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-018",
+   "title": "Combat result schemas make an always-produced roll mode optional",
+   "area": "shared",
+   "category": "idiom",
+   "members": [
+    "L04-018"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "attackResolutionResultSchema and savingThrowResultSchema declare rollMode optional even though the canonical D20 producers always supply it. Consumers are forced to handle an absent state these flows never produce.",
+   "directionSummary": "Make rollMode required in both result schemas after inventorying non-canonical persisted producers, retaining optionality only for second-roll fields.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-019",
+   "title": "Static rules tables expose inconsistent mutability contracts",
+   "area": "shared",
+   "category": "idiom",
+   "members": [
+    "L04-019"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Uppercase exports of immutable reference data are sometimes mutable arrays/records while neighboring tables are readonly. The public type surface communicates inconsistent invariants.",
+   "directionSummary": "Expose readonly rows, records, and arrays consistently while preserving intentional tolerant lookup signatures.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-020",
+   "title": "Dice grammar semantics depend on positional regex captures",
+   "area": "shared",
+   "category": "hack",
+   "members": [
+    "L04-020"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Dice parsing relies on four positional capture groups indexed as match[1]..match[4] plus an asserted keep discriminator, so grammar edits must keep parentheses, indexes, conversions, and the asserted union manually synchronized. The assertion is also mislabeled as framework typing.",
+   "directionSummary": "Use named capture groups or a typed match-decoding helper and classify any unavoidable assertion as an interop boundary.",
+   "priorPackRefs": [
+    "CQ25-179"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-021",
+   "title": "Responsive character sheets keep two independent component trees alive",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "SheetBody always mounts both desktop and mobile layouts (14 panel types instantiated twice) with CSS hiding one. State can diverge across breakpoints and hook/render work is duplicated.",
+   "directionSummary": "Render one stateful panel tree with responsive placement, or select one layout through a browser-media boundary, preserving SheetSharedProps.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-022",
+   "title": "The VTT Actions tab duplicates two dedicated tabs and has already drifted",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L05-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The compact Actions surface reimplements the spell and feature records of the dedicated tabs with divergent eligibility and mutation behavior. It has already produced contradictory production controls.",
+   "directionSummary": "Split into spell and feature slices that share pure row/view models and focused row primitives between compact and full presentations.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-023",
+   "title": "Character hooks expose a second identity channel beside their cache scope",
+   "area": "client",
+   "category": "layering",
+   "members": [
+    "L05-003"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Nine character-scoped hooks capture characterId for cache scope yet their actions accept another characterId through raw RPC inputs. Mutation targeting can disagree with optimistic-update or invalidation scope.",
+   "directionSummary": "Expose id-free domain payloads and inject the captured characterId inside each hook, migrating by domain without identity brands.",
+   "priorPackRefs": [
+    "CQ25-199"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-024",
+   "title": "Optimistic writers spread transport envelopes into cached domain objects",
+   "area": "client",
+   "category": "layering",
+   "members": [
+    "L05-004"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Three optimistic writers use incompatible conventions for separating transport control data from persisted entity data. Future authorization or concurrency fields can silently enter cached rows without compiler feedback.",
+   "directionSummary": "Give each writer a positive, typed domain-patch projection, keeping identifiers, authorization scope, and CAS tokens outside cached entity patches.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-025",
+   "title": "The flat character-creation contract forces manual two-way state adapters",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "The wizard reducer stores a flattened submission projection while steps reconstruct richer editing state. This requires paired local/reducer writes, whole-slice payloads, and bidirectional conversion helpers whose correctness depends on every handler preserving unrelated fields.",
+   "directionSummary": "Model typed per-step drafts and fine-grained events with one authoritative state owner per editing model, deriving the transport projection at submission.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-026",
+   "title": "Character-creation ability rules have four independent sources of truth",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L05-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Editing, validation, review, and submission each duplicate the point-buy table, standard array, ability metadata, modifier math, or boost aggregation with no type-level relationship. The four surfaces can drift independently.",
+   "directionSummary": "Create one pure character-creation ability model for constants, score/boost derivation, modifiers, and validation, keeping step modules presentational.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-027",
+   "title": "The generic map canvas performs combat-domain adaptation",
+   "area": "client",
+   "category": "layering",
+   "members": [
+    "L05-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The low-level map renderer imports EncounterDetail and derives combat state (turn order, HP, conditions, participant identity). It changes with encounter contracts and contradicts the documented feature boundary assigning combat behavior to ../combat.",
+   "directionSummary": "Build a render-oriented combat-token lookup in the combat feature and pass it to MapCanvas; ordinary maps pass no combat projection.",
+   "priorPackRefs": [
+    "CQ25-190"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-028",
+   "title": "ToolHandler erases coordinate domains and invents fake capabilities",
+   "area": "client",
+   "category": "hack",
+   "members": [
+    "L05-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The tool-handler abstraction pairs a runtime coordinateSpace flag with structurally identical callbacks so pixel/cell mismatches type-check. It forces no-op onStart members and splits interaction semantics across two registries.",
+   "directionSummary": "Use a discriminated descriptor union for pixel, cell, cancellation-only, and overlay-managed tools with interaction behavior encoded in the descriptor.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-029",
+   "title": "Encounter detail behavior is fragmented across presentation files",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Changing one encounter action requires discovering behavior across a 384-line composition view, a hook hidden in a row file, and raw mutation objects threaded through presentation. No single controller owns the encounter-detail mutation surface.",
+   "directionSummary": "Create an encounter-detail controller module for mutation construction, concurrency payloads, invalidation, and pending state, exposing narrow intent callbacks to readable sections.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-030",
+   "title": "Participant presentation is duplicated between encounter setup and combat",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L05-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "State-independent participant identity, statistics, and visibility have two independent markup/styling vocabularies. The generic primitives are filed under combat, encouraging setup code to reproduce them.",
+   "directionSummary": "Move state-independent participant primitives to a neutral encounter-participant module and compose setup-only and combat-only controls around them.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-031",
+   "title": "The monster editor's sections share one 47-field flat state boundary",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "MonsterFormData's 47 flat fields span six domains with every section able to read or mutate every field. Field additions require coordinated changes through two 400-plus-line adapter modules.",
+   "directionSummary": "Introduce domain sub-form types with narrow section props for each domain and split the adapters along the same boundaries.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-032",
+   "title": "The flat route tree makes authentication an eleven-site convention",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Authentication is encoded by 11 copied per-route AuthGuard wrappers rather than route hierarchy. Protected-area ownership is invisible in route-tree.ts and adding a route requires a per-file ritual.",
+   "directionSummary": "Introduce one pathless authenticated parent route rendering AuthGuard around an Outlet and reparent protected routes beneath it.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-033",
+   "title": "SettingsPage implements three account features behind a nominal page boundary",
+   "area": "client",
+   "category": "layering",
+   "members": [
+    "L05-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Profile editing, password rotation, and account deletion are fully implemented inside one 332-line route file with no discoverable feature home. This contradicts the page module's composition-boundary contract.",
+   "directionSummary": "Move the three workflows into focused account/settings components and hooks, leaving SettingsPage as the route-facing composition root.",
+   "priorPackRefs": [
+    "CQ25-195"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-034",
+   "title": "Campaign tabs are manually synchronized across three registries",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L05-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Eight campaign tabs are declared in separate trigger and content registries plus a route union. A documentation checklist compensates for the missing structural guarantee that each tab has one trigger, one panel, and aligned access policy.",
+   "directionSummary": "Define an exhaustive page-local Record<CampaignTab, descriptor> for label, icon, access, and panel rendering, deriving triggers and contents from it.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-035",
+   "title": "FilterSelect erases schema-derived option types",
+   "area": "client",
+   "category": "idiom",
+   "members": [
+    "L05-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The shared FilterSelect widens values, option values, and callbacks to string across 12 call sites. Consumers are forced to recover their literal unions through casts and assertion-boundary comments.",
+   "directionSummary": "Make FilterSelect generic over its option-value union and represent the all-selection sentinel explicitly.",
+   "priorPackRefs": [
+    "CQ25-187"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-036",
+   "title": "MonsterAddData erases mutually exclusive monster origins",
+   "area": "client",
+   "category": "idiom",
+   "members": [
+    "L05-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "MonsterAddData models SRD and homebrew origins as unrelated optional fields permitting neither, both, or versions without entries. Three converters independently repeat the common participant defaults.",
+   "directionSummary": "Use a discriminated SRD-versus-homebrew origin plus common stats, centralize source adapters, and flatten only at the mutation boundary.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-037",
+   "title": "TokenContextMenu is an option bag for two different surfaces",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L05-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "One partially configured component serves base map editing and combat with fourteen props including seven optional combat values coordinated by isInCombat. Its type admits combat branches without their required callbacks.",
+   "directionSummary": "Use explicit map and combat variants or a discriminated props union that requires the complete combat contract while sharing invariant menu items locally.",
+   "priorPackRefs": [
+    "CQ25-190"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-038",
+   "title": "Player and monster attack hooks duplicate the target-pick lifecycle",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L05-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Two hooks independently own the same stateful target-pick interaction protocol (load, eligibility, activation, invalidation, drawer restoration). Cleanup and eligibility behavior can drift with each additional attack mode.",
+   "directionSummary": "Extract an internal attack-targeting coordinator for the shared lifecycle, keeping typed payload construction in adapters.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-039",
+   "title": "Token placement mirrors store state into dialog state through an indirect effect",
+   "area": "client",
+   "category": "idiom",
+   "members": [
+    "L05-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A setter wrapper passed into usePlacementSlice hides a synchronous derived-state effect from the lint rule. This creates two sources of truth that every dialog close path must coordinate.",
+   "directionSummary": "Remove the opening callback and derive dialog visibility from manualAddOpen or a non-null placement cell, keeping pending-cell clearing in close/success handlers.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-040",
+   "title": "Homebrew entry-type vocabulary is enumerated across parallel client and shared registries",
+   "area": "cross-cutting",
+   "category": "duplication",
+   "members": [
+    "L05-020",
+    "L08-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The homebrew entry-type vocabulary is repeated across the shared enum, schema record, client form typing, the editor registry, an entry-dialog selector list, an entry-card label map, and non-exhaustive create/filter option arrays. Only the implementation registry is compiler-enforced, so adding a type can compile while silently missing its selector, labels, plurals, or filters, making its editor unreachable.",
+   "directionSummary": "Establish one exhaustive client entry-type metadata registry keyed by HomebrewEntryType owning labels, order, plurals, and filter/creation options, deriving selector, card, and filter surfaces from it, while keeping validation schemas in shared and retaining the separately typed editor binding registry.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-041",
+   "title": "RollModeToggle is a complete production-orphan component",
+   "area": "client",
+   "category": "dead-code",
+   "members": [
+    "L05-101"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A 60-line UI component has zero production imports across 389 pinned production client files. Its implementation, test presence, and module listing make it appear to be an active combat surface.",
+   "directionSummary": "Remove the orphan production component; L07-106 (D-110) owns the misleading MODULE entry and lane 06 owns the test-only surface.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-042",
+   "title": "Character key hook constructs three filter objects no production caller reads",
+   "area": "client",
+   "category": "dead-code",
+   "members": [
+    "L05-102"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "useCharacterKeys builds characterFilter, spellsFilter, and inventoryFilter (plus their QueryFilter type) on every call, but all nine production consumers read only the exact keys. An abandoned invalidation API enlarges a central cache-key contract.",
+   "directionSummary": "Delete the three filter members and the unused QueryFilter interface, leaving useCharacterKeys focused on its three consumed exact keys; L07-108 (D-112) owns the comment correction.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-043",
+   "title": "Server service suites redundantly wipe the database 119 times",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The global server test lifecycle already resets the worker database, yet fifteen service suites repeat cleanDb in their own hooks (119 calls, 22 deletes each). Ownership of isolation is unclear and focused runs pay for thousands of unnecessary deletes.",
+   "directionSummary": "Remove redundant per-suite resets, keep only suites that intentionally mutate state outside the shared lifecycle, and document those exceptions beside the hook.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-044",
+   "title": "A legacy invite suite duplicates the newer split suites",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L06-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The old monolithic invite suite survived after behavior was split into focused manage/join files; 16 of 17 cases overlap. Duplicate setup and assertions obscure which suite is authoritative.",
+   "directionSummary": "Move the one unique URL-extraction case into invite-join.test.ts and delete the legacy suite.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-045",
+   "title": "Encounter map behavior is duplicated across two large router suites",
+   "area": "server",
+   "category": "duplication",
+   "members": [
+    "L06-003"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Procedure contracts and encounter-level integration are mixed in both files, giving two partially overlapping authorities for the same map behavior (about twelve repeated contracts). Repeated failure cases also exist within one file.",
+   "directionSummary": "Keep procedure/authorization contracts in encounter-map.test.ts, retain only mapId integration in encounter-combat-map.test.ts, and remove weaker duplicates.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-046",
+   "title": "wizard-context.test.tsx is a stale duplicate of wizard-state coverage",
+   "area": "client",
+   "category": "organization",
+   "members": [
+    "L06-004"
+   ],
+   "severityHint": "high",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A context-named 27-case suite never tests the context boundary, duplicates the newer 69-case reducer suite, and carries stale step semantics. Contributors get two conflicting descriptions of the wizard.",
+   "directionSummary": "Delete the duplicate suite or replace it with a small provider/hook integration contract for the actual context facade.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-047",
+   "title": "character-sheet.test.tsx no longer tests a character-sheet composition",
+   "area": "client",
+   "category": "naming",
+   "members": [
+    "L06-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The filename promises composition coverage but the file is an outdated aggregate of leaf-component tests already covered beside their subjects. It adds churn while concealing the real page-level layout authority.",
+   "directionSummary": "Prune duplicate leaf describes and retain only focused coverage for components lacking colocated tests.",
+   "priorPackRefs": [
+    "CQ25-195"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-048",
+   "title": "Optimistic character-sheet mutations omit consumer-level rollback contracts",
+   "area": "client",
+   "category": "test-shape",
+   "members": [
+    "L06-006"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The restore helper is tested in isolation, but the mutation-option bindings choosing which snapshot is restored and which queries are invalidated are not (seven onError branches and eight settled invalidation paths untested). Wiring can be dropped without a focused failure.",
+   "directionSummary": "Use the existing failing-mutation seam to assert optimistic state, exact rollback, and both invalidation families per mutation shape, replacing shell assertions.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-049",
+   "title": "VTT spell tests copy full CharacterSpellWithDetails payloads",
+   "area": "client",
+   "category": "duplication",
+   "members": [
+    "L06-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Six VTT drawer files define 18 raw CharacterSpellWithDetails objects (407 lines, four exact Fireball copies). Schema changes become multi-file edits and case intent is buried in invariant payload fields.",
+   "directionSummary": "Add a typed spell-scenario builder with a canonical default, keeping local semantic names and explicit overrides.",
+   "priorPackRefs": [
+    "CQ25-48"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-050",
+   "title": "map-inputs tests obscure mutations inside repeated payload literals",
+   "area": "shared",
+   "category": "duplication",
+   "members": [
+    "L06-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "An 895-line suite repeats near-identical payload literals (mapId 55 times, zero-coordinate fields 23 times each). Schema evolution produces broad edits and reviewers must diff whole payloads to find the field under test.",
+   "directionSummary": "Introduce file-local z.input-typed bases/builders for create-map, create-token, and move-token inputs with labeled tables for symmetric boundaries.",
+   "priorPackRefs": [
+    "CQ25-49"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-051",
+   "title": "Two drift advisories duplicate the complete bounded-history fixture",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L06-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A large evolving analyzer contract fixture (60 lines) is hand-copied in two advisory suites. A harmless BoundedFullHistory field addition requires synchronized edits and each advisory's actual inputs are hidden.",
+   "directionSummary": "Extract a focused test helper for commit records, changes, and bounded-history defaults.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-052",
+   "title": "Drift-AI suites leave dozens of temporary repositories behind",
+   "area": "harness",
+   "category": "test-shape",
+   "members": [
+    "L06-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Six drift-AI files create roughly 58 unremoved temporary roots per full run. Suites reimplement only the allocation half of lifecycle management despite an existing shared cleanup helper.",
+   "directionSummary": "Route these suites through registerTempRootCleanup, keeping raw mkdtempSync only where a test explicitly owns a distinct lifecycle.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-053",
+   "title": "Eight drift command fakes bypass the strict Git helper",
+   "area": "harness",
+   "category": "idiom",
+   "members": [
+    "L06-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Command tests use two incompatible Git-fake styles; eight lenient stubs across six files silently tolerate wrong or added Git calls. Those suites are poor documentation of their dependency contract.",
+   "directionSummary": "Use the strict currentRepoGit helper with explicit local extensions only for intentionally permitted commands.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-054",
+   "title": "Drift baseline tests repeatedly rebuild immutable expensive fixtures",
+   "area": "harness",
+   "category": "test-shape",
+   "members": [
+    "L06-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Assertions request identical corpus discovery 11 times and rebuild the same committed Git baseline six times. The suites are heavier than needed and it is unclear which cases actually need fresh state.",
+   "directionSummary": "Share immutable evaluated corpus results within describes and use a prepared committed baseline for admission scenarios, keeping one fidelity test and the independent determinism check.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-055",
+   "title": "triage-report tests bury scenarios in repeated envelope boilerplate",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L06-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Most of the 1,144-line suite repeats transport envelopes (25 schemaVersion, 15 advisory, 13-14 copies of each empty metadata array) rather than the one triage mutation each case exercises. Contract changes create broad edits.",
+   "directionSummary": "Add typed driftInput, semgrepInput, dolosInput, and row builders while keeping malformed-contract cases as explicit raw objects.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-056",
+   "title": "Codemod fixtures duplicate identical before and after trees",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L06-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "35 of 90 codemod cases carry byte-identical before/after trees (44 duplicate files, about 324 lines), doubling fixture review surface without adding an oracle. Runners encode unchanged cases inconsistently.",
+   "directionSummary": "Move the missing-after fallback into the shared fixture helper and remove byte-identical after trees, keeping explicit after trees where output differs.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-057",
+   "title": "ESLint configuration suites repeat real-repository harness plumbing",
+   "area": "tests",
+   "category": "duplication",
+   "members": [
+    "L06-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Ten suites independently reconstruct the same repository ESLint instance and small query helpers (five repeat configFor, five severityOf). Configuration changes fan out and repeated setup obscures each suite's policy assertion.",
+   "directionSummary": "Extract a resolved-eslint-config test helper for root/path/ESLint construction and common queries, leaving suites and assertions in place.",
+   "priorPackRefs": [
+    "CQ25-112"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-058",
+   "title": "Portable lint-ratchet tests depend on privileged directory symlinks",
+   "area": "tests",
+   "category": "dx",
+   "members": [
+    "L06-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Five test files in a package intended to be portable create node_modules directory symlinks. That is a host privilege commonly unavailable to new Windows contributors without Developer Mode or admin rights.",
+   "directionSummary": "Use a junction where appropriate or inject dependency resolution so fixture repositories can borrow installed dependencies without privileged directory symlinks.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-059",
+   "title": "Server mutation Vitest config re-declares the regular server lifecycle",
+   "area": "tests",
+   "category": "duplication",
+   "members": [
+    "L06-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The mutation config independently repeats the server test lifecycle and environment fields. Routine changes to setup, workers, or database semantics require synchronized edits in two configs with no parity guard.",
+   "directionSummary": "Extract plain shared server test options/constants while keeping deliberate mutation differences local.",
+   "priorPackRefs": [
+    "CQ25-221"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-060",
+   "title": "Utility and broadcast tests seed through character-create service internals",
+   "area": "server",
+   "category": "layering",
+   "members": [
+    "L06-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Lower-level mapper and socket-contract tests import character-create service internals for setup (the seed pair repeated nine times). This reverses the intended test dependency and broadens unrelated refactor fallout.",
+   "directionSummary": "Use a low-level typed Prisma fixture or the public character test helper for setup, reserving real service-path seeding for service-workflow tests.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-061",
+   "title": "E2E specs bypass page objects through raw selectors and public locators",
+   "area": "e2e",
+   "category": "test-shape",
+   "members": [
+    "L06-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "25 raw getBy* calls in six specs and at least 18 direct public locator-field accesses give specs and page objects two competing automation idioms. UI refactors require editing narratives instead of one page-object contract.",
+   "directionSummary": "Add atomic page-object methods for named wizard boosts and Continue-state assertions, then migrate the highest-value raw call sites without splitting encounter-combat.",
+   "priorPackRefs": [
+    "CQ25-161"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-062",
+   "title": "Two command test filenames substantially overstate their coverage",
+   "area": "harness",
+   "category": "naming",
+   "members": [
+    "L06-020"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Both filenames imply command-level coverage but the suites test only regexes/helpers, omitting traversal, output/exit behavior, worker validation, report construction, and CLI parsing. Contributors can assume operational contracts exist when they do not.",
+   "directionSummary": "Rename the files as core/helper suites and add small injected-runner or fixture-repository command contracts for the operational boundaries.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-063",
+   "title": "Eleven non-encounter E2E suites present shared-state narratives as 77 separate tests",
+   "area": "e2e",
+   "category": "test-shape",
+   "members": [
+    "L06-101"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Eleven whole-describe serial groups contain 77 tests that are really dependent workflow steps. Later cases cannot run alone, earlier failures suppress remaining contracts, and prerequisites are conveyed only by source order.",
+   "directionSummary": "Represent genuinely sequential workflows as scenarios with named steps and independently seed contracts via fixtures/API helpers before removing serialization, leaving encounter-combat unchanged.",
+   "priorPackRefs": [
+    "CQ25-162"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-064",
+   "title": "Pagination suites systematically avoid the tie cases their cursors must disambiguate",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-102"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Five pagination authorities (1,385 lines) build fixtures with unique cursor keys by construction and contain zero equal-order-key page-boundary cases. Cursor composition can regress by skipping or duplicating equal-key records while all assertions stay green.",
+   "directionSummary": "For each endpoint, seed multiple pages with rows sharing the boundary sort tuple, traverse until nextCursor is null, and assert the exact expected ID set.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-065",
+   "title": "Three mutation-test lanes can strand live source mutations after interruption",
+   "area": "tests",
+   "category": "dx",
+   "members": [
+    "L06-103"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Three in-place Stryker lanes write mutants into the contributor's active worktree; a kill or crash can mix stranded mutations with legitimate uncommitted work. The command surface has no stale-state detection or safe recovery rail.",
+   "directionSummary": "Run in-place lanes in automatically provisioned disposable worktrees, or add a supervised runner that snapshots targets, detects stale backups, and restores safely.",
+   "priorPackRefs": [
+    "CQ25-221"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-066",
+   "title": "Multi-artifact harness generators lack a failure-and-recovery test contract",
+   "area": "harness",
+   "category": "test-shape",
+   "members": [
+    "L06-104"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Generator tests prove final bytes only when every write succeeds; none exercise a mid-batch write failure. Whether earlier outputs stay updated, how check mode reports mixed generations, or whether rerun repairs them is undefined.",
+   "directionSummary": "Put batch orchestration behind an injectable writer and add boundary-failure cases asserting error propagation, stale-output detection, scratch cleanup, and repair on rerun.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-067",
+   "title": "Coverage gates count 490 lines of test scaffolding as product code",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-105"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Nine test-support modules totaling 490 lines are included in coverage denominators and easily exercised numerators. Coverage can rise or hold steady without more production behavior being covered, making the advertised thresholds hard to interpret.",
+   "directionSummary": "Exclude test-helper files consistently plus packages/shared/src/test, then recalculate thresholds from a production-only baseline.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-068",
+   "title": "Logs-audit policy tests encode 50 scenarios as two positional JSONL blobs",
+   "area": "harness",
+   "category": "test-shape",
+   "members": [
+    "L06-106"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Two aggregate tests hide independent policy boundaries behind global JSONL line numbers (50 inline rows, 40 full expected diagnostics). Unrelated insertions force broad renumbering and regressions are hard to attribute to a policy family.",
+   "directionSummary": "Use named typed scenario tables grouped by policy family, keeping small correlation groups and one compact cross-record integration case.",
+   "priorPackRefs": [
+    "CQ25-11"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-069",
+   "title": "daemon-query.test.ts combines daemon integration, client protocol, and cache unit suites",
+   "area": "harness",
+   "category": "test-shape",
+   "members": [
+    "L06-107"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Three subject suites share one 190-line fixture rail in daemon-query.test.ts; more than half of its 18 cases do not test the route named by the file. A GraphCache contributor running graph-cache.test.ts misses central rebuild contracts.",
+   "directionSummary": "Keep route/resident-project integration in place; move daemon-client protocol cases into daemon-client.test.ts and cache cases into graph-cache.test.ts with a minimal fixture.",
+   "priorPackRefs": [
+    "CQ25-66"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-070",
+   "title": "The duplicates suite is an umbrella for four production-module test authorities",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L06-108"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "duplicates.test.ts (1,039 lines, 53 tests, 10 local-module imports) is the authoritative suite for duplicates-runner, duplicates-check, plugin wiring, and jscpd-bin. The filename no longer communicates ownership and unrelated setup accumulates in focused runs.",
+   "directionSummary": "Keep parsing/finding contracts in duplicates.test.ts and move runner, plugin, and binary-resolution blocks into production-module-matched sibling suites without reorganizing the directory.",
+   "priorPackRefs": [
+    "CQ25-155"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-071",
+   "title": "Fog overlay component tests assert only that Konva stand-ins exist",
+   "area": "client",
+   "category": "test-shape",
+   "members": [
+    "L06-109"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "All seven component-level cases assert only existence, truthiness, or element count and never geometry, fill, or opacity. Named contracts like coordinate reversal and DM/player rendering can regress while tests stay green.",
+   "directionSummary": "Replace crash/existence cases with a compact mode table asserting retained Konva attributes for region scaling, DM/player opacity, and reversed preview bounds.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-072",
+   "title": "The live message-identity golden is a stale machine capture",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-110"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A 45 KB golden labeled a live collector run pins a deleted developer worktree root (50 occurrences) and a since-removed file, with no regeneration or freshness path. The live label implies unmaintained freshness while repeated diagnostics obscure the semantic cases.",
+   "directionSummary": "Replace the capture with a compact builder using a synthetic root, relative case data, and one shared diagnostic template, keeping one clearly named raw sample only if byte fidelity is needed.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-073",
+   "title": "The worktree shell suite is four suites hidden in one 1,986-line script",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-111"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "One smoke entrypoint sources four independent test narratives (DB/init/dev, worktree:new recovery, drop/GC, allocation/locking) into a single mutable shell process with 71 assertions. Subjects cannot run alone, failures suppress later contracts, and stubs from one band leak into the next.",
+   "directionSummary": "Split the four concern bands into independently executable shell smokes with precise smoke-subject headers and isolated setup/cleanup, keeping the production facade and shell-native form.",
+   "priorPackRefs": [
+    "CQ25-27"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-074",
+   "title": "Lint-ratchet acceptance fixtures emit 321 lines of stale package types",
+   "area": "tests",
+   "category": "duplication",
+   "members": [
+    "L06-112"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Five acceptance fixture writers emit private copies of the portable package's config-type vocabulary (321 lines) that have already diverged from the exported authority. Type evolution requires broad manual edits and fixtures document an obsolete surface.",
+   "directionSummary": "Emit type-only imports from the already-symlinked @musi/lint-ratchet config-types export, keeping only fixture values in each generated config and preserving independent sandbox builders.",
+   "priorPackRefs": [
+    "CQ25-113"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-075",
+   "title": "Server tests enlarge production APIs with seven test-only seams",
+   "area": "server",
+   "category": "test-shape",
+   "members": [
+    "L06-113"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Seven test-only surfaces across four production modules (injection hooks, transactionProbe, a router-exported size guard, registry/event-key exports) mix test switches into normal APIs. Private representation becomes coupled to direct test imports.",
+   "directionSummary": "Keep deterministic injection but move injection-bearing cores behind clean facades in explicitly internal modules, test registries through broadcast entry points, and move the size guard out of the router.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-076",
+   "title": "Axe allowlists can outlive the accessibility debt they suppress",
+   "area": "e2e",
+   "category": "test-shape",
+   "members": [
+    "L06-114"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The a11y baseline removes every violation matching a baselined rule ID and never asserts tracked debt is still observed. Fixed violations leave stale exemptions that can mask later occurrences of the same rule on that view.",
+   "directionSummary": "Assert both that no unbaselined violations exist and that every baseline entry is still observed, require stale entries to be removed, and scope exemptions more narrowly.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-077",
+   "title": "One lint-ratchet acceptance suite serializes 32 synchronous CLI runs",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-115"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "32 child-process CLI executions are concentrated in one 809-line file using blocking spawnSync. This prevents file-level worker distribution, delays focused feedback, and hides per-subject cost.",
+   "directionSummary": "Move independent subject groups into focused acceptance files over one shared fixture helper and use an async child-process runner, keeping the genuinely shared diagnostics group serialized.",
+   "priorPackRefs": [
+    "CQ25-31"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-078",
+   "title": "Paired shared schema suites split request contracts across entity-named files",
+   "area": "tests",
+   "category": "organization",
+   "members": [
+    "L06-116"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Character and encounter request validation each has two authorities: dedicated *-inputs.test.ts suites plus 379 lines of request describes hidden in entity-named suites. This violates the MODULE.md navigation convention.",
+   "directionSummary": "Relocate the four character and five encounter request describes into their *-inputs.test.ts suites as content-only moves, keeping entity suites focused on persisted/output schemas.",
+   "priorPackRefs": [
+    "CQ25-158"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-079",
+   "title": "Near-duplicate sensor gate tests are buried in the detector suite",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L06-117"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The authoritative sensor-gate CLI contract (a 235-line block plus its fixtures) is hidden at the end of the 932-line detector suite with no sensor-near-duplicates.test.ts. It reads as missing coverage and focused detector runs include unrelated Git-repo scenarios.",
+   "directionSummary": "During the scheduled sensor owner-directory move, extract the runNearDuplicatesCli describe and its fixtures into a subject-named sensor gate suite, leaving detector contracts in place.",
+   "priorPackRefs": [
+    "CQ25-42"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-080",
+   "title": "Harness generator scenarios repeat 53 inline control envelopes",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L06-118"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "53 inline control-id envelopes across two generator suites surround each meaningful scenario delta with repeated consumer/control setup. Canonical-set changes require broad edits and readers must diff near-identical arrays.",
+   "directionSummary": "Add typed file-local scenario builders (baseline consumer map with slot overrides, valid hook-control builder with wiring overrides), preserving raw objects for malformed and duplicate-ID cases.",
+   "priorPackRefs": [
+    "CQ25-13"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-081",
+   "title": "The overview suite forks code-intel's canonical fixture harness",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L06-119"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "overview-query.test.ts carries a private 46-line copy of the shared code-intel fixture infrastructure. Package-export or compiler-option changes can leave it describing a different synthetic workspace than sibling suites.",
+   "directionSummary": "Import repoRoot, createFixtureProject, addSource, and createFixtureResolver from the shared helper, keeping only the router-specific source builder local.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-082",
+   "title": "Smoke discovery tests manipulate global cwd to reach a private import-time function",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-120"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "A small filesystem-selection function runs privately at import time from process.cwd(), so four tests must chdir, clear the module registry, and re-import. The contract hides behind module initialization and blocks safe concurrent composition.",
+   "directionSummary": "Extract a named discovery function taking the tests directory or discovered basenames, keep SCRIPT_SMOKE_TEST_NAMES as the one-time adapter, and test without chdir or resetModules.",
+   "priorPackRefs": [
+    "CQ25-64"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-083",
+   "title": "Collector scheduler tests coordinate through real time",
+   "area": "tests",
+   "category": "test-shape",
+   "members": [
+    "L06-121"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Three scheduler scenarios manufacture overlap, completion order, or pending workers via wall-clock sleeps of a few milliseconds. The intended state-machine transitions are obscured and concurrency tests are coupled to timer scheduling.",
+   "directionSummary": "Replace delays with named deferred promises or a test-local worker gate, releasing or rejecting workers explicitly and asserting each scheduler transition.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-084",
+   "title": "Codemod suites retain four near-identical fixture drivers beside their shared helper",
+   "area": "tests",
+   "category": "duplication",
+   "members": [
+    "L06-122"
+   ],
+   "severityHint": "low",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Four suites (475 lines) each independently assemble the same fixture lifecycle (readMetadata, fixtureNames, runFixture) over the shared primitive helper. Intentional differences are interleaved with repeated plumbing across 90 case.json records.",
+   "directionSummary": "Centralize metadata parsing and the seed/run/compare lifecycle behind typed callbacks for invocation, expected-root policy, and failure assertions, keeping suite-local labels and the tRPC adapter.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": true
+  },
+  {
+   "id": "D-085",
+   "title": "The public harness copy recipes are not closed over their imports",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The outsider-facing adoption ladder presents runnable copy sets, but both starters omit required imported modules (18 unique relative import targets outside the six-file list) and the purported portable generator reaches into Musi policy. An adopter receives a broken checkout with no reliable reusable-versus-adapter boundary.",
+   "directionSummary": "Treat the implementation import graph as authoritative: publish an import-closed portable package/example or a generated complete copy manifest; until then document the full closure and Musi-specific edits.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-086",
+   "title": "Lint-ratchet adoption docs mix the packaged engine with its retired copy-set architecture",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "External adopters cannot follow one coherent Tier-1 recipe: the guide first describes the landed package seam, then requires edits to Musi-only files neither copied nor imported by that package. It also references a nonexistent implementation file.",
+   "directionSummary": "Treat package exports, package-boundary tests, and the demo adapter as authoritative; rewrite Tier 1 around package plus adopter-owned adapter and remove obsolete copy-set, import-rewrite, and manifest vocabulary.",
+   "priorPackRefs": [
+    "CQ25-12"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-087",
+   "title": "Devcontainer quick start depends on undocumented local infrastructure",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-003"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "A fresh contributor cannot follow the documented quick start from repository contents alone: the base image cannot be pulled or built, and a cgroup slice and external persist volume must pre-exist. The advertised copy-and-reuse workflow is therefore inaccurate.",
+   "directionSummary": "Treat Dockerfile and Compose as authoritative: make the base pullable/reproducible and auxiliary resources self-provisioning, or place explicit bootstrap prerequisites before Quick start and enumerate every Musi-specific replacement point.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-088",
+   "title": "The sole in-progress queue is mostly a stale view of completed or deleted work",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-004"
+   ],
+   "severityHint": "high",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The repository's only in-progress queue lists eleven items of which 10 are contradicted by source-pack Status headers, resolved in the queue itself, or point to missing leaves. Contributors must re-triage source packs before trusting any item.",
+   "directionSummary": "Treat source-pack Status headers as authoritative, retire or regenerate the queue, and add a structural check that every in-progress reference resolves and remains nonterminal.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-089",
+   "title": "Backlog is simultaneously an action queue, evidence archive, and completed-work store",
+   "area": "docs",
+   "category": "organization",
+   "members": [
+    "L07-005"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The backlog directory name no longer predicts whether an item is actionable. Open work, rejected designs, completed leaves (95 of 297 files marked Done), and provenance ledgers share one 301-file namespace.",
+   "directionSummary": "Separate actionable backlog from evidence/provenance records, or introduce a generated typed catalog with record class and lifecycle state while retaining history needed for deduplication.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-090",
+   "title": "The specialist package-script surface has no contributor-facing command catalog",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-006"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The 177-key script surface (147 root) is documented only by printing the raw manifest; 21 root script keys have zero mentions anywhere. The manifest conveys no purpose, audience, side effects, cwd, owning guide, or command class.",
+   "directionSummary": "Add a generated or manifest-backed command catalog grouped by audience and function, carrying package/cwd, purpose, side-effect class, owner documentation, and writer/check relationships.",
+   "priorPackRefs": [
+    "CQ25-37"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-091",
+   "title": "The E2E guide permits raw locators that mandatory lint unconditionally rejects",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The guide's selector fallback permits a raw CSS locator with a short reason, but the enforced lint rule reports every raw locator call regardless of any reason. A contributor following the docs still gets a blocking error.",
+   "directionSummary": "Treat lint config and focused tests as authoritative: document the precise reasoned suppression form, or change guide and rule together if raw locators are intended to be impossible.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-092",
+   "title": "The concurrency rulebook claims three exhaustive patterns, then documents an uncounted fourth mechanism",
+   "area": "docs",
+   "category": "organization",
+   "members": [
+    "L07-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The guide's opening claims Patterns A/B/C cover every concurrency-sensitive write and forbids inventing a fourth. Its own Serializable section and a production implementation use a shape those patterns cannot express.",
+   "directionSummary": "Treat the Serializable section and implementation as authoritative: describe three normal row-level patterns plus a narrowly admitted Serializable set-level exception.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-093",
+   "title": "Architecture documentation promises level-up review and rollback that the product does not expose",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The architecture plan says CharacterLevelChoice records enable review and rollback, but the router exposes no such procedure and no production UI consumes levelChoices. Contributors are encouraged to design around an assumed reversible workflow.",
+   "directionSummary": "Treat the router and current consumers as authoritative: describe CharacterLevelChoice as an audit/history record today and separate any review/rollback capability into a product decision.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-094",
+   "title": "Coverage cadence has no retained baseline to compare against",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The weekly coverage policy requires percentage-point comparisons against a baseline whose notes were deleted, with zero tracked baseline artifacts at the pin. Operators cannot reproducibly apply the drift thresholds.",
+   "directionSummary": "Record a fresh stable baseline and link it, or explicitly reframe the command as a one-off floor check until a retained comparison artifact exists.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-095",
+   "title": "Harness manifest guide undercounts and omits sanctioned direct readers",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The maintenance guide says exactly two sanctioned manifest readers remain. The enforced allowlist contains five with materially different roles.",
+   "directionSummary": "Treat MANIFEST_DIRECT_READERS as authoritative; document or generate all five readers grouped by composition seam, typed specialized consumer, and partial-tree/diagnostic exception.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-096",
+   "title": "Two documents both claim to be the authoritative complete harness inventory",
+   "area": "docs",
+   "category": "organization",
+   "members": [
+    "L07-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "docs/README.md brands ai-harness.md as the authoritative single-source inventory while the generated harness-controls projection independently claims the same authority, and ai-harness.md itself says its rows are only examples. Readers cannot tell which inventory is exhaustive.",
+   "directionSummary": "Make harness.controls.json and its generated projection authoritative for exhaustive membership; describe ai-harness.md as the conceptual architecture, lifecycle, adoption, and gap map.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-097",
+   "title": "The generated-doc ownership table misclassifies the lint coverage map as wholly hand-maintained",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The directory-level ownership table labels lint-coverage-map.md hand-maintained and invites direct edits, but the map's marker-delimited table is generator-owned and forbids hand-editing. Contributors can clobber generated bytes.",
+   "directionSummary": "Treat the marker contract and generator as authoritative: classify the map as Hybrid and list direct-edit versus generation workflows separately.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-098",
+   "title": "Homebrew module index sends contributors to the wrong registry file",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The parent MODULE index duplicated child-module details and drifted after the split. Its recipe points to a registry consumer instead of entry-editor-registry.ts and claims shared contains one file where the child documents six.",
+   "directionSummary": "Make code and focused child MODULE documents authoritative: point the parent recipe to entry-editor-registry.ts and replace volatile inventories with child-document links.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-099",
+   "title": "Server utilities lack an orientation contract despite owning cross-module trust boundaries",
+   "area": "server",
+   "category": "dx",
+   "members": [
+    "L07-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The flat 46-file server utils directory mixes authorization, race-sensitive mutation capabilities, Prisma typing, and domain helpers with no MODULE document. Its ownership map is scattered through long comments and remote service docs despite meeting the module charter's threshold.",
+   "directionSummary": "Add a focused utils/MODULE.md mapping utility families and trust boundaries, naming sanctioned mutation/auth entry points and linking to CONCURRENCY and authorization docs.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-100",
+   "title": "Major harness implementation directories have only one-line remote descriptions",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L07-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "scripts/harness (42 files) and scripts/code-intel (36 files) meet the repository's own MODULE threshold but have only one-line ownership rows. Contributors must reconstruct authority, state ownership, and internal layering from filenames.",
+   "directionSummary": "Add separate local MODULE documents for scripts/harness and scripts/code-intel identifying facades, clusters, generated/state ownership, and authoritative checks.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-101",
+   "title": "Per-worktree guide omits its mandatory devcontainer credential prerequisite",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The guide presents worktree provisioning as self-contained, but the implementation reads DATABASE_URL only from the primary checkout's .devcontainer/.env. A contributor who followed the root .env setup still fails provisioning.",
+   "directionSummary": "Document .devcontainer/.env and a reachable database as explicit prerequisites, link the devcontainer setup, and explain the root .env distinction; the shell implementation is authoritative.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-102",
+   "title": "Primary onboarding omits the Bash/Unix runtime required by its first development command",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "README prerequisites list only Bun and Docker, but bun run dev and most quality/worktree commands require Bash. Windows contributors get no supported WSL, Git Bash, or devcontainer path.",
+   "directionSummary": "Declare supported host environments and the Bash requirement in Prerequisites, with a concise Windows path such as WSL2 or the documented devcontainer workflow.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-103",
+   "title": "Scripts README gives a non-root recovery command that is still relative to the current directory",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The troubleshooting paragraph correctly diagnoses nearest-package cwd failures, then offers a direct-entrypoint alternative that is also cwd-relative. It fails for the same reason it diagnoses.",
+   "directionSummary": "Replace the relative direct-entrypoint advice with the root-anchored --cwd form from AGENTS.md and keep one canonical snippet.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-104",
+   "title": "Two database-writing SRD backfill commands are exposed without an operator runbook",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-020"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Two manifest-exposed commands perform Prisma writes against serverEnv.databaseUrl with zero live-documentation references. Target environment, lifecycle, affected data, rerun expectations, validation, and rollback are all unexplained.",
+   "directionSummary": "Treat implementation as authoritative and add both commands to the SRD runbook with lifecycle, target-environment warning, affected fields, rerun expectations, validation, backup, and rollback guidance.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-105",
+   "title": "The scripts guide lists only three of twelve registered generated-surface families",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-101"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "scripts/README.md presents three generator families as the current checked-in generated surfaces while the manifest registers twelve. Nine active families are invisible and a nongenerated demo is included in the list.",
+   "directionSummary": "Treat harness.controls.json and generated-surfaces.ts as authoritative: generate a compact producer/output/refresh/check catalog, or label the list as examples and link a complete inventory.",
+   "priorPackRefs": [
+    "CQ25-34"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-106",
+   "title": "The drift:ai operator guide is an 890-line multi-audience README",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-102"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "One 890-line document serves portable onboarding, exhaustive reference, design rationale, Musi integration, and historical status, restating the supported invocation four times. Registry and implementation changes all churn this single document and multiply drift surfaces.",
+   "directionSummary": "Treat the live registries and parity assertions as authoritative: keep a short README with one quickstart and move the portable contract, check reference, Musi integration, and historical rationale into audience-specific documents.",
+   "priorPackRefs": [
+    "CQ25-35"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-107",
+   "title": "The concurrency rulebook mislocates participant policy and misnames its ordering",
+   "area": "docs",
+   "category": "comment",
+   "members": [
+    "L07-103"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The central guide sends maintainers to a facade router for the race-sensitive updateParticipant writer and names the wrong home for PARTICIPANT_FIELD_KIND. It also calls the lock ordering code-point order when the comparator explicitly implements UTF-16 code-unit order.",
+   "directionSummary": "Treat participant-action.ts and compareCodeUnits as authoritative: point writer and policy entries to the service and consistently describe the ordering as UTF-16 code-unit order, noting current ASCII identifiers make the orders equivalent.",
+   "priorPackRefs": [
+    "CQ25-21"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-108",
+   "title": "Server contributor maps contradict or omit three important ownership boundaries",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-104"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "The server's local orientation gives incompatible router-layering rules (thin-router charter vs the homebrew validation exception), hides a socket handler's direct Prisma dependency, and provides no map for the 46-file mixed-role seed subsystem. Contributors following the maps can misplace new code at three boundaries.",
+   "directionSummary": "Split the repair by boundary: define or move the homebrew validation exception, document campaign-room membership reads, and add a seed map covering runtime order, generated ownership, generators, backfills, and operator guides.",
+   "priorPackRefs": [
+    "CQ25-220"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-109",
+   "title": "Shared local documentation carries stale test, consumer, and rules-provenance claims",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-105"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Three contributor-facing claims are contradicted by colocated tests, pinned imports, or the exhaustive SRD 5.2.1 rules oracle. A listed untested file has a colocated test, the area-template consumer list is wrong, and xp.ts cites the wrong SRD version.",
+   "directionSummary": "Treat the colocated test, import graph, and SRD 5.2.1 oracle as authoritative: correct the three claims and replace volatile exact inventories with checked or less brittle descriptions.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-110",
+   "title": "Client component MODULE documents misstate composition and feature ownership",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-106"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Three high-change component maps are unreliable in different ways: the VTT map attributes composition to the wrong component, the encounters map is too thin to orient a 14-file 1,888-line feature, and the combat map advertises production-dead UI plus nonexistent paging ownership.",
+   "directionSummary": "Refresh each MODULE from the pinned composition and import graph, preserving the existing VTT directory split, documenting the encounter data/mutation/state flow, and distinguishing combat-log presentation from fetching and paging.",
+   "priorPackRefs": [
+    "CQ25-190"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-111",
+   "title": "Client hook and page entry-point maps omit major production surfaces",
+   "area": "docs",
+   "category": "organization",
+   "members": [
+    "L07-107"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "The only local maps for a 42-file hook tree and the route-page directory are partial without an inclusion rule. At least 8 production-consumed hook exports and 11 of 13 route-page exports are absent, while a file-private symbol is labeled an external entry point.",
+   "directionSummary": "Treat production exports and imports as authoritative: separate complete public/export inventories from internal landmarks and either generate them or document a stable inclusion rule.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-112",
+   "title": "Client source comments preserve three superseded integration contracts",
+   "area": "docs",
+   "category": "comment",
+   "members": [
+    "L07-108"
+   ],
+   "severityHint": "low",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Comments describe a removed onFinalize callback argument, an abandoned socket-filter design with zero production reads, and a nonexistent server file. Each obscures the current boundary exactly where the prose is meant to justify it.",
+   "directionSummary": "Treat the TypeScript signatures, production reference graph, and upload-routes.ts as authoritative: correct the comments and route removal of the unused CharacterKeys members to the client implementation lane (D-042).",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-113",
+   "title": "Root and devcontainer Compose bootstrap from ungoverned duplicate SQL",
+   "area": "docs",
+   "category": "duplication",
+   "members": [
+    "L07-109"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Root and devcontainer Compose independently mount currently-identical 12-line init SQL files with no equality or generation check. The copies can silently drift and produce different test-database availability; the root copy already carries devcontainer-specific prose.",
+   "directionSummary": "Choose one canonical SQL asset where portability permits, or generate/check both copies from one source so the standalone devcontainer stays reusable without an unguarded fork.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-114",
+   "title": "Lint-ratchet newcomer docs omit a prerequisite and point to a deleted ruling",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-110"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "An external adopter satisfying every documented requirement can still fail installation because the merge-driver installer needs undeclared flock. Separately, a live lint zone-policy comment cites a deleted leaf and calls an already-completed package move pending.",
+   "directionSummary": "Document flock with platform guidance and a preflight; rewrite the lint-policy comment in present tense linking the retained landed record instead of the deleted leaf.",
+   "priorPackRefs": [
+    "CQ25-168"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-115",
+   "title": "Schema tests retain opaque audit numbers and drifting raw line references",
+   "area": "tests",
+   "category": "comment",
+   "members": [
+    "L07-111"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "24 numbered historical annotations across 4 schema test files mix durable behavioral rationale with provenance labels that have no namespace, title, or stable record id. Raw line coordinates (e.g. an L100 guard now at line 98) have already drifted, creating maintenance archaeology.",
+   "directionSummary": "Keep the invariant/mutation rationale, drop opaque finding numbers and raw line references, name the relevant symbol, and use a stable document path plus record id only where provenance stays valuable.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-116",
+   "title": "Mutation docs promise sandbox isolation while three lanes mutate the live worktree",
+   "area": "docs",
+   "category": "dx",
+   "members": [
+    "L07-112"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The landed plan and operator guide imply Stryker mutates only in its own sandbox, but three advertised lanes (scripts, server, lint-ratchet) set inPlace:true and mutate tracked source in the live worktree. The hard-interruption warning lives only inside individual configs with no operator preflight or recovery workflow.",
+   "directionSummary": "Treat the executable configs as authoritative: replace the blanket sandbox statement with the per-lane split, mark the three inPlace lanes explicitly, add one operator-facing interruption warning plus a verified recovery/preflight recipe, coordinating wording with L06-103 (D-065).",
+   "priorPackRefs": [
+    "CQ25-221"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-117",
+   "title": "Harness diagnostics live in the application contract package while every consumer bypasses its package boundary",
+   "area": "cross-cutting",
+   "category": "layering",
+   "members": [
+    "L08-001"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "A harness-only diagnostics protocol is owned by the application shared package while all 11 consumers are tooling that imports it via repository-relative source paths, with zero client/server runtime consumers. Moving or extracting the harness requires application-package changes.",
+   "directionSummary": "Move the envelope to a tooling-owned contract module or small workspace package with a stable export, migrating harness, drift-ai, logs-audit, and lint-ratchet together.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-118",
+   "title": "Logging producers and their auditor separately encode the same protocol",
+   "area": "cross-cutting",
+   "category": "duplication",
+   "members": [
+    "L08-002"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The server and its logs-audit certification tool independently define redaction values, sensitive keys, and structured-event outcome vocabularies. Any change requires synchronized edits and authority between producer and auditor is unclear.",
+   "directionSummary": "Extract a neutral structured logging-policy module covering producer paths, audit aliases, sensitive parameters, event families, and outcomes; derive both sides from it.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": {
+    "batch1Id": "C-035",
+    "relation": "extends",
+    "note": "C-035 covers the event taxonomy duplicated and implicit within logs-audit's own checks; L08-002 extends the same vocabulary-duplication problem across the producer/auditor boundary into server code (app.ts, request-logger.ts). A single shared logging-policy module would satisfy both; plan them together."
+   },
+   "lightVerify": false
+  },
+  {
+   "id": "D-119",
+   "title": "Database URL selection is duplicated across server tests, E2E, root diagnostics, and devcontainer setup",
+   "area": "cross-cutting",
+   "category": "layering",
+   "members": [
+    "L08-003"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "One database-selection contract (TEST/E2E/DATABASE_URL precedence and fallback) is implemented in four places spanning TypeScript and shell. The operational db-status command even imports a test-only module to recover a constant.",
+   "directionSummary": "Extract one pure environment-parameterized test/E2E URL resolver behind a tooling boundary, reused by Playwright, global setup, db-status, and server test setup, with a narrow CLI result for shell provisioning.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-120",
+   "title": "Human-readable server messages act as client control-flow contracts",
+   "area": "cross-cutting",
+   "category": "idiom",
+   "members": [
+    "L08-004"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Client invite, character-load, and account-deletion flows branch on exact or substring matches of server prose. Rewording or capitalization changes silently degrade behavior to generic errors.",
+   "directionSummary": "Add stable domain reason codes to application errors, centralize client narrowing, keep messages presentation-only, and migrate the three evidenced flows first.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-121",
+   "title": "A generic mutation acknowledgment is hidden under auth while weaker domain copies drift",
+   "area": "cross-cutting",
+   "category": "organization",
+   "members": [
+    "L08-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The repository-wide success-response primitive lives in the auth schema module (used by 14 router files) while nearby domains redeclare weaker boolean acknowledgments. Endpoint contracts depend on which definition a contributor finds.",
+   "directionSummary": "Move or canonically alias the acknowledgment into a neutral shared response module and converge the weaker copies, keeping domain aliases only where they aid vocabulary.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-122",
+   "title": "Code-intel excludes declared workspaces while hard-coding application topology repeatedly",
+   "area": "cross-cutting",
+   "category": "dx",
+   "members": [
+    "L08-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Code-intel hard-codes only shared/server/client/scripts, excluding 127 tracked TypeScript files in declared workspaces (tools/, examples/lint-ratchet-demo). It also repeats the supported topology across discovery, project creation, caching, resolution, and bucketing.",
+   "directionSummary": "Derive one project inventory from root workspace and tsconfig metadata, or rename the abstractions and emit an explicit supported-scope diagnostic if application-only scope is intentional.",
+   "priorPackRefs": [
+    "CQ25-11"
+   ],
+   "batch1Overlap": {
+    "batch1Id": "C-021",
+    "relation": "extends",
+    "note": "C-021 already flags hard-coded Musi package topology inside the analyzer cores (including code-intel); L08-008 extends it with the concrete workspace-exclusion consequence (127 files invisible) and the repeated-topology evidence in types.ts/source-project.ts. C-021's policy-adapter direction would subsume this fix."
+   },
+   "lightVerify": false
+  },
+  {
+   "id": "D-123",
+   "title": "Local lint rules lack one canonical registration catalog",
+   "area": "cross-cutting",
+   "category": "dx",
+   "members": [
+    "L08-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Adding a lint rule requires editing a static plugin map, choosing an activation mode, and repeating identity and invocation in 32 manifest controls. Drift checks catch omissions late but no single authoring surface exists.",
+   "directionSummary": "Introduce a typed rule catalog or generated static registry owning id, module path, and enforcement mode once, deriving the plugin map and lint-rule controls from it.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-124",
+   "title": "Repository-path containment has several incompatible local dialects",
+   "area": "cross-cutting",
+   "category": "idiom",
+   "members": [
+    "L08-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "At least five distinct path-containment implementations across codemods, code-intel, harness projection, and Git utilities differ on root acceptance, separator boundaries, normalization, and symlinks. Contributors cannot tell which contract to reuse.",
+   "directionSummary": "Provide two deliberately named primitives in scripts/lib — lexical containment for read-only analysis and hardened target resolution for writers — and migrate callers by semantics.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-125",
+   "title": "Magic-item seed validation shadows shared category and rarity contracts",
+   "area": "cross-cutting",
+   "category": "duplication",
+   "members": [
+    "L08-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The magic-item seed repeats the shared category and rarity enum literal lists in private schemas with no type-level relationship. Renames require synchronized edits and seed vs API validation can drift.",
+   "directionSummary": "Import the shared magic-item category and rarity schemas into the seed module while retaining the seed-specific outer object shape.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-126",
+   "title": "The generic SRD getAll contract is a client-specific lookup read model",
+   "area": "cross-cutting",
+   "category": "naming",
+   "members": [
+    "L08-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The srd.getAll endpoint is actually a partial lookup bundle shaped for one client hook. Its generic name and schema invite treating it as a general SRD aggregate while server selection, shared schema, and client maps must co-evolve.",
+   "directionSummary": "Preserve the batched request but name and document a stable SRD lookup-bundle read model in shared and type the hook directly from it.",
+   "priorPackRefs": [
+    "CQ25-167"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-127",
+   "title": "Authentication redirects depend on undocumented dual-prop precedence",
+   "area": "cross-cutting",
+   "category": "hack",
+   "members": [
+    "L08-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Auth and guest guards pass both `to` and `href` to Navigate and rely on href winning. This implementation detail is documented only in comments and one E2E regression, making router upgrades hazardous.",
+   "directionSummary": "Give the login route a validated returnTo search contract with typed router navigation and encapsulate post-login navigation in one real-router-tested adapter.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-128",
+   "title": "Repository command meaning changes silently with the current working directory",
+   "area": "cross-cutting",
+   "category": "dx",
+   "members": [
+    "L08-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Identical-looking scripts (dev, build) mean different things or fail depending on the shell's directory because Bun resolves the nearest package.json. This is a documented new-contributor tripwire repeated across all workspace packages.",
+   "directionSummary": "Provide a stable repository dispatcher that resolves the Git top level from any subdirectory as the human-facing entry point, keeping package scripts as explicit implementation surfaces.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-129",
+   "title": "Validate concrete homebrew entry data before submission",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Homebrew authors must submit invalid concrete entry data and get only a generic server-round-trip failure. Exhaustive shared per-type schemas and client editor registries already exist to do better.",
+   "directionSummary": "Run the shared per-type schema before mutation and translate issue paths into the existing fieldErrors map, retaining authoritative server validation.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-130",
+   "title": "Make notifications navigate to the campaign context already encoded in their payload",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Clicking a notification only marks it read even though payloads carry campaignId/messageId and campaign tabs support validated deep links. Users must manually locate the destination.",
+   "directionSummary": "Map notification types to destinations, navigating campaign-accepted notices to overview and offline whispers to the chat tab; leave message anchoring separate.",
+   "priorPackRefs": [
+    "CQ25-115"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-131",
+   "title": "Add the campaign ownership transfer that account deletion already promises",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Account deletion tells campaign owners to transfer ownership, but no transfer mutation or UI exists. A DM cannot delete their account without destroying the campaign.",
+   "directionSummary": "Add an owner-only mutation that transactionally promotes a selected member and updates ownerId, exposed beside the campaign danger zone.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-132",
+   "title": "Expose a machine-queryable harness provenance view",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-018"
+   ],
+   "severityHint": "low",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Contributors must manually correlate the 2,859-line manifest, package scripts, generated Markdown, and path-policy output to learn why a path triggers a check. The relationship data already exists in structured form.",
+   "directionSummary": "Add a read-only text/JSON query by path, control id, or script name returning the connecting controls, checks, generated outputs, slots, hooks, and source locations.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-133",
+   "title": "Let users rename a homebrew collection while importing it",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-019"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Re-importing a collection produces visually indistinguishable cards (even E2E helpers must compare hidden hrefs). The import dialog submits the original name unchanged.",
+   "directionSummary": "Present the parsed collection name in an editable Import-as field and submit a copied envelope containing the chosen name.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-134",
+   "title": "Enable the existing comment-density sensor for scripts with narrow exceptions",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-020"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The comment-density check wholesale-excludes scripts and eslint-rules, hiding 570 tooling files from automated signal. The detector and report-only calibration already exist.",
+   "directionSummary": "Replace the blanket exclusions with a small list of generated, vendored, or deliberately prose-heavy exceptions, initially keeping advisory behavior.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-135",
+   "title": "Shared runtime-neutrality enforcement permits Node dependencies",
+   "area": "cross-cutting",
+   "category": "layering",
+   "members": [
+    "L08-101"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The shared package's runtime-neutrality policy blocks browser/framework dependencies but not Node builtins or globals, and its tsconfig grants Node ambient types. Server-only dependencies can compile and lint unnoticed; production code is currently clean so enforcement has no migration debt.",
+   "directionSummary": "Ban Node builtins and Node-only globals in production shared files, keeping Node types for test-only configurations or sentinel exclusions and preserving existing browser restrictions.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-136",
+   "title": "Worktree provisioning is hard-wired to devcontainer credentials despite the root Compose setup",
+   "area": "cross-cutting",
+   "category": "dx",
+   "members": [
+    "L08-102"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "worktree-db.sh's admin_url unconditionally requires .devcontainer/.env, so a contributor on the root Compose stack with valid credentials cannot provision. Mechanically copying the devcontainer file selects the container-only db:5432 hostname.",
+   "directionSummary": "Give admin_url an explicit credential-source contract: a dedicated worktree-admin override, devcontainer compatibility, and root .env support when it is the active topology, validating the URL before writes and aligning L07-017 (D-101) documentation.",
+   "priorPackRefs": [
+    "CQ25-5"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-137",
+   "title": "Add a preview/apply safety boundary to SRD backfills",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-103"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Database-writing SRD backfill commands connect and mutate immediately with no target confirmation, preview mode, or change-count summary. A wrong environment is observable only after writes begin.",
+   "directionSummary": "Have the common runner print a sanitized host/database target, require an explicit apply flag, and add dry-run summaries to both callbacks, choosing transaction semantics separately.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-138",
+   "title": "Let lint-ratchet proposal previews evaluate third-party rules",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-104"
+   ],
+   "severityHint": "low",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The proposal command supports only core and local rule kinds, rejecting third-party rule ids. Adopters must hand-author allowlist, source shape, parser profile, and registry entry before previewing — defeating the safe-preview purpose.",
+   "directionSummary": "Add plugin identity and parser-profile proposal options validated against the injected binding and allowlist, constructing the existing third-party source shape and emitting a promotable registry entry.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-139",
+   "title": "Homebrew write validation loses its type correlation before editor reads",
+   "area": "cross-cutting",
+   "category": "layering",
+   "members": [
+    "L08-105"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Shared and server correlate homebrew type with its data schema during validation but reads expose Record<string, unknown>. Eight client getDefault adapters each rebuild partial decoders from opaque persisted records.",
+   "directionSummary": "Expose a shared typed read adapter or discriminated persisted-entry union derived from the existing registry, migrating the eight adapters incrementally while preserving deliberately separate form-state coercions.",
+   "priorPackRefs": [
+    "CQ25-117"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-140",
+   "title": "Downstream packages keep semantic copies beside shared rule authorities",
+   "area": "cross-cutting",
+   "category": "duplication",
+   "members": [
+    "L08-106"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "needs-split",
+   "problemSummary": "Shared authorities (RollMode, MAX_SPELL_LEVEL, template size, monster spell frequencies, CR rules) have semantic copies in server and client — or live in undiscoverable attack-specific modules — that can drift independently across package boundaries.",
+   "directionSummary": "Move RollMode to a neutral d20 contract, import shared constants and frequency tuples directly, relocate CR-to-proficiency beside shared CR-to-XP, and add a narrow semantic-straggler check rather than a general constants package.",
+   "priorPackRefs": [
+    "CQ25-110"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-141",
+   "title": "Make combat history navigable through one paginated read model",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-107"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Encounter detail always loads the full unbounded combat-log relation which the UI ignores, while the visible panel shows only the paginated API's first 50 records with no continuation control. Later history is unreachable in long encounters.",
+   "directionSummary": "Remove logs from EncounterDetail and its unbounded include, make listCombatLogs the sole read model, and give the panel an infinite-query or load-more flow with an explicit initial-page ordering policy.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-142",
+   "title": "Turn the disabled stat-block placeholder into a party reveal workflow",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-108"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "Players cannot inspect discovered creatures because stat-block access is DM-only and all-or-nothing. DMs are forced to relay statistics through chat despite an existing reusable renderer and a disabled placeholder action.",
+   "directionSummary": "Persist per-participant reveal state, broadcast it through the existing encounter update path, and add a spectator-safe drawer mode hiding HP and mutation controls, keeping reveal distinct from token visibility.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-143",
+   "title": "Let players choose Strength or Dexterity for Finesse attacks",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-109"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The shared rule silently picks the better Strength/Dexterity modifier for Finesse weapons even though the SRD rule text grants the attacker the choice. The attack input contract has no ability-choice field.",
+   "directionSummary": "Add an optional server-validated Strength-or-Dexterity override for Finesse weapons, keeping best-modifier as default and showing a compact selector only when both choices are legal.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-144",
+   "title": "Expose the level-up history already returned with each character",
+   "area": "cross-cutting",
+   "category": "feature",
+   "members": [
+    "L08-110"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Character detail already returns structured levelChoices history, but zero production client consumers exist. Players must reconstruct prior class, subclass, feat, and ability choices from the sheet or external notes.",
+   "directionSummary": "Render a read-only level timeline grouped by level with human-readable labels, treating rollback as separate future design since the records lack a reversible mutation manifest.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-145",
+   "title": "Baseline updates serialize stale local toolchain state into repository-wide hash churn",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L09-001"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Ordinary debt-floor updates serialize ruleSourceHash identities derived from the caller's installed dependency tree. A stale installation rewrites most of the baseline — a real occurrence already required a corrective revert.",
+   "directionSummary": "Verify the installed toolchain against the lockfile before writing, reject dependency-driven hash-only churn with a focused recovery message, and separate intentional identity refreshes from debt-floor updates.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-146",
+   "title": "The portable lint-ratchet package hard-codes Musi's operational vocabulary",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L09-002"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "The reusable kernel and governance layers embed Musi's baseline filename and bun run commands (11 references across 5 kernel files). Adopters must edit package source and a Musi command rename is a multi-surface change.",
+   "directionSummary": "Introduce one workflow-presentation binding for filenames and update/install/restore commands, or move all host-facing remediation prose into the adapter.",
+   "priorPackRefs": [
+    "CQ25-12"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-147",
+   "title": "The public lint-ratchet demo asks adopters to maintain a 1,245-line fork",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L09-003"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "The reusable package stops below the operational adoption seam: outside repositories must vendor 1,245 lines of CLI parsing, merge-driver management, recovery, and preflight wrappers while the actual demo application is 17 lines.",
+   "directionSummary": "Ship supported package executables or a versioned bootstrap generator for the operational rail, leaving adopters one registry/binding file and optional renderers.",
+   "priorPackRefs": [
+    "CQ25-83"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-148",
+   "title": "Rule-source hashing depends on a home-grown JavaScript import lexer",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L09-004"
+   ],
+   "severityHint": "high",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Source-identity correctness rests on a 445-line bespoke regex-based import lexer and masking guard with unusual formatting restrictions. New syntax support is risky and the code is hard to present as a reusable reference.",
+   "directionSummary": "Use the already-declared TypeScript parser API to enumerate static imports/exports and detect dynamic loading, retaining explicit policy errors while removing the regex tokenizer.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-149",
+   "title": "Eight selectors require a 450-line custom glob-policy theorem prover",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L09-005"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "A 450-line builder plus 266-line policy with custom family trees, approximate disjointness proofs, and an escape hatch supports only 8 selectors. It replaces one ESLint ordering hazard with a repository-specific glob language that makes routine policy extension unusually difficult.",
+   "directionSummary": "Compose over a small set of explicit named scopes, or generate a concrete flat-config partition from declarative scope membership, retaining the resolution snapshot as the behavior oracle.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-150",
+   "title": "Concurrency policy is fragmented across generated data, the lint rule, and the codemod",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L09-006"
+   ],
+   "severityHint": "high",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "One logical concurrency change spans a generator input, generated graph, lint implementation, codemod scanner, helper-shape inventory, and two duplicated suggestion tables. The generated artifact covers only relation structure.",
+   "directionSummary": "Define one generated concurrency-policy descriptor containing structural gates and repair metadata, consumed by both the lint rule and codemod scanner, preserving the deliberately separate corpora.",
+   "priorPackRefs": [
+    "CQ25-100"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-151",
+   "title": "Generic codemod infrastructure is hidden behind a tRPC-specific grab bag",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L09-007"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Reusable codemod foundations (errors, ts-morph setup, preview/write orchestration, import fixing) live inside tRPC-named modules. Unrelated codemods must import their infrastructure through a domain-specific barrel.",
+   "directionSummary": "Extract focused codemod-core modules for errors, project construction, import normalization, and write/preview orchestration, leaving tRPC candidate and schema logic in the domain family.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-152",
+   "title": "Engine context leaves local-rule and cache layout hard-coded inside the kernel",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L09-008"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The public engine context parameterizes repo root and data filenames but hard-codes local rules at eslint-rules/ and caches under node_modules/.cache/eslint-ratchet. The cache convention is reconstructed independently in two modules.",
+   "directionSummary": "Extend the engine binding with local-rule resolution and a cache root or injected path functions, then centralize config and cache path construction.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-153",
+   "title": "The ratchet CLI has no authoritative command catalog",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L09-009"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "Fourteen CLI modes are hand-synchronized across five files totaling 963 lines (parser, types, validation, help, dispatch, preflight). No single descriptor owns a command's spelling, options, handler, or validation level.",
+   "directionSummary": "Introduce a typed command catalog owning mode names, option grammar, validation and preflight policy, usage fragments, and handlers, deriving the duplicated unions and dispatch tables from it.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-154",
+   "title": "The metric strategy registry does not make metric additions registration-only",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L09-010"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "needs-split",
+   "problemSummary": "Despite the module's registration-only promise, adding a metric still requires closed-union, parser, validation, item-schema, and rule-pairing edits. An unused strategy enumerator makes the abstraction look more complete than it is.",
+   "directionSummary": "Define one typed metric descriptor table supplying parsing, codec, comparison, merge, and rule-pairing metadata, and either expose an intentional extension seam or state that metrics are closed-world.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-155",
+   "title": "Fixture copies are parsed and grouped by two independent shell models",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L09-011"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The shell-source closure and the sandbox model independently tokenize and resolve the same cp commands. Supporting another cp spelling, loop/glob form, or helper case requires keeping both models aligned.",
+   "directionSummary": "Produce one canonical stream of parsed copy facts, or derive shell-only copy groups from the richer sandbox model while preserving the distinct closure policies.",
+   "priorPackRefs": [
+    "CQ25-17"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-156",
+   "title": "The path-policy query core is closed over Musi's generated smoke registry",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L09-012"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The query engine statically imports Musi's concrete policy, process-based smoke discovery, and a 913-line generated smoke registry even though only 2 of its 22 query names are smoke queries. The apparent data/engine boundary is not reusable.",
+   "directionSummary": "Split the pure selector/query engine from a thin Musi adapter, injecting policy and smoke-subject resolution so non-smoke consumers avoid the generated registry.",
+   "priorPackRefs": [
+    "CQ25-64"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-157",
+   "title": "Global restricted-import policy survives only through five manual restatements",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L09-013"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Because flat config replaces rule values, every scoped no-restricted-imports block must manually re-copy the global schemas-barrel fence (five restatements counted). A new scoped policy can silently erase the repository-wide invariant.",
+   "directionSummary": "Give the global fence its own local rule, or introduce an additive restricted-import composer so scoped policies cannot accidentally replace it.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-158",
+   "title": "The local-rule authoring contract exists only as repeated raw ESLint objects",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L09-014"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "All 32 production rule modules hand-copy ESLint metadata, message declarations, and schema/default handling (30 repeat schema: []). Omissions are found only indirectly by meta-checks and no authoring API parallels the centralized test factory.",
+   "directionSummary": "Introduce a small JSDoc-typed defineLocalRule factory owning the Musi metadata contract and option/default plumbing, then migrate rules mechanically.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-159",
+   "title": "The concurrency guard compresses two analyzers and their orchestration into one rule",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L09-015"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "L",
+   "leafability": "single-leaf",
+   "problemSummary": "The 562-line rule interleaves direct-write and nested-write detectors that have different authority, aliases, corpora, and messages into one create function. Changing either branch requires understanding the entire hotspot.",
+   "directionSummary": "Keep one public rule and separate corpora but extract direct-write and nested-write analyzers behind narrow alias and result interfaces.",
+   "priorPackRefs": [
+    "CQ25-19"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-160",
+   "title": "Transaction callback tracking is duplicated between two local rules",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L09-016"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Two rules independently implement transaction-callback discovery, alias tracking, and lifecycle state machines. Extending alias or callback syntax requires parallel edits that must stay aligned.",
+   "directionSummary": "Extract a focused transaction-callback tracker supplying entry, exit, and transaction-client identity to both rules without a general classification framework.",
+   "priorPackRefs": [
+    "CQ25-218"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-161",
+   "title": "Normal-lint probing is fragmented across fake configs and duplicate ESLint runners",
+   "area": "harness",
+   "category": "duplication",
+   "members": [
+    "L09-017"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Governance workflows needing normal-lint evidence each own a different mixture of config synthesis, file discovery, ESLint construction, and output parsing. Policy changes require finding every variant.",
+   "directionSummary": "Introduce one package-level normal-lint probe with injected config and file-selection policy, routing retirement and zero-baseline governance through it.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-162",
+   "title": "The hook edit-check protocol is maintained manually in TypeScript and shell",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L09-018"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Positional tab-separated wire formats span package TypeScript and shell consumers with no machine-readable shared contract; only some rows are decoded. Producer/consumer drift is detected late and the pattern is hard to copy safely.",
+   "directionSummary": "Use a versioned self-describing record or generate TypeScript codecs and shell field contracts from one schema; at minimum centralize all row layouts and decode every emitted form.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-163",
+   "title": "Lint-message evaluation records source provenance but never verifies it",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L09-019"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Fixtures carry a git commit, path, and source range, but evaluation never binds the copied source to the named commit. Arbitrary source can be attributed to any valid SHA and reports label it as the evaluated commit.",
+   "directionSummary": "Load the named path and range from gitCommit and require an exact source match, or explicitly model the trace as an unverified replay and remove or relabel the ceremonial metadata.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-164",
+   "title": "shared-policy.js is a grab bag for unrelated lint domains",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L09-020"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "One high-fan-in module simultaneously owns path vocabulary, test-runner registries, codemod inventory, package-boundary policy, and a stateful max-lines loader. Unrelated changes converge on a single file whose name suggests reusable policy.",
+   "directionSummary": "Split it into focused config-surface, scripts-and-tests, package-boundary, and max-lines policy modules with direct imports rather than another barrel.",
+   "priorPackRefs": [
+    "CQ25-43"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-165",
+   "title": "TypeScript consumers depend on a hand-written shadow of checked JavaScript policy",
+   "area": "harness",
+   "category": "layering",
+   "members": [
+    "L09-101"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Runtime lint policy lives in checked JavaScript while 10 TypeScript consumers compile against a 113-line hand-maintained ambient declaration of five wildcard modules. Contributors must synchronize semantic types across three surfaces.",
+   "directionSummary": "Generate declarations from the checked JavaScript/JSDoc contract or establish one declaration-emitting policy-data boundary consumed by both ESLint config and TypeScript scripts, keeping only a thin binding if resolution requires it.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-166",
+   "title": "Path-policy gives single-segment glob two incompatible private grammars",
+   "area": "harness",
+   "category": "hack",
+   "members": [
+    "L09-102"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Within one module family, the same single-segment-glob vocabulary denotes different languages: one matcher escapes brackets, another passes them into RegExp semantics, and loop parsing separately rejects glob-shaped remainders. Contributors must discover per-implementation punctuation rules.",
+   "directionSummary": "Define one documented segment-pattern codec and matcher, or give deliberately narrower dialects distinct types and names, sharing with lint-coverage machinery only where semantics match.",
+   "priorPackRefs": [
+    "CQ25-17"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-167",
+   "title": "Bulk codemod modes write one target at a time instead of building one plan",
+   "area": "harness",
+   "category": "dx",
+   "members": [
+    "L09-103"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The --all modes loop over independently writing single-target operations, repeatedly constructing projects and scanning files. Intermediate repository states are exposed and per-target recovery reasoning replaces one reviewable plan.",
+   "directionSummary": "Separate analysis from commit: one project, validate every target, merge plans with collision detection, and invoke the shared writer once after the complete bulk plan succeeds.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-168",
+   "title": "The debt-log union uses the absence of a discriminator as an entry kind",
+   "area": "harness",
+   "category": "idiom",
+   "members": [
+    "L09-104"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "Accepted-debt entries are the only persisted variant without a kind field and are recognized indirectly via acceptanceReason. Adding an entry kind requires coordinated schema, predicate, parser, classification, and rendering edits without exhaustive dispatch.",
+   "directionSummary": "Write new accepted-debt records with an explicit kind, isolate compatibility parsing for existing kind-less version-1 lines, and dispatch normalized records through exhaustive kind switches.",
+   "priorPackRefs": [],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-169",
+   "title": "Suppression allowlists cannot ratchet downward",
+   "area": "harness",
+   "category": "dead-code",
+   "members": [
+    "L01-101"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "Both suppression registers check only forward membership and never fail on allowlist rows whose suppressions disappeared. The @ts-nocheck allowlist is already fully stale (0 of 2 rows live), leaving standing permission to reintroduce file-wide suppression.",
+   "directionSummary": "During full scans, track which allowlist rows match live directives and fail on unused rows, preserving the existing scan and glob formats and limiting stale-row validation to full-scan scope.",
+   "priorPackRefs": [
+    "CQ25-106"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  },
+  {
+   "id": "D-170",
+   "title": "The drift-ai executable exposes an incoherent 23-module pseudo-API",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-101"
+   ],
+   "severityHint": "medium",
+   "sizeHint": "M",
+   "leafability": "single-leaf",
+   "problemSummary": "The drift-ai executable selectively re-exports 23 internal module paths as an ad hoc programmatic API with no inclusion rule, zero production importers, and only test consumers. Maintainers must preserve a second manual boundary.",
+   "directionSummary": "Keep the executable as a narrow delegation shell and, if a programmatic surface is required, define it explicitly in a side-effect-free drift-ai API module with intentional exports and compatibility guarantees.",
+   "priorPackRefs": [
+    "CQ25-155"
+   ],
+   "batch1Overlap": {
+    "batch1Id": "C-038",
+    "relation": "extends",
+    "note": "C-038 is the identical problem shape in the sibling analyzer entrypoint (code-intel.ts maintains an unused pseudo-library facade). L02-101 extends the same problem to drift-ai.ts; the fixes are per-file but the direction and acceptance criteria are the same and could share one plan."
+   },
+   "lightVerify": false
+  },
+  {
+   "id": "D-171",
+   "title": "Logs-audit leaves its ingestion core in the flat executable",
+   "area": "harness",
+   "category": "organization",
+   "members": [
+    "L02-102"
+   ],
+   "severityHint": "low",
+   "sizeHint": "S",
+   "leafability": "single-leaf",
+   "problemSummary": "The logs-audit analyzer is split at an arbitrary boundary: checks, formatting, and types live under logs-audit/ while option parsing, JSONL ingestion, report merging, and run orchestration remain in the side-effect-bearing flat executable.",
+   "directionSummary": "Move argument handling, JSONL ingestion, report merging, and run orchestration into focused logs-audit modules, leaving the flat file as a small executable delegate with only genuinely consumed re-exports.",
+   "priorPackRefs": [
+    "CQ25-119"
+   ],
+   "batch1Overlap": null,
+   "lightVerify": false
+  }
+ ]
+}

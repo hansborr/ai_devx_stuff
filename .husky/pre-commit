@@ -75,6 +75,8 @@ fi
 # shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/lint-dist-preflight.sh"
 # shellcheck source=/dev/null
+. "$REPO_ROOT/scripts/verify/memory-wait-timeout.sh"
+# shellcheck source=/dev/null
 . "$REPO_ROOT/scripts/lib/verify-engine.sh"
 
 FAST_COMMIT_RECORD_PENDING=0
@@ -277,6 +279,10 @@ musi_fast_commit_marker_observe "$REPO_ROOT" || true
 # untracked files before marker reuse or source-skip decisions.
 musi_changed_gate_fail_if_unstaged "$REPO_ROOT" "pre-commit" || exit 1
 
+# Reject hidden binary bytes in the exact source blobs this commit would record
+# before source-skip or marker shortcuts can admit them.
+musi_staged_source_blobs_reject_nul || exit $?
+
 # Include D here so pure staged deletions still run typecheck/test gates. The
 # advisory freshness/doc filters above keep their narrower behavior.
 staged_source_rc=0
@@ -296,17 +302,34 @@ if [ "$staged_source_rc" -ne 0 ]; then
 fi
 MUSI_PRECOMMIT_ADMISSION_REACHABLE=1
 
+MUSI_PRECOMMIT_REGISTRATION_TIMEOUT="${MUSI_PRECOMMIT_REGISTRATION_TIMEOUT:-$MUSI_GATE_PRECOMMIT_REGISTRATION_TIMEOUT_DEFAULT}"
+case "$MUSI_PRECOMMIT_REGISTRATION_TIMEOUT" in
+  '' | *[!0-9]* | 0*)
+    printf 'pre-commit: invalid MUSI_PRECOMMIT_REGISTRATION_TIMEOUT=%s; expected positive whole seconds without a suffix or leading zero (for example, 30)\n' \
+      "$MUSI_PRECOMMIT_REGISTRATION_TIMEOUT" >&2
+    exit 2
+    ;;
+esac
+
 # The cross-worktree commit queue remains held while slots run. Memory
 # deferral therefore has its own short, hard deadline: fail with a retryable
 # diagnostic instead of blocking every sibling worktree behind this commit.
 MUSI_VERIFY_MEMORY_WAIT_TIMEOUT="${MUSI_VERIFY_MEMORY_WAIT_TIMEOUT:-30}"
-case "$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT" in
-  '' | *[!0-9]*) ;;
-  *)
-    [ "$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT" -le 30 ] \
-      || MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=30
-    ;;
-esac
+memory_wait_timeout_input="$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT"
+memory_wait_timeout_rc=0
+MUSI_VERIFY_MEMORY_WAIT_TIMEOUT="$(
+  musi_memory_wait_timeout_parse "$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT" pre-commit
+)" || memory_wait_timeout_rc=$?
+[ "$memory_wait_timeout_rc" -eq 0 ] || exit "$memory_wait_timeout_rc"
+# shellcheck disable=SC2071 # Equal-length decimal strings compare lexically before any integer parse.
+if [ "${#MUSI_VERIFY_MEMORY_WAIT_TIMEOUT}" -gt 2 ] \
+   || { [ "${#MUSI_VERIFY_MEMORY_WAIT_TIMEOUT}" -eq 2 ] \
+        && [[ "$MUSI_VERIFY_MEMORY_WAIT_TIMEOUT" > 30 ]]; }; then
+  printf 'pre-commit: MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=%s exceeds the 30-second pre-commit memory-wait cap; using 30\n' \
+    "$memory_wait_timeout_input" >&2
+  MUSI_VERIFY_MEMORY_WAIT_TIMEOUT=30
+fi
+unset memory_wait_timeout_input memory_wait_timeout_rc
 export MUSI_VERIFY_MEMORY_WAIT_TIMEOUT
 
 LOCK="${MUSI_VERIFY_LOCK:-$(musi_standard_verify_lock "$REPO_ROOT")}"
@@ -339,7 +362,8 @@ musi_precommit_final_fingerprint() {
 }
 
 musi_precommit_registration_admission() {
-  timeout --foreground --signal=TERM --kill-after=1s 5s \
+  timeout --foreground --signal=TERM --kill-after=1s \
+    "${MUSI_PRECOMMIT_REGISTRATION_TIMEOUT}s" \
     bun run harness:registration:check
 }
 

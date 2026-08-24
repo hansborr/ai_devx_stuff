@@ -1,6 +1,11 @@
 # 54. Character sheet campaign context must come only from the character's authoritative link
 
-Status: Decided — ready to schedule; not promoted (owner ruling 2026-07-27)
+Status: **Done 2026-07-28** on branch `feat/cq-client-followups`, merge
+`c5985d1da`; see [Landed](./00-index.md#landed). The route search param is
+deleted rather than reconciled against a second id, and the sheet context
+separates authoritative campaign identity from resolved member capability at the
+type level. Cross-client association freshness is deliberately **not** closed
+here — that is leaf 63 plus Branch B.
 Theme: Single authoritative campaign identity and route simplification · Area: client · Severity: low · Size: S
 
 Source: client-cluster pre-merge panel and adjudication, 2026-07-27 (surfaced
@@ -165,5 +170,25 @@ tests, roll/stat mutation tests touched by the id change, and
   the app supports; test it deliberately.
 - Low severity because reachability requires a hand-edited URL and, for a
   non-owner, a public character, and because the server refuses the request.
-- No sequencing dependency on the remaining client-cluster slices. This is a
-  follow-on leaf from review, not part of the cluster's eight-slice remainder.
+- This follow-on leaf had no sequencing dependency on the client cluster's
+  then-remaining eight slices and was not part of that remainder.
+
+## Implementation
+
+Branch A on `feat/cq-client-followups` implements this decision and its
+round-three type-enforcement follow-up. The route search identity is gone;
+`SheetCampaignContext` now separates the character's authoritative campaign
+identity from resolved member capability; member-only consumers require
+`SheetCampaignMember`; and the rendered nonmember-state matrix plus both roll
+hooks are pinned in focused tests. The branch is complete but not merged.
+
+Cross-client assignment/deletion freshness remains deliberately separate in
+Branch B's user-targeted `character:associationChanged` leaf, as recorded in
+`CLIENT-CLUSTER-PLAN.md`.
+
+`00-index.md`'s row 54 carries the implemented-but-unmerged status. It was held
+at main's wording while the branch was unmerged, because editing it collided
+with main's adjacent leaf-55 landing hunk; merging `main` into the branch
+dissolved that constraint, so the row is reconciled here rather than deferred.
+The `## Landed` entry still belongs to the post-merge commit, because it records
+the merge sha.

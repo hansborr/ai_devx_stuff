@@ -6,5 +6,5 @@
     "types": ["node"],
     "emitDeclarationOnly": true
   },
-  "include": ["src", "test", "src/**/*.json"]
+  "include": ["bin", "src", "test", "src/**/*.json"]
 }

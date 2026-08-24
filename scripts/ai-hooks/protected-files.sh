@@ -110,9 +110,13 @@ ai_protected_file_deny_entry() {
       key="generated-lint-guidance"
       deny="Protected generated file: regenerate docs/generated/local-lint-rules.md with 'bun run docs:lint-guidance' instead of editing it by hand."
       ;;
-    */docs/generated/README.md|*/docs/generated/lint-coverage-map.md|*/docs/generated/observed_flaky_tests.md)
-      # docs/generated/README.md is the ownership ledger; these three files
-      # are intentionally hand-maintained rather than generated artifacts.
+    */docs/generated/lint-coverage-map.md)
+      key="generated-lint-coverage-map"
+      deny="Protected generated file: lint-coverage policy lives in the typed manifest (scripts/lint-coverage-map-manifest.ts and its scripts/lint-coverage-map-manifest-<area>.ts entry modules). Edit the manifest, then regenerate docs/generated/lint-coverage-map.md with 'bun run docs:lint-coverage-map:generate' instead of editing it by hand."
+      ;;
+    */docs/generated/README.md|*/docs/generated/observed_flaky_tests.md)
+      # docs/generated/README.md is the ownership ledger; these two files are
+      # intentionally hand-maintained rather than generated artifacts.
       return 1
       ;;
     */docs/generated/*)
@@ -127,9 +131,17 @@ ai_protected_file_deny_entry() {
       key="generated-hook-timeouts"
       deny="Protected generated file: regenerate scripts/ai-hooks/hook-timeouts.generated.sh with 'bun run harness:hook-timeouts' instead of editing it by hand."
       ;;
+    */scripts/harness/pre-push-scope-trigger.generated.sh)
+      key="generated-pre-push-scope-trigger"
+      deny="Protected generated file: regenerate scripts/harness/pre-push-scope-trigger.generated.sh with 'bun run harness:pre-push-trigger' instead of editing it by hand."
+      ;;
     */scripts/ai-hooks/classified-bun-scripts.generated.sh)
       key="generated-classified-bun-scripts"
       deny="Protected generated file: regenerate scripts/ai-hooks/classified-bun-scripts.generated.sh with 'bun run verify:steps' instead of editing it by hand."
+      ;;
+    */scripts/ai-hooks/policy-rules.generated.sh)
+      key="generated-policy-rules"
+      deny="Protected generated file: command policy rows live in harness.controls.json (root commandPolicy array). Edit the rows, then regenerate scripts/ai-hooks/policy-rules.generated.sh with 'bun run harness:command-policy' instead of editing it by hand."
       ;;
     */scripts/tests/harness-check-fixture-manifest.generated.txt)
       key="generated-harness-check-fixture-manifest"

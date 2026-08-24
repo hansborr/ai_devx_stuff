@@ -1,11 +1,11 @@
 import { isObjectLike } from "../lib/records.js";
+import { isNonEmptyString } from "./control-field-validation.js";
 import {
   checkAgentOverlayControlParity,
   checkDoctorParity,
   checkRatchetParity,
   checkRuleParity,
   extractBunRunScript,
-  isNonEmptyString,
   type ManifestCheckContext,
   pushFailure,
   type RawControl,
@@ -20,11 +20,29 @@ import {
   type HarnessParityConfig,
   parseHarnessParityConfig,
 } from "./harness-gate-parity.js";
+import {
+  HARNESS_LINT_RULE_CONTROLS_FILENAME,
+  HARNESS_MANIFEST_FILENAME,
+} from "./harness-manifest.js";
 import { safeParseHarnessManifest } from "./harness-manifest-schema.js";
 import type { LocalRuleConfig } from "./local-rule-config.js";
 
 const CONTROL_PREFIX_PATTERN =
   /^(sensor|verify|codemod|drift|logs|doctor|module|docs|db|worktree|harness|lint):/u;
+
+/**
+ * Where to repair a control the schema rejected.
+ *
+ * These diagnostics run against the ASSEMBLED manifest, so the entry they name
+ * can sit in either owner file: harness.controls.json owns every kind except
+ * lint-rule, and the generated include owns those. Naming only the root file
+ * sends a reader chasing a malformed lint-rule control into a file that no
+ * longer contains one — the same misdirection checkRuleParity and doctor.sh
+ * were corrected for, so the sibling messages here read the same way.
+ */
+const MANIFEST_REPAIR_HINT =
+  `repair ${HARNESS_MANIFEST_FILENAME}, or run bun run harness:lint-rule-controls if the ` +
+  `entry is a lint-rule control in ${HARNESS_LINT_RULE_CONTROLS_FILENAME}`;
 
 export interface ManifestRegistrationInputs {
   readonly repoRoot: string;
@@ -62,7 +80,7 @@ function manifestControls(
       pushFailure(
         failures,
         "(manifest schema)",
-        `harness.controls.json: control entry at index ${String(index)} is not an object; repair harness.controls.json`,
+        `control entry at index ${String(index)} of the assembled manifest is not an object; ${MANIFEST_REPAIR_HINT}`,
       );
     }
   }
@@ -96,18 +114,32 @@ interface LintRuleInvocationCheck {
   readonly enabledRuleNames: ReadonlySet<string>;
 }
 
+/**
+ * Activation-mode policy, checked in BOTH directions.
+ *
+ * The normal-lint direction catches a control promising coverage no gate
+ * delivers. The ratchet direction catches the mirror defect the one-directional
+ * form let through for as long as it existed: a rule promoted into normal lint
+ * whose control still advertises `bun run lint:ratchet`, so the manifest — and
+ * the agent-facing control doc generated from it — names a command that is not
+ * how the rule is actually enforced. Generation now derives the invocation, so
+ * this is the guard on a hand edit to the generated include.
+ */
 function validateLintRuleInvocation(
   options: LintRuleInvocationCheck,
   context: ManifestCheckContext,
 ): void {
   if (!isNonEmptyString(options.raw.invocation)) return;
   const scriptName = extractBunRunScript(options.raw.invocation);
-  if (scriptName !== "lint" && scriptName !== "lint:changed") return;
-  if (options.enabledRuleNames.has(options.ruleName)) return;
+  const claimsNormalLint = scriptName === "lint" || scriptName === "lint:changed";
+  const enabled = options.enabledRuleNames.has(options.ruleName);
+  if (claimsNormalLint === enabled) return;
   pushFailure(
     context.failures,
     options.id,
-    `invocation ${options.raw.invocation} claims normal ESLint coverage, but ${options.ruleName} is not enabled in eslint.config.js; use bun run lint:ratchet or enable the rule in flat config`,
+    claimsNormalLint
+      ? `invocation ${options.raw.invocation} claims normal ESLint coverage, but ${options.ruleName} is not enabled in eslint.config.js; use bun run lint:ratchet or enable the rule in flat config`
+      : `invocation ${options.raw.invocation} claims ${options.ruleName} is not under normal ESLint coverage, but it is enabled in eslint.config.js; use bun run lint, or run \`bun run harness:lint-rule-controls\` to regenerate the lint-rule controls`,
   );
 }
 
@@ -159,7 +191,7 @@ export function collectManifestRegistrationFailures(
 ): ManifestRegistrationState {
   const schemaResult = safeParseHarnessManifest(inputs.rawManifest);
   for (const failure of schemaResult.failures ?? []) {
-    pushFailure(failures, "(manifest schema)", `${failure}; repair harness.controls.json`);
+    pushFailure(failures, "(manifest schema)", `${failure}; ${MANIFEST_REPAIR_HINT}`);
   }
   const controls = manifestControls(inputs.rawManifest, failures);
   const context: ManifestCheckContext = {

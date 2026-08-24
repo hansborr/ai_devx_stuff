@@ -19,10 +19,6 @@ const repoRoot = path.resolve(import.meta.dirname, "..");
 describe("BASELINE_MERGE_CLI_TABLE", () => {
   it("derives the exact pre-collapse usage and failure strings for every entry", () => {
     const expected: Record<BaselineMergeCliId, { cliPath: string; label: string }> = {
-      "lint-ratchet": {
-        cliPath: "scripts/lint-ratchet/baseline-merge-cli.ts",
-        label: "lint-ratchet",
-      },
       "max-lines-exceptions": {
         cliPath: "scripts/max-lines-exceptions-merge-cli.ts",
         label: "max-lines exceptions",

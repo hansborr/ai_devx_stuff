@@ -1,6 +1,6 @@
 import { isRecord } from "../lib/records.js";
 
-const HOOK_HARNESSES = ["claude", "codex", "copilot"] as const;
+export const HOOK_HARNESSES = ["claude", "codex", "copilot"] as const;
 const HOOK_OUTPUT_CAPABILITIES = ["additionalContext", "decisionBlock", "systemMessage"] as const;
 export const HOOK_EVENTS = [
   "SessionStart",
@@ -121,6 +121,54 @@ const HOOK_OUTPUT_SUPPORT = {
   },
 } as const satisfies Record<HookHarness, Record<HookOutputCapability, readonly HookEvent[]>>;
 
+/**
+ * Provenance split for `hookWiring`, stage 1 (assert-canonical validate mode):
+ *
+ * - **The manifest is the policy authority** — `event`, `order`, `body`,
+ *   `timeout`, `statusMessage`, `outputs`, and `notes` are authored decisions
+ *   nothing derives.
+ * - **The projection tables below are the adapter-syntax authority.** Once a
+ *   binding declares a neutral `surface`, its authored `matcher` and `command`
+ *   are canonical-checked copies — treat them like committed generated output,
+ *   not like free text.
+ * - **`.claude/`, `.codex/`, `.copilot/`, and `.github/` hook files are
+ *   generated** by `generate-hook-wiring.ts` and are never authoritative.
+ *
+ * Flipping this from assert to emit (deriving the strings instead of checking
+ * them) is a mechanical follow-up on these same tables; it is deliberately not
+ * done here, so the manifest stays readable standalone.
+ */
+const HOOK_SURFACES = ["bash", "edit"] as const;
+
+type HookSurface = (typeof HOOK_SURFACES)[number];
+
+// porting-knob: canonical-adapter-matcher -- each harness's tool-surface matcher
+// syntax. A missing (harness, surface) row fails closed: codex Bash matchers
+// exist only on the Bash aggregator controls, which route a shared body rather
+// than projecting a per-hook surface, so they declare no `surface` at all.
+const CANONICAL_MATCHER = {
+  claude: { bash: "Bash", edit: "Edit|Write" },
+  codex: { edit: "apply_patch" },
+  copilot: { bash: "bash|powershell", edit: "create|edit" },
+} as const satisfies Record<HookHarness, Partial<Record<HookSurface, string>>>;
+
+// porting-knob: canonical-adapter-shim-dir -- the generated adapter directory per
+// harness. Must stay in step with HOOK_SHIM_DIRS in hook-shims.ts, which owns
+// the generator's write targets; `bun run harness:wiring:check` fails end to end
+// if the two ever disagree. Mirrored rather than imported so this module keeps
+// its dependency-free fixture-copy closure.
+const CANONICAL_SHIM_DIR = {
+  claude: ".claude/hooks",
+  codex: ".codex/hooks",
+  copilot: ".copilot/hooks",
+} as const satisfies Record<HookHarness, string>;
+
+// The complete authored field inventories. Unknown keys are registration typos,
+// not extension points: hookWiring was the last facet whose consumer silently
+// discarded them, so a misspelling used to vanish from the resolved model.
+const HOOK_WIRING_FIELDS = ["body", "event", "harnesses", "notes", "order", "outputs", "surface"];
+const HOOK_HARNESS_COMMAND_FIELDS = ["command", "matcher", "statusMessage", "timeout"];
+
 export interface HookHarnessCommand {
   readonly matcher?: string;
   readonly command: string;
@@ -132,9 +180,76 @@ export interface HookWiring {
   readonly event: HookEvent;
   readonly body: string;
   readonly order: number;
+  /**
+   * Neutral tool surface this hook policies. Declaring it opts the control's
+   * bindings into canonical matcher/command projection (see the provenance
+   * split above), and is accepted only on the tool-use events whose matchers
+   * are adapter syntax (`SURFACE_DECLARABLE_EVENTS`). Aggregator and lifecycle
+   * controls omit it and explain the asymmetry in `notes`.
+   */
+  readonly surface?: HookSurface;
   readonly outputs?: readonly HookOutputCapability[];
   readonly harnesses: Readonly<Partial<Record<HookHarness, HookHarnessCommand>>>;
   readonly notes?: Readonly<Partial<Record<HookHarness, string>>>;
+}
+
+/**
+ * The one command template per harness, projected from the shared hook body.
+ * Claude resolves through `$CLAUDE_PROJECT_DIR`; every other adapter uses the
+ * toplevel-quoted form.
+ */
+export function canonicalHookCommand(harness: HookHarness, body: string): string {
+  const shim = `${CANONICAL_SHIM_DIR[harness]}/${body.slice(body.lastIndexOf("/") + 1)}`;
+  return harness === "claude"
+    ? `bash $CLAUDE_PROJECT_DIR/${shim}`
+    : `bash "$(git rev-parse --show-toplevel)/${shim}"`;
+}
+
+function canonicalMatcher(harness: HookHarness, surface: HookSurface): string | undefined {
+  const row: Partial<Record<HookSurface, string>> = CANONICAL_MATCHER[harness];
+  return row[surface];
+}
+
+function isHookSurface(value: unknown): value is HookSurface {
+  return typeof value === "string" && HOOK_SURFACES.some((surface) => surface === value);
+}
+
+/**
+ * Events whose matcher is pure adapter syntax, so a binding may declare the
+ * surface that produced it. Every other event's matcher is authored policy —
+ * the claude-only lifecycle hook's `startup|resume|compact` picks *which
+ * session sources fire*, which no tool-surface table can project, so declaring
+ * a surface there would let adapter syntax silently displace that choice.
+ */
+const SURFACE_DECLARABLE_EVENTS = [
+  "PreToolUse",
+  "PostToolUse",
+  "PostToolUseFailure",
+] as const satisfies readonly HookEvent[];
+
+function isSurfaceDeclarableEvent(event: HookEvent): boolean {
+  return SURFACE_DECLARABLE_EVENTS.some((declarable) => declarable === event);
+}
+
+/**
+ * The subset the opt-out tripwire polices. `PostToolUseFailure` matchers are
+ * adapter syntax too and a declaration is accepted there, but it is
+ * deliberately never demanded — the tripwire stays scoped to the two events
+ * whose bindings the projection tables cover end to end.
+ */
+function isSurfaceProjectedEvent(event: HookEvent): boolean {
+  return event === "PreToolUse" || event === "PostToolUse";
+}
+
+function assertAllowedFields(
+  raw: Record<string, unknown>,
+  allowed: readonly string[],
+  context: string,
+): void {
+  for (const key of Object.keys(raw)) {
+    if (allowed.some((field) => field === key)) continue;
+    throw new Error(`${context}.${key} is not a supported field; supported: ${allowed.join(", ")}`);
+  }
 }
 
 export function isNonEmptyString(value: unknown): value is string {
@@ -230,6 +345,109 @@ function assertMatcherPolicy(event: HookEvent, matcher: string | undefined, cont
   }
 }
 
+interface SurfacePolicyInput {
+  readonly controlId: string;
+  readonly event: HookEvent;
+  readonly body: string;
+  readonly surface: HookSurface | undefined;
+  readonly harnesses: Readonly<Partial<Record<HookHarness, HookHarnessCommand>>>;
+  readonly notes: HookWiring["notes"];
+}
+
+/**
+ * With a `surface` declared, the binding's matcher and command are canonical
+ * copies rather than authored text: both must byte-equal the projection. The
+ * diagnostic prints the expected string so the validator teaches the template.
+ */
+function assertCanonicalProjection(
+  harness: HookHarness,
+  surface: HookSurface,
+  command: HookHarnessCommand,
+  wiring: SurfacePolicyInput,
+): void {
+  const context = `${wiring.controlId}.hookWiring.harnesses.${harness}`;
+  const body = wiring.body;
+  const matcher = canonicalMatcher(harness, surface);
+  if (matcher === undefined) {
+    throw new Error(
+      `${context}: no canonical ${surface} adapter syntax exists for ${harness}; drop hookWiring.surface and record the asymmetry in hookWiring.notes`,
+    );
+  }
+  if (command.matcher !== matcher) {
+    throw new Error(
+      `${context}.matcher must be "${matcher}" for the declared ${surface} surface; got "${command.matcher ?? "(none)"}"`,
+    );
+  }
+  const expected = canonicalHookCommand(harness, body);
+  if (command.command !== expected) {
+    throw new Error(
+      `${context}.command must be the canonical projection of hookWiring.body: ${expected}; got: ${command.command}`,
+    );
+  }
+}
+
+/**
+ * Opt-out tripwire. A tool-use binding that already carries canonical adapter
+ * syntax must either declare the `surface` that produced it or carry
+ * `notes.<that harness>` explaining why it is not a canonical per-hook binding
+ * — which is how the Bash aggregators (shared body, fixed aggregator shim name
+ * rather than the projected one) stay expressible.
+ *
+ * The note is keyed to the *wired* harness that diverges, not to the control.
+ * `assertHarnessCoverage` already demands a note for every *omitted* harness,
+ * so accepting any `notes` object at all would make this branch unreachable
+ * for single-harness controls: a mistyped shim basename would then ship with
+ * neither string checked. Wired-harness notes render in the generated
+ * harness-controls doc alongside the command they explain.
+ */
+function assertSurfaceDeclared(wiring: SurfacePolicyInput): void {
+  if (!isSurfaceProjectedEvent(wiring.event)) return;
+  const { controlId, harnesses, notes } = wiring;
+  for (const harness of HOOK_HARNESSES) {
+    const command = harnesses[harness];
+    if (command === undefined) continue;
+    // Iterating the harness's declared rows rather than every surface keeps an
+    // absent (harness, surface) pair out of the comparison entirely, so no
+    // `undefined === undefined` can ever read an unwired pair as canonical.
+    const canonicalRows: Readonly<Record<string, string>> = CANONICAL_MATCHER[harness];
+    for (const [surface, canonical] of Object.entries(canonicalRows)) {
+      if (command.matcher !== canonical) continue;
+      if (command.command === canonicalHookCommand(harness, wiring.body)) {
+        throw new Error(
+          `${controlId}.hookWiring must declare surface: "${surface}": harnesses.${harness} already uses the canonical ${surface} matcher and command projection, so those strings are adapter syntax and must be checked against it`,
+        );
+      }
+      if (notes?.[harness] === undefined) {
+        throw new Error(
+          `${controlId}.hookWiring.harnesses.${harness} uses the canonical ${surface} matcher "${canonical}" but not the canonical command projection (expected: ${canonicalHookCommand(harness, wiring.body)}); declare hookWiring.surface, or explain this binding in hookWiring.notes.${harness}`,
+        );
+      }
+    }
+  }
+}
+
+/**
+ * The whole surface contract: canonical projection where `surface` is declared,
+ * the opt-out tripwire where it is not.
+ */
+function assertSurfacePolicy(wiring: SurfacePolicyInput): void {
+  const { surface } = wiring;
+  if (surface === undefined) {
+    assertSurfaceDeclared(wiring);
+    return;
+  }
+  if (!isSurfaceDeclarableEvent(wiring.event)) {
+    throw new Error(
+      `${wiring.controlId}.hookWiring.surface is not supported for ${wiring.event}: only ${SURFACE_DECLARABLE_EVENTS.join(", ")} matchers are adapter syntax, so a ${wiring.event} matcher stays authored policy`,
+    );
+  }
+  for (const harness of HOOK_HARNESSES) {
+    const command = wiring.harnesses[harness];
+    if (command === undefined) continue;
+    assertCanonicalProjection(harness, surface, command, wiring);
+  }
+}
+
 function parseHarnessCommand(
   harness: HookHarness,
   raw: unknown,
@@ -237,6 +455,7 @@ function parseHarnessCommand(
   context: string,
 ): HookHarnessCommand {
   if (!isRecord(raw)) throw new Error(`${context} must be an object`);
+  assertAllowedFields(raw, HOOK_HARNESS_COMMAND_FIELDS, context);
   assertHarnessSupportsEvent(harness, event, context);
   const matcher = optionalString(raw, "matcher", context);
   const statusMessage = optionalString(raw, "statusMessage", context);
@@ -296,6 +515,14 @@ function parseOutputs(rawOutputs: unknown, controlId: string): HookWiring["outpu
   return outputs;
 }
 
+function parseSurface(rawSurface: unknown, controlId: string): HookSurface | undefined {
+  if (rawSurface === undefined) return undefined;
+  if (!isHookSurface(rawSurface)) {
+    throw new Error(`${controlId}.hookWiring.surface must be one of: ${HOOK_SURFACES.join(", ")}`);
+  }
+  return rawSurface;
+}
+
 function assertHarnessCoverage(
   controlId: string,
   harnesses: Readonly<Partial<Record<HookHarness, HookHarnessCommand>>>,
@@ -329,17 +556,13 @@ function assertOutputSupport(
   }
 }
 
-export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWiring {
-  if (!isRecord(rawWiring)) throw new Error(`${controlId}.hookWiring must be an object`);
-  if (!isHookEvent(rawWiring.event)) {
-    throw new Error(`${controlId}.hookWiring.event must be one of: ${HOOK_EVENTS.join(", ")}`);
-  }
-  if (!isRecord(rawWiring.harnesses)) {
-    throw new Error(`${controlId}.hookWiring.harnesses must be an object`);
-  }
-  const body = requiredString(rawWiring, "body", `${controlId}.hookWiring`);
+function parseHarnesses(
+  controlId: string,
+  rawHarnesses: Record<string, unknown>,
+  event: HookEvent,
+): Partial<Record<HookHarness, HookHarnessCommand>> {
   const harnesses: Partial<Record<HookHarness, HookHarnessCommand>> = {};
-  for (const [key, value] of Object.entries(rawWiring.harnesses)) {
+  for (const [key, value] of Object.entries(rawHarnesses)) {
     if (key === "cursor") {
       throw new Error(
         `${controlId}.hookWiring.harnesses.cursor: Cursor has no repository PreToolUse policy surface; agent-cli work cursor uses --force with unrestricted shell. Revisit this exclusion before adding Cursor hook wiring.`,
@@ -349,64 +572,47 @@ export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWi
     harnesses[key] = parseHarnessCommand(
       key,
       value,
-      rawWiring.event,
+      event,
       `${controlId}.hookWiring.harnesses.${key}`,
     );
   }
   if (Object.keys(harnesses).length === 0) {
     throw new Error(`${controlId}.hookWiring.harnesses cannot be empty`);
   }
+  return harnesses;
+}
+
+export function resolveHookWiring(controlId: string, rawWiring: unknown): HookWiring {
+  if (!isRecord(rawWiring)) throw new Error(`${controlId}.hookWiring must be an object`);
+  assertAllowedFields(rawWiring, HOOK_WIRING_FIELDS, `${controlId}.hookWiring`);
+  if (!isHookEvent(rawWiring.event)) {
+    throw new Error(`${controlId}.hookWiring.event must be one of: ${HOOK_EVENTS.join(", ")}`);
+  }
+  if (!isRecord(rawWiring.harnesses)) {
+    throw new Error(`${controlId}.hookWiring.harnesses must be an object`);
+  }
+  const body = requiredString(rawWiring, "body", `${controlId}.hookWiring`);
+  const harnesses = parseHarnesses(controlId, rawWiring.harnesses, rawWiring.event);
   const notes = parseNotes(rawWiring.notes, controlId);
   const outputs = parseOutputs(rawWiring.outputs, controlId);
+  const surface = parseSurface(rawWiring.surface, controlId);
   assertHarnessCoverage(controlId, harnesses, notes);
   assertOutputSupport(controlId, rawWiring.event, harnesses, outputs);
+  assertSurfacePolicy({
+    controlId,
+    event: rawWiring.event,
+    body,
+    surface,
+    harnesses,
+    notes,
+  });
   return {
     event: rawWiring.event,
     body,
     order: positiveInteger(rawWiring, "order", `${controlId}.hookWiring`),
+    ...(surface !== undefined ? { surface } : {}),
     ...(outputs !== undefined ? { outputs } : {}),
     harnesses,
     ...(notes !== undefined ? { notes } : {}),
   };
-}
-
-function formatOutputs(outputs: readonly HookOutputCapability[] | undefined): string[] {
-  return outputs === undefined
-    ? []
-    : [`- outputs: ${outputs.map((output) => `\`${output}\``).join(", ")}`];
-}
-
-function formatCommandDetails(command: HookHarnessCommand): string {
-  const details = [
-    command.matcher !== undefined ? `matcher: \`${command.matcher}\`` : undefined,
-    command.timeout !== undefined ? `timeout: \`${String(command.timeout)}s\`` : undefined,
-    command.statusMessage !== undefined ? `status: \`${command.statusMessage}\`` : undefined,
-  ].filter((detail): detail is string => detail !== undefined);
-
-  return details.length === 0 ? "" : ` (${details.join("; ")})`;
-}
-
-function formatHarnessLine(wiring: HookWiring, harness: HookHarness): string | undefined {
-  const command = wiring.harnesses[harness];
-  if (command !== undefined) {
-    return `- \`${harness}\` — \`${command.command}\`${formatCommandDetails(command)}`;
-  }
-
-  const note = wiring.notes?.[harness];
-  return note === undefined ? undefined : `- \`${harness}\` — deliberately not wired: ${note}`;
-}
-
-export function formatHookWiring(wiring: HookWiring | undefined): string[] {
-  if (wiring === undefined) return [];
-  const lines = ["**Hook wiring:**", ""];
-  lines.push(
-    `- event: \`${wiring.event}\`; canonical order: \`${String(wiring.order)}\`; shared body: \`${wiring.body}\``,
-  );
-  lines.push(...formatOutputs(wiring.outputs));
-  for (const harness of HOOK_HARNESSES) {
-    const line = formatHarnessLine(wiring, harness);
-    if (line !== undefined) lines.push(line);
-  }
-  lines.push("");
-  return lines;
 }

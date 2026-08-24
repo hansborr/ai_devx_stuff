@@ -1,0 +1,897 @@
+{
+  "contractVersion": 1,
+  "step": "2b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewShaConfirmed": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "consults": [
+    {
+      "chunk": "gate-01",
+      "session": "see run ledger r56"
+    },
+    {
+      "chunk": "gate-02",
+      "session": "see run ledger r57"
+    },
+    {
+      "chunk": "gate-03",
+      "session": "see run ledger r58"
+    }
+  ],
+  "results": [
+    {
+      "file": "204-decompose-the-stateful-bash-verification-engine.md",
+      "promotionId": "B-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 8,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-124"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "prior-pack",
+          "severity": "P1",
+          "detail": "The leaf attributes CQ25-124 to HARNESS-CLUSTER-PLAN.md. The live dedup corpus maps CQ25-124 to CONSTRAINTS.md's prior-art section, whose lines 66-73 record the measured TypeScript-core precedent. HARNESS-CLUSTER-PLAN.md independently supports the substrate boundary but is not the mapped source of CQ25-124.",
+          "correction": {
+            "oldString": "`CQ25-124` in\n  [code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md](../code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md)",
+            "newString": "`CQ25-124` in\n  [code-quality-2026-07-25/CONSTRAINTS.md](../code-quality-2026-07-25/CONSTRAINTS.md)"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-124 records the measured Bash-facade/TypeScript-core precedent and does not cover internal move-only Bash decomposition.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited evidence matches the pin. The supplied commands reproduce 991 lines and 30 top-level functions; all named scripts and executable paths exist."
+    },
+    {
+      "file": "205-rename-auth-service-to-reflect-its.md",
+      "promotionId": "B-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "SERVER-COMMENTS-PLAN.md"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Proposed direction gives the exact count “both references” without a reproducible command. The count is correct at the pin: `rg -n 'auth-service\\.ts' packages/server/src/services/README.md` returns lines 57 and 198.",
+          "correction": {
+            "oldString": "Update both references in `packages/server/src/services/README.md` so the\nexamples and inventory describe `auth-primitives.ts` accurately rather than\npresenting it as request-level orchestration.",
+            "newString": "Update both references in `packages/server/src/services/README.md` (reproduced\nwith `rg -n 'auth-service\\.ts' packages/server/src/services/README.md`) so the\nexamples and inventory describe `auth-primitives.ts` accurately rather than\npresenting it as request-level orchestration."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack naming record covers this rename; SERVER-COMMENTS-PLAN.md only preserves timing-oracle and business-event documentation boundaries.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations are accurate at the pin. Leaf 004 resolves and confirms the README overlap; packet metadata, direction, and constraints are honored."
+    },
+    {
+      "file": "206-single-source-memory-wait-timeout-validation-across.md",
+      "promotionId": "B-003",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 5,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The cited memory-budget.sh range proves the shared function's digit-only validation and numeric comparison, but it does not prove the claimed direct-tool and serial entry paths. Those callers are tool-memory-admission.sh:33 and verify-engine.sh:758.",
+          "correction": {
+            "oldString": "- `scripts/verify/memory-budget.sh:436-461` — direct-tool and serial admission\n  repeat the digit-only validation and then feed the value to the same kind of\n  elapsed-time comparison.",
+            "newString": "- `scripts/lib/tool-memory-admission.sh:33` and\n  `scripts/lib/verify-engine.sh:758` — direct-tool and serial admission both\n  call `musi_memory_budget_wait_and_reserve`.\n- `scripts/verify/memory-budget.sh:436-461` — that function repeats the\n  digit-only validation and then feeds the value to the same kind of\n  elapsed-time comparison."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Problem gives the quantitative count “three validators” without a reproducible command.",
+          "correction": {
+            "oldString": "and future changes must\nkeep three validators synchronized manually.",
+            "newString": "and future changes must\nkeep the validators synchronized manually."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No named prior-pack record covers memory-wait timeout validation.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All other cited ranges match the pin. Leaf 110 resolves and explicitly separates memory-scheduler hygiene; metadata and settled direction match B-003."
+    },
+    {
+      "file": "207-encode-ghost-files-mode-dependencies-as.md",
+      "promotionId": "B-005",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-10"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-10 schedules the type-only/triage-set contract and knip cache relocation; it does not cover DetectorScope mode/file correspondence or ghost-files dependencies.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All six cited ranges match the pin, the prior-pack link resolves, and packet metadata, direction, and constraints are honored."
+    },
+    {
+      "file": "208-converge-drift-ai-command-result-and-sentinel-error.md",
+      "promotionId": "B-006",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet and leaf name no prior-pack record or residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Eight evidence bullets contain ten cited ranges; all match the pin. Both current-pack links resolve, and the direction preserves the boundaries owned by leaves 120 and 161."
+    },
+    {
+      "file": "209-remove-the-unused-repository-root-parameter-from.md",
+      "promotionId": "B-007",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named, and no live record covers coldspots-blame.ts's unused repoRoot field.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four citations match the pin; packet metadata and settled direction are coherent and exact."
+    },
+    {
+      "file": "210-load-metamagics-only-after-level-up-applicability-is.md",
+      "promotionId": "B-008",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-25"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The Problem falsely says every level-up query result is discarded. Applicable Sorcerer metamagic-choice levels use existingMetamagicIds at sorcerer.ts:48 and :56; only non-applicable level-ups discard it.",
+          "correction": {
+            "oldString": "Consequently, every level-up — including every non-Sorcerer level and every\nSorcerer level without a metamagic choice — performs a transaction-scoped query\nwhose result is immediately discarded.",
+            "newString": "Consequently, every non-applicable level-up — every non-Sorcerer level and\nevery Sorcerer level that is not a metamagic-choice level — performs a\ntransaction-scoped query whose result is immediately discarded."
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The first evidence range ends at level-up.ts:42 and does not include the claimed later validation, which appears at lines 64-65.",
+          "correction": {
+            "oldString": "packages/server/src/services/level-up/level-up.ts:33-42",
+            "newString": "packages/server/src/services/level-up/level-up.ts:33-65"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-25 schedules newClassLevel ownership, HpMethod typing, and test relocation only; conditional query ownership remains uncovered.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Both links resolve. The remaining evidence, packet metadata, settled resolver direction, and hard constraints match B-008."
+    },
+    {
+      "file": "211-reuse-validated-class-references-during.md",
+      "promotionId": "B-009",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-185"
+        ]
+      },
+      "defects": [],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-185 preserves non-SrdClassId caster fallback semantics but does not cover duplicate class/subclass reads.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations match the pin. Leaf 004 and SHARED-CLUSTER-PLAN.md resolve, and the stated sequencing and fallback boundaries match B-009."
+    },
+    {
+      "file": "212-give-initiative-orchestration-layers.md",
+      "promotionId": "B-010",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-58"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The direction claims existing behavioral assertions around injected randomness, but the pinned focused test imports the middle facade, which supplies cryptoRng internally. It instead asserts random-roll bounds, empty-encounter rejection, sorting, and persistence.",
+          "correction": {
+            "oldString": "behavioral assertions around empty encounters, injected randomness, sorting,",
+            "newString": "behavioral assertions around empty encounters, random-roll bounds, sorting,"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The direction gives the repository count “two combat service MODULE documents” without a reproducible command. The applicable files are combat-actions/MODULE.md and encounter-combat/MODULE.md.",
+          "correction": {
+            "oldString": "Update the two combat service MODULE documents and the focused initiative test\nimports and descriptions with the same vocabulary.",
+            "newString": "Update `packages/server/src/services/combat-actions/MODULE.md`,\n`packages/server/src/services/encounter-combat/MODULE.md`, and the focused\ninitiative test imports and descriptions with the same vocabulary."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CQ25-58/T3 covers ordered participant reads and activation sorting, not the three service-layer names or import alias.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four citation ranges match the pin, the prior-pack link resolves, and packet metadata, direction, and constraints are otherwise honored."
+    },
+    {
+      "file": "182-logging-producers-their-auditor-separately.md",
+      "promotionId": "B-011",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 18,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "HARNESS-CLUSTER-PLAN.md (H19)",
+          "SERVER-COMMENTS-PLAN.md (S14)"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf gives unreproducible numeric evidence counts: producer redaction values=2, producer query parameters=6, producer content paths=8, audit redaction sentinels=4, audit content paths=8, audit query parameters=7, and outcome sets=3. Direct re-derivation confirms those values, but the leaf supplies no command.",
+          "correction": {
+            "oldString": "- `packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts:1-30`\n  pins the closed authz event and reason vocabulary while also using a valid\n  `deny` outcome.",
+            "newString": "- `packages/server/src/utils/__type-tests__/authz-vocabulary-restrictions.ts:1-30`\n  pins the closed authz event and reason vocabulary while also using a valid\n  `deny` outcome.\n\nThe evidence counts reproduce with:\n`awk 'FILENAME == \"packages/server/src/app.ts\" && FNR >= 38 && FNR <= 39 && /^const REDACTED_/ { producer_redaction++ } FILENAME == \"packages/server/src/app.ts\" && FNR >= 42 && FNR <= 47 && /^  \"/ { producer_query++ } FILENAME == \"packages/server/src/app.ts\" && FNR >= 81 && FNR <= 88 && /^  \"/ { producer_content++ } FILENAME == \"scripts/logs-audit/logs-audit-redaction.ts\" && FNR == 14 { audit_redaction += gsub(/\"[^\"]+\"/, \"\") } FILENAME == \"scripts/logs-audit/logs-audit-redaction.ts\" && FNR >= 32 && FNR <= 39 && /^    \"/ { audit_content++ } FILENAME == \"scripts/logs-audit/logs-audit-redaction.ts\" && FNR >= 44 && FNR <= 50 && /^  \"/ { audit_query++ } FILENAME == \"scripts/logs-audit/logs-audit-event-fields.ts\" && FNR >= 18 && FNR <= 20 && /^const .*_OUTCOMES/ { outcome_sets++ } END { printf \"producer_redaction=%d producer_query=%d producer_content=%d audit_redaction=%d audit_content=%d audit_query=%d outcome_sets=%d\\n\", producer_redaction, producer_query, producer_content, audit_redaction, audit_content, audit_query, outcome_sets }' packages/server/src/app.ts scripts/logs-audit/logs-audit-redaction.ts scripts/logs-audit/logs-audit-event-fields.ts`"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The cited auth.ts range shows auth.login twice but ends at the first auth.refresh occurrence, so it does not support the claim that both event literals are repeated. Lines 145-234 contain repeated auth.login and auth.refresh events, both reason codes, and the refresh success producer.",
+          "correction": {
+            "oldString": "- `packages/server/src/routers/auth.ts:145-179` — authentication logging depends",
+            "newString": "- `packages/server/src/routers/auth.ts:145-234` — authentication logging depends"
+          }
+        },
+        {
+          "kind": "prior-pack",
+          "severity": "P2",
+          "detail": "The live H19 record says it moved logs-audit core types out of the executable; it does not explicitly state a policy-ownership ruling. Policy ownership remains unresolved because H19 did not address it.",
+          "correction": {
+            "oldString": "moved logs-audit-local types out of its executable but explicitly left policy\nownership unresolved.",
+            "newString": "moved logs-audit-local types out of its executable without addressing policy\nownership, which remains unresolved."
+          }
+        },
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The leaf metadata remains Theme “logging policy ownership,” Area “cross-cutting,” and Size M, while packet B-011 adjudicates Theme “Mutation logging documents stable vocabulary but accepts arbitrary event and reason strings,” Area server, and Size S. Severity medium and Confidence high already match.",
+          "correction": {
+            "oldString": "Theme: logging policy ownership · Area: cross-cutting · Severity: medium · Size: M",
+            "newString": "Theme: Mutation logging documents stable vocabulary but accepts arbitrary event and reason strings · Area: server · Severity: medium · Size: S"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live H19 extracted logs-audit-local types, while live S14 moved business-event documentation and preserved authz vocabulary; neither covers shared policy ownership or the open mutation event/reason boundary.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Eleven evidence bullets contain eighteen citation spans; all match the pin after accounting for the two defects. The HEAD~1 comparison shows the augmentation preserved predecessor claims and added the required mutation boundary. Applying B-011's exact metadata makes the composite leaf less representative of its retained cross-cutting predecessor scope, so the orchestrator should review that required tradeoff."
+    },
+    {
+      "file": "213-make-character-wizard-step-validation-exhaustive.md",
+      "promotionId": "B-013",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The numeric measurement “nine” appears without a reproducible command. The count is correct at the pin; the proposed command returns 9.",
+          "correction": {
+            "oldString": "- `packages/client/src/components/character-create/wizard-state.ts:104-114` —\n  `WIZARD_STEPS` is a closed `as const` tuple containing all nine labelled step\n  keys, so its key union is available directly to the type system.",
+            "newString": "- `packages/client/src/components/character-create/wizard-state.ts:104-114` —\n  `WIZARD_STEPS` is a closed `as const` tuple containing all nine labelled step\n  keys, so its key union is available directly to the type system. Reproduce\n  the count with\n  `git show ebf096580b31f604861fadb3d4cbd4079da4f017:packages/client/src/components/character-create/wizard-state.ts | sed -n '104,114p' | rg -c '^  \\{ label:'`,\n  which prints `9`."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All four citations support their claims. Links 042 and 056 resolve and their coordination boundaries are accurate; packet metadata and settled direction match."
+    },
+    {
+      "file": "214-derive-the-character-sheet-srd-lookup-bundle-once-at.md",
+      "promotionId": "B-016",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf gives measured counts of two `useSrdLookups` invocations and five projected collections without reproducible commands. Both counts are correct at the pin: the proposed commands return 2 and 5.",
+          "correction": {
+            "oldString": "- `packages/client/src/hooks/use-srd-lookups.ts:118-148` — each hook instance\n  derives five collections into maps, records, and lookup closures and memoizes\n  that projection around its own query observer.",
+            "newString": "- `packages/client/src/hooks/use-srd-lookups.ts:118-148` — each hook instance\n  derives five collections into maps, records, and lookup closures and memoizes\n  that projection around its own query observer. Reproduce the two invocation\n  count with `rg -n 'const srd = useSrdLookups\\(\\);' packages/client/src/pages/character-sheet/{sheet-layout.tsx,sheet-state.ts} | wc -l` (`2`), and the five-collection count with `sed -n '119p' packages/client/src/hooks/use-srd-lookups.ts | rg -o '\\b(species|classes|subclasses|backgrounds|feats)\\b' | wc -l` (`5`)."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five citations and links 200 and 039 are accurate. Metadata, constraints, and the settled composition-boundary direction match the packet."
+    },
+    {
+      "file": "215-converge-destructive-client-actions-on-one.md",
+      "promotionId": "B-017",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": [
+          "CLIENT-CLUSTER-PLAN.md#F2"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf claims four browser-prompt sites, two dialog implementations, and five migration targets without a reproducible command. The counts are correct: `window.confirm` occurs at the four cited VTT sites, and the two cited dialog declarations exist.",
+          "correction": {
+            "oldString": "- `packages/client/src/pages/dashboard-page.tsx:237-243` — Dashboard wires the\n  bespoke character dialog with the same open, close, confirm, and pending\n  state shape expected by the common component.",
+            "newString": "- `packages/client/src/pages/dashboard-page.tsx:237-243` — Dashboard wires the\n  bespoke character dialog with the same open, close, confirm, and pending\n  state shape expected by the common component.\n- Reproduction: `rg -n 'window\\.confirm' packages/client/src/components/campaign/tokens/token-sidebar.tsx packages/client/src/components/campaign/tokens/token-context-menu.tsx packages/client/src/components/campaign/maps/map-toolbar-fog-tools.tsx packages/client/src/components/campaign/maps/map-toolbar-drawing-tools.tsx` returns exactly four call sites, while `rg -l 'export function (DeleteCharacterDialog|DeleteConfirmDialog)' packages/client/src/components/delete-character-dialog.tsx packages/client/src/components/common/delete-confirm-dialog.tsx` returns exactly the two dialog implementations; the four prompt migrations plus Dashboard character deletion are the five targets below."
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "Live CLIENT-CLUSTER-PLAN.md F2 supplied the common dialog but did not cover the four prompt migrations or Dashboard’s bespoke dialog.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All seven cited ranges match the pin. The folded B-015 pending policy, component removal, bounded generalization, and mutation/authorization ownership constraints are preserved."
+    },
+    {
+      "file": "216-route-npc-mutations-through-the-campaign.md",
+      "promotionId": "B-018",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": [
+          "CQ25-196"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The repository-wide uniqueness claim is false at the pin. `packages/client/src/components/campaign/members/invite-panel.tsx:116-143` also owns a campaign-scoped list key and directly invalidates it after invite creation and revocation outside the facade.",
+          "correction": {
+            "oldString": "NPC-list invalidation is the only campaign CRUD policy hidden inside its",
+            "newString": "NPC-list invalidation is a campaign CRUD policy hidden inside its"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Proposed direction says “all three successful mutations” without a reproducible command. The cited range does show successful create, update, and delete handlers, so replacing the count with the explicit enumeration preserves the settled scope.",
+          "correction": {
+            "oldString": "all three successful mutations",
+            "newString": "successful create, update, and delete mutations"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-196 confirms the plain-closure facade and generic-binder refusal; the explicit NPC closure remains uncovered.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited ranges and the prior-pack link are valid. The “only residual” wording correctly scopes this leaf against CQ25-196 and does not repeat the false repository-wide uniqueness claim."
+    },
+    {
+      "file": "217-correct-the-architecture-plan-s-unsupported-level-up.md",
+      "promotionId": "C-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 7,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The evidence states that the orchestrator documents ten classes of writes but provides no reproduction command. Counting numbered write steps 1–10 at `apply-level-up.ts:16-25` returns 10; line 26 is the separately numbered reload step.",
+          "correction": {
+            "oldString": "  state, and spell slots before reloading the character.",
+            "newString": "  state, and spell slots before reloading the character. Reproduce the ten write\n  steps with\n  `sed -n '16,25p' packages/server/src/services/level-up/apply-level-up.ts | rg -c '^ \\*   [0-9]+\\.'`,\n  which returns `10`."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named; the packet records no prior-pack residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations and link 192 are accurate. The complete-claim review boundary, documentation-only scope, metadata, and settled direction match C-001."
+    },
+    {
+      "file": "218-replace-the-coverage-cadence-guide-s-deleted.md",
+      "promotionId": "C-002",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 4,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack record or residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The zero-match `rg` measurement and historical `git show` recovery were reproduced. The root `test:coverage` script and target script exist; no coverage command was run."
+    },
+    {
+      "file": "219-give-repository-workflows-cwd-stable-scope-bearing.md",
+      "promotionId": "C-004",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 9,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The `scripts/README.md:118-124` citation is mischaracterized. The source says bare root-only names fail from a nested package directory and offers changing to the root or invoking the cwd-relative `bun run scripts/harness-check.ts`; it does not provide a root-resolving form. Leaf 104 correctly identifies that relative-path recovery as broken.",
+          "correction": {
+            "oldString": "- `scripts/README.md:118-124` — the repository documents that Bun walks to the\n  nearest `package.json`, root-only names fail below the root, and callers must\n  change directory or invoke a root-resolving form.",
+            "newString": "- `scripts/README.md:118-124` — the repository documents that Bun walks to the\n  nearest `package.json`, root-only names fail from package subdirectories, and\n  tells shell callers to change directory or invoke the cwd-relative\n  `bun run scripts/harness-check.ts` path directly."
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record; the leaf explicitly identifies no prior-pack coverage.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The remaining citations, manifest commands, canonical `--cwd=` form, and links 085 and 104 are valid. `repo:dev` and `repo:build` are absent as expected because they are explicitly proposed additions, not claims of existing commands."
+    },
+    {
+      "file": "220-add-a-joined-explain-view-for-harness-control.md",
+      "promotionId": "C-005",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 2,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The live prior pack contains no joined path/control/package-script provenance query.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations support the claims. Both registered harness scripts resolve to existing entrypoints; `--explain` is clearly proposed. Links 085, 094, and 152 and all packet constraints are valid."
+    },
+    {
+      "file": "221-rename-metamagic-slot-terminology-to-options-known.md",
+      "promotionId": "C-007",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No named prior-pack record exists, and the live prior pack contains no record covering this terminology mismatch.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The exact production-reference search reproduced the reported three lines. The cited tests and production constants establish the behavioral 0/2/4/6 progression; metadata, direction, constraints, and link 029 are valid."
+    },
+    {
+      "file": "222-make-multiclass-prerequisite-table-states-exclusive.md",
+      "promotionId": "C-008",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": [
+          "CQ25-115"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The Evidence section gives a count of twelve SRD class rows without a reproducible command. Re-derivation at the pin returns 12, so the number is true but violates the evidence-count contract.",
+          "correction": {
+            "oldString": "- `packages/shared/src/rules/multiclass-rules.ts:30-49` — all twelve actual SRD\n  class rows use exactly one mode, with at least one ability requirement and,\n  for Fighter, a non-empty alternatives list.",
+            "newString": "- `packages/shared/src/rules/multiclass-rules.ts:30-49` — all actual SRD\n  class rows use exactly one mode, with at least one ability requirement and,\n  for Fighter, a non-empty alternatives list."
+          }
+        }
+      ],
+      "priorPackStatus": "partially-landed",
+      "priorPackNote": "Live CQ25-115/I2 landed the `SrdClassId` table-key typing and preserved public string lookup fallbacks but did not constrain the optional value bag; this leaf correctly targets the residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All citations and references resolve and support the remaining value-shape finding. Packet metadata, settled direction, numeric/fallback preservation, and provenance-test constraint match."
+    },
+    {
+      "file": "025-spellcastingts-contains-five-independently.md",
+      "promotionId": "C-009",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 3,
+        "linksChecked": 4,
+        "priorPackRecordsOpened": [
+          "CQ25-95",
+          "CQ25-182"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The leaf retains its predecessor metadata (`one rule area per file`, shared, medium, M), but packet C-009 adjudicates Theme `Spellcasting fallback tests hide that their tables are Musi policy`, Area tests, Severity low, and Size S. Confidence high matches.",
+          "correction": {
+            "oldString": "Theme: one rule area per file · Area: shared · Severity: medium · Size: M",
+            "newString": "Theme: Spellcasting fallback tests hide that their tables are Musi policy · Area: tests · Severity: low · Size: S"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The leaf labels the 380/676/149 line totals and 75/8 `it(` totals as re-measured or re-counted but supplies no reproducible command. Read-only remeasurement returned exactly those values.",
+          "correction": {
+            "oldString": "- Paired tests: `spellcasting.test.ts` is 676 lines / 75 `it(` cases;\n  `spellcasting.property.test.ts` is 149 lines / 8 `it(` cases (re-counted).",
+            "newString": "- Paired tests: `spellcasting.test.ts` is 676 lines / 75 `it(` cases;\n  `spellcasting.property.test.ts` is 149 lines / 8 `it(` cases (re-counted).\n  Reproduce these totals, together with the 380-line source-module total, with\n  `wc -l packages/shared/src/rules/spellcasting{,.test,.property.test}.ts` and\n  `rg -c 'it\\(' packages/shared/src/rules/spellcasting{.test,.property.test}.ts`."
+          }
+        },
+        {
+          "kind": "prior-pack",
+          "severity": "P1",
+          "detail": "The prior-pack summary incorrectly calls the class-keyed tables `as const satisfies` tables. Live CQ25 work item I2 retyped `PREPARED_SPELLS_BY_CLASS` and `LEVEL_1_SPELL_SELECTION_BY_CLASS` as `Record`/`Partial<Record>` tables; at the pin those declarations remain explicit `Readonly<Partial<Record<...>>>` annotations. The separate full-caster slot table uses `as const satisfies`.",
+          "correction": {
+            "oldString": "(class-keyed `as const satisfies` tables, level-bound dedup) but left the",
+            "newString": "(class-keyed `Record` typing, level-bound dedup) but left the"
+          }
+        }
+      ],
+      "priorPackStatus": "partially-landed",
+      "priorPackNote": "CQ25-95 requires policy-bearing test names and CQ25-182 landed the Musi non-SRD classification, but the live fallback test names remain generic.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited content otherwise exists; the dependent census, three named command/script surfaces, and four links check out. HEAD~1 confirms the augmentation dropped or contradicted no predecessor claim."
+    },
+    {
+      "file": "223-remove-the-fulfilled-shared-rules-mutation-gap-from.md",
+      "promotionId": "C-011",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 1,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "Neither the packet nor the leaf names a prior-pack record or residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five cited ranges match: the guide documents scheduled shared-rules mutation and timing evidence while Current Gaps still calls them missing. The slow-drift script and coordination link exist."
+    },
+    {
+      "file": "082-devcontainer-quick-start-depends.md",
+      "promotionId": "C-014",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 14,
+        "commandsChecked": 18,
+        "linksChecked": 5,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The cited `.devcontainer/container-entrypoint.sh:14-17` shows the sentinel test and `bun run dev`, but not the claimed wait loop, which is at lines 2-10.",
+          "correction": {
+            "oldString": "- `.devcontainer/container-entrypoint.sh:14-17` — the active entrypoint waits\n  for `.setup-complete` and only then starts `bun run dev`.",
+            "newString": "- `.devcontainer/container-entrypoint.sh:2-17` — the active entrypoint waits\n  for `.setup-complete` and only then starts `bun run dev`."
+          }
+        },
+        {
+          "kind": "packet-fidelity",
+          "severity": "P1",
+          "detail": "The leaf retains its predecessor metadata (docs/high/M), but packet C-014 adjudicates Theme `Devcontainer installs an unused second server-start helper`, Area harness, Severity low, and Size S. Confidence high matches.",
+          "correction": {
+            "oldString": "Theme: devcontainer bootstrap prerequisites · Area: docs · Severity: high · Size: M",
+            "newString": "Theme: Devcontainer installs an unused second server-start helper · Area: harness · Severity: low · Size: S"
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P1",
+          "detail": "The augmentation inserted a new second slice and renumbered the list, but the introduction still says there are three slices, that slices 1-2 are in scope, and that slice 3 is the follow-up. The retained replacement checklist is now slice 3 and the base-image follow-up is slice 4.",
+          "correction": {
+            "oldString": "Resolve the either/or (make everything self-provisioning vs document\neverything) as a concrete hybrid, in three slices. Slices 1-2 plus the optional\nvolume-create are this leaf; slice 3 is a split-off follow-up.",
+            "newString": "Resolve the either/or (make everything self-provisioning vs document\neverything) as a concrete hybrid, in four slices. Slices 1-3 plus the optional\nvolume-create are this leaf; slice 4 is a split-off follow-up."
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "The base-image follow-up heading retained the predecessor's `Slice 3` label after the new server-start slice made it slice 4.",
+          "correction": {
+            "oldString": "5. **Slice 3 — split off, deferrable, not this leaf:** base-image",
+            "newString": "5. **Slice 4 — split off, deferrable, not this leaf:** base-image"
+          }
+        },
+        {
+          "kind": "coherence",
+          "severity": "P2",
+          "detail": "The matching risk caveat also retained the stale `Slice 3` label.",
+          "correction": {
+            "oldString": "- **Slice 3 risk (for the follow-up, not this leaf):** if parameterization",
+            "newString": "- **Slice 4 risk (for the follow-up, not this leaf):** if parameterization"
+          }
+        }
+      ],
+      "priorPackStatus": "none",
+      "priorPackNote": "The live prior pack contains no devcontainer bootstrap, base-image, or duplicate start-helper ruling.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The pinned census reproduced zero supported consumers after its stated exclusions. All links and named command/script surfaces exist. HEAD~1 confirms no predecessor claim was dropped or contradicted. Applying the packet-mandated low/S metadata leaves retained prerequisite work under that header, but this gate cannot re-adjudicate those values."
+    },
+    {
+      "file": "224-remove-lint-ratchet-compatibility-apis-used-only-by.md",
+      "promotionId": "C-016",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 10,
+        "commandsChecked": 6,
+        "linksChecked": 2,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The leaf and packet name no prior-pack residual; the live prior pack does not cover these compatibility APIs.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The searches reproduced zero production callers for the two wrappers, three options-object validator callers, and one direct-set test caller. All cited script paths and coordination links exist."
+    },
+    {
+      "file": "225-use-the-canonical-markdown-table-escaper-in.md",
+      "promotionId": "C-018",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 5,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The leaf names no prior-pack record, and packet C-018 records no residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All five cited ranges match: the private helper is weaker, the canonical helper covers the listed characters, and unconstrained disposition strings reach the unchanged six-column table path."
+    },
+    {
+      "file": "226-signal-overflow-when-token-conditions-exceed-the.md",
+      "promotionId": "C-019",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 4,
+        "commandsChecked": 0,
+        "linksChecked": 0,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "The packet names no prior-pack record or residual, and the leaf makes no prior-pack claim.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "The component fixes the limit at four, slices the array, renders only that slice, and the six-condition test asserts four circles without an overflow signal."
+    },
+    {
+      "file": "227-make-legal-license-and-srd-attribution-available.md",
+      "promotionId": "C-020",
+      "verdict": "clean",
+      "checked": {
+        "evidenceEntries": 8,
+        "commandsChecked": 0,
+        "linksChecked": 1,
+        "priorPackRecordsOpened": []
+      },
+      "defects": [],
+      "priorPackStatus": "none",
+      "priorPackNote": "No prior-pack record is named; packet C-020 records no residual.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All cited route, guard, header, guest-footer, and legal-content ranges match. The leaf-051 coordination link resolves and the public-route boundary preserves all other guards."
+    },
+    {
+      "file": "228-align-shared-export-guidance-with-adr-0005-s.md",
+      "promotionId": "D-01-001",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 6,
+        "commandsChecked": 0,
+        "linksChecked": 3,
+        "priorPackRecordsOpened": [
+          "CQ25-115"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P2",
+          "detail": "The Problem calls MODULE.md the repository's sole suggestion that a broad barrel is future work, but `docs/agent_notes/backlog/codebase-audit/00-report.md:106` also says to defer the barrel. The actionable live-guide contradiction remains valid, but the tree-wide exclusivity claim does not.",
+          "correction": {
+            "oldString": "The implemented package and\nlint fence follow the ADR, leaving the live orientation guide as the sole\nsuggestion that a broad barrel is intended future work.",
+            "newString": "The implemented package and\nlint fence follow the ADR, while the live orientation guide still suggests\nthat a broad barrel is intended future work."
+          }
+        },
+        {
+          "kind": "prior-pack",
+          "severity": "P1",
+          "detail": "The leaf says CQ25-115's schema-layout work produced MODULE.md. Git history shows the guide was created in `7fe8d0fb8e` before that pack; CQ25-115/S1 later updated its ownership and inventory guidance. The aggregate-export residual itself is valid.",
+          "correction": {
+            "oldString": "CQ25-115 completed the schema-layout changes that produced this guide but did\nnot perform the promised aggregate-export review.",
+            "newString": "The guide predates CQ25-115. That cluster's landed S1 schema-layout work\nupdated its ownership and inventory guidance but did not resolve the promised\naggregate-export review."
+          }
+        }
+      ],
+      "priorPackStatus": "partially-landed",
+      "priorPackNote": "CQ25-115/S1 updated the existing guide's schema ownership and inventory, but did not remove or adjudicate its deferred aggregate-export statements.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "All six cited ranges otherwise match, all three links resolve, and the scoped-only direction and three packet constraints are present."
+    },
+    {
+      "file": "229-standardize-datetimefield-backed-mapper-result.md",
+      "promotionId": "D-01-002",
+      "verdict": "needs-fix",
+      "checked": {
+        "evidenceEntries": 11,
+        "commandsChecked": 3,
+        "linksChecked": 5,
+        "priorPackRecordsOpened": [
+          "CQ25-181"
+        ]
+      },
+      "defects": [
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The character evidence says `mapCharacterDetail` and `mapCharacterSummary` target inferred output types, but the cited shared range stops at the timestamp-bearing base and level-choice schemas. The relevant `characterDetailSchema`/`CharacterDetail` and `characterSummarySchema`/`CharacterSummary` inference declarations are at lines 261-300.",
+          "correction": {
+            "oldString": "packages/shared/src/schemas/character.ts:67-82,238-244",
+            "newString": "packages/shared/src/schemas/character.ts:67-82,238-244,261-300"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The notification evidence says the mapper returns an output-inferred `Notification`, but the cited schema range ends at line 68 and omits `export type Notification = z.infer<typeof notificationSchema>` at line 70.",
+          "correction": {
+            "oldString": "packages/shared/src/schemas/notification.ts:59-68",
+            "newString": "packages/shared/src/schemas/notification.ts:59-70"
+          }
+        },
+        {
+          "kind": "evidence",
+          "severity": "P1",
+          "detail": "The socket-registry citation shows the chat entry and generic parse machinery but omits the concrete `notification:new` entry that binds `notificationSchema`, located at lines 252-267.",
+          "correction": {
+            "oldString": "packages/server/src/socket/broadcast-registry.ts:129-153,296-337",
+            "newString": "packages/server/src/socket/broadcast-registry.ts:129-153,234-267,296-337"
+          }
+        }
+      ],
+      "priorPackStatus": "confirmed",
+      "priorPackNote": "CQ25-181 retained the bare-string homebrew/magic-item boundaries while explicitly leaving uniform dateTimeField-backed mapper normalization as separate work.",
+      "packetConstraintsHonored": true,
+      "droppedConstraints": [],
+      "notes": "Both supplied measurements reproduced 45 matches across 18 files. The root test command exists but was not run. All five link occurrences resolve."
+    }
+  ],
+  "orchestratorRulings": [
+    {
+      "kind": "packet-fidelity",
+      "files": [
+        "182-logging-producers-their-auditor-separately.md",
+        "025-spellcastingts-contains-five-independently.md",
+        "082-devcontainer-quick-start-depends.md"
+      ],
+      "ruling": "not applied",
+      "reason": "All three are augment-existing-leaf hosts. The gate proposed replacing each host leaf header with the promotion packet metadata; the packet values describe the ADDED material, not the host leaf, so retitling would misdescribe a leaf whose scope is broader than the augmentation. The packet builder now needs no change beyond this recorded ruling."
+    }
+  ],
+  "corrections": {
+    "proposed": 33,
+    "applied": 30,
+    "skipped": 3,
+    "method": "exact unique-match replacement"
+  },
+  "summary": {
+    "filesChecked": 29,
+    "clean": 12,
+    "needsFix": 17,
+    "kill": 0,
+    "defectsByKind": {
+      "evidence": 22,
+      "command": 0,
+      "link": 0,
+      "priorPack": 4,
+      "packetFidelity": 3,
+      "coherence": 4
+    },
+    "notes": [
+      "The live prior-pack review SHA still matches the supplied pin.",
+      "No P0 fabricated commands, nonexistent scripts, or broken links were found.",
+      "Leaf 182's packet metadata conflicts with the broader retained scope of the augmented predecessor; the exact packet-fidelity correction is supplied for orchestrator review.",
+      "The prior-pack review SHA is unchanged.",
+      "No test suite or build was run; all validation was read-only.",
+      "Every proposed oldString was confirmed to occur exactly once."
+    ]
+  }
+}

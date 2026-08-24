@@ -11,9 +11,8 @@ import type {
   ClientTestIsolationClassification,
   ClientTestIsolationTotals,
 } from "./client-test-isolation-classifier-types.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
-const PROCESS_ARGV_USER_ARGS_START = 2;
 const EXIT_USAGE = 2;
 const EXIT_COMMAND_FAILED_TO_START = 1;
 // Conventional shell exit code for a process terminated by signal N is 128 + N.

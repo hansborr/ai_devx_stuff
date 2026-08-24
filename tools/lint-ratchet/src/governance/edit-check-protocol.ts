@@ -1,29 +1,84 @@
 import type { EditCheckRegression, EditCheckTarget } from "./edit-check.js";
 
-// Single owner of the internal edit-check wire protocol — the tab-separated,
-// line-oriented rows exchanged between the two CLI steps and the advisory shell
-// hook in scripts/ai-hooks/ratchet-regression-check.sh:
+// Single owner of the internal edit-check wire protocol: the tab-separated,
+// line-oriented rows exchanged between the CLI and advisory shell hooks.
 //
 //   --edit-check-targets emits `target` rows (no ESLint run);
 //   the hook writes a chosen subset to a temp file;
 //   --edit-check parses that file and emits `checked` / `regression` rows.
 //
-// The CLI produces `checked`/`regression` rows and consumes `target` rows, so
-// this module formats all three kinds but only parses `target`. Keep the column
-// order and counts here in sync with that hook's `read -r` field lists.
+// The shell contract in scripts/ai-hooks/edit-check-protocol.sh and every
+// TypeScript formatter derive from EDIT_CHECK_ROW_LAYOUTS, so field order and
+// counts have one owner.
 //
-// Decode is permissive by design: a malformed `target` row (wrong kind, wrong
+// Only `target` rows are decoded in TypeScript — the CLI reads back the subset
+// the hook chose. The result rows (`checked` / `regression` / `ratchet-covered`)
+// are decoded by the shell hooks alone, so they carry formatters only; add a
+// decoder when a TypeScript consumer appears.
+//
+// Target decode is permissive by design: a malformed row (wrong kind, wrong
 // arity, or an empty path/testId/ruleId) decodes to `undefined` so the caller
 // soft-skips it instead of linting a path discovery never produced. That
 // matches the advisory hook's degrade-quietly contract. ruleId-vs-registry
 // agreement is enforced later in groupTargets, where the registry is in scope.
 
-const TARGET_KIND = "target";
-const CHECKED_KIND = "checked";
-const REGRESSION_KIND = "regression";
+interface EditCheckRowLayout {
+  readonly kind: string;
+  readonly fields: readonly string[];
+  readonly fieldCount: number;
+  readonly acceptedOptionalTrailingFields: readonly string[];
+}
 
-// Exact column count of a `target` row: kind, path, testId, ruleId, cacheIdentity.
-const TARGET_FIELD_COUNT = 5;
+function defineRowLayout<
+  const Kind extends string,
+  const Fields extends readonly string[],
+  const OptionalFields extends readonly Fields[number][],
+>(
+  kind: Kind,
+  fields: Fields,
+  acceptedOptionalTrailingFields: OptionalFields,
+): EditCheckRowLayout & {
+  readonly kind: Kind;
+  readonly fields: Fields;
+  readonly acceptedOptionalTrailingFields: OptionalFields;
+} {
+  return { kind, fields, fieldCount: fields.length, acceptedOptionalTrailingFields };
+}
+
+export const EDIT_CHECK_ROW_LAYOUTS = {
+  target: defineRowLayout("target", ["kind", "path", "testId", "ruleId", "cacheIdentity"], []),
+  checked: defineRowLayout("checked", ["kind", "path"], []),
+  regression: defineRowLayout(
+    "regression",
+    [
+      "kind",
+      "path",
+      "testId",
+      "ruleId",
+      "reason",
+      "line",
+      "baselineCount",
+      "currentCount",
+      "repairCommand",
+    ],
+    ["repairCommand"],
+  ),
+  "ratchet-covered": defineRowLayout("ratchet-covered", ["kind", "path", "ruleIds"], []),
+} as const;
+
+export interface RatchetCoverageRow {
+  readonly path: string;
+  readonly ruleIds: readonly string[];
+}
+
+function formatProtocolRow(layout: EditCheckRowLayout, fields: readonly string[]): string {
+  if (fields.length !== layout.fieldCount) {
+    throw new Error(
+      `${layout.kind} formatter produced ${String(fields.length)} fields; expected ${String(layout.fieldCount)}`,
+    );
+  }
+  return fields.join("\t");
+}
 
 // The wire protocol is tab-separated and line-oriented, so a field that itself
 // contains a tab, newline, or carriage return cannot round-trip: it either
@@ -58,8 +113,9 @@ function isNonEmpty(value: string | undefined): value is string {
 }
 
 export function formatEditCheckTarget(target: EditCheckTarget): string {
+  const layout = EDIT_CHECK_ROW_LAYOUTS.target;
   const fields = [
-    TARGET_KIND,
+    layout.kind,
     target.path,
     target.testId,
     target.ruleId,
@@ -70,19 +126,20 @@ export function formatEditCheckTarget(target: EditCheckTarget): string {
       `target for '${target.path}' contains a tab or newline and will not round-trip; it will be dropped on decode`,
     );
   }
-  return fields.join("\t");
+  return formatProtocolRow(layout, fields);
 }
 
 export function parseEditCheckTargetLine(line: string): EditCheckTarget | undefined {
+  const layout = EDIT_CHECK_ROW_LAYOUTS.target;
   const fields = line.split("\t");
-  if (fields[0] === TARGET_KIND && fields.length !== TARGET_FIELD_COUNT) {
+  if (fields[0] === layout.kind && fields.length !== layout.fieldCount) {
     warnProtocolSeparator(
-      `target row has ${String(fields.length)} fields (expected ${String(TARGET_FIELD_COUNT)}); a path or id likely contains a tab; dropping`,
+      `target row has ${String(fields.length)} fields (expected ${String(layout.fieldCount)}); a path or id likely contains a tab; dropping`,
     );
   }
-  if (fields.length !== TARGET_FIELD_COUNT) return undefined;
+  if (fields.length !== layout.fieldCount) return undefined;
   const [kind, path, testId, ruleId, cacheIdentity] = fields;
-  if (kind !== TARGET_KIND) return undefined;
+  if (kind !== layout.kind) return undefined;
   if (!isNonEmpty(path) || !isNonEmpty(testId) || !isNonEmpty(ruleId)) return undefined;
   return isNonEmpty(cacheIdentity)
     ? { path, testId, ruleId, cacheIdentity }
@@ -90,7 +147,8 @@ export function parseEditCheckTargetLine(line: string): EditCheckTarget | undefi
 }
 
 export function formatEditCheckChecked(path: string): string {
-  return [CHECKED_KIND, path].join("\t");
+  const layout = EDIT_CHECK_ROW_LAYOUTS.checked;
+  return formatProtocolRow(layout, [layout.kind, path]);
 }
 
 // Regression columns: kind, path, testId, ruleId, reason, line, baselineCount,
@@ -98,17 +156,23 @@ export function formatEditCheckChecked(path: string): string {
 // without a mechanical repair; the hook reads it positionally, so it is always
 // emitted (fixed arity) rather than appended conditionally.
 export function formatEditCheckRegression(regression: EditCheckRegression): string {
-  return [
-    REGRESSION_KIND,
+  const layout = EDIT_CHECK_ROW_LAYOUTS.regression;
+  return formatProtocolRow(layout, [
+    layout.kind,
     regression.path,
     regression.testId,
     regression.ruleId,
     regression.reason,
-    regression.line ?? "",
+    regression.line === undefined ? "" : String(regression.line),
     String(regression.baselineCount),
     String(regression.currentCount),
     regression.repairCommand === undefined
       ? ""
       : sanitizeRepairCommand(regression.repairCommand, regression.ruleId),
-  ].join("\t");
+  ]);
+}
+
+export function formatRatchetCoverageRow(row: RatchetCoverageRow): string {
+  const layout = EDIT_CHECK_ROW_LAYOUTS["ratchet-covered"];
+  return formatProtocolRow(layout, [layout.kind, row.path, row.ruleIds.join(", ")]);
 }

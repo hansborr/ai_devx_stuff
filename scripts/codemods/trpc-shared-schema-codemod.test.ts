@@ -1,13 +1,27 @@
+import type * as ChildProcess from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+const writerSpies = vi.hoisted(() => ({
+  spawnSync: vi.fn(),
+}));
+
+vi.mock("node:child_process", async (importOriginal) => {
+  const actual = await importOriginal<typeof ChildProcess>();
+  return { ...actual, spawnSync: writerSpies.spawnSync };
+});
 
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
+import { CodemodError } from "./lib/codemod-errors.js";
+import { writeOrPreviewFiles } from "./lib/codemod-writes.js";
 import {
   copyDirectoryContents,
   enumerateFixtures,
   expectDirectoriesToMatch,
+  expectedRoot,
   expectRunTwiceStdout,
   expectStdout,
   optionalBoolean,
@@ -19,7 +33,6 @@ import {
   throwCapturedError,
   withCapturedStdout,
 } from "./lib/fixture-runner.test-helper.js";
-import { CodemodError } from "./lib/trpc-shared-schema.js";
 import type { TrpcSharedInputCodemodArgs } from "./trpc-shared-input.js";
 import { runTrpcSharedInputCodemod } from "./trpc-shared-input.js";
 import type { TrpcSharedOutputCodemodArgs } from "./trpc-shared-output.js";
@@ -47,6 +60,27 @@ type FixtureMetadata =
 const here = path.dirname(fileURLToPath(import.meta.url));
 const fixtureRoot = path.join(here, "fixtures");
 const tmpRepo = registerTempRootCleanup();
+
+const UNSORTED_IMPORTS = `import { zeta, alpha } from "./z.js";
+import { zebra, beta } from "pkg";
+import path from "node:path";
+
+export const value = alpha;
+`;
+
+const NORMALIZED_IMPORTS = `import path from "node:path";
+
+import { beta, zebra } from "pkg";
+
+import { alpha, zeta } from "./z.js";
+
+export const value = alpha;
+`;
+
+beforeEach(() => {
+  writerSpies.spawnSync.mockReset();
+  writerSpies.spawnSync.mockReturnValue({ error: undefined, status: 0, stderr: "", stdout: "" });
+});
 
 function readMetadata(caseRoot: string): FixtureMetadata {
   const parsed = parseCaseJson(caseRoot);
@@ -121,7 +155,7 @@ function runFixture(kind: CodemodKind, name: string): void {
     expect(firstRun.error).toBeInstanceOf(CodemodError);
     if (!(firstRun.error instanceof Error)) throw new Error("Expected codemod error.");
     expect(firstRun.error.message).toContain(metadata.expectedError);
-    expectDirectoriesToMatch(workRoot, path.join(caseRoot, "after"));
+    expectDirectoriesToMatch(workRoot, expectedRoot(caseRoot));
     return;
   }
 
@@ -146,7 +180,7 @@ function runFixture(kind: CodemodKind, name: string): void {
     expectStdout(firstRun.output, metadata.expectedStdout);
   }
 
-  expectDirectoriesToMatch(workRoot, path.join(caseRoot, "after"));
+  expectDirectoriesToMatch(workRoot, expectedRoot(caseRoot));
 }
 
 describe("trpc shared input codemod fixtures", () => {
@@ -158,5 +192,80 @@ describe("trpc shared input codemod fixtures", () => {
 describe("trpc shared output codemod fixtures", () => {
   it.each(fixtureNames("trpc-shared-output"))("%s", (name) => {
     runFixture("trpc-shared-output", name);
+  });
+});
+
+describe("shared codemod write orchestration", () => {
+  it("reports and writes the same once-normalized bytes when ESLint is unavailable", () => {
+    const root = tmpRepo.makeTempRepo("musi-codemod-write-parity-");
+    const outputPath = path.join(root, "output.ts");
+
+    const preview = withCapturedStdout(() => {
+      writeOrPreviewFiles("parity", root, [{ path: outputPath, text: UNSORTED_IMPORTS }], true);
+    });
+    expect(preview.error).toBeUndefined();
+    expect(preview.output).toBe(
+      `parity codemod: dry-run would write output.ts (${String(NORMALIZED_IMPORTS.length)} bytes).`,
+    );
+
+    writeOrPreviewFiles("parity", root, [{ path: outputPath, text: UNSORTED_IMPORTS }], false);
+
+    expect(readFileSync(outputPath, "utf8")).toBe(NORMALIZED_IMPORTS);
+    expect(writerSpies.spawnSync).not.toHaveBeenCalled();
+  });
+
+  it("keeps the normalized file and warns when the ESLint post-pass fails", () => {
+    const root = tmpRepo.writeRepo({ "eslint.config.js": "export default [];\n" });
+    const outputPath = path.join(root, "output.ts");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    writerSpies.spawnSync.mockReturnValue({
+      error: new Error("spawn bun ENOENT"),
+      status: null,
+      stderr: "",
+      stdout: "",
+    });
+
+    writeOrPreviewFiles("parity", root, [{ path: outputPath, text: UNSORTED_IMPORTS }], false);
+
+    expect(readFileSync(outputPath, "utf8")).toBe(NORMALIZED_IMPORTS);
+    expect(warning).toHaveBeenCalledWith(
+      "parity codemod: eslint import fix failed.\nspawn bun ENOENT",
+    );
+    warning.mockRestore();
+  });
+
+  it("restores the normalized file when ESLint edits it before failing", () => {
+    const root = tmpRepo.writeRepo({ "eslint.config.js": "export default [];\n" });
+    const outputPath = path.join(root, "output.ts");
+    const warning = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    writerSpies.spawnSync.mockImplementation(() => {
+      expect(readFileSync(outputPath, "utf8")).toBe(NORMALIZED_IMPORTS);
+      writeFileSync(outputPath, `${NORMALIZED_IMPORTS}\n// partial eslint fix\n`);
+      return { error: undefined, status: 1, stderr: "remaining lint error", stdout: "" };
+    });
+
+    writeOrPreviewFiles("parity", root, [{ path: outputPath, text: UNSORTED_IMPORTS }], false);
+
+    expect(readFileSync(outputPath, "utf8")).toBe(NORMALIZED_IMPORTS);
+    expect(warning).toHaveBeenCalledWith(
+      "parity codemod: eslint import fix failed.\nremaining lint error",
+    );
+    warning.mockRestore();
+  });
+
+  it("allows only a successful ESLint post-pass to diverge from the normalized plan", () => {
+    const root = tmpRepo.writeRepo({ "eslint.config.js": "export default [];\n" });
+    const outputPath = path.join(root, "output.ts");
+    const eslintFixedText = `${NORMALIZED_IMPORTS}\n// eslint post-pass\n`;
+    writerSpies.spawnSync.mockImplementation(() => {
+      expect(readFileSync(outputPath, "utf8")).toBe(NORMALIZED_IMPORTS);
+      writeFileSync(outputPath, eslintFixedText);
+      return { error: undefined, status: 0, stderr: "", stdout: "" };
+    });
+
+    writeOrPreviewFiles("parity", root, [{ path: outputPath, text: UNSORTED_IMPORTS }], false);
+
+    expect(readFileSync(outputPath, "utf8")).toBe(eslintFixedText);
+    expect(writerSpies.spawnSync).toHaveBeenCalledOnce();
   });
 });

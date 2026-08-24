@@ -1,7 +1,7 @@
 import { parseArgs } from "./cli-args.js";
 import { usage } from "./cli-help.js";
 import { requestDaemonQuery } from "./daemon-client.js";
-import { isDaemonRoutableCommand } from "./daemon-commands.js";
+import { isDaemonRoutableExecutableCommand } from "./daemon-commands.js";
 import { CodeIntelError } from "./errors.js";
 import { formatCodeIntelQueryResult } from "./format.js";
 import type { ParsedCli } from "./types.js";
@@ -33,10 +33,12 @@ async function runCodeIntelCliCommand(args: string[]): Promise<string> {
 }
 
 async function tryDaemonRoute(parsed: ParsedCli): Promise<string | undefined> {
-  if (parsed.command.kind === "help" || !isDaemonRoutableCommand(parsed.command)) return undefined;
+  if (parsed.command.kind === "help" || !isDaemonRoutableExecutableCommand(parsed.command)) {
+    return undefined;
+  }
   const outcome = await requestDaemonQuery(parsed.command);
   if (outcome.kind === "fallback") return undefined;
-  return formatCodeIntelQueryResult(outcome.result, parsed.format);
+  return formatCodeIntelQueryResult(outcome.result, parsed.format, parsed.command.kind);
 }
 
 async function runOneShot(parsed: ParsedCli): Promise<string> {

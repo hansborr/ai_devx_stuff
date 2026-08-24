@@ -1,0 +1,310 @@
+{
+  "contractVersion": 1,
+  "step": "1b-round-6",
+  "seat": "C6",
+  "audited": [
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[0]",
+      "originalTitle": "Level-up workflow state is translated through oversized parallel contracts — too close to the previously declined prop-grouping direction.",
+      "reconstruction": "This points at useLevelUpState in packages/client/src/components/sheet/level-up-state.ts, its field-by-field translation into the 24-member LevelUpBodyProps contract at level-up-dialog.tsx:128-153 and level-up-dialog-body.tsx:11-63, and a second projection into LevelUpInputOptions at level-up-submit.ts:6-19. I also opened the prior leaf-14 decision and its CLIENT-CLUSTER-PLAN disposition.",
+      "disposition": "dismiss",
+      "dismissReason": "This is the same direction already declined under CQ25-191. The prior leaf explicitly considered grouping LevelUpBody's 24 props and rejected it because there is one caller, the fields do not partition cleanly across the five children, and grouping would assemble several object literals while removing no contract members. The live tree still has exactly that one caller and the same cross-child fields, so nothing has changed to overturn the ruling.",
+      "candidate": null
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[47]",
+      "originalTitle": "Wizard step heading duplication and review-query orchestration were lower-value shard cuts.",
+      "reconstruction": "I audited the observations separately. Nine character-creation step components repeat the same h2 class and adjacent explanatory paragraph, with EquipmentStep repeating its heading in two branches. ReviewStep's useResolvedNames issues three independent SRD list queries at review-step.tsx:255-273, while useResolvedSpellNames owns one conditional spell-list query at spells-review-card.tsx:16-39.",
+      "disposition": "dismiss",
+      "dismissReason": "The heading repetition is two presentational elements per step with distinct content and no behavioral protocol; extracting it would primarily relocate short markup. The review queries use the prescribed tRPC/TanStack Query path from docs/guides/client-effects.md, reuse the same query contracts as earlier steps, remain independently cacheable, and deliberately fall back to stored IDs when names are unavailable. Opening review-step.tsx, spells-review-card.tsx, all nine step headings, and wizard-stepper.tsx showed no duplicated request lifecycle or leafable impact.",
+      "candidate": null
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[48]",
+      "originalTitle": "Encounter header-action duplication, EncounterMapLink layering, and CombatLogPanel line count were lower-value shard cuts.",
+      "reconstruction": "I audited all three observations separately. EncounterHeaderActions repeats Add Participant and End Encounter controls across explicit setup/active/paused branches. EncounterMapLink is a single-consumer focused component containing one map-list query and two mutations. CombatLogPanel is 303 lines but is already decomposed into groupLogsByRound, RollDetails, LogEntry, RoundGroup, AddLogForm, and the exported panel.",
+      "disposition": "dismiss",
+      "dismissReason": "The repeated header controls occur inside one state renderer and differ by surrounding state actions, labels, and availability; a configuration abstraction would not remove a cross-file drift seam. EncounterMapLink's query/mutation ownership is consistent with encounters/MODULE.md assigning encounter CRUD views to this module, and extracting a one-consumer hook would only add indirection. CombatLogPanel's line count spans six cohesive, focused functions, matching combat/MODULE.md's explicit combat-log ownership. No observation established a policy violation or maintainability mechanism beyond local size/repetition.",
+      "candidate": null
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::coverage.cut[49]",
+      "originalTitle": "Mixed eager/lazy page imports and repeated Card empty states lacked a sufficiently strong policy or impact.",
+      "reconstruction": "I audited the two observations separately. The route directory has eight lazy leaf-page imports and five eager leaf-page imports, excluding root/index shell routes. I also opened the page-local Card empty states in dashboard-page.tsx, campaigns-page.tsx, homebrew-page.tsx, and collection-detail-page.tsx and compared them with pages/MODULE.md.",
+      "disposition": "dismiss",
+      "dismissReason": "The live tree has no route-loading policy from which the mixed imports can be called drift, and file size does not explain the split consistently; without bundle or interaction evidence, the mix alone has no demonstrated impact. The Card states share framing but differ materially in iconography, copy, CTA presence, zero-data versus filtered-result semantics, and dialog wiring. pages/MODULE.md:7-10 and 78-83 explicitly assign loading/error/empty presentation to each page boundary, so the local variants are consistent with documented ownership.",
+      "candidate": null
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[2]",
+      "originalTitle": "The concurrency writer map points to a thin router rather than the transaction-owning service.",
+      "reconstruction": "This points to cross-table writer 1 at docs/CONCURRENCY.md:354. The cited router procedure at packages/server/src/routers/encounter.ts:225-228 only delegates to updateParticipant, while packages/server/src/services/encounter-combat/participant-action.ts owns the conditional transaction, Stats-before-EncounterParticipant writes, authorization, broadcast, and mutation logging.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "C6-01",
+        "title": "Concurrency writer map points at the participant facade instead of its transaction owner",
+        "area": "docs",
+        "category": "comment",
+        "severityHint": "medium",
+        "sizeHint": "S",
+        "evidence": [
+          {
+            "path": "docs/CONCURRENCY.md",
+            "line": 354,
+            "endLine": 357,
+            "measurement": null,
+            "note": "Cross-table writer 1 is attributed to routers/encounter.ts:updateParticipant."
+          },
+          {
+            "path": "packages/server/src/routers/encounter.ts",
+            "line": 225,
+            "endLine": 228,
+            "measurement": null,
+            "note": "The named router procedure is a four-line schema wrapper delegating directly to the imported service."
+          },
+          {
+            "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+            "line": 121,
+            "endLine": 139,
+            "measurement": null,
+            "note": "The service helper owns the transaction and performs the CharacterStats write before the EncounterParticipant write."
+          },
+          {
+            "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+            "line": 284,
+            "endLine": 304,
+            "measurement": null,
+            "note": "The service documentation explicitly says the router is a thin pass-through and the service owns the transaction and version-CAS contract."
+          }
+        ],
+        "problem": "The concurrency guide sends maintainers to a facade that contains none of the lock-order implementation. That obscures the actual transaction boundary when readers audit or extend the canonical cross-table order.",
+        "proposedDirection": "Name services/encounter-combat/participant-action.ts:updateParticipant or its executeParticipantWrite helper as writer 1, retaining the public procedure name only as routing context.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "C6",
+            "sourceItemId": "wave-1/lane-07.json::coverage.cut[2]",
+            "lane": "lane-07-docs-dx",
+            "originalTitle": "The concurrency writer map points to a thin router rather than the transaction-owning service.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [
+          "looks covered by leaf 099 — hint only"
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[3]",
+      "originalTitle": "The concurrency guide calls UTF-16 code-unit ordering code-point ordering; overlaps CQ25-21 on a new path.",
+      "reconstruction": "The three claims at docs/CONCURRENCY.md:362, 369, and 418 say code-point order. Combat transaction paths call compareCodeUnits at combat-transaction.ts:33, 39, and 130. The comparator uses raw JavaScript string less-than/greater-than, and both its documentation and colocated test identify the result as UTF-16 code-unit order. CQ25-21 covers correcting the separate spell-casting MODULE contract and adding facade coverage, not docs/CONCURRENCY.md.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "C6-02",
+        "title": "Concurrency guide misnames UTF-16 code-unit lock ordering as code-point ordering",
+        "area": "docs",
+        "category": "comment",
+        "severityHint": "low",
+        "sizeHint": "S",
+        "evidence": [
+          {
+            "path": "docs/CONCURRENCY.md",
+            "line": 359,
+            "endLine": 370,
+            "measurement": null,
+            "note": "The structured-spell writer description twice calls its sorted ID order code-point ordering."
+          },
+          {
+            "path": "docs/CONCURRENCY.md",
+            "line": 415,
+            "endLine": 418,
+            "measurement": null,
+            "note": "The pairwise deadlock proof repeats the code-point terminology."
+          },
+          {
+            "path": "packages/server/src/utils/string-order.ts",
+            "line": 9,
+            "endLine": 17,
+            "measurement": null,
+            "note": "The comparator explicitly implements and documents UTF-16 code-unit order, which differs from code-point order for supplementary-plane characters."
+          },
+          {
+            "path": "packages/server/src/services/spell-casting/combat-transaction.ts",
+            "line": 27,
+            "endLine": 34,
+            "measurement": null,
+            "note": "Character lock IDs are sorted with compareCodeUnits."
+          },
+          {
+            "path": "packages/server/src/utils/string-order.test.ts",
+            "line": 5,
+            "endLine": 8,
+            "measurement": null,
+            "note": "The landed test names and pins UTF-16 code-unit ordering, confirming that the guide—not the implementation—is the false side."
+          }
+        ],
+        "problem": "The lock-order proof uses a technically different ordering name from the comparator it relies on. The distinction is currently invisible for ASCII IDs, but the false terminology misstates the invariant maintainers must preserve.",
+        "proposedDirection": "Replace the three code-point claims in docs/CONCURRENCY.md with UTF-16 code-unit ordering and link the named compareCodeUnits seam where useful.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "C6",
+            "sourceItemId": "wave-1/lane-07.json::coverage.cut[3]",
+            "lane": "lane-07-docs-dx",
+            "originalTitle": "The concurrency guide calls UTF-16 code-unit ordering code-point ordering; overlaps CQ25-21 on a new path.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [
+          {
+            "kind": "plan-slice",
+            "ref": "CQ25-21",
+            "residual": "CQ25-21 corrects the same terminology in packages/server/src/services/spell-casting/MODULE.md and adds facade coverage; docs/CONCURRENCY.md:362, 369, and 418 remain outside that slice."
+          }
+        ],
+        "existingLeafHints": [
+          "looks covered by leaf 099 — hint only"
+        ],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[15]",
+      "originalTitle": "docs/guides/ has no local landing page, while the claimed complete guide table directly omits two of 24 guides.",
+      "reconstruction": "I enumerated 24 Markdown files directly under docs/guides and found no README.md, index.md, or 00-index.md. docs/README.md:29-31 sends readers to the directory and says ai-harness.md's Guides table indexes every guide. The table at ai-harness.md:359-390 contains 19 guide rows naming 20 unique guide files, omitting four. Two omitted guides are referenced later in the Sensors table, so the whole ai-harness document references 22 of 24; lint-ratchet-merges.md and lint-ratchet-reference.md are absent entirely. The harness-freshness sensor scans references across the whole document, not membership in the claimed table.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "C6-03",
+        "title": "The guide directory has no landing index and its advertised complete table is incomplete",
+        "area": "docs",
+        "category": "dx",
+        "severityHint": "medium",
+        "sizeHint": "M",
+        "evidence": [
+          {
+            "path": "docs/guides",
+            "line": null,
+            "endLine": null,
+            "measurement": "24 direct Markdown guide files; 0 README.md, index.md, or 00-index.md files, measured by enumerating docs/guides at the audit tree",
+            "note": "The task-guide directory has no local landing page."
+          },
+          {
+            "path": "docs/README.md",
+            "line": 29,
+            "endLine": 31,
+            "measurement": null,
+            "note": "The docs landing page says the ai-harness.md Guides table indexes all task recipes."
+          },
+          {
+            "path": "docs/ai-harness.md",
+            "line": null,
+            "endLine": null,
+            "measurement": "The Guides table at lines 359-390 has 19 guide rows naming 20 unique guide paths; the full file references 22 of the 24 guide files",
+            "note": "code-intel.md and lint-message-evals.md appear only outside the Guides table; lint-ratchet-merges.md and lint-ratchet-reference.md are absent from ai-harness.md entirely."
+          },
+          {
+            "path": "scripts/drift-ai/harness-freshness.ts",
+            "line": 97,
+            "endLine": 107,
+            "measurement": null,
+            "note": "The freshness sensor extracts references from the whole harness document, so it does not enforce completeness of the specifically advertised Guides table."
+          },
+          {
+            "path": "scripts/drift-ai/harness-freshness.ts",
+            "line": 134,
+            "endLine": 151,
+            "measurement": null,
+            "note": "Its unreferenced-guide check only asks whether a guide appears anywhere in ai-harness.md."
+          }
+        ],
+        "problem": "A contributor entering docs/guides has no local map, while the upstream map advertised as complete omits four guides from its Guides table and two from the document entirely. The existing freshness sensor cannot detect table incompleteness because unrelated references satisfy it.",
+        "proposedDirection": "Choose one contributor-facing guide index, make all 24 guides discoverable there, and tighten the freshness check to validate that advertised inventory rather than any occurrence elsewhere in ai-harness.md.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "C6",
+            "sourceItemId": "wave-1/lane-07.json::coverage.cut[15]",
+            "lane": "lane-07-docs-dx",
+            "originalTitle": "docs/guides/ has no local landing page, while the claimed complete guide table directly omits two of 24 guides.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [],
+        "overturnsRuling": null
+      }
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::coverage.cut[17]",
+      "originalTitle": "The repository has no human-focused CONTRIBUTING entrypoint; README routes coding standards to agent-specific AGENTS.md.",
+      "reconstruction": "I searched the live repository for CONTRIBUTING*, DEVELOPMENT*, and HACKING* entrypoints and found none. README.md provides setup and command documentation, but its Development section sends readers to AGENTS.md for full coding standards. AGENTS.md contains agent-specific autonomy and workflow directions, including automatic commits and asking before push/integration.",
+      "disposition": "promote",
+      "dismissReason": null,
+      "candidate": {
+        "promotionId": "C6-04",
+        "title": "Human contributors have no contribution guide separate from agent operating instructions",
+        "area": "docs",
+        "category": "dx",
+        "severityHint": "low",
+        "sizeHint": "S",
+        "evidence": [
+          {
+            "path": ".",
+            "line": null,
+            "endLine": null,
+            "measurement": "0 CONTRIBUTING*, DEVELOPMENT*, or HACKING* files found within the repository root and its immediate documentation/package level",
+            "note": "There is no conventional human contribution entrypoint."
+          },
+          {
+            "path": "README.md",
+            "line": 173,
+            "endLine": 177,
+            "measurement": null,
+            "note": "The human-facing Development section routes full coding standards and conventions to AGENTS.md."
+          },
+          {
+            "path": "AGENTS.md",
+            "line": 47,
+            "endLine": 51,
+            "measurement": null,
+            "note": "The destination mixes branch/commit conventions with agent-specific operating instructions such as committing completed work automatically and asking before external actions."
+          }
+        ],
+        "problem": "Human contributors must infer their workflow from an agent control file whose autonomy rules are not written for them. This obscures contribution expectations and couples human onboarding to instructions designed for automated agents.",
+        "proposedDirection": "Add a concise human-focused CONTRIBUTING.md covering branch, commit, verification, and review expectations; link it from README and leave AGENTS.md for agent-specific behavior.",
+        "leafability": "single-leaf",
+        "confidence": "high",
+        "origins": [
+          {
+            "source": "reject-audit",
+            "consult": "C6",
+            "sourceItemId": "wave-1/lane-07.json::coverage.cut[17]",
+            "lane": "lane-07-docs-dx",
+            "originalTitle": "The repository has no human-focused CONTRIBUTING entrypoint; README routes coding standards to agent-specific AGENTS.md.",
+            "rejectionReason": "not-sampled — outside round-5 budget"
+          }
+        ],
+        "priorPackOverlaps": [],
+        "existingLeafHints": [
+          "looks covered by leaf 266 — hint only"
+        ],
+        "overturnsRuling": null
+      }
+    }
+  ],
+  "bugsNoticed": [],
+  "notes": [
+    "For coverage.cut[15], the measured nuance is stronger than the orientation: 24 guide files exist, 20 are represented in the Guides table, 22 are referenced anywhere in ai-harness.md, and 2 are absent from that document entirely."
+  ]
+}

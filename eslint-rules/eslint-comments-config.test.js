@@ -1,43 +1,17 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
 import { ratchetRestrictedDisableRuleIds } from "../eslint-config/ratchet-restricted-disable-rules.generated.js";
 import { restrictedDisableRuleIds } from "../eslint-config/rule-groups.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
-
-/** @returns {Promise<{ rules?: Record<string, unknown> }>} */
-async function configFor(/** @type {string} */ relPath) {
-  const config = await eslint.calculateConfigForFile(resolve(repoRoot, relPath));
-  return { rules: config.rules };
-}
-
-/** @param {{ rules?: Record<string, unknown> }} config */
-function severityOf(config, /** @type {string} */ ruleId) {
-  const entry = config.rules?.[ruleId];
-  if (Array.isArray(entry)) return entry[0];
-  return entry;
-}
+import { configFor, lintTextFor, severityOf } from "./repo-config-harness.js";
 
 /** @param {{ rules?: Record<string, unknown> }} config @returns {string[]} */
 function restrictedDisableOptions(config) {
   const entry = config.rules?.["eslint-comments/no-restricted-disable"];
   if (!Array.isArray(entry)) return [];
   return entry.slice(1).filter((value) => typeof value === "string");
-}
-
-async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ code) {
-  return eslint.lintText(code, { filePath: resolve(repoRoot, relPath) });
 }
 
 describe("eslint-comments restricted disable fence", () => {

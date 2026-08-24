@@ -4,7 +4,7 @@ import corpus from "./fixtures/message-identity-golden.json";
 import { messageIdentityForFinding } from "./message-identity.js";
 
 describe("messageIdentityForFinding", () => {
-  it("matches every messageId-less identity in the live collector golden corpus", () => {
+  it("matches every messageId-less identity in the frozen golden corpus", () => {
     expect(corpus.entries).toHaveLength(21);
 
     for (const entry of corpus.entries) {

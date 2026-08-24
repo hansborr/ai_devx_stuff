@@ -4,7 +4,11 @@ import {
 } from "@musi/lint-ratchet/governance/edit-check.js";
 import { describe, expect, it } from "vitest";
 
-import { musiLintRatchetBinding, musiLintRatchetContext } from "./engine-binding.js";
+import {
+  musiLintRatchetBinding,
+  musiLintRatchetContext,
+  musiLintRatchetWorkflowVocabulary,
+} from "./engine-binding.js";
 import { lintRatchets } from "./lint-ratchet-config.js";
 
 // The Musi edit-check engine: this suite exercises target discovery against the
@@ -19,6 +23,7 @@ const editCheckEngine: LintRatchetEditCheckEngine = {
   baselinePath: musiLintRatchetContext.baselinePath,
   registry: lintRatchets,
   binding: musiLintRatchetBinding,
+  workflowVocabulary: musiLintRatchetWorkflowVocabulary,
 };
 
 // A minimal-TS (cache-using) ratchet that is present in the committed baseline,

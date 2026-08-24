@@ -1,0 +1,328 @@
+{
+  "contractVersion": 1,
+  "consult": "D-04",
+  "step": "1b",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "priorPackReviewSha": "948169235fef7798de67bd44b90ac4894e9cc55f",
+  "claimantDispositions": [
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-157",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md",
+      "coverage": "full",
+      "reason": "The live plan’s Step 8 ruling explicitly drops splitting `tools/lint-ratchet/src/kernel/baseline.test.ts` and records the only two revisit conditions: behavioral work already underway there or activation of a test-file line cap.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-48",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md",
+      "coverage": "full",
+      "reason": "The live scheduled 40.1 slice exactly owns the narrowed `CharacterDetail` intersection annotation, all seven shared-fixture double-cast removals, and 15 downstream concrete-stats cast removals.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[26]",
+      "ref": "CQ25-49",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md",
+      "coverage": "full",
+      "reason": "The live scheduled 40.2 slice specifies the file-local `buildMonsterPayload` factory, the five range-case and eight full-literal sweep, and the seven-describe move into `homebrew-inputs.test.ts`.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[27]",
+      "ref": "CQ25-51",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md",
+      "coverage": "full",
+      "reason": "The live scheduled 40.4 slice exactly owns a player-plus-monster active-encounter builder in `encounter-test-helper.ts` and routes both named encounter suites through it.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-48",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md",
+      "coverage": "full",
+      "reason": "The live scheduled 40.1 slice explicitly recovers concrete non-null fixture stats through a narrowed `CharacterDetail` intersection and removes the resulting consumer casts.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[22]",
+      "ref": "CQ25-161",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/42-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition drops HP attribution, drawer authorization, and spell-casting extraction individually, retaining the spell block as an ordered browser narrative.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[23]",
+      "ref": "CQ25-162",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/42-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step disposition keeps the lifecycle serial as a standing constraint already closed by testsuite-audit leaf 04, and its rejected alternatives explicitly decline de-serialisation.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-06.json::droppedAsPriorPackDuplicate[24]",
+      "ref": "CQ25-55",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/42-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Step 1 ruling fully scopes the six wrappers and layered active-encounter seed, then explicitly says not to schedule them until a second consumer appears.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[26]",
+      "ref": "CQ25-169",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-46 ruling explicitly drops the private `EpochWindow` rename because it has no correctness payoff and would drag a copied sandbox file through smoke coverage.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-01.json::droppedAsPriorPackDuplicate[27]",
+      "ref": "CQ25-168",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-44 ruling drops the harness-diagnostics header edit and retains the deliberate, recently reviewed header because the proposed change has no consumer.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-02.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-168",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-44 ruling explicitly refuses the mass coordinate sweep, including the re-counted task references in non-test `scripts/drift-ai` sources, while allowing only wrong-path or on-touch carve-outs.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[0]",
+      "ref": "CQ25-68",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "Live S17 remains open and optional and exactly specifies converting `assertCharacterOwner` and all 21 callers to one `AuthzCallerContext` object.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-69",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "Live S18 remains open, optional, and deferred and exactly owns object-caller convergence for campaign-auth and note-auth across the stated callers.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-70",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "Live S19 remains open, optional, and opportunistic and exactly owns the combat-chat message-local and ten SRD mapper-parameter renames.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[3]",
+      "ref": "CQ25-75",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live taxonomy section adjudicates both named files: it rules the character-campaign reading wrong and records combat-chat as a future placement/documentation leaf.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[12]",
+      "ref": "CQ25-166",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-04 ruling drops the exit-tail extraction because the three sites differ in leave semantics, awaitability, and error handling, making silent disconnect-path failure too costly for three saved lines.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[13]",
+      "ref": "CQ25-167",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-05 ruling resolves the deep-rest move to no action: after S5, rest has two internal files, fails the module rubric’s criterion 3, and remains a flat service with a companion doc.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[14]",
+      "ref": "CQ25-167",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-05 ruling explicitly drops the SRD-router split because it is one banner-sectioned read-only catalog with shared selectors and mappers crossing content families, so splitting buys only file size.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[15]",
+      "ref": "CQ25-167",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-05 ruling retains the two lock branches because each exact WHERE clause is lock semantics and the non-DM path lacks direct unit coverage, outweighing a 24-line saving.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[16]",
+      "ref": "CQ25-169",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-46 ruling explicitly drops both the rest-service local renames and the `item`/`fetch` SRD-helper rename across 44 sites.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-170",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Third landing outcome expressly declines requiring `AuthzCallerContext.logger`, records the five-public-context plus 18-fixture cost, and documents the optional contract.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-03.json::droppedAsPriorPackDuplicate[19]",
+      "ref": "CQ25-172",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Fourth landing outcome records provenance as an attestation rather than a drift gate, adds no `:check` or verify slot, and rejects regenerate-and-diff because inputs live outside the tree.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-71",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "Live S20 remains open and optional and exactly names one shared `{x,y,w,h}` callback type at the same five client sites while retaining `w` and `h`.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-05.json::droppedAsPriorPackDuplicate[20]",
+      "ref": "CQ25-169",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-46 ruling re-resolves the complete client `pid` sweep, records both consults’ drop call, and leaves it opportunistic-only rather than scheduled work.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-07.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-172",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Fourth landing outcome records provenance as an attestation rather than a drift gate, adds no `:check` or verify slot, and rejects regenerate-and-diff because inputs live outside the tree.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[7]",
+      "ref": "CQ25-167",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-05 ruling explicitly refuses the SRD-router split because the uniform catalog’s helpers cross content families and the proposed split buys file size only.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[8]",
+      "ref": "CQ25-75",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live taxonomy section records the only reconstructable utility pair, rules character-campaign out, and carries combat-chat as future work; the claimant supplies no evidence for a broader utility residual.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[17]",
+      "ref": "CQ25-68",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "partial",
+      "reason": "Live CQ25-68/S17 covers only `assertCharacterOwner`; campaign and note caller convergence is the distinct live S18/CQ25-69 slice, so CQ25-68 alone does not cover the cross-cutting title.",
+      "promotionIds": [
+        "D-04-001"
+      ]
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::droppedAsPriorPackDuplicate[1]",
+      "ref": "CQ25-168",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live leaf-44 ruling refuses the 60-plus bulk historical-coordinate sweep across scripts, tools, and server; its targeted wrong-statement and on-touch carve-outs do not leave a residual bulk sweep.",
+      "promotionIds": []
+    },
+    {
+      "sourceItemId": "wave-2/lane-07-topup.json::droppedAsPriorPackDuplicate[2]",
+      "ref": "CQ25-172",
+      "sourceDocument": "docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md",
+      "coverage": "full",
+      "reason": "The live Fourth landing outcome records provenance as an attestation rather than a drift gate, adds no `:check` or verify slot, and rejects regenerate-and-diff because inputs live outside the tree.",
+      "promotionIds": []
+    }
+  ],
+  "promotionCandidates": [
+    {
+      "promotionId": "D-04-001",
+      "title": "Converge campaign and note authorization caller shapes",
+      "area": "server",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/server/src/utils/request-logger.ts",
+          "line": 31,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The canonical AuthzCallerContext contract says authorization helpers take one caller shape carrying userId and optional logger together."
+        },
+        {
+          "path": "packages/server/src/utils/campaign-auth.ts",
+          "line": 39,
+          "endLine": 44,
+          "measurement": null,
+          "note": "assertCampaignMember still splits userId and logContext into separate positional parameters; assertCampaignDm repeats the shape at lines 72-77."
+        },
+        {
+          "path": "packages/server/src/utils/note-auth.ts",
+          "line": 32,
+          "endLine": 37,
+          "measurement": null,
+          "note": "loadNoteForMutation likewise accepts userId and AuthzLogContext separately instead of the canonical caller object."
+        }
+      ],
+      "problem": "The repository declares AuthzCallerContext as the single authorization-boundary caller shape, but campaign and note guards still split identity from logging context. Their large caller surface must repeatedly assemble positional fields, leaving the compiler-bound contract inconsistent and increasing signature-change and omission risk.",
+      "proposedDirection": "Move assertCampaignMember, assertCampaignDm, and loadNoteForMutation to `(prisma, scopeId, caller: AuthzCallerContext)`, updating each helper and all callers atomically while preserving one-log-per-boundary and NOT_FOUND normalization semantics.",
+      "leafability": "single-leaf",
+      "confidence": "high",
+      "origins": [
+        {
+          "source": "reject-audit",
+          "consult": "D-04",
+          "sourceItemId": "wave-1/lane-08.json::droppedAsPriorPackDuplicate[17]",
+          "lane": "lane-08-cross-cutting",
+          "originalTitle": "Converge character, campaign, and note authorization caller shapes",
+          "rejectionReason": "Existing optional authorization slices already own the conversion."
+        }
+      ],
+      "priorPackOverlaps": [
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-68",
+          "residual": "S17 covers the character-owner conversion only; campaign and note helpers remain outside this record."
+        },
+        {
+          "kind": "plan-slice",
+          "ref": "CQ25-69",
+          "residual": "The promoted residual is separately owned by open optional S18; step 1c should adjudicate this overlap."
+        }
+      ],
+      "existingLeafHints": [],
+      "overturnsRuling": null
+    }
+  ],
+  "coverageNotes": {
+    "claimantsAssigned": 30,
+    "claimantsJudged": 30,
+    "subagentPartition": [
+      "subagent d04_plan40: docs/agent_notes/backlog/code-quality-2026-07-25/40-PLAN.md (5 claimants)",
+      "subagent d04_plan42: docs/agent_notes/backlog/code-quality-2026-07-25/42-PLAN.md (3 claimants)",
+      "subagent d04_server_comments: docs/agent_notes/backlog/code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md (22 claimants), internally partitioned as optional slices CQ25-68/69/70/71/75 (7), dropped rulings CQ25-166/167/168 (8), naming/auth CQ25-169/170 (4), and seed gate CQ25-172 (3)"
+    ],
+    "notes": [
+      "Twenty-nine claimants are fully covered and one is partial.",
+      "D-04-001 is promoted because the cited CQ25-68 record covers only the character portion of its title; the residual separately overlaps CQ25-69/S18, whose dedup disposition belongs to step 1c.",
+      "The live 40-PLAN slices remain planned, the 42-PLAN wrapper seed remains demand-gated, and SERVER-COMMENTS S17-S20 remain open optional slices.",
+      "CONSTRAINTS.md’s older statement that leaf 42 owns the split is stale against the later, specific 42-PLAN ruling; dedup-corpus distillation note 11 records that staleness.",
+      "No files were modified and no test or build command was run."
+    ]
+  }
+}

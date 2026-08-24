@@ -32,6 +32,11 @@ reference the browser globals `window`, `document`, `localStorage`, or
 `sessionStorage`. Both restrictions apply to shared tests as well, because a
 test that reaches for an adapter is evidence the module under test wants one.
 
+Production shared code also may not import Node builtins or reference
+`process`, `Buffer`, `__dirname`, `__filename`, or the `NodeJS` namespace.
+Shared tests and test helpers retain Node access for their test runtime, while
+remaining subject to the browser and adapter restrictions above.
+
 Shared code also declares its own runtime dependencies: the extraneous-import
 gate resolves them against `packages/shared/package.json` with
 `devDependencies: false`, so a transitively-available package is not an

@@ -76,7 +76,6 @@ describe("reduceStaleMarkers", () => {
       files,
       readFile: reader(contents),
       git: blame,
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -101,7 +100,6 @@ describe("reduceStaleMarkers", () => {
       files: ["src/fresh.ts"],
       readFile: reader({ "src/fresh.ts": "// TODO recent\n" }),
       git: blameGit({ "src/fresh.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(10) }] }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -123,7 +121,6 @@ describe("reduceStaleMarkers", () => {
         { "src/marked.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(400) }] },
         recorder,
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -143,7 +140,6 @@ describe("reduceStaleMarkers", () => {
         "src/a.ts": ["// TODO one", "// FIXME two", "// FIXME three"].join("\n"),
       }),
       git: blameGit({}, recorder),
-      repoRoot: "/repo",
       agesAvailable: false,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -173,7 +169,6 @@ describe("reduceStaleMarkers", () => {
         "src/older.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(500) }],
         "src/old.ts": [{ line: 1, author: "Bob", epoch: epochDaysAgo(250) }],
       }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
     });
@@ -187,7 +182,6 @@ describe("reduceStaleMarkers", () => {
       files: ["src/a.ts"],
       readFile: reader({ "src/a.ts": "x\n// TODO at line 2\n" }),
       git: blameGit({ "src/a.ts": [{ line: 2, author: "Ada", epoch: epochDaysAgo(400) }] }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
     });
@@ -201,7 +195,6 @@ describe("reduceStaleMarkers", () => {
       files: ["src/a.ts"],
       readFile: reader({ "src/a.ts": "// TODO uncommitted\n" }),
       git: blameGit({ "src/a.ts": [] }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -222,7 +215,6 @@ describe("reduceStaleMarkers", () => {
         recorder,
         ["src/dirty.ts"],
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -251,7 +243,6 @@ describe("reduceStaleMarkers", () => {
         recorder,
         ["src/dirty.ts"],
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -275,7 +266,6 @@ describe("reduceStaleMarkers", () => {
         [],
         { "src/normal.ts": "H" },
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -297,7 +287,6 @@ describe("reduceStaleMarkers", () => {
         [], // clean per `git status`
         { "src/skip.ts": "S" }, // skip-worktree
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -324,7 +313,6 @@ describe("reduceStaleMarkers", () => {
         [],
         { "src/au.ts": "h" }, // lowercase tag → assume-unchanged bit set
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -349,7 +337,6 @@ describe("reduceStaleMarkers", () => {
         {},
         ["src/probe-fail.ts"], // `git ls-files -v` throws for this path
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -369,7 +356,6 @@ describe("reduceStaleMarkers", () => {
       readFile: reader({ "src/probe-fail.ts": "// TODO marker\n" }),
       // The ls-files probe would throw if called; ages are unavailable, so it must not run.
       git: blameGit({ "src/probe-fail.ts": [] }, recorder, [], {}, ["src/probe-fail.ts"]),
-      repoRoot: "/repo",
       agesAvailable: false,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -392,7 +378,6 @@ describe("reduceStaleMarkers", () => {
         ["src/both.ts"], // dirty per `git status` (status probe runs first)
         { "src/both.ts": "S" }, // and also skip-worktree
       ),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       ageThresholdDays: 180,
@@ -424,7 +409,6 @@ describe("reduceStaleMarkers", () => {
         "src/b.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(400) }],
         "src/c.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(300) }],
       }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
       top: 1,
@@ -441,7 +425,6 @@ describe("reduceStaleMarkers", () => {
       files: ["src/a.ts"],
       readFile: reader({ "src/a.ts": "// TODO old\n" }),
       git: blameGit({ "src/a.ts": [{ line: 1, author: "Ada", epoch: epochDaysAgo(400) }] }),
-      repoRoot: "/repo",
       agesAvailable: true,
       nowMs: NOW_MS,
     });

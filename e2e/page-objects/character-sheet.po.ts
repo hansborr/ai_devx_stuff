@@ -24,7 +24,6 @@ export class CharacterSheetPO {
   readonly inventoryPanel = this.page.getByTestId("inventory-panel");
   readonly addItemDialog = this.page.getByRole("dialog", { name: "Add Item" });
   readonly editItemDialog = this.page.getByRole("dialog", { name: "Edit Item" });
-  readonly backToDashboardLink = this.page.getByRole("link", { name: /dashboard/i });
   readonly spells = new SpellsPanelPO(this.page);
 
   // ── Assertions ──────────────────────────────────────────────────────
@@ -283,12 +282,5 @@ export class CharacterSheetPO {
 
   async expectAttunementCount(text: string | RegExp): Promise<void> {
     await expect(this.inventoryPanel.getByText(text)).toBeVisible({ timeout: TIMEOUT_SHORT });
-  }
-
-  // ── Navigation ──────────────────────────────────────────────────────
-
-  async clickBackToDashboard(): Promise<void> {
-    await this.backToDashboardLink.click();
-    await expect(this.page).toHaveURL(/\/dashboard/, { timeout: TIMEOUT_MEDIUM });
   }
 }

@@ -5,14 +5,16 @@ Date: 2026-07-21
 
 ## Method
 
-The audit covered every nonblank pain-point entry in
-`/home/node/persist/musi/pain_points.log` (physical lines 3–33), the available
-named Claude memories under `/home/node/.claude/projects/-workspace/memory/`,
-the live implementation and focused tests, repository history, and the complete
-backlog. The memory cited for the `FORCE_VERIFY` incident was unavailable; the
-orphan-process memory was present during initial triage but was pruned before
-final verification. Those verdicts were therefore re-established from the log,
-live regression tests, and history instead of relying on durable memory files.
+The audit covered every nonblank pain-point entry in the pre-migration source
+now preserved at
+`/home/node/persist/musi/pain_points/archive/2026-07-21-through-2026-07-29.log`
+(physical lines 3–33), the available named Claude memories under
+`/home/node/.claude/projects/-workspace/memory/`, the live implementation and
+focused tests, repository history, and the complete backlog. The memory cited
+for the `FORCE_VERIFY` incident was unavailable; the orphan-process memory was
+present during initial triage but was pruned before final verification. Those
+verdicts were therefore re-established from the archived log, live regression
+tests, and history instead of relying on durable memory files.
 
 Ten parallel discovery lanes checked separate subsystems and duplicate
 ownership. Six refute-first reviewers then challenged implementation
@@ -22,7 +24,7 @@ owners. The table below is the resulting disposition, not the first-pass claim.
 
 ## Reconciliation
 
-| Log line | Verdict | Evidence and disposition |
+| Archived log line | Verdict | Evidence and disposition |
 | --- | --- | --- |
 | 3 — generated lint-coverage map | **Existing duplicate; partly stale** | `76b5a209` added the checked drift-ai block generator, so “no generator” is stale. The broader authored-Markdown problem remains owned by [coverage map as data](../lint-arch-review-2026-07/07-coverage-map-as-data.md); no duplicate leaf was added. |
 | 5 — duplicated `land.sh` test pins | **Live actionable** | Only `test-pre-push.sh` has exact whole-log pins; `test-land.sh` uses a separate semantic event model. Follow-up repairs `0f584804` and `dff40db9` prove the sibling model can go stale. [Leaf 02](./02-consolidate-land-flow-test-ownership.md) moves unique cases before making the land suite authoritative. |

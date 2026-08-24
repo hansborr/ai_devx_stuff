@@ -19,9 +19,9 @@ export const debtLogPath = join(repoRoot, DEBT_LOG_FILENAME);
 // Single reader for the committed baseline text; both the default gate and the
 // unvalidated modes need the same "missing baseline ⇒ run lint:ratchet:update"
 // contract.
-export function readBaselineOrThrow(): string {
+export function readBaselineOrThrow(updateCommand: string): string {
   if (!existsSync(baselinePath)) {
-    throw new ConfigError(`${BASELINE_FILENAME} does not exist; run bun run lint:ratchet:update`);
+    throw new ConfigError(`${BASELINE_FILENAME} does not exist; run ${updateCommand}`);
   }
   return readFileSync(baselinePath, "utf8");
 }

@@ -10,13 +10,13 @@ import {
   type StructuralLintRatchetBaseline,
 } from "./baseline.js";
 import {
-  LINT_RATCHET_BASELINE_REGENERATE,
   LINT_RATCHET_BASELINE_VERSION_POLICY,
   type LintRatchetBaselineVersionPolicy,
 } from "./baseline-constants.js";
 import { stableJson } from "./baseline-hash.js";
 import { lintRatchetBaselineFromGrouped, lintRatchetBaselineSpec } from "./baseline-spec.js";
 import type { LintRatchetConfig } from "./config-types.js";
+import { DEFAULT_BASELINE_FILENAME, type LintRatchetWorkflowVocabulary } from "./engine-context.js";
 import { parseGroupedBaseline } from "./group-baseline.js";
 import { validateMetricItem } from "./metric-strategies.js";
 
@@ -44,18 +44,23 @@ function validateBaselineTestMetadata(
 }
 
 function validateBaselineRuleSourceHash(
-  testId: string,
-  test: LintRatchetBaselineTest,
-  expected: LintRatchetBaselineTest,
+  context: Pick<
+    BaselineTestValidationContext,
+    "expectedRuleSourceHash" | "test" | "testId" | "workflowVocabulary"
+  >,
   failures: LintRatchetBaselineValidationFailure[],
 ): void {
-  if (test.ruleSourceHash === "") {
-    pushFailure(failures, "rule-source-hash-required", `${testId}.ruleSourceHash is required`);
-  } else if (test.ruleSourceHash !== expected.ruleSourceHash) {
+  if (context.test.ruleSourceHash === "") {
+    pushFailure(
+      failures,
+      "rule-source-hash-required",
+      `${context.testId}.ruleSourceHash is required`,
+    );
+  } else if (context.test.ruleSourceHash !== context.expectedRuleSourceHash) {
     pushFailure(
       failures,
       "rule-source-drift",
-      `${testId}.ruleSourceHash is stale (run "bun run lint:ratchet:update" to regenerate)`,
+      `${context.testId}.ruleSourceHash is stale (run "${context.workflowVocabulary.updateCommand}" to regenerate)`,
     );
   }
 }
@@ -79,6 +84,7 @@ interface BaselineTestValidationContext {
   readonly test: LintRatchetBaselineTest;
   readonly ratchet: LintRatchetConfig;
   readonly expectedRuleSourceHash: string;
+  readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
 }
 
 function validateBaselineTestAgainstRatchet(
@@ -91,7 +97,7 @@ function validateBaselineTestAgainstRatchet(
     context.expectedRuleSourceHash,
   );
   validateBaselineTestMetadata(context.testId, context.test, expected, failures);
-  validateBaselineRuleSourceHash(context.testId, context.test, expected, failures);
+  validateBaselineRuleSourceHash(context, failures);
   validateBaselineMetricItems(context.testId, context.test, failures);
 }
 
@@ -99,10 +105,22 @@ export function validateBaselineTestForRatchet(
   testId: string,
   test: LintRatchetBaselineTest,
   ratchet: LintRatchetConfig,
-  expectedRuleSourceHash: string,
+  options: {
+    readonly expectedRuleSourceHash: string;
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+  },
 ): readonly string[] {
   const failures: LintRatchetBaselineValidationFailure[] = [];
-  validateBaselineTestAgainstRatchet({ testId, test, ratchet, expectedRuleSourceHash }, failures);
+  validateBaselineTestAgainstRatchet(
+    {
+      testId,
+      test,
+      ratchet,
+      expectedRuleSourceHash: options.expectedRuleSourceHash,
+      workflowVocabulary: options.workflowVocabulary,
+    },
+    failures,
+  );
   return failures.map((failure) => failure.message);
 }
 
@@ -127,13 +145,16 @@ function structuralValidationFailures(
 }
 
 function validateBaselineAgainstRegistry(
-  baseline: LintRatchetBaseline,
-  ratchets: readonly LintRatchetConfig[],
-  ruleSourceHashesById: LintRatchetRuleSourceHashesById,
+  context: {
+    readonly baseline: LintRatchetBaseline;
+    readonly ratchets: readonly LintRatchetConfig[];
+    readonly ruleSourceHashesById: LintRatchetRuleSourceHashesById;
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+  },
   failures: LintRatchetBaselineValidationFailure[],
 ): void {
-  const registryById = new Map(ratchets.map((ratchet) => [ratchet.id, ratchet]));
-  for (const testId of Object.keys(baseline.tests)) {
+  const registryById = new Map(context.ratchets.map((ratchet) => [ratchet.id, ratchet]));
+  for (const testId of Object.keys(context.baseline.tests)) {
     const ratchet = registryById.get(testId);
     if (ratchet === undefined) {
       pushFailure(
@@ -143,20 +164,21 @@ function validateBaselineAgainstRegistry(
       );
       continue;
     }
-    const test = baseline.tests[testId];
+    const test = context.baseline.tests[testId];
     if (test === undefined) continue;
     validateBaselineTestAgainstRatchet(
       {
         testId,
         test,
         ratchet,
-        expectedRuleSourceHash: ruleSourceHashesById.get(testId) ?? "",
+        expectedRuleSourceHash: context.ruleSourceHashesById.get(testId) ?? "",
+        workflowVocabulary: context.workflowVocabulary,
       },
       failures,
     );
   }
-  for (const ratchet of ratchets) {
-    if (baseline.tests[ratchet.id] === undefined) {
+  for (const ratchet of context.ratchets) {
+    if (context.baseline.tests[ratchet.id] === undefined) {
       pushFailure(
         failures,
         "missing-ratchet",
@@ -166,17 +188,25 @@ function validateBaselineAgainstRegistry(
   }
 }
 
-function regenerateWarning(baseline: LintRatchetBaseline): string | undefined {
+function regenerateWarning(
+  baseline: LintRatchetBaseline,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
+): string | undefined {
   const committed = baseline.regenerate;
-  if (committed === undefined || committed === LINT_RATCHET_BASELINE_REGENERATE) return undefined;
-  return `baseline regenerate annotation is stale; regenerate with \`${LINT_RATCHET_BASELINE_REGENERATE}\` (committed ${JSON.stringify(committed)})`;
+  if (committed === undefined || committed === workflowVocabulary.updateCommand) return undefined;
+  return `baseline regenerate annotation is stale; regenerate with \`${workflowVocabulary.updateCommand}\` (committed ${JSON.stringify(committed)})`;
 }
 
 export function parseLintRatchetBaselineStructure(
   text: string,
+  workflowVocabulary: LintRatchetWorkflowVocabulary,
   versionPolicy: LintRatchetBaselineVersionPolicy = LINT_RATCHET_BASELINE_VERSION_POLICY,
+  baselineFile: string = DEFAULT_BASELINE_FILENAME,
 ): StructuralLintRatchetBaseline {
-  const parsed = parseGroupedBaseline(lintRatchetBaselineSpec(versionPolicy), text);
+  const parsed = parseGroupedBaseline(
+    lintRatchetBaselineSpec(versionPolicy, workflowVocabulary, baselineFile),
+    text,
+  );
   if (!parsed.ok) {
     return { failures: parsed.errors ?? [parsed.error] };
   }
@@ -190,9 +220,20 @@ export function parseLintRatchetBaseline(
   text: string,
   ratchets: readonly LintRatchetConfig[],
   ruleSourceHashesById: LintRatchetRuleSourceHashesById,
-  versionPolicy: LintRatchetBaselineVersionPolicy = LINT_RATCHET_BASELINE_VERSION_POLICY,
+  options: {
+    readonly workflowVocabulary: LintRatchetWorkflowVocabulary;
+    readonly versionPolicy?: LintRatchetBaselineVersionPolicy;
+    readonly baselineFile?: string;
+  },
 ): ParsedLintRatchetBaseline {
-  const structural = parseLintRatchetBaselineStructure(text, versionPolicy);
+  const versionPolicy = options.versionPolicy ?? LINT_RATCHET_BASELINE_VERSION_POLICY;
+  const baselineFile = options.baselineFile ?? DEFAULT_BASELINE_FILENAME;
+  const structural = parseLintRatchetBaselineStructure(
+    text,
+    options.workflowVocabulary,
+    versionPolicy,
+    baselineFile,
+  );
   if (structural.baseline === undefined) {
     const validationFailures = structuralValidationFailures(structural.failures);
     return { failures: structural.failures, validationFailures, warnings: [] };
@@ -201,20 +242,26 @@ export function parseLintRatchetBaseline(
     ...structuralValidationFailures(structural.failures),
   ];
   validateBaselineAgainstRegistry(
-    structural.baseline,
-    ratchets,
-    ruleSourceHashesById,
+    {
+      baseline: structural.baseline,
+      ratchets,
+      ruleSourceHashesById,
+      workflowVocabulary: options.workflowVocabulary,
+    },
     validationFailures,
   );
-  if (validationFailures.length === 0 && formatLintRatchetBaseline(structural.baseline) !== text) {
+  if (
+    validationFailures.length === 0 &&
+    formatLintRatchetBaseline(structural.baseline, options.workflowVocabulary) !== text
+  ) {
     pushFailure(
       validationFailures,
       "nondeterministic-json",
-      "baseline JSON is not deterministic; run bun run lint:ratchet:update",
+      `baseline JSON is not deterministic; run ${options.workflowVocabulary.updateCommand}`,
     );
   }
   const failures = messagesFromFailures(validationFailures);
-  const warning = regenerateWarning(structural.baseline);
+  const warning = regenerateWarning(structural.baseline, options.workflowVocabulary);
   const warnings = warning === undefined ? [] : [warning];
   return failures.length > 0
     ? { failures, validationFailures, warnings }

@@ -97,6 +97,29 @@ describe("parseCli", () => {
     expect(run(["--format", "json", "--format", "text"]).options["--format"]).toBe("text");
   });
 
+  it("exposes seen option names in first-occurrence argv order, omitted when none were seen", () => {
+    expect(run(["--input", "x", "--format=json", "--latest", "--input", "y"]).seenOptions).toEqual([
+      "--input",
+      "--format",
+      "--latest",
+    ]);
+    expect(run([]).seenOptions).toBeUndefined();
+    expect(run(["positional-only"]).seenOptions).toBeUndefined();
+  });
+
+  it("exposes per-occurrence option events in argv order, omitted when none were seen", () => {
+    expect(run(["--input", "a", "--latest", "--input=b", "--format", "json"]).optionEvents).toEqual(
+      [
+        { name: "--input", value: "a" },
+        { name: "--latest", value: true },
+        { name: "--input", value: "b" },
+        { name: "--format", value: "json" },
+      ],
+    );
+    expect(run([]).optionEvents).toBeUndefined();
+    expect(run(["positional-only"]).optionEvents).toBeUndefined();
+  });
+
   it("rejects unknown arguments and inline values on flags with the usage suffix", () => {
     expect(() => run(["--nope"])).toThrow("Unknown argument: --nope\nUSAGE");
     expect(() => run(["--latest=x"])).toThrow("Unknown argument: --latest=x\nUSAGE");
@@ -118,6 +141,25 @@ describe("parseCli", () => {
     expect(() => run([""])).toThrow("Empty arguments are not supported.");
     expect(run([""], true).positionals).toEqual([""]);
     expect(run(["-x"]).positionals).toEqual(["-x"]);
+  });
+
+  it("rejects a positional at its token when the spec declares that policy", () => {
+    const spec = {
+      usage: "USAGE",
+      createError: (message: string) => new TestError(message),
+      rejectPositionals: true,
+      options: [{ name: "--latest", kind: "flag" } as const],
+      schema: z.object({ "--latest": z.boolean().default(false) }),
+      onHelp: () => {
+        throw new TestError("HELP");
+      },
+    };
+    expect(() => parseCli({ ...spec, argv: ["stray", "--help"] })).toThrow(
+      "Unknown argument: stray\nUSAGE",
+    );
+    expect(() => parseCli({ ...spec, argv: ["stray", "--latest=x"] })).toThrow(
+      "Unknown argument: stray\nUSAGE",
+    );
   });
 
   it("uses a value option's own valueErrorMessage without the usage suffix", () => {

@@ -1,6 +1,5 @@
-import { DriftAiHelp } from "./cli-args.js";
+import { type DriftAiCommandResult, sentinelToCommandResult } from "./command-result.js";
 import { type DriftAiConfig, loadDriftAiConfig } from "./config.js";
-import { DriftAiError } from "./errors.js";
 import { defaultGitRunner, type GitRunner, resolveRepoRoot } from "./git-changed-scope.js";
 import { defaultReportWriter, type ReportWriter } from "./report-output.js";
 import type { SubcommandBaseOptions, SubcommandFormat } from "./subcommand-args.js";
@@ -11,10 +10,7 @@ export type PrototypeCommandRunOptions = {
   readonly argv: readonly string[];
 };
 
-export type PrototypeCommandRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type PrototypeCommandRunResult = DriftAiCommandResult;
 
 export type PrototypeCommandDescriptor<Options extends PrototypeCommandRunOptions, ParsedArgs> = {
   readonly parse: (argv: readonly string[]) => ParsedArgs;
@@ -47,9 +43,7 @@ export function runPrototypeCommand<Options extends PrototypeCommandRunOptions, 
   try {
     return descriptor.run(options, descriptor.parse(options.argv));
   } catch (err) {
-    if (err instanceof DriftAiHelp) return { exitCode: 0, stdout: err.message };
-    if (err instanceof DriftAiError) return { exitCode: 2, stdout: err.message };
-    throw err;
+    return sentinelToCommandResult(err);
   }
 }
 

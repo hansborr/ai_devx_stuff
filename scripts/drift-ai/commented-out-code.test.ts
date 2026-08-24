@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type { ChangedFile } from "../drift-ai.js";
 import { registerTempRootCleanup } from "../test-support/tmp-repo.test-helper.js";
 import { parseArgs } from "./cli-args.js";
 import {
@@ -13,6 +12,7 @@ import { commentedOutCodeCheck } from "./commented-out-code-check.js";
 import { DEFAULT_DRIFT_AI_CONFIG, parseDriftAiConfig } from "./config.js";
 import { buildSourceExtensions, type DetectorScope } from "./scope.js";
 import { toChangedScopeFile, toCurrentScopeFile } from "./scope.js";
+import type { ChangedFile } from "./types.js";
 
 const tmpRepo = registerTempRootCleanup();
 

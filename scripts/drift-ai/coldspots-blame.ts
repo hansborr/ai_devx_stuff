@@ -44,7 +44,6 @@ export type LineIntroduction = {
 
 export type BlameLineIntroductionsOptions = {
   readonly git: GitRunner;
-  readonly repoRoot: string;
   readonly path: string; // repo-relative path to blame
 };
 
@@ -61,7 +60,7 @@ export function blameLineIntroductions(
 function runBlame(options: BlameLineIntroductionsOptions): string | null {
   try {
     // `--` separates flags from the pathspec so a path that looks like a flag is
-    // still treated as a path; the runner is anchored at repoRoot by the caller.
+    // still treated as a path; the runner was anchored when it was constructed.
     return options.git(["blame", "--line-porcelain", "HEAD", "--", options.path]);
   } catch {
     return null;

@@ -1,14 +1,24 @@
 // Argument parser for the `coldspots` subcommand. Mirrors `hotspots-args.ts`:
 // a `--lens` selection map + dispatch (so adding `stale-markers` later is a map
 // entry, not a rewrite), `--window`/`--top`, `--config`/`--baseline`, plus the
-// coldspot lens's threshold overrides. Reuses the shared subcommand arg base
-// (`parseSubcommandArgs`/`SubcommandBaseOptions`).
+// coldspot lens's threshold overrides. Composes the shared subcommand base
+// fragments (`parseSubcommandCli`/`SubcommandBaseOptions`).
 
-import { parseWindowDays } from "./advisory-common.js";
-import { readPositiveInt } from "./arg-readers.js";
+import { z } from "zod";
+
+import { windowDaysValue } from "./advisory-common.js";
+import { positiveIntValue } from "./arg-readers.js";
 import type { ColdspotLens } from "./coldspots-format.js";
 import { DriftAiError } from "./errors.js";
-import { parseSubcommandArgs, type SubcommandBaseOptions } from "./subcommand-args.js";
+import {
+  CONFIG_CLI_OPTION,
+  configSchemaShape,
+  parseSubcommandCli,
+  SUBCOMMAND_BASE_CLI_OPTIONS,
+  subcommandBaseFromOptions,
+  type SubcommandBaseOptions,
+  subcommandBaseSchemaShape,
+} from "./subcommand-args.js";
 
 const DEFAULT_TOP_N = 20;
 // Coldspots needs deeper history than the 14d hotspots default — stillness is only
@@ -71,76 +81,65 @@ export type ParsedColdspotsArgs = {
   readonly markerAgeThresholdDays: number | null;
 };
 
-type MutableThresholds = {
-  ageThresholdDays: number | null;
-  revisionFloor: number | null;
-  neighborhoodChurnRatio: number | null;
-  birthBurstFiles: number | null;
-  birthBurstLines: number | null;
-  goneSilentDays: number | null;
-  largeFileChurnLines: number | null;
-  markerAgeThresholdDays: number | null;
-};
+const CLI_OPTIONS = [
+  ...SUBCOMMAND_BASE_CLI_OPTIONS,
+  CONFIG_CLI_OPTION,
+  { name: "--lens", kind: "value" },
+  { name: "--window", kind: "value" },
+  { name: "--top", kind: "value" },
+  { name: "--baseline", kind: "value" },
+  { name: "--age-threshold", kind: "value" },
+  { name: "--revision-floor", kind: "value" },
+  { name: "--neighborhood-ratio", kind: "value" },
+  { name: "--birth-burst-files", kind: "value" },
+  { name: "--birth-burst-lines", kind: "value" },
+  { name: "--gone-silent-days", kind: "value" },
+  { name: "--large-file-lines", kind: "value" },
+  { name: "--marker-age-threshold", kind: "value" },
+] as const;
+
+const cliOptionsSchema = z.object({
+  ...subcommandBaseSchemaShape,
+  ...configSchemaShape,
+  "--lens": z
+    .string()
+    .transform((value) => parseLens(value))
+    .default("coldspot"),
+  "--window": windowDaysValue(DEFAULT_COLDSPOT_WINDOW_DAYS).default(DEFAULT_COLDSPOT_WINDOW_DAYS),
+  "--top": positiveIntValue("--top").default(DEFAULT_TOP_N),
+  "--baseline": z.string().optional(),
+  "--age-threshold": positiveIntValue("--age-threshold").optional(),
+  "--revision-floor": positiveIntValue("--revision-floor").optional(),
+  "--neighborhood-ratio": positiveIntValue("--neighborhood-ratio").optional(),
+  "--birth-burst-files": positiveIntValue("--birth-burst-files").optional(),
+  "--birth-burst-lines": positiveIntValue("--birth-burst-lines").optional(),
+  "--gone-silent-days": positiveIntValue("--gone-silent-days").optional(),
+  "--large-file-lines": positiveIntValue("--large-file-lines").optional(),
+  "--marker-age-threshold": positiveIntValue("--marker-age-threshold").optional(),
+});
 
 export function parseColdspotsArgs(argv: readonly string[]): ParsedColdspotsArgs {
-  let lens: ColdspotLens = "coldspot";
-  let windowDays = DEFAULT_COLDSPOT_WINDOW_DAYS;
-  let top = DEFAULT_TOP_N;
-  let baselinePath: string | null = null;
-  const thresholds: MutableThresholds = {
-    ageThresholdDays: null,
-    revisionFloor: null,
-    neighborhoodChurnRatio: null,
-    birthBurstFiles: null,
-    birthBurstLines: null,
-    goneSilentDays: null,
-    largeFileChurnLines: null,
-    markerAgeThresholdDays: null,
-  };
-  const base = parseSubcommandArgs(argv, {
+  const { options } = parseSubcommandCli({
+    argv,
     usage: COLDSPOTS_USAGE,
-    acceptsConfig: true,
-    valueOptions: {
-      "--lens": (value) => {
-        lens = parseLens(value);
-      },
-      "--window": (value) => {
-        windowDays = parseWindowDays(value, DEFAULT_COLDSPOT_WINDOW_DAYS);
-      },
-      "--top": (value) => {
-        top = readPositiveInt(value, "--top");
-      },
-      "--baseline": (value) => {
-        if (!value) throw new DriftAiError("--baseline requires a path.");
-        baselinePath = value;
-      },
-      "--age-threshold": (value) => {
-        thresholds.ageThresholdDays = readPositiveInt(value, "--age-threshold");
-      },
-      "--revision-floor": (value) => {
-        thresholds.revisionFloor = readPositiveInt(value, "--revision-floor");
-      },
-      "--neighborhood-ratio": (value) => {
-        thresholds.neighborhoodChurnRatio = readPositiveInt(value, "--neighborhood-ratio");
-      },
-      "--birth-burst-files": (value) => {
-        thresholds.birthBurstFiles = readPositiveInt(value, "--birth-burst-files");
-      },
-      "--birth-burst-lines": (value) => {
-        thresholds.birthBurstLines = readPositiveInt(value, "--birth-burst-lines");
-      },
-      "--gone-silent-days": (value) => {
-        thresholds.goneSilentDays = readPositiveInt(value, "--gone-silent-days");
-      },
-      "--large-file-lines": (value) => {
-        thresholds.largeFileChurnLines = readPositiveInt(value, "--large-file-lines");
-      },
-      "--marker-age-threshold": (value) => {
-        thresholds.markerAgeThresholdDays = readPositiveInt(value, "--marker-age-threshold");
-      },
-    },
+    options: CLI_OPTIONS,
+    schema: cliOptionsSchema,
   });
-  return { base, lens, windowDays, top, baselinePath, ...thresholds };
+  return {
+    base: subcommandBaseFromOptions(options),
+    lens: options["--lens"],
+    windowDays: options["--window"],
+    top: options["--top"],
+    baselinePath: options["--baseline"] ?? null,
+    ageThresholdDays: options["--age-threshold"] ?? null,
+    revisionFloor: options["--revision-floor"] ?? null,
+    neighborhoodChurnRatio: options["--neighborhood-ratio"] ?? null,
+    birthBurstFiles: options["--birth-burst-files"] ?? null,
+    birthBurstLines: options["--birth-burst-lines"] ?? null,
+    goneSilentDays: options["--gone-silent-days"] ?? null,
+    largeFileChurnLines: options["--large-file-lines"] ?? null,
+    markerAgeThresholdDays: options["--marker-age-threshold"] ?? null,
+  };
 }
 
 function parseLens(value: string): ColdspotLens {

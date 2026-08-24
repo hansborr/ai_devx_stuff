@@ -3,9 +3,9 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 import { buildImportGraph } from "./import-graph.js";
-import { discoverWorkspaceSourcePaths, sourceFilesForGraph } from "./source-project.js";
+import { discoverSupportedSourcePaths, sourceFilesForGraph } from "./source-project.js";
 import type { ImportGraph } from "./types.js";
-import { WORKSPACE_PACKAGE_DIRS } from "./types.js";
+import { APPLICATION_PACKAGE_DIRS } from "./types.js";
 import type { WorkspaceResolver } from "./workspace-resolver.js";
 import { createWorkspaceResolver } from "./workspace-resolver.js";
 
@@ -55,7 +55,7 @@ export function computeWorkspaceManifest(repoRoot: string): string {
 
 function collectManifestLines(repoRoot: string): string[] {
   const lines: string[] = [];
-  for (const sourceFile of discoverWorkspaceSourcePaths(repoRoot)) {
+  for (const sourceFile of discoverSupportedSourcePaths(repoRoot)) {
     appendContentLine(lines, "src", sourceFile);
   }
   for (const tsconfig of workspaceTsconfigPaths(repoRoot)) {
@@ -85,7 +85,7 @@ function workspaceTsconfigPaths(repoRoot: string): string[] {
     path.join(repoRoot, "tsconfig.base.json"),
     path.join(repoRoot, "tsconfig.scripts.json"),
   ];
-  for (const packageDir of WORKSPACE_PACKAGE_DIRS) {
+  for (const packageDir of APPLICATION_PACKAGE_DIRS) {
     paths.push(path.join(repoRoot, packageDir, "tsconfig.json"));
     paths.push(path.join(repoRoot, packageDir, "tsconfig.scripts.json"));
   }
@@ -94,7 +94,7 @@ function workspaceTsconfigPaths(repoRoot: string): string[] {
 
 function workspacePackageJsonPaths(repoRoot: string): string[] {
   const paths: string[] = [path.join(repoRoot, "package.json")];
-  for (const packageDir of WORKSPACE_PACKAGE_DIRS) {
+  for (const packageDir of APPLICATION_PACKAGE_DIRS) {
     paths.push(path.join(repoRoot, packageDir, "package.json"));
   }
   return paths;

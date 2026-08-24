@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # smoke-order: 060
 # smoke-subjects: scripts/worktree-db.sh
-# smoke-subjects: scripts/worktree-seed-import-closure.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-exports.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-identifiers.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loader-validation.ts
-# smoke-subjects: scripts/worktree-seed-runtime-loaders.ts
+# smoke-subjects: scripts/import-closure/closure-walk.ts
+# smoke-subjects: scripts/import-closure/runtime-imports.ts
+# smoke-subjects: scripts/import-closure/runtime-resolution.ts
 # smoke-subjects: scripts/worktree-new.sh
 # smoke-subjects: scripts/worktree-drift-hook.sh
 # smoke-subjects: scripts/dev.sh
@@ -376,29 +374,333 @@ out="$(safe_compute_seed_fingerprint "$empty_dir")"
 [[ -z "$out" ]] || fail "safe_compute_seed_fingerprint should be empty for bare dir, got: $out"
 ok "split fingerprint helpers swallow missing-input die"
 
+# A relatively sourced caller must keep using its own checker after fingerprint
+# production changes into a peer worktree.
+relative_source_dir="$(mktemp -d)"
+mkdir -p \
+  "$relative_source_dir/caller/scripts/import-closure" \
+  "$relative_source_dir/bin" \
+  "$relative_source_dir/peer"
+# fixture-closure: unmodelled-copy - the source is the live script resolved
+# dynamically from this smoke test's absolute directory.
+cp "$TEST_SCRIPT_DIR/../worktree-db.sh" "$relative_source_dir/caller/scripts/worktree-db.sh"
+touch "$relative_source_dir/caller/scripts/import-closure/closure-walk.ts"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "%s\n" "$1" > "$CHECKER_LOG"' \
+  > "$relative_source_dir/bin/bun"
+chmod +x "$relative_source_dir/bin/bun"
+(
+  cd "$relative_source_dir/caller"
+  CHECKER_LOG="$relative_source_dir/checker.log" \
+    CDPATH="$relative_source_dir/caller" \
+    PATH="$relative_source_dir/bin:$PATH" \
+    bash -c '. scripts/worktree-db.sh; cd "$1"; validate_seed_runtime_import_closure >/dev/null' \
+    _ "$relative_source_dir/peer"
+) || fail "relative-source caller should invoke its checker from a peer under CDPATH"
+[[ "$(cat "$relative_source_dir/checker.log")" \
+  == "$relative_source_dir/caller/scripts/import-closure/closure-walk.ts" ]] \
+  || fail "peer fingerprint should resolve the checker from the caller script tree"
+rm -rf "$relative_source_dir"
+ok "peer fingerprinting keeps relative-source checker resolution stable"
+
+# The live seed entrypoint is the copy-set contract provisioning actually uses.
+# Keep it in the normal scripts gate so repository-local import drift is caught
+# when introduced, rather than later by worktree:init or worktree:gc.
+repo_root="$(git -C "$TEST_SCRIPT_DIR" rev-parse --show-toplevel)"
+(
+  cd "$repo_root"
+  validate_seed_runtime_import_closure >/dev/null
+) || fail "live seed import closure should be completely fingerprinted"
+ok "live seed import closure is completely fingerprinted"
+
 fingerprint_dir="$(mktemp -d)"
 mkdir -p "$fingerprint_dir/packages/server/prisma/migrations/20260426000000_init"
+mkdir -p "$fingerprint_dir/packages/server"
 mkdir -p "$fingerprint_dir/packages/server/src/seed"
+mkdir -p "$fingerprint_dir/packages/server/src/seed/data"
 mkdir -p "$fingerprint_dir/packages/server/src/generated/prisma"
 mkdir -p "$fingerprint_dir/packages/server/src/utils"
 mkdir -p "$fingerprint_dir/packages/shared/src/rules"
+mkdir -p "$fingerprint_dir/node_modules/seed-runtime"
 printf 'datasource db {}\n' > "$fingerprint_dir/packages/server/prisma/schema.prisma"
+printf '%s\n' \
+  'import type { PrismaConfig } from "prisma";' \
+  '// Keep the migrations path: "prisma/migrations", relative to packages/server.' \
+  'const note = "path: is documented above";' \
+  'export default ({' \
+  '  migrations: {' \
+  '    path: "prisma/migrations",' \
+  '  },' \
+  '} satisfies PrismaConfig);' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+printf 'smol = false\n' > "$fingerprint_dir/packages/server/bunfig.toml"
+printf '{"mode":"srd"}\n' > "$fingerprint_dir/packages/server/prisma/seed-settings.json"
 printf 'CREATE TABLE test(id TEXT PRIMARY KEY);\n' > "$fingerprint_dir/packages/server/prisma/migrations/20260426000000_init/migration.sql"
 printf 'import { seedSrd } from "../src/seed/seed-srd.js";\nvoid seedSrd;\n' \
   > "$fingerprint_dir/packages/server/prisma/seed-template.ts"
-printf 'export const seedSrd = true;\n' > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+printf 'import "seed-runtime";\n' \
+  >> "$fingerprint_dir/packages/server/prisma/seed-template.ts"
+printf '{"name":"seed-runtime","type":"module","exports":"./index.js"}\n' \
+  > "$fingerprint_dir/node_modules/seed-runtime/package.json"
+printf 'export const runtime = true;\n' > "$fingerprint_dir/node_modules/seed-runtime/index.js"
+printf '%s\n' \
+  'import "../utils/prisma-json.js";' \
+  'import "../utils/script-logger.js";' \
+  'export const seedSrd = true;' \
+  > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
 printf 'seed data\n' > "$fingerprint_dir/packages/server/src/seed/species.json"
+printf 'level,xp\n1,0\n' > "$fingerprint_dir/packages/server/src/seed/class-progression.csv"
+printf '# Seed data attribution\n' > "$fingerprint_dir/packages/server/src/seed/data/NOTICE.md"
+printf '# Seed developer notes\n' > "$fingerprint_dir/packages/server/src/seed/MODULE.md"
 printf 'export const PrismaClient = true;\n' \
   > "$fingerprint_dir/packages/server/src/generated/prisma/client.ts"
 printf 'prisma json helper\n' > "$fingerprint_dir/packages/server/src/utils/prisma-json.ts"
 printf 'script logger helper\n' > "$fingerprint_dir/packages/server/src/utils/script-logger.ts"
 printf 'shared rule\n' > "$fingerprint_dir/packages/shared/src/rules/conditions.ts"
 printf '{"name":"@musi/shared"}\n' > "$fingerprint_dir/packages/shared/package.json"
+printf '{"name":"musi","private":true}\n' > "$fingerprint_dir/package.json"
 printf '{"extends":"../../tsconfig.base.json"}\n' > "$fingerprint_dir/packages/shared/tsconfig.json"
 printf '{"compilerOptions":{}}\n' > "$fingerprint_dir/tsconfig.base.json"
+printf '%s\n' \
+  '{' \
+  '  "lockfileVersion": 1,' \
+  '  "workspaces": { "": { "name": "musi" } },' \
+  '  "packages": {' \
+  '    "seed-runtime": ["seed-runtime@1.0.0", "", {}, "sha512-seed-runtime"],' \
+  '    "unrelated": ["unrelated@1.0.0", "", {}, "sha512-unrelated"]' \
+  '  }' \
+  '}' \
+  > "$fingerprint_dir/bun.lock"
+
+assert_fingerprint_rejects_symlink() {
+  local scope="$1" target="$2" link="$3" fingerprint_command="$4"
+  local output rc
+
+  printf 'symlink target\n' > "$target"
+  ln -s "$target" "$link"
+  set +e
+  output="$($fingerprint_command "$fingerprint_dir" 2>&1)"
+  rc=$?
+  set -e
+  [[ "$rc" -ne 0 ]] || fail "$scope symlink should fail fingerprinting"
+  [[ "$output" == *"fingerprint cannot follow symlink"* ]] \
+    || fail "$scope symlink rejection should explain the fingerprint boundary: $output"
+  rm "$link" "$target"
+}
+
+assert_fingerprint_rejects_symlink \
+  "blanket-hashed root" \
+  "$fingerprint_dir/blanket-target.ts" \
+  "$fingerprint_dir/packages/shared/src/linked.ts" \
+  compute_seed_fingerprint
+assert_fingerprint_rejects_symlink \
+  "seed data root" \
+  "$fingerprint_dir/data-target.json" \
+  "$fingerprint_dir/packages/server/src/seed/data/linked.json" \
+  compute_seed_fingerprint
+assert_fingerprint_rejects_symlink \
+  "seed entry directory" \
+  "$fingerprint_dir/entry-target.json" \
+  "$fingerprint_dir/packages/server/prisma/linked.json" \
+  compute_seed_fingerprint
+
+migration_directory="$fingerprint_dir/packages/server/prisma/migrations"
+mv "$migration_directory" "$migration_directory-real"
+ln -s "$migration_directory-real" "$migration_directory"
+set +e
+migration_symlink_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_symlink_rc=$?
+set -e
+[[ "$migration_symlink_rc" -ne 0 ]] \
+  || fail "migration root symlink should fail fingerprinting"
+[[ "$migration_symlink_output" == *"fingerprint cannot follow symlink"* ]] \
+  || fail "migration root symlink rejection should explain the fingerprint boundary: $migration_symlink_output"
+rm "$migration_directory"
+mv "$migration_directory-real" "$migration_directory"
+
 split_migration_before="$(compute_migration_fingerprint "$fingerprint_dir")"
 split_seed_before="$(compute_seed_fingerprint "$fingerprint_dir")"
 combined_before="$(compute_fingerprint "$fingerprint_dir")"
+# Dependency identity is hashed at whole-lockfile granularity: any lockfile or
+# root manifest edit reseeds, including one the seed does not import. That
+# deliberate over-approximation replaces a Bun lockfile subgraph resolver.
+lock_seed_before="$split_seed_before"
+sed -i 's/unrelated@1\.0\.0/unrelated@2.0.0/' "$fingerprint_dir/bun.lock"
+lock_seed_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$lock_seed_before" != "$lock_seed_after" ]] \
+  || fail "lockfile identity edit should change seed fingerprint"
+manifest_seed_before="$lock_seed_after"
+printf '{"name":"musi","private":true,"patchedDependencies":{}}\n' > "$fingerprint_dir/package.json"
+manifest_seed_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$manifest_seed_before" != "$manifest_seed_after" ]] \
+  || fail "root package manifest edit should change seed fingerprint"
+rm "$fingerprint_dir/bun.lock"
+set +e
+missing_lock_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+missing_lock_rc=$?
+set -e
+[[ "$missing_lock_rc" -ne 0 ]] || fail "missing lockfile should fail seed fingerprinting"
+[[ "$missing_lock_output" == *"bun.lock"* ]] \
+  || fail "missing lockfile rejection should name the input: $missing_lock_output"
+printf '{"lockfileVersion":1}\n' > "$fingerprint_dir/bun.lock"
+split_seed_before="$(compute_seed_fingerprint "$fingerprint_dir")"
+combined_before="$(compute_fingerprint "$fingerprint_dir")"
+bunfig_seed_before="$split_seed_before"
+printf 'smol = true\n' > "$fingerprint_dir/packages/server/bunfig.toml"
+bunfig_seed_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$bunfig_seed_before" != "$bunfig_seed_after" ]] \
+  || fail "package-local Bun runtime config edit should change seed fingerprint"
+printf 'preload = ["./prisma/seed-preload.ts"]\n' \
+  > "$fingerprint_dir/packages/server/bunfig.toml"
+set +e
+bunfig_preload_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+bunfig_preload_rc=$?
+set -e
+[[ "$bunfig_preload_rc" -ne 0 ]] \
+  || fail "an unmodelled package-local Bun preload should fail seed fingerprinting"
+[[ "$bunfig_preload_output" == *"preload"* ]] \
+  || fail "Bun preload rejection should explain the uncovered runtime input: $bunfig_preload_output"
+printf 'smol = false\n' > "$fingerprint_dir/packages/server/bunfig.toml"
+printf 'void process.env.MUSI_SEED_MODE;\nexport const seedSrd = true;\n' \
+  > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+set +e
+environment_policy_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+environment_policy_rc=$?
+set -e
+[[ "$environment_policy_rc" -ne 0 ]] \
+  || fail "unallowlisted seed environment key should fail fingerprinting"
+[[ "$environment_policy_output" == *"MUSI_SEED_MODE"*"not allowlisted"* ]] \
+  || fail "environment rejection should name the key and allowlist boundary: $environment_policy_output"
+# An environment object the walker cannot name a key for fails closed rather
+# than being tracked through aliases.
+printf 'const environment = process.env;\nvoid environment;\nexport const seedSrd = true;\n' \
+  > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+set +e
+environment_alias_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+environment_alias_rc=$?
+set -e
+[[ "$environment_alias_rc" -ne 0 ]] \
+  || fail "aliased seed environment object should fail fingerprinting"
+[[ "$environment_alias_output" == *"direct static key"* ]] \
+  || fail "aliased environment rejection should require a direct key: $environment_alias_output"
+printf '%s\n' \
+  'import "../utils/prisma-json.js";' \
+  'import "../utils/script-logger.js";' \
+  'export const seedSrd = true;' \
+  > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+printf '%s\n' \
+  'export default {' \
+  '  migrations: {' \
+  '    path: "prisma/alternate-migrations",' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_config_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_config_rc=$?
+set -e
+[[ "$migration_config_rc" -ne 0 ]] \
+  || fail "unexpected Prisma migrations.path should fail closed"
+[[ "$migration_config_output" == *"prisma/migrations"* ]] \
+  || fail "migration path rejection should name the fingerprinted path: $migration_config_output"
+printf '%s\n' \
+  'import { migrationsPath } from "./prisma/config-paths.js";' \
+  'export default {' \
+  '  migrations: {' \
+  '    path: migrationsPath,' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_helper_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_helper_rc=$?
+set -e
+[[ "$migration_helper_rc" -ne 0 ]] \
+  || fail "non-literal Prisma migrations.path should fail closed"
+[[ "$migration_helper_output" == *"literal"* ]] \
+  || fail "non-literal path rejection should require the literal contract: $migration_helper_output"
+printf '%s\n' \
+  '// path: "prisma/migrations" is the contract this config used to honor.' \
+  'export default {' \
+  '  migrations: {' \
+  '    path: "prisma/alternate-migrations",' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_decoy_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_decoy_rc=$?
+set -e
+[[ "$migration_decoy_rc" -ne 0 ]] \
+  || fail "a commented-out canonical path should not satisfy the migrations.path contract"
+[[ "$migration_decoy_output" == *"prisma/migrations"* ]] \
+  || fail "decoy comment rejection should name the fingerprinted path: $migration_decoy_output"
+printf '%s\n' \
+  'export default {' \
+  '  migrations: {' \
+  '    path: "prisma/migrations",' \
+  '  },' \
+  '  legacyMigrations: {' \
+  '    path: "prisma/alternate-migrations",' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_duplicate_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_duplicate_rc=$?
+set -e
+[[ "$migration_duplicate_rc" -ne 0 ]] \
+  || fail "a competing path assignment should fail the migrations.path contract"
+[[ "$migration_duplicate_output" == *"exactly one"* ]] \
+  || fail "competing path rejection should require a single assignment: $migration_duplicate_output"
+printf '%s\n' \
+  'import { migrationsPath } from "./prisma/config-paths.js";' \
+  'export default {' \
+  '  legacyMigrations: {' \
+  '    path: "prisma/migrations",' \
+  '  },' \
+  '  migrations: {' \
+  '    path: migrationsPath,' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_vouch_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_vouch_rc=$?
+set -e
+[[ "$migration_vouch_rc" -ne 0 ]] \
+  || fail "a canonical path elsewhere should not vouch for a computed migrations.path"
+[[ "$migration_vouch_output" == *"exactly one"* ]] \
+  || fail "vouching path rejection should require a single assignment: $migration_vouch_output"
+printf '%s\n' \
+  'export default {' \
+  '  legacyMigrations: {' \
+  '    path: "prisma/migrations",' \
+  '  },' \
+  '  migrations: {' \
+  '    seed: "bun prisma/seed.ts",' \
+  '  },' \
+  '};' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
+set +e
+migration_block_output="$(compute_migration_fingerprint "$fingerprint_dir" 2>&1)"
+migration_block_rc=$?
+set -e
+[[ "$migration_block_rc" -ne 0 ]] \
+  || fail "a canonical path outside the migrations block should fail the contract"
+[[ "$migration_block_output" == *"migrations"* ]] \
+  || fail "misplaced path rejection should name the migrations block: $migration_block_output"
+printf '%s\n' \
+  'import type { PrismaConfig } from "prisma";' \
+  '// Keep the migrations path: "prisma/migrations", relative to packages/server.' \
+  'const note = "path: is documented above";' \
+  'export default ({' \
+  '  migrations: {' \
+  '    path: "prisma/migrations",' \
+  '  },' \
+  '} satisfies PrismaConfig);' \
+  > "$fingerprint_dir/packages/server/prisma.config.ts"
 printf 'seed data changed\n' > "$fingerprint_dir/packages/server/src/seed/species.ts"
 split_migration_after="$(compute_migration_fingerprint "$fingerprint_dir")"
 split_seed_after="$(compute_seed_fingerprint "$fingerprint_dir")"
@@ -415,6 +717,27 @@ shared_combined_after="$(compute_fingerprint "$fingerprint_dir")"
   || fail "shared runtime source edit should change seed fingerprint"
 [[ "$shared_combined_before" != "$shared_combined_after" ]] \
   || fail "shared runtime source edit should change combined template fingerprint"
+seed_asset_before="$shared_seed_after"
+printf 'level,xp\n1,0\n2,300\n' > "$fingerprint_dir/packages/server/src/seed/class-progression.csv"
+seed_asset_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$seed_asset_before" != "$seed_asset_after" ]] \
+  || fail "non-code seed data asset edit should change seed fingerprint"
+seed_doc_before="$seed_asset_after"
+printf '# Revised seed data attribution\n' > "$fingerprint_dir/packages/server/src/seed/data/NOTICE.md"
+seed_doc_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$seed_doc_before" != "$seed_doc_after" ]] \
+  || fail "Markdown seed data asset edit should change seed fingerprint"
+developer_doc_before="$seed_doc_after"
+printf '# Revised seed developer notes\n' > "$fingerprint_dir/packages/server/src/seed/MODULE.md"
+developer_doc_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$developer_doc_before" == "$developer_doc_after" ]] \
+  || fail "developer-only seed documentation should not change seed fingerprint"
+prisma_sibling_before="$developer_doc_after"
+printf '{"mode":"expanded"}\n' > "$fingerprint_dir/packages/server/prisma/seed-settings.json"
+prisma_sibling_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$prisma_sibling_before" != "$prisma_sibling_after" ]] \
+  || fail "seed entry sibling data edit should change seed fingerprint"
+shared_seed_after="$prisma_sibling_after"
 shared_seed_before="$shared_seed_after"
 printf '{"name":"@musi/shared","sideEffects":false}\n' \
   > "$fingerprint_dir/packages/shared/package.json"
@@ -432,11 +755,9 @@ server_helper_seed_after="$(compute_seed_fingerprint "$fingerprint_dir")"
 [[ "$server_helper_seed_before" != "$server_helper_seed_after" ]] \
   || fail "seed logger helper edit should change seed fingerprint"
 
-for runtime_extension in ts tsx mts cts js mjs cjs json; do
+for runtime_extension in ts tsx js mjs json; do
   case "$runtime_extension" in
     ts | tsx) runtime_specifier_extension=js ;;
-    mts) runtime_specifier_extension=mjs ;;
-    cts) runtime_specifier_extension=cjs ;;
     *) runtime_specifier_extension="$runtime_extension" ;;
   esac
   runtime_stem="runtime-extension-$runtime_extension"
@@ -452,10 +773,42 @@ for runtime_extension in ts tsx mts cts js mjs cjs json; do
     || fail ".$runtime_extension runtime dependency edit should change seed fingerprint"
 done
 
+# Bun can load more extensions than the walker resolves; an unlisted one fails
+# closed instead of being silently dropped from the fingerprint.
+printf 'import "./seed-taxonomy.toml";\nexport const seedSrd = true;\n' \
+  > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+printf 'mode = "srd"\n' > "$fingerprint_dir/packages/server/src/seed/seed-taxonomy.toml"
+set +e
+unsupported_extension_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+unsupported_extension_rc=$?
+set -e
+[[ "$unsupported_extension_rc" -ne 0 ]] \
+  || fail "an unresolvable runtime import extension should fail seed fingerprinting"
+[[ "$unsupported_extension_output" == *"unsupported extension"* ]] \
+  || fail "unsupported extension rejection should name the extension policy: $unsupported_extension_output"
+rm -f "$fingerprint_dir/packages/server/src/seed/seed-taxonomy.toml"
+
+for commonjs_extension in cts cjs; do
+  commonjs_file="$fingerprint_dir/packages/server/src/seed/runtime-extension-$commonjs_extension.$commonjs_extension"
+  printf 'import "./runtime-extension-%s.%s";\nexport const seedSrd = true;\n' \
+    "$commonjs_extension" "$commonjs_extension" \
+    > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+  printf 'module.exports = "unsupported";\n' > "$commonjs_file"
+  set +e
+  commonjs_extension_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
+  commonjs_extension_rc=$?
+  set -e
+  [[ "$commonjs_extension_rc" -ne 0 ]] \
+    || fail ".$commonjs_extension extension should fail the ESM-only closure policy"
+  [[ "$commonjs_extension_output" == *"CommonJS runtime loading is not supported"* ]] \
+    || fail ".$commonjs_extension rejection should explain the ESM-only policy: $commonjs_extension_output"
+done
+printf 'export const seedSrd = true;\n' > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
+
 set +e
 (
   sha256sum() {
-    if [[ "${1:-}" == "packages/server/src/utils/prisma-json.ts" ]]; then
+    if [[ "${1:-}" == "packages/server/prisma/seed-template.ts" ]]; then
       return 23
     fi
     command sha256sum "$@"
@@ -480,43 +833,40 @@ set -e
   || fail "seed fingerprint should fail when input enumeration fails"
 
 mkdir -p "$fingerprint_dir/packages/server/src/services"
-printf 'export const unlistedSeedHelper = true;\n' \
-  > "$fingerprint_dir/packages/server/src/services/unlisted-seed-helper.ts"
-printf 'import { unlistedSeedHelper } from "../services/unlisted-seed-helper.js";\nexport const seedSrd = unlistedSeedHelper;\n' \
+printf 'export const runtimeHelper = true;\n' \
+  > "$fingerprint_dir/packages/server/src/services/runtime-helper.ts"
+printf 'import { runtimeHelper } from "../services/runtime-helper.js";\nexport const seedSrd = runtimeHelper;\n' \
   > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
-set +e
-unlisted_import_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
-unlisted_import_rc=$?
-set -e
-[[ "$unlisted_import_rc" -ne 0 ]] \
-  || fail "seed fingerprint should reject an unlisted repository-local runtime import"
-[[ "$unlisted_import_output" == *"packages/server/src/services/unlisted-seed-helper.ts"* ]] \
-  || fail "seed closure failure should identify the unlisted helper: $unlisted_import_output"
+derived_import_before="$(compute_seed_fingerprint "$fingerprint_dir")"
+printf 'export const runtimeHelper = false;\n' \
+  > "$fingerprint_dir/packages/server/src/services/runtime-helper.ts"
+derived_import_after="$(compute_seed_fingerprint "$fingerprint_dir")"
+[[ "$derived_import_before" != "$derived_import_after" ]] \
+  || fail "derived runtime import edit should change seed fingerprint"
 
-assert_unlisted_loader_rejected() {
+assert_commonjs_loader_rejected() {
   local label="$1" source="$2" loader_output loader_rc
   printf '%s\n' "$source" > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
   set +e
   loader_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
   loader_rc=$?
   set -e
-  [[ "$loader_rc" -ne 0 ]] \
-    || fail "$label should reject an unlisted runtime-loaded helper"
-  [[ "$loader_output" == *"packages/server/src/services/unlisted-seed-helper.ts"* ]] \
-    || fail "$label should identify the unlisted runtime-loaded helper: $loader_output"
+  [[ "$loader_rc" -ne 0 ]] || fail "$label should fail the ESM-only closure policy"
+  [[ "$loader_output" == *"CommonJS runtime loading is not supported"* ]] \
+    || fail "$label should explain the ESM-only policy: $loader_output"
 }
 
-assert_unlisted_loader_rejected "direct require" \
-  $'require("../services/unlisted-seed-helper.js");\nexport const seedSrd = true;'
-assert_unlisted_loader_rejected "aliased require" \
-  $'const loadSeedDependency = require;\nloadSeedDependency("../services/unlisted-seed-helper.js");\nexport const seedSrd = true;'
-assert_unlisted_loader_rejected "createRequire loader" \
-  $'import { createRequire } from "node:module";\nconst loadSeedDependency = createRequire(import.meta.url);\nloadSeedDependency("../services/unlisted-seed-helper.js");\nexport const seedSrd = true;'
-assert_unlisted_loader_rejected "module.require loader" \
-  $'module.require("../services/unlisted-seed-helper.js");\nexport const seedSrd = true;'
+assert_commonjs_loader_rejected "direct require" \
+  $'require("../services/runtime-helper.js");\nexport const seedSrd = true;'
+assert_commonjs_loader_rejected "aliased require" \
+  $'const loadSeedDependency = require;\nloadSeedDependency("../services/runtime-helper.js");\nexport const seedSrd = true;'
+assert_commonjs_loader_rejected "createRequire loader" \
+  $'import { createRequire } from "node:module";\nconst loadSeedDependency = createRequire(import.meta.url);\nloadSeedDependency("../services/runtime-helper.js");\nexport const seedSrd = true;'
+assert_commonjs_loader_rejected "module.require loader" \
+  $'module.require("../services/runtime-helper.js");\nexport const seedSrd = true;'
 
 printf '%s\n' \
-  $'const runtimePath = "../services/unlisted-seed-helper.js";\nrequire(runtimePath);\nexport const seedSrd = true;' \
+  $'const runtimePath = "../services/runtime-helper.js";\nawait import(runtimePath);\nexport const seedSrd = true;' \
   > "$fingerprint_dir/packages/server/src/seed/seed-srd.ts"
 set +e
 non_static_loader_output="$(compute_seed_fingerprint "$fingerprint_dir" 2>&1)"
@@ -527,7 +877,7 @@ set -e
 [[ "$non_static_loader_output" == *"must use a static string specifier"* ]] \
   || fail "non-static runtime loader should explain the static requirement: $non_static_loader_output"
 rm -rf "$fingerprint_dir"
-ok "split fingerprints enforce runtime extensions, imports, and loaders"
+ok "split fingerprints enforce runtime extensions, ESM imports, and CommonJS policy"
 
 # Path-independence: identical Prisma/seed inputs at two different worktree
 # paths must produce the same fingerprint, so they share one
@@ -537,10 +887,18 @@ fingerprint_b="$(mktemp -d)"
 for dir in "$fingerprint_a" "$fingerprint_b"; do
   mkdir -p "$dir/packages/server/prisma/migrations/20260426000000_init"
   mkdir -p "$dir/packages/server/src/seed"
+  mkdir -p "$dir/packages/server/src/seed/data"
   mkdir -p "$dir/packages/server/src/generated/prisma"
   mkdir -p "$dir/packages/server/src/utils"
   mkdir -p "$dir/packages/shared/src/rules"
   printf 'datasource db {}\n' > "$dir/packages/server/prisma/schema.prisma"
+  printf '%s\n' \
+    'export default {' \
+    '  migrations: {' \
+    '    path: "prisma/migrations",' \
+    '  },' \
+    '};' \
+    > "$dir/packages/server/prisma.config.ts"
   printf 'CREATE TABLE test(id TEXT PRIMARY KEY);\n' > "$dir/packages/server/prisma/migrations/20260426000000_init/migration.sql"
   printf 'export const seedTemplate = true;\n' > "$dir/packages/server/prisma/seed-template.ts"
   printf 'seed data\n' > "$dir/packages/server/src/seed/species.ts"
@@ -552,6 +910,8 @@ for dir in "$fingerprint_a" "$fingerprint_b"; do
   printf '{"name":"@musi/shared"}\n' > "$dir/packages/shared/package.json"
   printf '{"extends":"../../tsconfig.base.json"}\n' > "$dir/packages/shared/tsconfig.json"
   printf '{"compilerOptions":{}}\n' > "$dir/tsconfig.base.json"
+  printf '{"name":"musi","private":true}\n' > "$dir/package.json"
+  printf '{"lockfileVersion":1}\n' > "$dir/bun.lock"
 done
 fp_a_combined="$(compute_fingerprint "$fingerprint_a")"
 fp_b_combined="$(compute_fingerprint "$fingerprint_b")"
@@ -707,44 +1067,66 @@ $shared_build_error"
 ok "ensure_shared_output persists and enforces build freshness"
 
 # Drive the actual init orchestration as well as the helper. The template seam
-# requires the shared-output marker, so moving ensure_shared_output below
-# template_refresh_for_fingerprint makes this regression fail.
+# requires the shared-output marker, and the GC seam fails with an ordinary
+# command before a sentinel so the containment boundary must preserve errexit.
 cmd_init_shared_marker="$shared_build_dir/cmd-init-shared-ready"
 cmd_init_template_marker="$shared_build_dir/cmd-init-template-refreshed"
-(
-  is_primary_worktree() { return 1; }
-  compute_slug() { printf 'ordering_abc123'; }
-  slug_hash_int() { printf '1'; }
-  current_root() { printf '%s' "$shared_build_dir"; }
-  install_lint_ratchet_merge_driver() { :; }
-  install_knip_unused_exports_merge_driver() { :; }
-  install_max_lines_exceptions_merge_driver() { :; }
-  ensure_state_dir() { :; }
-  acquire_worktree_init_lock() { printf -v "$2" '%s' '99'; }
-  release_worktree_init_lock() { :; }
-  ensure_dependencies() { :; }
-  ensure_shared_output() { touch "$cmd_init_shared_marker"; }
-  cmd_gc() { :; }
-  copy_worktreeinclude_entries() { :; }
-  compute_fingerprint() { printf '%064d' 0; }
-  compute_migration_fingerprint() { printf '%064d' 1; }
-  compute_seed_fingerprint() { printf '%064d' 2; }
-  template_db_for_fingerprint() { printf 'musi_template_000000000000'; }
-  template_refresh_for_fingerprint() {
-    [[ -e "$cmd_init_shared_marker" ]] \
-      || fail "cmd_init reached template refresh before shared output was built"
-    touch "$cmd_init_template_marker"
-  }
-  ensure_per_worktree_dbs() { :; }
-  resolve_worktree_resources() { printf '4100\t5100\t3'; }
-  write_worktree_env() { :; }
-  tombstone_forget() { :; }
-  log() { :; }
+cmd_init_gc_after_failure="$shared_build_dir/cmd-init-gc-after-failure"
+set +e
+cmd_init_output="$(
+  (
+    # This is a hand-maintained mirror of cmd_init's collaborators. Keep
+    # errexit explicit so a newly added, unstubbed call fails loudly instead
+    # of reaching the real helper against this fixture tree.
+    set -e
+    is_primary_worktree() { return 1; }
+    compute_slug() { printf 'ordering_abc123'; }
+    slug_hash_int() { printf '1'; }
+    current_root() { printf '%s' "$shared_build_dir"; }
+    install_lint_ratchet_merge_driver() { :; }
+    install_knip_unused_exports_merge_driver() { :; }
+    install_near_duplicates_merge_driver() { :; }
+    install_max_lines_exceptions_merge_driver() { :; }
+    ensure_state_dir() { :; }
+    acquire_worktree_init_lock() { printf -v "$2" '%s' '99'; }
+    release_worktree_init_lock() { :; }
+    ensure_dependencies() { :; }
+    ensure_shared_output() { touch "$cmd_init_shared_marker"; }
+    cmd_gc() {
+      false
+      touch "$cmd_init_gc_after_failure"
+    }
+    copy_worktreeinclude_entries() { :; }
+    compute_fingerprint() { printf '%064d' 0; }
+    compute_migration_fingerprint() { printf '%064d' 1; }
+    compute_seed_fingerprint() { printf '%064d' 2; }
+    template_db_for_fingerprint() { printf 'musi_template_000000000000'; }
+    template_refresh_for_fingerprint() {
+      [[ -e "$cmd_init_shared_marker" ]] \
+        || fail "cmd_init reached template refresh before shared output was built"
+      touch "$cmd_init_template_marker"
+    }
+    ensure_per_worktree_dbs() { :; }
+    resolve_worktree_resources() { printf '4100\t5100\t3'; }
+    write_worktree_env() { :; }
+    tombstone_forget() { :; }
 
-  cmd_init
-) || fail "cmd_init should build shared output before refreshing its template"
+    cmd_init
+  ) 2>&1
+)"
+cmd_init_rc=$?
+set -e
+[[ "$cmd_init_rc" -eq 0 ]] \
+  || fail "cmd_init should continue after opportunistic GC failure: $cmd_init_output"
 [[ -e "$cmd_init_template_marker" ]] \
   || fail "cmd_init ordering seam did not reach template refresh"
+[[ ! -e "$cmd_init_gc_after_failure" ]] \
+  || fail "opportunistic GC continued after an ordinary command failure"
+[[ "$cmd_init_output" == *"WARN: opportunistic GC did not complete"* ]] \
+  || fail "contained GC failure should emit a warning: $cmd_init_output"
+[[ "$cmd_init_output" == *"bun run worktree:gc"* ]] \
+  || fail "contained GC warning should name the diagnostic command: $cmd_init_output"
+ok "cmd_init contains opportunistic GC exit and continues provisioning"
 
 template_refresh_shared_marker="$shared_build_dir/template-refresh-shared-ready"
 (
@@ -863,6 +1245,37 @@ if MUSI_DEV_LOG_COLOR=off musi_dev_log_color_enabled; then fail "MUSI_DEV_LOG_CO
 MUSI_DEV_LOG_COLOR=on musi_dev_log_color_enabled || fail "MUSI_DEV_LOG_COLOR=on should enable color"
 if MUSI_DEV_LOG_COLOR=auto NO_COLOR=1 musi_dev_log_color_enabled; then fail "NO_COLOR should disable auto color"; fi
 ok "dev log color mode supports on/off/auto with NO_COLOR"
+
+# A checkout can retain older shared output after switching branches. The dev
+# prebuild must rebuild when a newly exported runtime subpath is absent, even
+# if the longstanding schemas and constants outputs are still present.
+dev_prebuild_dir="$(mktemp -d)"
+dev_prebuild_stub_dir="$(mktemp -d)"
+trap 'rm -rf "$empty_dir" "$dev_prebuild_dir" "$dev_prebuild_stub_dir"' EXIT
+mkdir -p "$dev_prebuild_dir/packages/shared/dist/schemas"
+touch "$dev_prebuild_dir/packages/shared/dist/constants.js"
+printf '%s\n' \
+  '#!/usr/bin/env bash' \
+  'printf "%s\n" "$@" > "$DEV_PREBUILD_BUN_OUT"' \
+  'touch packages/shared/dist/logging-policy.js' \
+  > "$dev_prebuild_stub_dir/bun"
+chmod +x "$dev_prebuild_stub_dir/bun"
+export DEV_PREBUILD_BUN_OUT="$dev_prebuild_stub_dir/argv"
+(
+  cd "$dev_prebuild_dir"
+  PATH="$dev_prebuild_stub_dir:$PATH" musi_dev_prebuild_shared >/dev/null 2>&1
+)
+[[ -s "$DEV_PREBUILD_BUN_OUT" ]] \
+  || fail "dev prebuild should rebuild when logging-policy output is missing"
+expected_dev_prebuild_argv=$'run\n--filter\n@musi/shared\nbuild\n--\n--force'
+[[ "$(cat "$DEV_PREBUILD_BUN_OUT")" == "$expected_dev_prebuild_argv" ]] \
+  || fail "dev prebuild used the wrong shared build command:
+got:
+$(cat "$DEV_PREBUILD_BUN_OUT")
+want:
+$expected_dev_prebuild_argv"
+rm -rf "$dev_prebuild_dir" "$dev_prebuild_stub_dir"
+ok "dev prebuild detects a missing logging-policy runtime subpath"
 
 prefixed="$(printf 'alpha\nbeta' | musi_dev_prefix_stream server 0)"
 expected_prefixed=$'[server] alpha\n[server] beta'
@@ -1613,6 +2026,36 @@ ok "cmd_gc still cleans stale metadata after successful empty database lists"
 )
 ok "live-template discovery propagates individual fingerprint failures"
 
+gc_incomplete_dir="$(mktemp -d)"
+git -C "$gc_incomplete_dir" init -q -b main repo
+set +e
+(
+  cd "$gc_incomplete_dir/repo"
+  state_dir() { printf '%s' "$gc_incomplete_dir"; }
+  ensure_meta_db() { :; }
+  list_live_slugs() { printf 'live_abc123\n'; }
+  list_worktree_dbs() { printf ''; }
+  tombstone_read() { printf '{}'; }
+  list_live_template_dbs() { return 29; }
+  list_template_dbs() { touch "$gc_incomplete_dir/template-listed"; }
+  _template_tombstone_mark_unlocked() { touch "$gc_incomplete_dir/template-tombstoned"; }
+  drop_template_db() { touch "$gc_incomplete_dir/template-dropped"; }
+
+  cmd_gc
+) > "$gc_incomplete_dir/output" 2>&1
+gc_incomplete_rc=$?
+set -e
+[[ "$gc_incomplete_rc" -ne 0 ]] \
+  || fail "direct cmd_gc should fail on an incomplete live template set"
+grep -qF "refusing to GC templates with an incomplete live set" "$gc_incomplete_dir/output" \
+  || fail "direct cmd_gc should explain its fail-closed result"
+for forbidden_marker in template-listed template-tombstoned template-dropped; do
+  [[ ! -e "$gc_incomplete_dir/$forbidden_marker" ]] \
+    || fail "direct cmd_gc reached unsafe template action $forbidden_marker"
+done
+rm -rf "$gc_incomplete_dir"
+ok "direct cmd_gc fails closed before template discovery or cleanup"
+
 # Init/refresh locking remains per-slug so one stalled lane cannot block an
 # unrelated worktree. Acquisition is bounded, and GC never unlinks these stable
 # pathnames because an older-revision sibling may already have their inode open.
@@ -1749,6 +2192,35 @@ expect_invalid_allocation_registry \
   "lane_a_abc123"
 ok "allocation registry rejects impossible ranges and duplicate resources without rewriting"
 
+# A failed allocation-state rename must fail the public resolution seam without
+# reporting resources that were never persisted. The old registry must survive
+# and the failed write must not leave scratch state behind.
+write_failure_alloc='{"somelane":{"server":8100,"client":8010,"redis":3,"updatedAt":0}}'
+printf '%s\n' "$write_failure_alloc" > "$alloc_state_dir/allocations.json"
+list_live_slugs() { printf 'somelane\n'; }
+write_failure_files_before="$(find "$alloc_state_dir" -maxdepth 1 -type f -printf '%f\n' | sort)"
+set +e
+resolve_write_failure_out="$( (
+  mv() {
+    if [[ "${2:-}" == "$alloc_state_dir/allocations.json" ]]; then
+      return 23
+    fi
+    command mv "$@"
+  }
+  resolve_worktree_resources "somelane" 0 0 0
+) 2>/dev/null )"
+resolve_write_failure_rc=$?
+set -e
+[[ "$resolve_write_failure_rc" -ne 0 ]] \
+  || fail "resolve_worktree_resources must fail when allocation persistence fails"
+[[ -z "$resolve_write_failure_out" ]] \
+  || fail "resolve_worktree_resources must not report an unpersisted allocation"
+[[ "$(cat "$alloc_state_dir/allocations.json")" == "$write_failure_alloc" ]] \
+  || fail "failed allocation persistence must preserve the existing registry"
+[[ "$(find "$alloc_state_dir" -maxdepth 1 -type f -printf '%f\n' | sort)" == "$write_failure_files_before" ]] \
+  || fail "failed allocation persistence must clean up scratch state"
+ok "resolve_worktree_resources propagates allocation persistence failure"
+
 # The init consumer must propagate that failure instead of swallowing it via
 # `read <<< "$(...)"`. resolve_worktree_resources is the guarded seam.
 printf '%s\n' \
@@ -1803,8 +2275,54 @@ ok "resolve_worktree_resources fails loud instead of swallowing an empty allocat
 writer_state_dir="$(mktemp -d)"
 trap 'rm -rf "$empty_dir" "$stub_dir" "$cmd_drop_dir" "$alloc_state_dir" "$writer_state_dir"' EXIT
 state_dir() { printf '%s' "$writer_state_dir"; }
+tombstones_file() { printf '%s' "$writer_state_dir/tombstones.json"; }
+template_tombstones_file() { printf '%s' "$writer_state_dir/template-tombstones.json"; }
 allocations_file() { printf '%s' "$writer_state_dir/allocations.json"; }
 mkdir -p "$writer_state_dir"
+
+good_tombstones='{"lane_x_abc123":1700000000}'
+printf '%s\n' "$good_tombstones" > "$writer_state_dir/tombstones.json"
+
+set +e
+( set -e; tombstone_write "" ) >/dev/null 2>&1;              writer_empty_rc=$?
+( set -e; tombstone_write "not valid json" ) >/dev/null 2>&1; writer_bad_rc=$?
+( set -e; tombstone_write "[1,2,3]" ) >/dev/null 2>&1;        writer_arr_rc=$?
+set -e
+[[ "$writer_empty_rc" -ne 0 ]] || fail "tombstone_write must refuse an empty payload"
+[[ "$writer_bad_rc" -ne 0 ]]   || fail "tombstone_write must refuse a malformed payload"
+[[ "$writer_arr_rc" -ne 0 ]]   || fail "tombstone_write must refuse a non-object (array) payload"
+[[ "$(cat "$writer_state_dir/tombstones.json")" == "$good_tombstones" ]] \
+  || fail "tombstone_write must leave the good state file unchanged when it refuses"
+ok "tombstone_write refuses non-object payloads and preserves the good state file"
+
+( set -e; tombstone_write '{"lane_y_def456":1700000001}' ) \
+  || fail "tombstone_write must accept a valid object payload"
+jq -e '.lane_y_def456 == 1700000001' "$writer_state_dir/tombstones.json" >/dev/null \
+  || fail "tombstone_write must persist a valid object payload"
+ok "tombstone_write persists a valid object payload"
+
+good_template_tombstones='{"musi_template_abcdef123456":1700000000}'
+printf '%s\n' "$good_template_tombstones" > "$writer_state_dir/template-tombstones.json"
+
+set +e
+( set -e; template_tombstone_write "" ) >/dev/null 2>&1;              writer_empty_rc=$?
+( set -e; template_tombstone_write "not valid json" ) >/dev/null 2>&1; writer_bad_rc=$?
+( set -e; template_tombstone_write "[1,2,3]" ) >/dev/null 2>&1;        writer_arr_rc=$?
+set -e
+[[ "$writer_empty_rc" -ne 0 ]] || fail "template_tombstone_write must refuse an empty payload"
+[[ "$writer_bad_rc" -ne 0 ]]   || fail "template_tombstone_write must refuse a malformed payload"
+[[ "$writer_arr_rc" -ne 0 ]]   || fail "template_tombstone_write must refuse a non-object (array) payload"
+[[ "$(cat "$writer_state_dir/template-tombstones.json")" == "$good_template_tombstones" ]] \
+  || fail "template_tombstone_write must leave the good state file unchanged when it refuses"
+ok "template_tombstone_write refuses non-object payloads and preserves the good state file"
+
+( set -e; template_tombstone_write '{"musi_template_def456abcdef":1700000001}' ) \
+  || fail "template_tombstone_write must accept a valid object payload"
+jq -e '.musi_template_def456abcdef == 1700000001' \
+  "$writer_state_dir/template-tombstones.json" >/dev/null \
+  || fail "template_tombstone_write must persist a valid object payload"
+ok "template_tombstone_write persists a valid object payload"
+
 good_alloc='{"lane_x_abc123":{"server":8100,"client":8010,"redis":3,"updatedAt":0}}'
 printf '%s\n' "$good_alloc" > "$writer_state_dir/allocations.json"
 

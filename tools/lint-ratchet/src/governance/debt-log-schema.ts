@@ -17,11 +17,13 @@ import { isRatchetRegressionReasonPlaceholder } from "../kernel/recovery-command
 // already emits (leaf 08 validation ruling, 2026-07-17). The persisted interfaces
 // stay hand-written and reuse the comparator's LintRatchetRegression /
 // LintRatchetOrphanRemoval / LintRatchetRetirementOptionsAttestation, so a future
-// shape change is a TypeScript compile error here and in the writer/renderer; the
-// Zod schemas validate against exactly those shapes.
+// shape change is a TypeScript compile error here and in the writer/renderer. The
+// one exception is legacy accepted-debt input: the parser normalizes its missing
+// discriminator before the value enters this fully discriminated typed union.
 
 export interface LintRatchetAcceptedDebtLogEntry {
   readonly version: "1";
+  readonly kind: "accepted-debt";
   readonly acceptanceReason: string;
   readonly regressions: readonly LintRatchetRegression[];
   readonly orphansRemoved: readonly LintRatchetOrphanRemoval[];
@@ -64,30 +66,6 @@ export type LintRatchetDebtLogEntry =
   | LintRatchetRetirementLogEntry
   | LintRatchetMetricMigrationLogEntry
   | LintRatchetCoverageShrinkLogEntry;
-
-export function isAcceptedDebtLogEntry(
-  entry: LintRatchetDebtLogEntry,
-): entry is LintRatchetAcceptedDebtLogEntry {
-  return "acceptanceReason" in entry;
-}
-
-export function isRetirementLogEntry(
-  entry: LintRatchetDebtLogEntry,
-): entry is LintRatchetRetirementLogEntry {
-  return "kind" in entry && entry.kind === "retirement";
-}
-
-export function isMetricMigrationLogEntry(
-  entry: LintRatchetDebtLogEntry,
-): entry is LintRatchetMetricMigrationLogEntry {
-  return "kind" in entry && entry.kind === "metric-migration";
-}
-
-export function isCoverageShrinkLogEntry(
-  entry: LintRatchetDebtLogEntry,
-): entry is LintRatchetCoverageShrinkLogEntry {
-  return "kind" in entry && entry.kind === "coverage-shrink";
-}
 
 export interface ParsedLintRatchetDebtLogEntry {
   readonly entry?: LintRatchetDebtLogEntry;
@@ -335,7 +313,7 @@ const acceptanceReasonSchema = z
     message: "acceptanceReason must be a real reason, not the placeholder",
   });
 
-const acceptedEntrySchema = z
+const legacyAcceptedEntrySchema = z
   .object({
     version: z.literal("1"),
     acceptanceReason: acceptanceReasonSchema,
@@ -348,6 +326,10 @@ const acceptedEntrySchema = z
       ctx.addIssue({ code: "custom", path: [], message: "entry must contain accepted debt" });
     }
   });
+
+const acceptedEntrySchema = legacyAcceptedEntrySchema.safeExtend({
+  kind: z.literal("accepted-debt"),
+});
 
 const retirementEntrySchema = z
   .object({
@@ -409,13 +391,21 @@ function toParsed<T extends LintRatchetDebtLogEntry>(
 export function parseLintRatchetDebtLogEntry(value: unknown): ParsedLintRatchetDebtLogEntry {
   if (!isRecord(value)) return { failures: ["debt-log entry must be an object"] };
   switch (value.kind) {
+    case "accepted-debt":
+      return toParsed(acceptedEntrySchema.safeParse(value));
     case "retirement":
       return toParsed(retirementEntrySchema.safeParse(value));
     case "metric-migration":
       return toParsed(metricMigrationEntrySchema.safeParse(value));
     case "coverage-shrink":
       return toParsed(coverageShrinkLogEntrySchema.safeParse(value));
+    case undefined: {
+      const result = legacyAcceptedEntrySchema.safeParse(value);
+      return result.success
+        ? { entry: { ...result.data, kind: "accepted-debt" }, failures: [] }
+        : { failures: issuesToFailures(result.error) };
+    }
     default:
-      return toParsed(acceptedEntrySchema.safeParse(value));
+      return { failures: [`unknown debt-log entry kind: ${String(value.kind)}`] };
   }
 }

@@ -1,0 +1,1177 @@
+{
+  "contractVersion": 1,
+  "lane": "lane-04-shared",
+  "auditTargetSha": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+  "findings": [
+    {
+      "id": "L04-001",
+      "title": "Shared production builds expose colocated test modules",
+      "area": "shared",
+      "category": "dx",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/tsconfig.json",
+          "line": 8,
+          "endLine": null,
+          "measurement": null,
+          "note": "The emitting TypeScript project includes all of src and has no production-only exclusion for colocated tests."
+        },
+        {
+          "path": "packages/shared/package.json",
+          "line": 8,
+          "endLine": 24,
+          "measurement": null,
+          "note": "Wildcard exports for schemas, rules, dice, and map also address emitted basenames ending in .test.js."
+        },
+        {
+          "path": "packages/shared/package.json",
+          "line": 35,
+          "endLine": null,
+          "measurement": null,
+          "note": "The package build is the emitting tsc -b project."
+        },
+        {
+          "path": "packages/shared/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "73 test TypeScript files versus 72 production TypeScript files; 69 tests are beneath schemas/rules/dice/map and therefore wildcard-addressable after emit, measured with pinned git ls-tree plus an awk filename/path partition.",
+          "note": "The accidental build/export surface is almost as large as the intended production surface."
+        }
+      ],
+      "problem": "A normal shared build emits colocated suites beside production modules, and most of those artifacts acquire valid package subpaths. This obscures the intended contract surface and makes the deliberate ./test/parse-helpers.js API indistinguishable from accidentally exposed test modules.",
+      "proposedDirection": "Use a production emitting project that excludes colocated suites while retaining the intentional test helper export; preserve test type-checking through a separate no-emit project or existing test-oriented checking path.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The finished shared cluster reorganized modules and exports but did not inventory the 73 emitted tests or 69 wildcard-addressable test subpaths."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-002",
+      "title": "Saving-throw phases exchange oversized and independently derived state",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/saving-throw.ts",
+          "line": 56,
+          "endLine": 65,
+          "measurement": null,
+          "note": "rollSavingThrowCheck accepts the 14-field SavingThrowInput but consumes only rng, rollMode, saveModifier, and saveDc."
+        },
+        {
+          "path": "packages/shared/src/rules/saving-throw.ts",
+          "line": 82,
+          "endLine": 101,
+          "measurement": null,
+          "note": "The final resolver accepts both the original input and a check containing totalSave and saved derived from that input."
+        },
+        {
+          "path": "packages/shared/src/rules/saving-throw.ts",
+          "line": 127,
+          "endLine": 147,
+          "measurement": null,
+          "note": "The result mixes DC/modifier fields from one object with roll totals and success state from another."
+        },
+        {
+          "path": "packages/server/src/services/spell-casting/resolve-character-spell.ts",
+          "line": 227,
+          "endLine": 257,
+          "measurement": null,
+          "note": "The multi-target caller builds complete inputs early, retains parallel input/check arrays by index, then reunites each pair during resolution."
+        }
+      ],
+      "problem": "The staged API supports shared damage rolls, but its phase boundaries do not express the data each phase needs. Callers carry large parallel structures, and one logical saving throw has two unlinked sources of truth that future changes must keep synchronized.",
+      "proposedDirection": "Introduce focused check and resolution inputs. Make the check own the DC/modifier it used, or have the final phase recompute derived state from natural rolls so incoherent pairs are not representable.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-003",
+      "title": "Five summary projections hand-copy canonical entity fields",
+      "area": "shared",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/campaign.ts",
+          "line": 69,
+          "endLine": 106,
+          "measurement": null,
+          "note": "campaignMemberCharacterSchema and campaignSummarySchema manually repeat ten canonical character/campaign fields; the character level copy already lacks Character's upper bound."
+        },
+        {
+          "path": "packages/shared/src/schemas/magic-item.ts",
+          "line": 56,
+          "endLine": 82,
+          "measurement": null,
+          "note": "magicItemSummarySchema manually repeats six fields owned by magicItemSchema."
+        },
+        {
+          "path": "packages/shared/src/schemas/monster.ts",
+          "line": 135,
+          "endLine": 238,
+          "measurement": null,
+          "note": "monsterSummarySchema repeats ten entity fields and loses several canonical bounds/refinements."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter.ts",
+          "line": 187,
+          "endLine": 196,
+          "measurement": null,
+          "note": "encounterSummarySchema repeats seven encounterSchema fields before adding participantCount."
+        },
+        {
+          "path": "packages/shared/src/schemas/character.ts",
+          "line": 278,
+          "endLine": 298,
+          "measurement": null,
+          "note": "The adjacent characterSummarySchema demonstrates the intended pick().extend() derivation and documents why it prevents drift."
+        }
+      ],
+      "problem": "These projections maintain 33 parallel field declarations. Contributors must decide whether every constraint difference is intentional, and multiple copies have already drifted from their canonical validators.",
+      "proposedDirection": "Derive summaries with entitySchema.pick(...).extend(...). Where a projection deliberately remains looser, make that exception explicit in the extend step with a contract rationale.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The landed cluster fixed characterSummarySchema, but the same drift mechanism remains across four other domains and five projections."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-004",
+      "title": "Encounter inputs are a monolith spanning three router boundaries",
+      "area": "shared",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.ts",
+          "line": 23,
+          "endLine": 329,
+          "measurement": null,
+          "note": "One module contains CRUD, state transitions, participant management, turn management, combat logs, and combat-map integration."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "329 lines, 20 exported *InputSchema declarations, and 10 production import sites separated across encounter, encounter-combat, and encounter-map consumers, measured with pinned git show/git grep.",
+          "note": "The server already has stable boundaries that the shared contract layout does not mirror."
+        }
+      ],
+      "problem": "Map-linking and combat-log contributors must navigate and import a file dominated by unrelated participant and lifecycle contracts. Independent router work converges on one high-churn module whose broad name no longer helps navigation.",
+      "proposedDirection": "Split contracts along the existing encounter, encounter-combat, and encounter-map boundaries, moving consumers atomically and extracting only genuinely shared fields into neutral fragments.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The completed schema-layout work corrected entity/input placement but did not address this 329-line contract module or its three existing consumer boundaries."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-005",
+      "title": "spellcasting.ts contains five independently changing rule areas",
+      "area": "shared",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 18,
+          "endLine": 34,
+          "measurement": null,
+          "note": "The module starts with class/subclass effective-caster resolution."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 36,
+          "endLine": 146,
+          "measurement": null,
+          "note": "It then owns spell-slot progression and multiclass slot calculation."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 148,
+          "endLine": 245,
+          "measurement": null,
+          "note": "Prepared-spell limits form a separate table and API family."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": 247,
+          "endLine": 380,
+          "measurement": null,
+          "note": "The tail combines non-SRD cantrip fallback policy with level-one character-creation selection."
+        },
+        {
+          "path": "packages/shared/src/rules/spellcasting.ts",
+          "line": null,
+          "endLine": null,
+          "measurement": "380 lines, measured with pinned git show and an end-of-file line count.",
+          "note": "Multiple rule tables and public APIs have accumulated behind one broad concrete subpath."
+        }
+      ],
+      "problem": "Changes to caster resolution, slot progression, prepared limits, fallback policy, and character creation converge on one high-churn file. The concrete-subpath module name no longer identifies a useful review or navigation boundary.",
+      "proposedDirection": "Split along the existing section boundaries, keeping each rule table beside the logic that interprets it and avoiding compatibility barrels.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The finished cluster typed class-keyed tables and removed a dead alias but left the remaining five-area module boundary intact."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-006",
+      "title": "attack-damage.ts is an eight-concern rules grab bag",
+      "area": "shared",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 15,
+          "endLine": 200,
+          "measurement": null,
+          "note": "Eight distinct blocks cover property normalization, ability selection, weapon bonuses, spell bonuses, inventory translation, aggregate computation, proficiency policy, and display formatting."
+        },
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 74,
+          "endLine": 86,
+          "measurement": null,
+          "note": "Spell save and attack calculations sit inside a nominally attack-damage/weapon module."
+        },
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 172,
+          "endLine": 200,
+          "measurement": null,
+          "note": "Weapon proficiency policy and presentation formatting form two further unrelated tails."
+        }
+      ],
+      "problem": "The file boundary reflects historical accumulation rather than stable rule concepts. Contributors looking for spellcasting derivation, persistence adaptation, proficiency, or formatting must already know to search under attack-damage.",
+      "proposedDirection": "Split around weapon calculation, inventory adaptation, spellcasting-derived values, and formatting/proficiency, retaining direct concrete subpath imports.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The finished cluster extracted the weapon catalog and removed its facade, but seven additional concerns remain in the original module."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-007",
+      "title": "Sorcery mechanics and the metamagic content catalog are tangled",
+      "area": "shared",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 45,
+          "endLine": 126,
+          "measurement": null,
+          "note": "An 82-line display/content catalog with long descriptions occupies the middle of the mechanics module."
+        },
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 128,
+          "endLine": 128,
+          "measurement": null,
+          "note": "The content array immediately seeds a lookup index."
+        },
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 134,
+          "endLine": 215,
+          "measurement": null,
+          "note": "Sorcery-point progression, slot creation, milestone calculation, and combination validation follow the catalog."
+        }
+      ],
+      "problem": "Content-copy changes and mechanical-rule changes share a module and import surface. Long descriptions dominate the file, obscure the smaller calculation APIs, and create unnecessary conflict between UI-content and rules work.",
+      "proposedDirection": "Move the metamagic option catalog and identity lookup into a focused content module while keeping sorcery-point and combination mechanics in the rules module.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-008",
+      "title": "Monster provenance invariants disappear from the inferred contract",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.ts",
+          "line": 116,
+          "endLine": 134,
+          "measurement": null,
+          "note": "The exported monster schema makes monsterId, homebrewMonsterEntryId, and homebrewMonsterEntryVersion independently optional."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter-inputs.ts",
+          "line": 153,
+          "endLine": 182,
+          "measurement": null,
+          "note": "Mutual exclusion and homebrew id/version pairing exist only in superRefine on the outer participant union, which does not narrow z.infer."
+        },
+        {
+          "path": "packages/server/src/services/encounter-combat/participant-action.ts",
+          "line": 197,
+          "endLine": 203,
+          "measurement": null,
+          "note": "After narrowing on homebrewMonsterEntryId, the service still sees the version as optional."
+        }
+      ],
+      "problem": "The schema is intended to source both runtime and static contracts, but its inferred type admits states the parser rejects. The separately exported monster schema also omits the outer refinement entirely, making the provenance invariant easy to miss or bypass.",
+      "proposedDirection": "Model custom, SRD, and homebrew sources as structural Zod union variants that preserve current wire keys while making exclusion and id/version correlation visible to z.infer.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-009",
+      "title": "Condition and damage modules mix contracts, persistence repair, and rules",
+      "area": "shared",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "M",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/conditions.ts",
+          "line": 3,
+          "endLine": 38,
+          "measurement": null,
+          "note": "The rules module imports the encounter entity type while exporting the validator imported back by encounter.ts."
+        },
+        {
+          "path": "packages/shared/src/schemas/encounter.ts",
+          "line": 10,
+          "endLine": 70,
+          "measurement": null,
+          "note": "The encounter contract imports conditionNameSchema and derives ConditionEntry from it, completing a source-level bidirectional dependency."
+        },
+        {
+          "path": "packages/shared/src/rules/conditions.ts",
+          "line": 97,
+          "endLine": 116,
+          "measurement": null,
+          "note": "The rules module also performs unknown-JSON persisted-entry normalization."
+        },
+        {
+          "path": "packages/shared/src/rules/damage-types.ts",
+          "line": 51,
+          "endLine": 74,
+          "measurement": null,
+          "note": "The neighboring vocabulary module owns persistence projection for several weaponData JSON seams."
+        }
+      ],
+      "problem": "These modules simultaneously own vocabulary, Zod contracts, persisted-data repair, and executable rules. The erased type-only back-edge avoids a runtime cycle but obscures the intended dependency direction and concept ownership.",
+      "proposedDirection": "Create one-way leaf modules for condition/damage contracts and persisted-value normalization, leaving executable behavior in rules and preserving all tolerant read behavior.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The completed cluster renamed and reused the validators but did not address the rules/schema back-edge or persistence-adapter responsibilities."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-010",
+      "title": "Weapon rules require a full persisted entity they never read",
+      "area": "shared",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 111,
+          "endLine": 121,
+          "measurement": null,
+          "note": "getWeaponDataFromItem accepts InventoryItem but reads only itemType, name, and properties."
+        },
+        {
+          "path": "packages/server/src/services/combat-actions/resolve-attack.ts",
+          "line": 71,
+          "endLine": 72,
+          "measurement": null,
+          "note": "The focused Prisma projection requires a documented unknown-to-InventoryItem double assertion solely to call this oversized boundary."
+        }
+      ],
+      "problem": "A pure rules adapter is coupled to a complete persistence entity even though runtime parsing already handles the only structurally uncertain field. Focused database projections therefore cannot call the helper honestly.",
+      "proposedDirection": "Accept a focused structural input containing itemType, name, and unknown properties, retaining weaponPropertiesSchema.safeParse at the boundary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The weapon adapter work changed legacy-key translation but left this oversized entity contract and its production assertion intact."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-011",
+      "title": "One metamagic constant controls two unrelated rule limits",
+      "area": "shared",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 12,
+          "endLine": null,
+          "measurement": null,
+          "note": "METAMAGIC_PICKS_PER_LEVEL names how many options are learned at a milestone."
+        },
+        {
+          "path": "packages/shared/src/rules/sorcery-points.ts",
+          "line": 181,
+          "endLine": 192,
+          "measurement": null,
+          "note": "The module separately defines MAX_METAMAGIC_PER_CAST as a distinct quantity that currently also equals two."
+        },
+        {
+          "path": "packages/shared/src/schemas/spell-casting-inputs.ts",
+          "line": 18,
+          "endLine": 20,
+          "measurement": null,
+          "note": "Cast input validation nevertheless uses METAMAGIC_PICKS_PER_LEVEL as its per-cast cap."
+        }
+      ],
+      "problem": "Two semantically independent rules are coupled because their current numeric values happen to match. Changing how many options are learned would silently change how many can be applied to a cast.",
+      "proposedDirection": "Export and consume a separately named per-cast limit; confine the milestone-pick constant to level-up selection.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-012",
+      "title": "Attack and spell contracts duplicate behavior-bearing field validators",
+      "area": "shared",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/attack-roll-inputs.ts",
+          "line": 24,
+          "endLine": 48,
+          "measurement": null,
+          "note": "Attack contracts privately define bonus bounds, damageDiceField, and combatNameField."
+        },
+        {
+          "path": "packages/shared/src/schemas/spell-action-inputs.ts",
+          "line": 22,
+          "endLine": 37,
+          "measurement": null,
+          "note": "Spell-action contracts repeat the same -10/99 bounds and byte-equivalent dice/name validators."
+        }
+      ],
+      "problem": "These helpers encode shared combat behavior rather than incidental Zod boilerplate. Changing notation, name length, or bonus bounds requires coordinated edits and can silently make attack and spell contracts diverge.",
+      "proposedDirection": "Move the shared field schemas and semantically shared bounds into a neutral combat-contract fragment consumed by both families.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The finished constants work centralized neighboring dice and damage vocabulary but left these duplicated behavioral validators."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-013",
+      "title": "Encounter calculators re-declare the participant discriminator twice",
+      "area": "shared",
+      "category": "duplication",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/encounter.ts",
+          "line": 32,
+          "endLine": 36,
+          "measurement": null,
+          "note": "The encounter contract defines the canonical participant tuple, enum, and inferred type."
+        },
+        {
+          "path": "packages/shared/src/rules/encounter-difficulty.ts",
+          "line": 53,
+          "endLine": 57,
+          "measurement": null,
+          "note": "DifficultyParticipant hand-writes the same three-member discriminator."
+        },
+        {
+          "path": "packages/shared/src/rules/xp.ts",
+          "line": 96,
+          "endLine": 99,
+          "measurement": null,
+          "note": "XpParticipant independently repeats it again."
+        },
+        {
+          "path": null,
+          "line": null,
+          "endLine": null,
+          "measurement": "Three production declarations found by a pinned whole-packages semantic search: one canonical tuple and two hand-authored unions.",
+          "note": "No type relationship connects the calculator copies to the contract vocabulary."
+        }
+      ],
+      "problem": "Adding or renaming a participant kind requires coordinated edits that TypeScript cannot connect, contrary to the package's schema-derived contract model.",
+      "proposedDirection": "Derive calculator inputs from a small canonical participant contract, or type their discriminator through a dependency-safe leaf schema.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-110",
+        "novelty": "A whole-package semantic straggler sweep identified the two remaining hand-authored unions beside the canonical tuple."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-014",
+      "title": "The attunement game rule lives in a request-schema module",
+      "area": "shared",
+      "category": "layering",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/inventory-inputs.ts",
+          "line": 5,
+          "endLine": 9,
+          "measurement": null,
+          "note": "MAX_ATTUNED_ITEMS is declared among request bounds, although no schema in the file uses it."
+        },
+        {
+          "path": "packages/server/src/services/inventory-service.ts",
+          "line": 143,
+          "endLine": 158,
+          "measurement": null,
+          "note": "The service consumes it as the authoritative attunement business rule."
+        },
+        {
+          "path": "packages/client/src/components/sheet/inventory-panel.tsx",
+          "line": 42,
+          "endLine": 50,
+          "measurement": null,
+          "note": "The sheet imports the request module solely to display the rule limit."
+        },
+        {
+          "path": "packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx",
+          "line": 98,
+          "endLine": 115,
+          "measurement": null,
+          "note": "A second presentation surface imports the same request module to interpret attunement state."
+        }
+      ],
+      "problem": "The authoritative rule drives service enforcement and UI, but its location presents it as an input-schema implementation detail and couples unrelated consumers to transport contracts.",
+      "proposedDirection": "Move the constant into an inventory rules/vocabulary module and repoint service and UI consumers atomically.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-015",
+      "title": "Campaign-homebrew procedure contracts are split by input versus output",
+      "area": "shared",
+      "category": "organization",
+      "severityHint": "medium",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/homebrew-campaign.ts",
+          "line": 5,
+          "endLine": 19,
+          "measurement": null,
+          "note": "The entire file is four output schemas and inferred aliases."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew-inputs.ts",
+          "line": 133,
+          "endLine": 167,
+          "measurement": null,
+          "note": "The matching link, unlink, collection-list, and entry-list inputs live in another module."
+        },
+        {
+          "path": "packages/server/src/routers/homebrew-campaign.ts",
+          "line": 1,
+          "endLine": 12,
+          "measurement": null,
+          "note": "The router imports each procedure's input and output halves from separate shared modules."
+        }
+      ],
+      "problem": "homebrew-campaign.ts owns no entity or independent vocabulary explaining the split. Following one procedure requires discovering two files, and the tiny output-only module adds navigation and import churn without isolating complexity.",
+      "proposedDirection": "Co-locate the outputs with their matching request contracts, or rename and document a genuinely independent campaign-link contract boundary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The landed schema-layout work documented request-side output placement but left this output-only exception intact."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-016",
+      "title": "The shared package exports 122 types with no non-test adopter",
+      "area": "shared",
+      "category": "dead-code",
+      "severityHint": "low",
+      "sizeHint": "L",
+      "evidence": [
+        {
+          "path": "packages/shared/src",
+          "line": null,
+          "endLine": null,
+          "measurement": "Of 422 one-line exported type/interface declarations, 122 had exactly one exact-word occurrence across all non-test, non-doc repository code: their declaration. Measured with rg declaration enumeration plus per-symbol exact-word rg; git diff confirmed packages/shared matched the audit pin.",
+          "note": "The residue is concentrated in schema-derived request/result aliases but also includes redundant map variant aliases."
+        },
+        {
+          "path": "packages/shared/src/schemas/auth.ts",
+          "line": 51,
+          "endLine": 62,
+          "measurement": null,
+          "note": "RefreshResponse and RegisterResponse illustrate schema values that are used while their exported aliases are not."
+        },
+        {
+          "path": "packages/shared/src/schemas/homebrew-campaign.ts",
+          "line": 7,
+          "endLine": 19,
+          "measurement": null,
+          "note": "All four output aliases are exported without an adopter."
+        },
+        {
+          "path": "packages/shared/src/schemas/map-inputs.ts",
+          "line": 66,
+          "endLine": 212,
+          "measurement": null,
+          "note": "Nine request aliases are unused because consumers use schemas or tRPC inference."
+        },
+        {
+          "path": "packages/shared/src/map/drawing.ts",
+          "line": 32,
+          "endLine": 83,
+          "measurement": null,
+          "note": "Five per-variant drawing aliases are unconsumed while callers use the derived DrawingShape union."
+        }
+      ],
+      "problem": "Uniformly exporting inferred conveniences makes declaration output and autocomplete look like a deliberately supported API even when callers use runtime schemas or router inference. The scale makes genuine shared types harder to distinguish and leaves cleanup without a natural owner.",
+      "proposedDirection": "Prune the measured aliases by domain, retaining runtime schemas and genuinely consumed types. Require an adopter in the same change when adding future named aliases.",
+      "leafability": "needs-split",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The prior dead-surface slice removed selected helpers and one spellcasting alias; this is a new repository-wide count of 122 remaining declaration-only exported types."
+      },
+      "confidence": "medium"
+    },
+    {
+      "id": "L04-017",
+      "title": "Weapon helpers widen closed vocabularies back to string",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/srd-weapons.ts",
+          "line": 22,
+          "endLine": 27,
+          "measurement": null,
+          "note": "WeaponData carries closed WeaponCategory and DamageTypeName vocabularies."
+        },
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 135,
+          "endLine": 142,
+          "measurement": null,
+          "note": "WeaponAttackResult immediately widens damageType to string."
+        },
+        {
+          "path": "packages/shared/src/rules/attack-damage.ts",
+          "line": 176,
+          "endLine": 189,
+          "measurement": null,
+          "note": "The exhaustive category map is Record<string,string>, and isWeaponProficient accepts weaponCategory as string."
+        }
+      ],
+      "problem": "The weapon pipeline validates and models two closed vocabularies, then discards their precision at the next helper boundaries. Coverage cannot be enforced when categories change, and downstream results lose the stronger damage-type contract.",
+      "proposedDirection": "Use Record<WeaponCategory,string>, accept WeaponCategory in proficiency checks, and preserve DamageTypeName in WeaponAttackResult.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "The landed work narrowed WeaponData.damageType; this is the remaining immediate widening plus the analogous category map."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-018",
+      "title": "Combat result schemas make an always-produced roll mode optional",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/schemas/attack-roll-inputs.ts",
+          "line": 117,
+          "endLine": 123,
+          "measurement": null,
+          "note": "attackResolutionResultSchema declares rollMode optional."
+        },
+        {
+          "path": "packages/shared/src/schemas/spell-action-inputs.ts",
+          "line": 131,
+          "endLine": 137,
+          "measurement": null,
+          "note": "savingThrowResultSchema independently declares rollMode optional."
+        },
+        {
+          "path": "packages/shared/src/rules/d20-roll.ts",
+          "line": 5,
+          "endLine": 27,
+          "measurement": null,
+          "note": "The canonical D20 result requires RollMode and returns it in every branch."
+        },
+        {
+          "path": "packages/shared/src/rules/saving-throw.ts",
+          "line": 56,
+          "endLine": 65,
+          "measurement": null,
+          "note": "The saving-throw producer always propagates d20.rollMode."
+        }
+      ],
+      "problem": "The inferred output contracts are weaker than their canonical producers, forcing consumers to account for an absent state that these flows never produce.",
+      "proposedDirection": "Make rollMode required in both result schemas after inventorying any non-canonical persisted producers; retain optionality only for second-roll fields.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": null,
+      "confidence": "high"
+    },
+    {
+      "id": "L04-019",
+      "title": "Static rules tables expose inconsistent mutability contracts",
+      "area": "shared",
+      "category": "idiom",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/rules/character-rules.ts",
+          "line": 64,
+          "endLine": 67,
+          "measurement": null,
+          "note": "SKILL_NAMES and SAVE_ABILITIES expose mutable arrays despite being canonical vocabularies."
+        },
+        {
+          "path": "packages/shared/src/rules/conditions.ts",
+          "line": 40,
+          "endLine": 40,
+          "measurement": null,
+          "note": "CONDITION_DESCRIPTIONS is an exported mutable Record."
+        },
+        {
+          "path": "packages/shared/src/rules/conditions.ts",
+          "line": 125,
+          "endLine": 131,
+          "measurement": null,
+          "note": "INCAPACITATING_CONDITIONS is an exported mutable array."
+        },
+        {
+          "path": "packages/shared/src/rules/srd-weapons.ts",
+          "line": 326,
+          "endLine": 327,
+          "measurement": null,
+          "note": "SRD_WEAPONS exposes a mutable Record intersection."
+        },
+        {
+          "path": "packages/shared/src/rules/encounter-difficulty.ts",
+          "line": 16,
+          "endLine": 26,
+          "measurement": null,
+          "note": "The neighboring difficulty table demonstrates the static-data idiom with readonly row fields and Readonly<Record<...>>."
+        }
+      ],
+      "problem": "Uppercase exports representing immutable reference data sometimes permit consumer assignment, sorting, or insertion while neighboring tables prevent it. The public type surface therefore communicates inconsistent invariants.",
+      "proposedDirection": "Expose readonly rows, records, and arrays consistently while preserving intentional tolerant lookup signatures.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "landed",
+        "ref": "CQ25-115",
+        "novelty": "Recent vocabulary and table typing tightened keys and value domains but left these mutability contracts inconsistent."
+      },
+      "confidence": "high"
+    },
+    {
+      "id": "L04-020",
+      "title": "Dice grammar semantics depend on positional regex captures",
+      "area": "shared",
+      "category": "hack",
+      "severityHint": "low",
+      "sizeHint": "S",
+      "evidence": [
+        {
+          "path": "packages/shared/src/dice/dice-notation.ts",
+          "line": 13,
+          "endLine": 15,
+          "measurement": null,
+          "note": "The grammar is encoded with four positional capture groups."
+        },
+        {
+          "path": "packages/shared/src/dice/dice-notation.ts",
+          "line": 123,
+          "endLine": 128,
+          "measurement": null,
+          "note": "Parsing relies on match[1] through match[4] and asserts the keep discriminator."
+        },
+        {
+          "path": "packages/shared/src/dice/dice-notation.ts",
+          "line": 144,
+          "endLine": 155,
+          "measurement": null,
+          "note": "Term dispatch passes raw RegExpExecArray values into positional parsing, so capture edits can silently change field meaning."
+        }
+      ],
+      "problem": "Grammar edits must keep parentheses, numeric indexes, conversions, and the asserted union synchronized manually. The assertion marker also labels this runtime-regex invariant as framework typing.",
+      "proposedDirection": "Use named capture groups or a typed match-decoding helper and classify any unavoidable assertion as an interop boundary.",
+      "leafability": "single-leaf",
+      "priorPackOverlap": {
+        "kind": "constraint",
+        "ref": "CQ25-179",
+        "novelty": "This preserves all recorded dice AST/result decisions and targets only parser implementation coupling."
+      },
+      "confidence": "high"
+    }
+  ],
+  "droppedAsPriorPackDuplicate": [
+    {
+      "title": "Add a shared root or schemas barrel",
+      "ref": "CQ25-115",
+      "reason": "The completed shared cluster deliberately retained concrete deep subpaths."
+    },
+    {
+      "title": "Rename sortByInitiative and add the DM-facing tie workflow",
+      "ref": "CQ25-56",
+      "reason": "The initiative rename, replacement helpers, policy rewrite, and workflow are already scheduled."
+    },
+    {
+      "title": "Add automatic or player-facing initiative tie ordering",
+      "ref": "CQ25-163",
+      "reason": "The prior plan explicitly declined these tie-resolution directions."
+    },
+    {
+      "title": "Route concentration saves through resolveD20Roll",
+      "ref": "CQ25-180",
+      "reason": "This exact consolidation was explicitly rejected."
+    },
+    {
+      "title": "Merge repeated HALF_DIVISOR constants",
+      "ref": "CQ25-180",
+      "reason": "The identical values are recorded as unrelated concepts that remain local."
+    },
+    {
+      "title": "Move the monk shield check into unarmoredAc",
+      "ref": "CQ25-174",
+      "reason": "calculateArmorClass's two shield reads were adjudicated as coherent and deliberate."
+    },
+    {
+      "title": "Collapse conditions.ts onto one lookup",
+      "ref": "CQ25-85",
+      "reason": "The type predicate and normalization lookup have distinct typing roles."
+    },
+    {
+      "title": "Remove getWeaponMastery's null fallback",
+      "ref": "CQ25-84",
+      "reason": "The fallback remains required under noUncheckedIndexedAccess."
+    },
+    {
+      "title": "Merge weapon and mastery data into one equipment catalog",
+      "ref": "CQ25-88",
+      "reason": "The consolidation is explicitly declined and the separate tables have a drift guard."
+    },
+    {
+      "title": "Narrow skillModifier.skillName to SkillName",
+      "ref": "CQ25-76",
+      "reason": "The corpus records this as an available but unscheduled prior follow-up."
+    },
+    {
+      "title": "Replace proficiency or cantrip tables with formulas",
+      "ref": "CQ25-92",
+      "reason": "Table form and invalid-level behavior are standing decisions."
+    },
+    {
+      "title": "Reshape the SrdClassId maps and public string boundaries",
+      "ref": "CQ25-177",
+      "reason": "The total forward map, derived reverse map, and public string fallbacks were explicitly adjudicated."
+    },
+    {
+      "title": "Normalize persisted Spell.classes values",
+      "ref": "CQ25-178",
+      "reason": "A partial normalization would break the strict persisted read seam."
+    },
+    {
+      "title": "Add SRD provenance to caster-type cantrip tables",
+      "ref": "CQ25-182",
+      "reason": "Those tables are explicitly named non-SRD Musi policy."
+    },
+    {
+      "title": "Change unknown-class spell-selection fallback behavior",
+      "ref": "CQ25-185",
+      "reason": "The extension semantics were deliberately left as a recorded product decision."
+    },
+    {
+      "title": "Extract spell-inputs.ts, auth-inputs.ts, or srd-inputs.ts",
+      "ref": "CQ25-175",
+      "reason": "The prior layout ruling explicitly retained these inputs-holding modules."
+    },
+    {
+      "title": "Domain-prefix generic listOutputSchema and searchOutputSchema exports",
+      "ref": "CQ25-175",
+      "reason": "The bulk rename was declined except as opportunistic work coupled to its codemod fix."
+    },
+    {
+      "title": "Replace notification data with discriminated payload variants",
+      "ref": "CQ25-176",
+      "reason": "Strict output parsing would reject legacy rows; this direction was explicitly dropped."
+    },
+    {
+      "title": "Tighten CreateCharacterInput proficiency names",
+      "ref": "CQ25-212",
+      "reason": "The change requires a persisted-name and uniqueness-dedup audit first."
+    },
+    {
+      "title": "Rename persisted twoHandedDice to versatileDice",
+      "ref": "CQ25-93",
+      "reason": "The persisted spelling is protected because Zod stripping would erase legacy data."
+    },
+    {
+      "title": "Normalize persisted inventory and homebrew weapon keys",
+      "ref": "CQ25-173",
+      "reason": "The prior plan declined this migration and documented the adapter-only boundary."
+    },
+    {
+      "title": "Replace homebrew and magic-item timestamp strings with dateTimeField",
+      "ref": "CQ25-181",
+      "reason": "The timestamp sweep was reduced to documentation and closed."
+    },
+    {
+      "title": "Add compatibility re-exports after schema moves",
+      "ref": "CQ25-183",
+      "reason": "Direct defining-file imports without shims are an explicit decision."
+    },
+    {
+      "title": "Export shared GridCell or TemplateParams for the client",
+      "ref": "CQ25-181",
+      "reason": "The caller is already structurally checked and the client owns a different GridCell abstraction."
+    },
+    {
+      "title": "Rename persisted fog w/h fields",
+      "ref": "CQ25-104",
+      "reason": "Those names are persisted FogLayerData keys."
+    },
+    {
+      "title": "Discriminate dice result records or remove flat-term rolls",
+      "ref": "CQ25-179",
+      "reason": "The persisted result shape and conditional spreads are explicitly frozen."
+    },
+    {
+      "title": "Add an eslint-disable wrapper around drawing constants",
+      "ref": "CQ25-183",
+      "reason": "The prior pack explicitly retained the direct literal declarations."
+    },
+    {
+      "title": "Derive the four campaignId-only socket payload schemas from one base",
+      "ref": "CQ25-116",
+      "reason": "Independent schema identities are an explicit closed-declined wire-contract decision."
+    },
+    {
+      "title": "Force homebrew write schemas to extend canonical entity schemas",
+      "ref": "CQ25-86",
+      "reason": "The contracts intentionally differ between write and read/entity boundaries."
+    },
+    {
+      "title": "Consolidate combat-action result and response schemas",
+      "ref": "CQ25-87",
+      "reason": "The prior ruling records that these outputs are already consolidated at their real boundary."
+    },
+    {
+      "title": "Delete or privatize the previously adjudicated combat and initiative helpers",
+      "ref": "CQ25-115",
+      "reason": "The finished dead-surface review already measured and retained those exact names."
+    },
+    {
+      "title": "Delete snapToGrid and the pixelToHex/hexRound pair",
+      "ref": "CQ25-115",
+      "reason": "The completed shared dead-code slice already adjudicated these helpers."
+    }
+  ],
+  "featureIdeas": [],
+  "bugsSideList": [
+    {
+      "title": "Character AC silently chooses the first equipped armor item",
+      "paths": [
+        "packages/shared/src/rules/armor-class.ts:133"
+      ],
+      "whySuspectedBug": "If multiple armor items are equipped, computeCharacterAc uses the first match and makes AC depend on incidental item ordering.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Spell damage dice-count limit is applied only to slot formulas",
+      "paths": [
+        "packages/shared/src/schemas/spell.ts:83"
+      ],
+      "whySuspectedBug": "The generic MAX_DAMAGE_DICE_COUNT is enforced for slot formulas but not fixed or character-level formulas.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "dateTimeField accepts arbitrary strings",
+      "paths": [
+        "packages/shared/src/constants.ts:104"
+      ],
+      "whySuspectedBug": "Its string branch is plain z.string(), so non-date text satisfies entity fields described as normalized ISO dates.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Freehand drawings accept an odd coordinate count",
+      "paths": [
+        "packages/shared/src/map/drawing.ts:44"
+      ],
+      "whySuspectedBug": "The documented flat x/y pair format requires even length, but the schema only enforces a minimum of four numbers.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Dice notation accepts a zero die count",
+      "paths": [
+        "packages/shared/src/dice/dice-notation.ts:13",
+        "packages/shared/src/dice/dice-roller.ts:15"
+      ],
+      "whySuspectedBug": "0d20 matches, has no lower count bound, and rolls as an empty dice term.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Dice notation accepts adjacent arithmetic operators",
+      "paths": [
+        "packages/shared/src/dice/dice-notation.ts:67"
+      ],
+      "whySuspectedBug": "Forms such as 1d6++2 and 1d6+-2 replace the current sign instead of being rejected.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Metamagic combination validation accepts duplicate option IDs",
+      "paths": [
+        "packages/shared/src/rules/sorcery-points.ts:190"
+      ],
+      "whySuspectedBug": "The validator resolves each ID but never checks uniqueness, so repeating a combinable option can pass with doubled cost.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Whitespace-only chat messages parse to empty content",
+      "paths": [
+        "packages/shared/src/schemas/chat-inputs.ts:26"
+      ],
+      "whySuspectedBug": "The schema applies min(1) before trim(), allowing whitespace to pass length validation and transform to an empty string.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Campaign members can submit system-generated chat types",
+      "paths": [
+        "packages/shared/src/schemas/chat-inputs.ts:16",
+        "packages/server/src/routers/chat.ts:100"
+      ],
+      "whySuspectedBug": "The public send input accepts the full persisted type enum, and the router persists the supplied type after membership validation without restricting system, roll, or combat variants.",
+      "suggestedOwner": "security-review"
+    },
+    {
+      "title": "Map layer byte limit counts UTF-16 characters",
+      "paths": [
+        "packages/shared/src/schemas/map-inputs.ts:177",
+        "packages/shared/src/schemas/map.ts:24"
+      ],
+      "whySuspectedBug": "JSON.stringify(data).length can undercount the UTF-8 bytes occupied by non-ASCII layer data.",
+      "suggestedOwner": "code-review"
+    },
+    {
+      "title": "Combat-log filtering cannot represent rounds above 999",
+      "paths": [
+        "packages/shared/src/schemas/encounter.ts:16",
+        "packages/shared/src/schemas/encounter-inputs.ts:278",
+        "packages/shared/src/rules/initiative.ts:94"
+      ],
+      "whySuspectedBug": "Encounter rounds advance without an upper bound, while listCombatLogsInputSchema rejects a round above MAX_ROUND.",
+      "suggestedOwner": "code-review"
+    }
+  ],
+  "coverage": {
+    "readFully": [
+      "shard rules_spell_class — packages/shared/src/rules/{spellcasting,character-rules,class-identity,multiclass-rules,sorcery-points,starting-languages}.ts",
+      "shard rules_combat — packages/shared/src/rules/{armor-class,attack-damage,attack-roll,combat,concentration-save,d20-roll,saving-throw,initiative}.ts",
+      "shard rules_data — packages/shared/src/rules/{conditions,damage-types,encounter-difficulty,srd-weapons,weapon-mastery,xp}.ts",
+      "shard schemas_identity — packages/shared/src/schemas/{asi,auth,campaign-inputs,campaign,character-inputs,character}.ts",
+      "shard schemas_combat — packages/shared/src/schemas/{attack-roll-inputs,combat-action,dice-inputs,encounter-inputs,encounter,health-inputs,health,rest-inputs,sorcery-point-inputs,spell-action-inputs,spell-casting-inputs}.ts",
+      "shard schemas_homebrew — packages/shared/src/schemas/{homebrew-campaign,homebrew-export,homebrew-inputs,homebrew,inventory-inputs,inventory,magic-item-inputs,magic-item,monster-inputs,monster,npc-inputs,npc}.ts",
+      "shard schemas_spell_srd — packages/shared/src/schemas/{spell,srd-reference,srd,weapon-mastery-inputs,weapon-mastery}.ts",
+      "shard schemas_realtime_map — packages/shared/src/schemas/{chat-inputs,harness-diagnostics,invite,map-inputs,map,note-inputs,note,notification-inputs,notification,socket-events}.ts",
+      "shard dice_map_constants — packages/shared/src/constants.ts; packages/shared/src/dice/{dice-notation,dice-roller,types}.ts; packages/shared/src/map/{area-template,drawing,fog,grid-utils}.ts",
+      "shard config_exclusions — packages/shared/package.json and packages/shared/tsconfig.json",
+      "Partition closure: all 72 production TypeScript files and both lane-owned package config files at the audit pin."
+    ],
+    "sampled": [
+      "Pinned production consumers under packages/{server,client}/src and scripts/ — exact-symbol/import inventories for assigned exports, with caller bodies opened only where needed to establish API pressure or usage.",
+      "Repository export surface — all one-line exported shared type/interface declarations were exact-word checked across non-test, non-doc code.",
+      "packages/shared/src/** — complete pinned filename enumeration established 72 production TypeScript files, 73 test files, one shared test helper, and three MODULE.md files.",
+      "git diff confirmed packages/shared source/config at the working checkout was byte-identical to audit target ebf096580b31f604861fadb3d4cbd4079da4f017."
+    ],
+    "skipped": [
+      "packages/shared/src/**/*.test.ts, **/*.property.test.ts, and test-tier sentinel tests — lane 06 ownership; enumerated but not audited.",
+      "packages/shared/src/test/parse-helpers.ts and packages/shared/vitest.config.ts — lane 06 shared-test/config ownership.",
+      "packages/shared/src/rules/MODULE.md, packages/shared/src/schemas/MODULE.md, and packages/shared/src/map/area-template-MODULE.md — consulted for orientation but documentation drift belongs to lane 07.",
+      "SRD/DMG numeric content correctness — explicitly excluded; only organization, naming, provenance clarity, and code shape were audited.",
+      "Production caller bodies outside identifier-directed samples — outside the shared-package partition."
+    ],
+    "pointers": [
+      "Lane 07: schemas/MODULE.md says magic-item-inputs.ts lacks a colocated test, but magic-item-inputs.test.ts exists at the audit pin.",
+      "Lane 07: area-template-MODULE.md names map-canvas-overlays.tsx as a direct consumer and omits map-canvas-store.ts; pinned imports show the reverse.",
+      "Lane 07: class-identity.ts:45-63 embeds downstream client option semantics and a named client test in low-level resolver JSDoc.",
+      "Lane 07: xp.ts:6 calls its table 'SRD 5.1 / 2024 revision' in an SRD 5.2.1 project.",
+      "Lane 06: encounter-inputs.test.ts is a 1,030-line hotspot and homebrew.test.ts is 1,228 lines.",
+      "Lane 06: the intentional ./test/parse-helpers.js export imports Vitest while packages/shared declares only fast-check as a package dev dependency.",
+      "Lane 08: generic RollMode lives in attack-roll-inputs.ts while generic d20/saving-throw rules consume it and the client independently re-declares the three-value union.",
+      "Lane 08: shared and client export unrelated interfaces both named WeaponAttackResult.",
+      "Lane 08: species-step.tsx hand-declares Trait/Subspecies/SpeciesData projections adjacent to shared SRD projections.",
+      "Lane 08: spell.ts and server resolve-character-spell.ts independently decode dice notation with split('d').map(Number).",
+      "Lane 08: DEFAULT_TEMPLATE_SIZE_FT is duplicated as a client-local DEFAULT_TEMPLATE_SIZE.",
+      "Lane 08: map-layer.ts re-declares the MapLayer data record shape owned by shared map schemas.",
+      "Lane 08: monster-tab.tsx declares MonsterAddData independently of the shared add-monster contract.",
+      "Lane 08: encounterDetailSchema includes optional logs while the server always loads them and the client separately uses a paginated combat-log query.",
+      "Lane 08: shared tsconfig grants Node ambient types although production shared sources contain no Node globals or node: imports."
+    ],
+    "cut": [
+      "ASI concept constants remain split between asi.ts and character-inputs.ts.",
+      "TanStack infinite-query direction metadata is repeated across three shared list contracts despite being unused by their server handlers.",
+      "Weapon-mastery reference-row naming omits 'Property' and collides conceptually with weaponMasteryPropertySchema.",
+      "Area-template internals alternate between mapWidth/mapHeight and mapW/mapH.",
+      "The Musi-added 'trivial' difficulty tier is not labeled as application policy beside DMG vocabulary.",
+      "getMetamagicSlotsAtLevel names known options as slots.",
+      "MulticlassPrerequisite admits empty and mixed all/anyOf states absent from the rule table.",
+      "Two type-assertion markers classify built-in Object.entries/range narrowing as framework rather than interop.",
+      "Three mutation acknowledgements independently declare z.object({ success: z.boolean() }).",
+      "Measured runtime/test-only exports remain in conditions, XP, map, combat, and sorcery modules.",
+      "Spell-slot operations alternate between spellLevel and slotLevel.",
+      "Map modules expose five unused drawing aliases plus isCellVisible."
+    ]
+  }
+}

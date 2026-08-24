@@ -28,9 +28,9 @@ shift 2>/dev/null || true
 
 case "$driver_key" in
   lint-ratchet)
-    driver_label="lint-ratchet"
-    semantic_driver="scripts/lint-ratchet/baseline-merge-cli.ts"
-    install_hint="bun run lint:ratchet:install-merge-driver"
+    printf '%s\n' \
+      'lint-ratchet baseline merge driver registration is stale; migrate it with `bun run lint:ratchet:install-merge-driver`.' >&2
+    exit 2
     ;;
   knip-unused-exports)
     driver_label="knip unused-exports"
@@ -112,37 +112,6 @@ fi
 
 print_conflict_recovery() {
   case "$driver_key" in
-    lint-ratchet)
-      # BEGIN lint-ratchet-baseline-conflict-recipe
-      cat >&2 <<EOF
-lint-ratchet baseline conflict: $path is generated, so do not hand-merge it.
-Git kept the 'ours' side in the working tree so the JSON stays parseable.
-That is the current branch during git merge and git cherry-pick.
-During git rebase the sides are swapped: the kept version is the upstream
-base, not the branch being rebased.
-
-Resolve every other (non-baseline) conflict first, then run:
-  bun run lint:ratchet:update
-
-Then inspect the baseline diff against both sides:
-  git diff HEAD -- $path
-  git diff MERGE_HEAD -- $path
-
-MERGE_HEAD exists only during git merge; use REBASE_HEAD during a rebase or
-CHERRY_PICK_HEAD during a cherry-pick.
-
-If the other side had lower floors, preserve them before adding the baseline
-or explicitly accept the regression in the merge review.
-
-Then run:
-  git add $path
-
-If update asks for --allow-worse, the merged code regressed past the kept floor.
-Fix the findings, or accept the debt with:
-  bun run lint:ratchet:update -- --allow-worse --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
-EOF
-      # END lint-ratchet-baseline-conflict-recipe
-      ;;
     knip-unused-exports)
       cat >&2 <<EOF
 knip unused-exports baseline conflict: $path is generated, so do not hand-merge it.

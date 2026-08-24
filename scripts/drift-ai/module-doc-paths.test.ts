@@ -229,6 +229,20 @@ describe("runModuleDocPathsCheck", () => {
       "packages/server/src/b/MODULE.md:1",
     ]);
   });
+
+  it("identifies module-doc-paths when its default Git ignore probe fails", () => {
+    const repoRoot = tmpRepo.makeTempRepo("drift-module-doc-ignore-failure-");
+
+    expect(() =>
+      run({
+        realIgnore: true,
+        repoRoot,
+        docs: {
+          "packages/server/src/socket/MODULE.md": "uses `helpers/missing.ts`.",
+        },
+      }),
+    ).toThrow("module-doc-paths git check-ignore failed");
+  });
 });
 
 describe("isModuleDocPath", () => {

@@ -29,10 +29,10 @@ describe("makeEmptyCheckConfig", () => {
   });
 
   it("emits runByDefault only when explicitly passed", () => {
-    expect("runByDefault" in makeEmptyCheckConfig("layer-direction", { runByDefault: true })).toBe(
+    expect("runByDefault" in makeEmptyCheckConfig("import-cycles", { runByDefault: true })).toBe(
       true,
     );
-    expect(makeEmptyCheckConfig("layer-direction", { runByDefault: true }).runByDefault).toBe(true);
+    expect(makeEmptyCheckConfig("import-cycles", { runByDefault: true }).runByDefault).toBe(true);
   });
 
   it("selectConfig reads the id's own slot out of the full config", () => {

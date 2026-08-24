@@ -4,16 +4,6 @@ import { describe, expect, it } from "vitest";
 // portable lint-ratchet runtime.
 import { maxLinesPolicy, readMaxLinesPolicy } from "./max-lines-policy.js";
 
-const validRatchetPolicy = {
-  id: "max-lines/example",
-  files: ["packages/**/*.ts"],
-  ignores: ["**/*.test.ts"],
-  zeroBaselineDisposition: {
-    kind: "intentional-ratchet-only",
-    reason: "Preserve the existing max-lines policy fixture.",
-  },
-} as const;
-
 const validException = {
   path: "packages/example/src/example.ts",
   cap: 400,
@@ -37,7 +27,6 @@ const validPolicy = {
   ratchetFloor: { cap: 250 },
   exceptions: [validException],
   generatedExemptions: [validGeneratedExemption],
-  ratchets: [validRatchetPolicy],
 } as const;
 
 describe("readMaxLinesPolicy", () => {
@@ -52,40 +41,6 @@ describe("readMaxLinesPolicy", () => {
         counting: { skipBlankLines: true, skipComments: false },
       }),
     ).toThrow(/counting flags must be true/u);
-  });
-
-  it("throws when a zero-baseline disposition kind is invalid", () => {
-    expect(() =>
-      readMaxLinesPolicy({
-        ...validPolicy,
-        ratchets: [
-          {
-            ...validRatchetPolicy,
-            zeroBaselineDisposition: {
-              kind: "unsupported-kind",
-              reason: "This fixture should be rejected.",
-            },
-          },
-        ],
-      }),
-    ).toThrow(/zeroBaselineDisposition\.kind is invalid/u);
-  });
-
-  it("throws when a zero-baseline disposition reason is not a non-empty string", () => {
-    expect(() =>
-      readMaxLinesPolicy({
-        ...validPolicy,
-        ratchets: [
-          {
-            ...validRatchetPolicy,
-            zeroBaselineDisposition: {
-              kind: "intentional-ratchet-only",
-              reason: "   ",
-            },
-          },
-        ],
-      }),
-    ).toThrow(/zeroBaselineDisposition\.reason must be a non-empty string/u);
   });
 
   it("throws when the exceptions field is not an array", () => {

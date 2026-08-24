@@ -49,6 +49,9 @@ describe("definition-query", () => {
     });
     expect(output).toContain("definition sum");
     expect(output).toContain("packages/shared/src/rules/math.ts:1:14 value export");
+    // Positional def is file-anchored and guarded at input, so it carries no
+    // scope statement; only discovery-mode (def --name) output does.
+    expect(output).not.toContain("Scope:");
 
     const snappedResults = queryDefinition(project, resolver, {
       file: "packages/shared/src/rules/consumer.ts",
@@ -71,6 +74,26 @@ describe("definition-query", () => {
     });
     expect(nameOutput).toContain("definition sum");
     expect(nameOutput).toContain("packages/shared/src/rules/math.ts:1:14 value export");
+    // Name-only search is discovery-mode even on a hit: a matching symbol in
+    // an excluded workspace stays silently omitted, so hits must state the
+    // searched scope exactly like misses do.
+    expect(nameOutput).toContain(
+      "Scope: packages/shared/src, packages/server/src, packages/client/src, and scripts/ (excluding scripts/codemods/fixtures/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.",
+    );
+
+    const nameJsonOutput = runCodeIntel(["def", "--name", "sum", "--format=json"], {
+      graphProject: project,
+      repoRoot,
+      resolver,
+    });
+    // JSON hits carry the same scope field as JSON misses: piped consumers
+    // are least able to infer that a hit is not whole-workspace authority.
+    expect(JSON.parse(nameJsonOutput)).toMatchObject({
+      header: "definition sum",
+      count: 1,
+      scope:
+        "Scope: packages/shared/src, packages/server/src, packages/client/src, and scripts/ (excluding scripts/codemods/fixtures/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.",
+    });
   });
 
   it("surfaces capped prefix hints for name-only definition misses", () => {
@@ -94,6 +117,11 @@ describe("definition-query", () => {
     expect(output).toContain("near matches (11 total): useCharacterMatch00, useCharacterMatch01");
     expect(output).toContain(", ...");
     expect(output).not.toContain("useCharacterMatch10");
+    // A name-only miss must state the searched scope so an empty result is
+    // never read as authoritative for out-of-scope workspaces (tools/*, examples/*).
+    expect(output).toContain(
+      "Scope: packages/shared/src, packages/server/src, packages/client/src, and scripts/ (excluding scripts/codemods/fixtures/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.",
+    );
 
     const jsonOutput = runCodeIntel(["def", "--name", "useCharacter", "--format=json"], context);
     expect(JSON.parse(jsonOutput)).toEqual({
@@ -108,6 +136,10 @@ describe("definition-query", () => {
         exportKind: "value export",
       })),
       nearMatchTotal: 11,
+      // JSON is the piping format; a miss payload must carry the searched
+      // scope too, or an empty result reads as whole-workspace authority.
+      scope:
+        "Scope: packages/shared/src, packages/server/src, packages/client/src, and scripts/ (excluding scripts/codemods/fixtures/) only; package files outside src/ and other workspaces (tools/*, examples/*) are intentionally out of scope.",
     });
 
     expect(runCodeIntel(["def", "--name", "buildEncounter"], context)).toContain(

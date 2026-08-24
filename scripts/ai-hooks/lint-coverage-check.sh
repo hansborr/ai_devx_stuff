@@ -17,22 +17,11 @@ REPO_ROOT=$(realpath -m "$REPO_ROOT")
 . "$SCRIPT_DIR/cache.sh"
 # shellcheck source=/dev/null
 . "$SCRIPT_DIR/lint-coverage-state.sh"
-
-ai_lint_coverage_is_lintable() {
-  local file="$1"
-
-  case "${file,,}" in
-    *.js|*.jsx|*.mjs|*.cjs|*.ts|*.tsx|*.mts|*.cts|*.json|*.jsonc|*.json5)
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
-  esac
-}
+# shellcheck source=edit-check-protocol.sh
+. "$SCRIPT_DIR/edit-check-protocol.sh"
 
 # Ask the ratchet engine whether the committed baseline tracks this path, and if
-# so for which rule(s). The matcher lives in scripts/lint-ratchet/ratchet-globs.ts
+# so for which rule(s). The matcher lives in the lint-ratchet engine
 # (shared with the authoritative gate) so this hook no longer carries its own copy
 # of the ratchet glob semantics. Output row, when matched:
 #   ratchet-covered<TAB><relpath><TAB><comma-separated rule ids>
@@ -50,8 +39,10 @@ ai_lint_coverage_ratchet_rules_for_path() {
   row=$(bun "$REPO_ROOT/scripts/lint-ratchet.ts" --edit-ratchet-coverage "$relative_path" 2>/dev/null) \
     || return 1
   [ -n "$row" ] || return 1
-  # First row only (one path in -> at most one row); split off the rule-id field.
-  IFS=$'\t' read -r _ _ rules <<< "$row"
+  # First row only (one path in -> at most one row); decode through the shared contract.
+  edit_check_read_ratchet_covered_row "$row"
+  [ "$EDIT_CHECK_RATCHET_COVERED_ROW_KIND" = "$EDIT_CHECK_RATCHET_COVERED_KIND" ] || return 1
+  rules="$EDIT_CHECK_RATCHET_COVERED_ROW_RULE_IDS"
   printf '%s' "$rules"
   return 0
 }
@@ -130,12 +121,12 @@ ai_lint_coverage_compose() {
   bullets=$(ai_lint_coverage_bullets "$tier" "$@")
   if [ "$tier" = ratchet ]; then
     header="lint-coverage (info): file(s) you just edited are covered only by lint:ratchet (single-rule floors), not full ESLint:"
-    body="That's an accepted floor, not an error. For the full ratchet picture: bun run lint:ratchet. For structured selected-rule guidance: bun run lint:agent:local-rules:changed. If you added a new lint surface (a new directory or file group), add a row in docs/generated/lint-coverage-map.md. The per-file counts there are descriptive, but new surfaces/globs should get a row."
+    body="That's an accepted floor, not an error. For the full ratchet picture: bun run lint:ratchet. For structured selected-rule guidance: bun run lint:agent:local-rules:changed. If you added a new lint surface (a new directory or file group), add an entry to the typed coverage manifest (scripts/lint-coverage-map-manifest-<area>.ts). The rendered per-file counts are descriptive, but new surfaces/globs should get an entry."
   else
     header="lint-coverage (WARNING): file(s) you just edited are NOT covered by ESLint at all:"
-    body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in docs/generated/lint-coverage-map.md; run this for a ready-to-paste coverage-map row:
+    body="If it should be linted, add it to eslint.config.js and the relevant tsconfig. Either way, account for it in the typed coverage manifest (scripts/lint-coverage-map-manifest-<area>.ts); run this for a ready-to-paste manifest entry:
 bun run docs:lint-coverage-map:suggest
-verify:changed / pre-commit will block on source-relevant files matching no coverage-map row."
+verify:changed / pre-commit will block on source-relevant files matching no coverage-manifest entry."
   fi
 
   printf '%s\n%s\n%s\n\n%s' "$header" "$bullets" "$body" "$(ai_lint_coverage_throttle_note)"
@@ -175,7 +166,7 @@ ai_lint_coverage_main() {
     esac
 
     relative_path="${absolute_path#"$REPO_ROOT"/}"
-    ai_lint_coverage_is_lintable "$relative_path" || continue
+    ai_edited_path_eslint_supported "$relative_path" || continue
 
     case "$relative_path" in
       node_modules/*|.git/*|*/node_modules/*) continue ;;

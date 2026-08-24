@@ -95,7 +95,7 @@ function outcomeForRunnerFailure(
     return {
       status: "skipped",
       reason:
-        "similarity-ts executable not found on PATH; install it with `cargo install similarity-ts`, or use the default ts-morph engine.",
+        "similarity-ts executable not found on PATH; install it with `cargo install similarity-ts --version 0.5.0 --locked`, or use the default ts-morph engine.",
       code: "tool-not-installed",
     };
   }

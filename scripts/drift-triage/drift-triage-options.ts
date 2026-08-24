@@ -7,15 +7,16 @@ import { DEFAULT_MIN_CLONE_FRAGMENT } from "./triage-report.js";
 const DEFAULT_PACKET_SIZE = 20;
 const PRIORITIES = ["review-first", "review"] as const;
 const CATEGORIES = ["maintenance", "structure", "clone", "security"] as const;
-// Any of these flags is meaningless without --packet-dir; the first one seen in
-// argv order names the "<flag> requires --packet-dir." diagnostic.
-const PACKET_SELECTION_FLAGS = [
+// Any option in this group is meaningless without --packet-dir; the post-parse
+// dependency check below walks the parser's seen-option order so the first one
+// seen in argv order names the "<flag> requires --packet-dir." diagnostic.
+const PACKET_SELECTION_GROUP: ReadonlySet<string> = new Set([
   "--packet-size",
   "--priority",
   "--category",
   "--source",
   "--path-prefix",
-] as const;
+]);
 
 export type DriftTriageOptions = {
   readonly inputs: readonly string[];
@@ -97,7 +98,7 @@ function choice<const Values extends readonly [string, ...string[]]>(
   return z.enum(values, { error: `${option} requires one of: ${values.join(", ")}.` });
 }
 
-const cliOptionsSchema = z.object({
+export const cliOptionsSchema = z.object({
   "--format": z
     .enum(["text", "json"], { error: "--format requires text or json." })
     .default("text"),
@@ -115,13 +116,21 @@ const cliOptionsSchema = z.object({
   "--path-prefix": z.array(z.string()).default([]),
 });
 
-function firstPacketSelectionFlag(argv: readonly string[]): string | undefined {
-  for (const arg of argv) {
-    const match = PACKET_SELECTION_FLAGS.find((flag) => arg === flag || arg.startsWith(`${flag}=`));
-    if (match !== undefined) return match;
-  }
-  return undefined;
-}
+// The parseCli option registry; the parity tests in drift-triage.test.ts hold
+// this array, the Zod schema keys, and the usage text to the same option names.
+export const CLI_OPTIONS = [
+  { name: "--format", kind: "value" },
+  { name: "--output", kind: "value" },
+  { name: "--include-literals", kind: "flag" },
+  { name: "--include-type-only-cycles", kind: "flag" },
+  { name: "--min-clone-fragment", kind: "value" },
+  { name: "--packet-dir", kind: "value" },
+  { name: "--packet-size", kind: "value" },
+  { name: "--priority", kind: "value", repeatable: true },
+  { name: "--category", kind: "value", repeatable: true },
+  { name: "--source", kind: "value", repeatable: true },
+  { name: "--path-prefix", kind: "value", repeatable: true },
+] as const;
 
 export function parseArgs(argv: readonly string[]): DriftTriageOptions {
   const parsed = parseCli({
@@ -131,19 +140,7 @@ export function parseArgs(argv: readonly string[]): DriftTriageOptions {
     onHelp: () => {
       throw new DriftTriageHelp();
     },
-    options: [
-      { name: "--format", kind: "value" },
-      { name: "--output", kind: "value" },
-      { name: "--include-literals", kind: "flag" },
-      { name: "--include-type-only-cycles", kind: "flag" },
-      { name: "--min-clone-fragment", kind: "value" },
-      { name: "--packet-dir", kind: "value" },
-      { name: "--packet-size", kind: "value" },
-      { name: "--priority", kind: "value", repeatable: true },
-      { name: "--category", kind: "value", repeatable: true },
-      { name: "--source", kind: "value", repeatable: true },
-      { name: "--path-prefix", kind: "value", repeatable: true },
-    ],
+    options: CLI_OPTIONS,
     schema: cliOptionsSchema,
   });
 
@@ -152,7 +149,7 @@ export function parseArgs(argv: readonly string[]): DriftTriageOptions {
   }
   const packetDir = parsed.options["--packet-dir"];
   if (packetDir === undefined) {
-    const selection = firstPacketSelectionFlag(argv);
+    const selection = parsed.seenOptions?.find((name) => PACKET_SELECTION_GROUP.has(name));
     if (selection !== undefined) {
       throw new DriftTriageError(`${selection} requires --packet-dir.`);
     }

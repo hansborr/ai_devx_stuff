@@ -4,7 +4,7 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "./expand-barrel/args.js";
 import { runAll, runCheck, runOne } from "./expand-barrel/run.js";
 import type { ExpandBarrelCodemodArgs } from "./expand-barrel/types.js";
-import { CodemodError } from "./lib/trpc-shared-schema.js";
+import { CodemodError } from "./lib/codemod-errors.js";
 
 export type { ExpandBarrelCodemodArgs } from "./expand-barrel/types.js";
 

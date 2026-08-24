@@ -2,6 +2,7 @@
 
 import { staticPropertyName, unwrapChain } from "./ast-helpers.js";
 import { isEmitMember } from "./socket-registry-broadcasts.js";
+import { createTransactionCallbackTracker } from "./transaction-callback-tracker.js";
 
 /**
  * Socket broadcasts must happen after persistence commits. A broadcast inside
@@ -20,18 +21,6 @@ const SOCKET_ROOT_PROPERTIES = new Set(["io", "socket"]);
 const SOCKET_FACTORY_FUNCTIONS = new Set(["getSocketIO"]);
 const SOCKET_CHAIN_PROPERTIES = new Set(["broadcast", "local", "volatile"]);
 const SOCKET_CHAIN_METHODS = new Set(["compress", "except", "in", "timeout", "to"]);
-
-/** @param {import('estree').CallExpression} node */
-function isTransactionCall(node) {
-  const callee = unwrapChain(node.callee);
-  if (callee.type !== "MemberExpression") return false;
-  return staticPropertyName(callee) === "$transaction";
-}
-
-/** @param {import('estree').Node | import('estree').SpreadElement | undefined} node */
-function isFunctionNode(node) {
-  return node?.type === "ArrowFunctionExpression" || node?.type === "FunctionExpression";
-}
 
 /** @param {import('estree').CallExpression} node */
 function broadcastFunctionName(node) {
@@ -113,27 +102,14 @@ export default {
   },
 
   create(context) {
-    /** @type {WeakSet<object>} */
-    const transactionCallbacks = new WeakSet();
-    /** @type {boolean[]} */
-    const transactionFunctionStack = [];
-
-    function enterFunction(/** @type {import('estree').BaseFunction} */ node) {
-      const parentInTransaction = transactionFunctionStack.at(-1) === true;
-      transactionFunctionStack.push(parentInTransaction || transactionCallbacks.has(node));
-    }
-
-    function exitFunction() {
-      transactionFunctionStack.pop();
-    }
+    const transactionTracker = createTransactionCallbackTracker(context.sourceCode);
 
     return {
+      ...transactionTracker.functionVisitors,
       CallExpression(node) {
-        if (isTransactionCall(node) && isFunctionNode(node.arguments[0])) {
-          transactionCallbacks.add(node.arguments[0]);
-        }
+        transactionTracker.recordTransactionCall(node);
 
-        if (transactionFunctionStack.at(-1) !== true) return;
+        if (!transactionTracker.inTransaction()) return;
 
         const name = broadcastCallName(node);
         if (!name) return;
@@ -144,10 +120,6 @@ export default {
           data: { name },
         });
       },
-      ArrowFunctionExpression: enterFunction,
-      "ArrowFunctionExpression:exit": exitFunction,
-      FunctionExpression: enterFunction,
-      "FunctionExpression:exit": exitFunction,
     };
   },
 };

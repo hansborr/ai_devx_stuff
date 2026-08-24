@@ -2,6 +2,6 @@
   "args": ["--check"],
   "expectFailure": false,
   "expectedStdout": [
-    "concurrency-guard codemod: no name-based concurrency guard findings; aliases/destructuring still need manual review."
+    "concurrency-guard scanner: no name-based concurrency guard findings; one-hop aliases and destructuring are included, while deeper indirection still needs manual review."
   ]
 }

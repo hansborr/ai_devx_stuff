@@ -292,7 +292,7 @@ Semgrep `prepared.roots` directly, normalizing empty or whole-repo roots to
 
 Do not pass `detectorScope.files`, `sourceExtensions`, or the
 Dolos/near-duplicates filtered inventory to Semgrep. That inventory is
-JS/TS-gated (`SOURCE_LIKE_EXTS` in `scripts/drift-ai/path-util.ts`), and the
+JS/TS-gated (`BUILT_IN_SOURCE_EXTENSIONS` in `scripts/drift-ai/scope.ts`), and the
 Dolos command deliberately feeds it to its runner because Dolos is a JS/TS
 tool. Copying that pattern here would silently blind the adapter to Go and
 other non-TS files in foreign repos — multi-language reach is the point of

@@ -1,18 +1,11 @@
 // @ts-check
 
-import { ESLint } from "eslint";
-import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import { createRepoCodeQualityConfigs } from "../eslint-config/code-quality-configs.js";
 import { createTsConfigFileConfigs } from "../eslint-config/config-file-configs.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const repoRoot = resolve(import.meta.dirname, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
+import { eslint, repoRoot } from "./repo-config-harness.js";
 
 const explicitReturnTypeRuleId = "@typescript-eslint/explicit-function-return-type";
 const pluginProbeFiles = ["packages/shared/src/rules/combat.ts", "knip.config.ts"];

@@ -1,0 +1,1375 @@
+{
+ "batch": "wave1-lanes-04-09-plus-wave2",
+ "pin": "ebf096580b31f604861fadb3d4cbd4079da4f017",
+ "rowCount": 173,
+ "judgments": [
+  {
+   "candidateId": "D-001",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: tsconfig includes all of src with no test exclusion and wildcard exports address emitted .test.js basenames, so 69 test suites acquire valid package subpaths nearly doubling the apparent contract surface. Package is private/workspace-only, capping severity at medium, but the polluted import/autocomplete surface and the deliberate ./test/parse-helpers.js export being indistinguishable from accidents tax the most common cross-package path, and emit hygiene is directly copyable for a public harness reference. M not S: touches the composite tsc -b project graph (server/client reference shared) and must preserve test type-checking via a no-emit project wired into the verify gates.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-002",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified in code: rollSavingThrowCheck consumes 4 of SavingThrowInput's 14 fields, resolveSavingThrowFromCheck accepts an unlinked input/check pair, and resolveSaves carries index-correlated parallel arrays it reunites per target. One logical saving throw having two unsynchronized sources of truth on the core multi-target spell path is a real correctness risk medium, not just polish. M: reshaping the phase API touches the shared rules module, the SavingThrowResult composition, the server resolver, and their tests as one coherent change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-003",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: campaign summary/member-character schemas hand-copy canonical fields and the level copy already lost the canonical bound, so drift is demonstrated, not hypothetical. The adjacent characterSummarySchema (fixed under CQ25-115) documents the intended pick().extend() idiom, making this a convergence on an established pattern rather than new design. M because each of the 33 parallel declarations' constraint differences must be adjudicated intentional-loose vs drift before tightening runtime validation on output boundaries; blind derivation could reject currently-passing data.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-004",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: encounter.ts, encounter-combat.ts, and encounter-map.ts routers plus the encounter-combat service layer all import the single 329-line 20-schema module, so independent router work converges on one high-churn file. The split mirrors stable server boundaries that already exist rather than inventing structure, matching the landed CQ25-115 schema-layout precedent; CQ25-175's document-don't-extract ruling declined creating new inputs modules from mixed files, not partitioning an existing inputs monolith, so no prior ruling blocks this. M: multi-file split with ~10 production import sites repointed atomically, no compat barrels per repo convention.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-005",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "The 380-line file holds five independently changing rule areas (caster resolution, slot progression, prepared limits, non-SRD cantrip fallback, creation selection) behind one concrete subpath, so unrelated rules changes share a review/navigation boundary; the landed cluster typed its tables but explicitly left the module boundary. Section boundaries already exist in-file, and the repo's no-barrel direct-subpath convention makes the split mechanical, but consumer repoints across server/client plus keeping each rule table beside its interpreter make it a coherent multi-commit M.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-006",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The eight-concern claim overcounts: the file is 200 clearly-sectioned lines, cohesive around weapon-attack derivation, and CQ25-115 (landed, do-not-reopen) already reshaped this area — a 4-way split is churn for modest navigational gain. The one genuine misplacement is getSpellSaveDc/getSpellAttackBonus living here while rules/spellcasting.ts exists; scope the fix to relocating that pair.",
+   "oneLineDisposition": "Move getSpellSaveDc and getSpellAttackBonus from rules/attack-damage.ts into the existing rules/spellcasting.ts and update the two importers (packages/client/src/pages/character-sheet/sheet-helpers.ts, packages/server/src/services/spell-casting/resolve-character-spell.ts), leaving the rest of attack-damage.ts in place."
+  },
+  {
+   "candidateId": "D-007",
+   "severity": "low",
+   "size": "S",
+   "worthIt": false,
+   "reason": "The metamagic catalog is frozen SRD 5.2.1 text, so the claimed content-vs-rules change conflict is hypothetical (only one non-test importer of METAMAGIC_OPTIONS); the 215-line module is well sectioned and the mechanics APIs remain easy to find. Splitting buys no recurring benefit for the importer churn — same calculus as the declined CQ25-116.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-008",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified against code: provenance mutual-exclusion and id/version pairing exist only in a superRefine invisible to z.infer, the separately exported addMonsterParticipantInputSchema bypasses the invariant entirely, and participant-action.ts:202 must treat the version as optional after narrowing on the id. This directly contradicts the repo's stated contract model (shared Zod schemas as the source of derived types) on a common encounter path; union restructuring plus server/test updates is a coherent multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-009",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: rules/conditions.ts imports ConditionEntry from schemas/encounter.ts while encounter.ts imports conditionNameSchema back, a source-level bidirectional edge that obscures the shared package's one-way contract flow, and persisted-JSON repair (normalizeConditionEntryName, normalizeWeaponDataDamageType) lives in vocabulary/rules modules. Real friction in the most-imported shared area; the fix shape (leaf contract modules vs a structural signature break) needs the direction review an M receives, and CQ25-115 explicitly left this back-edge unaddressed.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-010",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Strongest candidate in the set: two documented production `as unknown as` bridges in resolve-attack.ts (lines 72 and 93) exist solely because getWeaponDataFromItem demands a full InventoryItem and isWeaponProficient's Pick still carries the schema enum, while both read only a few fields already guarded by safeParse or literal comparison. Removing real production assertion bridges advances the repo's no-assertions standard and its public harness copyability, with ~5 call sites and one commit of churn.",
+   "oneLineDisposition": "Narrow getWeaponDataFromItem and isWeaponProficient in packages/shared/src/rules/attack-damage.ts to structural inputs containing only the fields they read ({ itemType: string; name: string; properties: unknown } and readonly { type: string; name: string }[]), keep weaponPropertiesSchema.safeParse at the boundary, and delete the two `as unknown as` bridges in packages/server/src/services/combat-actions/resolve-attack.ts."
+  },
+  {
+   "candidateId": "D-011",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: castSpellInputSchema caps metamagicIds with METAMAGIC_PICKS_PER_LEVEL while the semantically correct MAX_METAMAGIC_PER_CAST is module-private in sorcery-points.ts; the values only coincidentally match, so a level-up-rule edit would silently change per-cast validation. Correctness-adjacent coupling, trivial to fix.",
+   "oneLineDisposition": "Export MAX_METAMAGIC_PER_CAST from packages/shared/src/rules/sorcery-points.ts and use it (instead of METAMAGIC_PICKS_PER_LEVEL) as the metamagicIds max in castSpellInputSchema, leaving the picks constant to level-up selection only."
+  },
+  {
+   "candidateId": "D-012",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: attack-roll-inputs.ts and spell-action-inputs.ts each privately define byte-equivalent damageDiceField/combatNameField validators and the same -10/99 bonus bounds; these encode shared combat behavior and can silently diverge in an actively-developed contract area. spell-action-inputs already imports from attack-roll-inputs, so a shared fragment fits the existing dependency shape.",
+   "oneLineDisposition": "Extract the shared bonus bounds (-10/99), damageDiceField, and combatNameField into a small neutral combat-fields fragment in packages/shared/src/schemas/ and consume it from both attack-roll-inputs.ts and spell-action-inputs.ts, keeping genuinely family-specific validators (e.g. damageDiceResultField, save DC) local."
+  },
+  {
+   "candidateId": "D-013",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: DifficultyParticipant and XpParticipant hand-write the character|monster|npc union beside the canonical participantTypeSchema/ParticipantType in schemas/encounter.ts. Participant kinds rarely change so day-to-day friction is small, but the fix is trivial and aligns with the package's schema-derived contract model; rules/ already type-imports from schemas/, so there is no layering obstacle.",
+   "oneLineDisposition": "Replace the hand-written unions by typing DifficultyParticipant.type and XpParticipant.type as ParticipantType type-imported from ../schemas/encounter.js (rules/ already type-imports from schemas/ elsewhere)."
+  },
+  {
+   "candidateId": "D-014",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: MAX_ATTUNED_ITEMS is declared in inventory-inputs.ts where no schema uses it, and is consumed as the authoritative game rule by inventory-service.ts and two client components that import a request-schema module solely for it. Misleading placement and transport-contract coupling, but no behavioral risk and a rarely-edited constant, so it is polish rather than a common-path tax.",
+   "oneLineDisposition": "Move MAX_ATTUNED_ITEMS from packages/shared/src/schemas/inventory-inputs.ts into an inventory rules/vocabulary module under packages/shared/src/rules/ and repoint inventory-service.ts, inventory-panel.tsx, and inventory-tab.tsx in the same commit (also refresh the MODULE-doc invariant note in inventory-service if it cites the old location)."
+  },
+  {
+   "candidateId": "D-015",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: homebrew-campaign.ts is a 19-line output-only module with no entity or vocabulary of its own, while the matching link/unlink/list inputs live in homebrew-inputs.ts and the router imports both halves. It is a straggler against the landed CQ25-115 request-side output-placement convention; only a navigation nuisance, but the fix is near-zero churn and convention consistency matters for a public harness-reference repo.",
+   "oneLineDisposition": "Fold the four output schemas and inferred types from packages/shared/src/schemas/homebrew-campaign.ts into homebrew-inputs.ts beside their matching campaign-linking inputs, delete the module, and update the imports in packages/server/src/routers/homebrew-campaign.ts (plus any other importers found by code:intel dependents)."
+  },
+  {
+   "candidateId": "D-016",
+   "severity": "low",
+   "size": "L",
+   "worthIt": false,
+   "reason": "The 'unused' aliases are a deliberate uniform idiom (every exported schema carries a paired z.infer alias, per the shared-schemas-are-the-contract convention), not accidental dead code; pruning 122 symbols is L-sized needs-split churn that leaves the schema/alias pairing inconsistent, invites re-adds as consumers appear, and the proposed adopter-required policy adds friction against a self-documenting convention. Low severity + L churn on app-side type surface (no harness-copyability weight) does not pay for itself; the valuable selective slice already landed as CQ25-115.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-017",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed in attack-damage.ts: WeaponAttackResult.damageType is string, CATEGORY_PROFICIENCY_MAP is Record<string,string>, and isWeaponProficient takes weaponCategory: string while WeaponData already carries the closed vocabularies. Cheap single-file tightening that restores compiler coverage when categories change and completes the direction CQ25-115 already landed.",
+   "oneLineDisposition": "In packages/shared/src/rules/attack-damage.ts, type CATEGORY_PROFICIENCY_MAP as Record<WeaponCategory, string>, change isWeaponProficient's weaponCategory parameter to WeaponCategory, and type WeaponAttackResult.damageType as DamageTypeName, fixing any call sites the compiler flags."
+  },
+  {
+   "candidateId": "D-018",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: attackResolutionResultSchema and savingThrowResultSchema declare rollMode optional while the canonical producers (resolveD20Roll, saving-throw) require and always emit RollMode, so consumers handle a state these flows never produce. Two-line schema tightening; the only real risk is persisted combat-log payloads predating the field, which the direction already gates on inventorying first.",
+   "oneLineDisposition": "Make rollMode required in attackResolutionResultSchema (attack-roll-inputs.ts) and savingThrowResultSchema (spell-action-inputs.ts) after first confirming no persisted combat-log payloads or non-canonical producers omit it, keeping secondRoll/secondSaveRoll optional."
+  },
+  {
+   "candidateId": "D-019",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: SKILL_NAMES, SAVE_ABILITIES, CONDITION_DESCRIPTIONS, INCAPACITATING_CONDITIONS, and SRD_WEAPONS export mutable arrays/records while the neighboring encounter-difficulty table demonstrates the readonly static-data idiom. Small mechanical consistency fix to reference-data invariants; SRD_WEAPONS' documented tolerant string-index lookup must survive, which the direction already preserves.",
+   "oneLineDisposition": "Add readonly element/Readonly<Record> typing to the mutable uppercase reference tables (SKILL_NAMES, SAVE_ABILITIES, ABILITY_FULL_NAMES, CONDITION_DESCRIPTIONS, INCAPACITATING_CONDITIONS, SRD_WEAPONS, and siblings), matching the encounter-difficulty idiom while preserving SRD_WEAPONS' documented tolerant string-index lookup."
+  },
+  {
+   "candidateId": "D-020",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed in dice-notation.ts: four positional captures decoded as match[1]..match[4] plus a keep-discriminator cast whose marker category is 'framework' when the repo's own five-category rule makes this an interop (runtime-regex) invariant at best. Named capture groups are a contained mechanical fix that removes the manual parentheses/index/union synchronization hazard on future grammar edits, and it corrects a marker-taxonomy miss in a harness-reference repo where those markers are meant to be copied.",
+   "oneLineDisposition": "Convert DICE_TERM_REGEX to named capture groups and decode via match.groups in parseDiceTerm, replacing the mislabeled framework assertion on the keep discriminator with a runtime narrow (keepType === \"h\" || keepType === \"l\") or, if a cast remains, a correctly categorized interop marker."
+  },
+  {
+   "candidateId": "D-021",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: SheetBody unconditionally mounts DesktopSheetLayout and MobileSheetTabs with CSS hiding one; sheet MODULE.md carries a gotcha (line 85-89) solely to warn about it. Dual live trees mean every panel's local drafts, filters, and hook work exist twice and can diverge across a breakpoint crossing — this taxes every sheet change and needed doc scaffolding to keep contributors safe, which meets the high bar. CQ25-117 is do-not-reopen but what landed there was the MODULE documentation of the invariant, not a structural resolution; documenting a hazard is not a decision to keep it, so the novelty claim stands. Single-stateful-tree with responsive placement is a coherent multi-part change (14 panel types, both layouts, SheetSharedProps preserved) — L, needs-split as flagged.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-022",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified drift, not just claimed: actions-tab-features.tsx renders a production 'Use' button whose onClick is a console.log placeholder ('Feature-use resolution is intentionally not wired yet') while features-tab.tsx wires the real useFeatureUse mutation with exhaustion/pending/read-only handling; actions-tab-spells.tsx likewise rebuilds slot maps and casting entry without the dedicated tab's prepared/cantrip/ritual eligibility rules. Two contradictory controls for the same records already shipped, and every spell/feature behavior change must be discovered and landed twice — squarely 'actively misleads' territory. Sharing pure row/view models between compact and full presentations spans two subdomains, so L with the proposed spell/feature split is right.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-023",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: useCharacterStats captures characterId for its cache key yet updateStats actions accept a second characterId inside the raw RPC input, and the pattern spans nine cache-owning hook modules. The failure mode (mutation targets one character while optimistic patch and invalidation hit the hook's captured scope) is not server-backstopped — a wrong-but-authorized id silently corrupts client cache coherence, and multi-character surfaces (DM views, VTT drawer) make mixed ids plausible. The CQ25-199 refusal covered identity branding for socket/presence/roll hooks; captured-id injection removes the second channel instead of branding it, so the constraint does not apply. Nine hooks plus all call sites migrated by domain is a planned multi-part change: medium severity, L, worth the churn as an API-shape fix that also deletes caller boilerplate.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-024",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified three incompatible conventions: use-inventory.ts spreads the complete UpdateInventoryItemInput into cached InventoryItem rows (line 66), use-character-stats.ts filters through a hand-maintained string denylist whose own comment (lines 55-59) warns that any forgotten future control field leaks a stale type-invisible field into cache, and personality does a third thing. The repo has already documented this exact hazard class in-code; the inventory writer currently violates it (characterId/campaignId land in cached rows today), and structural typing gives no compiler feedback. A positive typed domain-patch projection per writer is one coherent multi-commit change across three-plus hooks with tests — M, clearly pays for itself.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-025",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: ability-scores-step mirrors method/scores in local useState plus reducer state with paired setX+sync(dispatch) writes in every handler, background-step keeps a second boost representation with bidirectional converters, and personality-step's updatePersonality dispatches a whole seven-field slice rebuilt from render-time state on each single-field edit. Correctness depends on every handler restating unrelated fields — a silent-revert bug class, not just style. Character creation is a growth surface in a 5e VTT (new species/class/background options all route through these steps), so the friction recurs; medium fits. Reworking the reducer to typed per-step drafts with fine-grained events plus a derived submission projection touches the reducer contract and several steps — L, but coherent enough to stay single-leaf as the lane assessed.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-026",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: exact game rules (point-buy cost table and budget) are duplicated verbatim in two files, the standard array exists in two different representations (unsorted vs sorted), ability metadata and modifier math are re-declared in review-step, and boost aggregation is implemented twice with different shapes. Drift between edit and validation would be a silent rule bug on a user-facing flow; a single pure ability model pays for itself and is a coherent one-module-plus-rewire change across four surfaces.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-027",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: MapCanvas imports EncounterDetail and map-canvas-helpers builds full combat token state, while maps/MODULE.md explicitly assigns combat-specific behavior to ../combat — the code contradicts the documented contributor-facing boundary. The fix (combat feature builds the render projection, MapCanvas takes a domain-neutral prop) respects the CQ25-190 do-not-reopen (no MapCanvasFrame, no flag-bearing shared shell); keeping it M ensures the direction gets structural review given that adjacency.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-028",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: the coordinateSpace string flag pairs with structurally identical x/y callbacks so a pixel/cell mismatch type-checks silently, target-pick carries a no-op onStart to satisfy a mandatory member, and draw-eraser is an interactive tool handled outside the registry via a second special-case path. Adding tools is this module's primary change vector in a growing VTT, so the type hole recurs on a common path; a discriminated descriptor union that also absorbs the eraser special case is a coherent multi-commit change confined to the canvas-input module and its two consumers.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-029",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: six mutation factories plus invalidation and pending state live inside encounter-participants.tsx next to ParticipantRow, the 384-line view assembles race-sensitive concurrency payloads (expectedVersion/expectedStatsVersion) in ad-hoc hooks, and encounter-detail-card types its props as ReturnType of the presentation-file hook. This taxes every encounter-action change and scatters CONCURRENCY.md-sensitive payload construction through presentation; the sibling maps module already documents the target pattern (map-detail-mutations.ts hands mutation handles to presentational files), so the controller extraction has in-repo precedent. Multi-part (controller module, hook relocation, prop retyping across several files) — needs a plan section and a split, as the lane flagged.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-030",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified but modest: the visibility toggle button is genuinely copy-pasted (identical Eye/EyeOff markup and aria-label pattern in setup and combat), and generic HP/AC/type primitives are filed under combat/, inviting further setup-side reimplementation. The two HP treatments are partly intentional visual variants (compact text vs HpBar), so this is a relocation-and-reuse cleanup, not a unification — real polish worth one small commit, not more.",
+   "oneLineDisposition": "Move the state-independent participant primitives (type icon, HpBar/AcDisplay stat vocabulary, visibility-toggle button) into a neutral encounter-participant module, recompose the setup ParticipantRow and the initiative-tracker files around them without adding boolean-flag or optional-callback props, and update the affected MODULE.md files and colocated tests."
+  },
+  {
+   "candidateId": "D-031",
+   "severity": "low",
+   "size": "L",
+   "worthIt": false,
+   "reason": "Flat per-form state with a paired persisted<->form adapter is a conventional, contained pattern; the monster module is already section-decomposed (ability-scores, defenses, spellcasting, action-list components) with its own MODULE.md, and the 47-field set mirrors the pinned SRD 5.2.1 stat block, so the field-addition tax this fix targets lands rarely. The L-sized restructure (six domain sub-form types, narrowed section props, split adapters, test rewrites) mostly regroups mapping code that must exist anyway rather than shrinking it, and the prior client cluster (CQ25-117/CQ25-197) already reworked homebrew form helpers without electing this split. Churn does not pay for itself at this repo's bar.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-032",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: route-tree.ts is flat and 11 route modules each declare a one-off Protected* wrapper around AuthGuard; forgetting the ritual on a new route silently ships an unguarded page, so this is real risk on the common add-a-route path. The TanStack pathless layout route is the canonical fix, purely mechanical (one new layout route, getParentRoute swaps, wrapper deletions) and lands in one commit with URLs unchanged.",
+   "oneLineDisposition": "Add a pathless authenticated layout route whose component renders AuthGuard around an Outlet, reparent the 11 protected route modules onto it via getParentRoute, and delete the per-route Protected* wrapper components."
+  },
+  {
+   "candidateId": "D-033",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The contradiction with pages/MODULE.md's composition-boundary contract is real (three full form/mutation workflows live in the route file), but the file is only 332 lines, internally well-sectioned into three named components, and account settings are a rarely-touched surface, so the friction is discoverability polish rather than a common-path tax — low, not the hinted medium. Still worth doing: the extraction is a cheap mechanical move that makes the documented page-layer contract true, and it stays clear of the refused CQ25-195 package-root reorg.",
+   "oneLineDisposition": "Move ProfileSection, PasswordSection, and DangerZoneSection with their handlers and dialogs out of settings-page.tsx into focused components under an account/settings component directory, leaving SettingsPage as the route-facing composition root, and reflect the new home in pages/MODULE.md."
+  },
+  {
+   "candidateId": "D-034",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: campaign-detail-page.tsx declares eight tabs twice (TabsList triggers at 81-119, TabsContent panels at 157-190) with the DM-only settings gate independently repeated in both, and pages/MODULE.md carries a checklist compensating for the missing structural guarantee — drift here is access-presentation risk, not just duplication. An exhaustive page-local Record<CampaignTab, descriptor> gives compile-time enforcement in one file plus the doc trim; single commit. Novelty vs landed CQ25-117 holds — the client cluster never touched the tab registries.",
+   "oneLineDisposition": "Replace the parallel trigger and content JSX registries in campaign-detail-page.tsx with one exhaustive page-local Record<CampaignTab, {label, icon, dmOnly, render}> descriptor from which both the TabsList triggers and TabsContent panels are derived (keeping the single isDm gate in one place), and slim the pages/MODULE.md tab checklist to match."
+  },
+  {
+   "candidateId": "D-035",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: filter-select.tsx types value, options, and onValueChange as bare string, so schema-derived consumers (e.g. magic-item-list.tsx) must recover their literal unions via casts with type-assertion-boundary markers — the shared control directly taxes the repo's no-assertions standard at every new call site, which is a common path for a shared API. The component is 68 lines with 12 call sites across 4 consumer files; making it generic with an explicit all-sentinel is one commit. Novelty vs refused CQ25-187 holds (this fixes one abstraction's API, not a repo-wide form sweep).",
+   "oneLineDisposition": "Make FilterSelect generic over its option-value string-literal union (options, value, and onValueChange all typed to the union, with the all-selection sentinel modeled explicitly rather than smuggled through string), then update the 12 call sites across the 4 consumer files to drop their recovery casts and type-assertion-boundary markers."
+  },
+  {
+   "candidateId": "D-036",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: MonsterAddData's three independently-optional origin fields admit no-origin, both-origins, and version-without-entry states on the encounter add-participant path, and three adapters repeat the participant defaults; a discriminated origin plus centralized adapters is a coherent multi-file change across five consumers with flattening at the mutation boundary.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-037",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: 7 optional combat props coordinated by isInCombat let the type admit combat branches without their callbacks (sub-components invoke them with ?.), but there are only two call sites plus one test, so a discriminated props union is a single-commit change; narrowing an over-shared component is the direction CQ25-190 endorsed.",
+   "oneLineDisposition": "Split TokenContextMenuProps into a discriminated map/combat props union so combat mode statically requires participantId, HP, and link/unlink callbacks, updating the two call sites (map-detail-content.tsx, combat-map-content.tsx) and the component test while keeping shared menu items local."
+  },
+  {
+   "candidateId": "D-038",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: use-weapon-attack and use-monster-attack each independently own the full map-load -> eligibility -> mutation/invalidation -> drawer-close -> target-pick -> drawer-restore lifecycle with only the token-to-participant mapping shared; the stateful protocol will drift as attack modes are added (spells are an obvious next mode), and extracting a coordinator while keeping payload adapters typed is a careful but single coherent change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-039",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: usePlacementSlice's openDialog callback exists solely so an effect can mirror pendingTokenCell into component dialog state, evading the documented client-effects rule and forcing every close/success path to clear two sources of truth; the derive-instead fix is one commit in two files and removes a copyable anti-pattern from a repo that documents effects discipline.",
+   "oneLineDisposition": "Remove the openDialog parameter and its useEffect from usePlacementSlice and derive the add-token dialog's visibility in map-detail-content.tsx from the manual-add boolean OR a non-null pendingTokenCell, keeping pending-cell clearing in the existing close/success handlers."
+  },
+  {
+   "candidateId": "D-040",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified by two independent lanes: the entry-type vocabulary is repeated across seven surfaces (shared enum, shared schema record, EntryFormByType, editor registry, dialog selector, card label map, page filter arrays) and only the schema record and editor registry are compiler-exhaustive, so a new type compiles while its editor is unreachable from the create selector; one exhaustive client metadata registry deriving selector/card/filter surfaces closes the gap and is a coherent multi-file change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-041",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed orphan: only its own test references it across the production client tree. Pure dead-code removal, trivial churn, keeps the combat surface honest; low because it misleads only readers of one component.",
+   "oneLineDisposition": "Delete packages/client/src/components/campaign/combat/roll-mode-toggle.tsx together with its co-located roll-mode-toggle.test.tsx (the test cannot compile without the component); the stale MODULE entry is owned by D-110."
+  },
+  {
+   "candidateId": "D-042",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: characterFilter/spellsFilter/inventoryFilter are read nowhere in production, only asserted in the hook's own test. Shrinking a central cache-key contract to its consumed surface is cheap and removes a phantom second invalidation API.",
+   "oneLineDisposition": "Delete the characterFilter/spellsFilter/inventoryFilter members and the QueryFilter interface from useCharacterKeys in packages/client/src/hooks/character-sheet/character-keys.ts, dropping the corresponding assertions in character-keys.test.ts; the doc-comment correction is owned by D-112."
+  },
+  {
+   "candidateId": "D-043",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Real and confirmed: setup.ts globally cleans before every test and clean-db.ts explicitly says not to re-clean, yet 15 service suites do. Medium, not high: the runtime tax is seconds per run and the documented contract already exists; the fix is a mechanical M across 15 files but needs per-call judgment since some mid-test cleanDb calls are intentional phase resets, not redundant hooks.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-044",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: legacy invite.test.ts (17 cases, 361 lines) coexists with invite-manage/invite-join split suites, so every invite change maintains duplicate setup and assertions with no authoritative suite. Medium, not high: friction is bounded to the invite area; the fix is a single small commit.",
+   "oneLineDisposition": "Port the one unique pasted-join-URL extraction case (invite.test.ts:251) into packages/server/src/routers/invite-join.test.ts and delete packages/server/src/routers/invite.test.ts."
+  },
+  {
+   "candidateId": "D-045",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Two 700-900-line suites both asserting the same map link/unlink/authorization contracts (about twelve overlaps plus intra-file duplicates) create dual authority over one behavior and double-maintenance on map changes. M because the dedup requires case-by-case comparison across both files to keep the stronger assertion each time; pays for itself in the encounter-map area.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-046",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: the file tests only the re-exported reducer (27 cases, stale step labels) while wizard-state.test.ts is the 69-case authority, and the actual context surface (WizardProvider/useWizard) has no test. Real confusion for wizard contributors and double-maintenance on reducer changes, but confined to one feature and fixed in one commit, so medium not high.",
+   "oneLineDisposition": "Delete the duplicated reducer/validation cases in wizard-context.test.tsx and either remove the file or replace it with a small render-based WizardProvider/useWizard contract test, leaving wizard-state.test.ts as the sole reducer authority."
+  },
+  {
+   "candidateId": "D-047",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: 5 of the 11 describes duplicate colocated suites in the most-edited client area (double edits on every leaf change) and the filename misdirects contributors away from sheet-layout.test.tsx as the composition authority; the other 6 describes are sole coverage and must survive. Does not touch the CQ25-195-refused directory reorg.",
+   "oneLineDisposition": "In character-sheet.test.tsx delete the five describes duplicating colocated suites (AbilityScores, SavingThrows, SkillsList, CombatStats, PersonalityPanel) and rename the remainder (e.g. sheet-panels.test.tsx) so it reads as focused coverage for the six components without colocated tests, not as the composition authority."
+  },
+  {
+   "candidateId": "D-048",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: use-inventory.test.ts and use-spell-slots.test.ts contain zero error/rollback/invalidation assertions while the hooks carry seven onError restore branches and per-mutation invalidation wiring; the failing-mutation seam already exists (use-character-stats-adjust-hp.test.tsx rolls back on CONFLICT), so the gap is closable with established patterns. Latent user-visible correctness risk (stale optimistic state on failure) rather than active misleading, so medium; four hook test files reshaped coherently is M.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-049",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: Fireball payload literals recur across five drawer test files with byte-identical copies; any CharacterSpellWithDetails schema change becomes a six-file edit and case intent hides in invariant fields. Same accepted fixture-builder pattern as scheduled CQ25-48/49 slices, applied to an uncovered corpus; one mechanical commit.",
+   "oneLineDisposition": "Add a typed buildCharacterSpell(overrides) scenario builder with a canonical Fireball default in a drawer test helper and route the 18 raw CharacterSpellWithDetails literals in the six VTT drawer test files through it, keeping local semantic names and explicit per-case overrides."
+  },
+  {
+   "candidateId": "D-050",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: 895-line suite with 79 mapId occurrences of near-identical payload literals; every map/token input schema change fans out into dozens of edits and reviewers must diff whole payloads to find the field under test. Extends the accepted CQ25-49 typed-builder direction to an uncovered file; restructuring three input families plus boundary tables across 895 lines is one coherent multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-051",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed byte-identical 60-line rec/change/history fixture in ownership-advisory.test.ts and test-orphaning-advisory.test.ts (only elapsedMs differs). Only two copies and only BoundedFullHistory contract changes tax it, so local polish rather than area-wide friction, but the extraction is trivial, risk-free, and improves the copyability of the drift-ai advisory test pattern.",
+   "oneLineDisposition": "Extract the duplicated rec/change/history BoundedFullHistory fixture from ownership-advisory.test.ts and test-orphaning-advisory.test.ts into a shared drift-ai test helper (e.g. bounded-history.test-helper.ts) that accepts per-suite overrides."
+  },
+  {
+   "candidateId": "D-052",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: coldspots.test.ts and hotspots.test.ts have mkdtempSync factories with no rmSync/afterAll/registerTempRootCleanup, while 10+ neighboring drift-ai suites already use the shared helper. Every full run leaks ~58 temp git repos, a recurring tax on local and CI environments, and the split idiom misdocuments the intended lifecycle pattern in a harness meant to be copied. Mechanical fix with an existing helper.",
+   "oneLineDisposition": "Route the six drift-ai suites that create raw mkdtempSync temp roots (coldspots, hotspots, and the four others counted in the lane evidence) through the existing registerTempRootCleanup helper, keeping raw mkdtempSync only where a test explicitly owns a distinct lifecycle."
+  },
+  {
+   "candidateId": "D-053",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed two incompatible fake styles: git-runner.test-helper.ts makeStubGit/currentRepoGit throws on unexpected calls, while birth-size-delta-command.test.ts and five other command files match only args[0] and return empty strings for anything else. Lenient fakes silently pass when a command adds or mis-forms Git calls, which is real regression-catching risk in the drift command surface, not just style; the strict helper already exists so convergence is cheap.",
+   "oneLineDisposition": "Replace the eight lenient args[0]-matching Git fakes across the six drift-ai command-test files with the strict currentRepoGit/makeStubGit helpers, adding explicit response entries only for the Git invocations each scenario intentionally permits."
+  },
+  {
+   "candidateId": "D-054",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Rejected: the perf claim is unmeasured (the lane admits no timing was collected) and half the cited waste is negligible — evaluateCloneCorpusCandidates is a pure in-memory MinHash/LSH computation over a tiny fixture corpus, so 11 repeat evaluations cost milliseconds. The real cost sits in six committedDebtRepo git-repo builds in near-duplicates.test.ts, but those admission tests mutate the repo after baseline, so sharing a prepared baseline means template-copy plumbing that trades test independence for an unproven speedup. M-sized churn with needs-split leafability does not pay at this bar without a measured suite-time problem.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-055",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: triage-report.test.ts is 1,144 lines with 27 schemaVersion envelope copies plus repeated advisory/lane/metadata boilerplate, so a transport-contract change forces ~25 synchronized edits and per-case deltas are hard to scan. drift-triage is an actively developed harness surface, the fix is a standard builder extraction confined to one file, and the direction correctly preserves malformed-contract cases as raw objects so schema-validation coverage is not weakened.",
+   "oneLineDisposition": "Add typed driftInput/semgrepInput/dolosInput and row builder helpers inside triage-report.test.ts and rewrite the valid-contract cases to state only per-case deltas, leaving the malformed-contract cases (approximately lines 980-1125) as explicit raw objects."
+  },
+  {
+   "candidateId": "D-056",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Measurement reproduces exactly (35 of 90 cases byte-identical, 44 files, 324 lines) and the runners genuinely disagree on the no-op convention: expand-barrel.test.ts:61-64 already falls back to before/ when after/ is missing while the other three runners hard-require after/. That inconsistency misleads fixture authors and doubles review surface in a harness meant to be copied. It is one mechanical commit, not M: move the fallback into the already-shared scripts/codemods/lib/fixture-runner.test-helper.ts, adopt it in the runners, delete the identical trees.",
+   "oneLineDisposition": "Move the missing-after-means-unchanged fallback from expand-barrel.test.ts:61-64 into the shared scripts/codemods/lib/fixture-runner.test-helper.ts, adopt it in all four codemod runners, and delete the 35 byte-identical after/ trees (44 files), keeping explicit after/ trees wherever output differs."
+  },
+  {
+   "candidateId": "D-057",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: 13 eslint-rules suites construct their own root ESLint instance and several clone configFor/severityOf verbatim (e2e-selector-config.test.js:10-28 is representative). Lint-policy suites are a genuinely common path in this repo (large eslint-rules corpus, ongoing ratchet work), so every new config suite re-copies the plumbing and any harness change fans out. Extraction is one small helper file plus import swaps, and it stays inside the CQ25-112 constraint (no new Vitest project, suites stay put).",
+   "oneLineDisposition": "Extract a shared eslint-rules test helper exporting the repo-root ESLint construction plus configFor/severityOf (and the common lint-message plumbing), and import it from the suites that currently clone it, leaving every suite file and its assertions in place per CQ25-112 (no new Vitest project)."
+  },
+  {
+   "candidateId": "D-058",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The five symlinkSync(..., \"dir\") calls are real, but the harm is hypothetical here: the wider harness (bash smokes, husky hooks, worktree provisioning) is POSIX-assumed, so no current contributor path is blocked — this is a copyability blemish on a package whose README claims portable/repo-agnostic. The M-sized dependency-injection direction is over-engineering: Node's symlink type argument is Windows-only and the targets are already absolute, so passing \"junction\" instead of \"dir\" is a five-line, zero-risk fix that fully removes the Developer-Mode/admin requirement.",
+   "oneLineDisposition": "In the five tools/lint-ratchet test files that call symlinkSync(join(realRepoRoot, \"node_modules\"), ..., \"dir\"), change the type argument to \"junction\" (ignored on POSIX, avoids the Windows Developer-Mode symlink privilege; targets are already absolute) with a brief comment saying why."
+  },
+  {
+   "candidateId": "D-059",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: vitest.mutation.config.ts:25-51 re-derives testDbUrl/testJwtSecret and repeats the lifecycle/env block of vitest.config.ts with no parity guard; the inline comment justifies not spreading the Promise-like project export but not the absence of a shared plain-options module. Drift here surfaces only in infrequent Stryker runs, wasting long mutation cycles — real risk, cheap fix. Distinct from landed CQ25-221 (Stryker config dup), as the corpus entry confirms.",
+   "oneLineDisposition": "Extract the shared testDbUrl/testJwtSecret derivation and common server test fields (timeout, environment, setup/globalSetup names, maxWorkers, sequence, env block) into a plain module consumed by both packages/server/vitest.config.ts and vitest.mutation.config.ts, keeping the deliberate mutation differences (root, absolute hook paths, services-only include, no coverage) local and documented."
+  },
+  {
+   "candidateId": "D-060",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: character-mapping.test.ts imports buildCreateData/validateCreateInput from the character-create service and repeats the seed pair nine times; character-updated-broadcast.test.ts and also seed-read-normalization.test.ts (uncited but same pattern) do the same. The existing public helper (character-fixtures.ts createCharacter) needs a Fastify app + token, so these DB-level suites had no low-level fixture — adding one removes a real layering inversion where character-create refactors break unrelated mapper/socket suites. Character service changes are a common path in this app.",
+   "oneLineDisposition": "Add a DB-level character seed helper (typed prisma.character.create using CHARACTER_INCLUDE-compatible data) to packages/server/src/test/character-fixtures.ts and use it in character-mapping.test.ts, character-updated-broadcast.test.ts, and seed-read-normalization.test.ts, reserving buildCreateData/validateCreateInput imports for suites whose subject is the character-create service itself."
+  },
+  {
+   "candidateId": "D-061",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real but modest idiom drift: only 25 raw getBy* calls total and roughly half the weight sits in wizard-validation.spec.ts. This is concentrated polish, not a tax on most e2e changes, so severity drops to low; a scoped migration of the hotspot plus already-covered call sites fits one commit. E2e page-object discipline is visible reference material for this repo, so the cheap fix pays for itself.",
+   "oneLineDisposition": "Add atomic page-object methods for wizard boost selection and Continue-button state, migrate wizard-validation.spec.ts's raw getBy* and public-locator call sites to them plus any other spec call site where an equivalent page-object method already exists, and leave encounter-combat and its serial structure untouched."
+  },
+  {
+   "candidateId": "D-062",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed: benchmark-near-duplicates.test.ts imports only the -core helpers (never the 303-line entrypoint) and audit-dependency-licenses.test.ts tests only regexes/remedy prose out of a 367-line command. These are harness gate/audit scripts in a repo whose identity is copyable harness engineering — a filename that implies command-level contracts which do not exist can let traversal/exit-behavior regressions silently defang the license gate. Rename commit plus small injected-runner/fixture command contracts is a coherent M despite the needs-split flag.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-063",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Confirmed shape: 11 of 21 non-encounter specs are whole-file serial with shared beforeAll state (campaign-lifecycle mutates one campaign across seven ordered tests), so over half the e2e area cannot run tests in isolation, cascades failures, and hides prerequisites in source order — a tax on most work in the area. Correctly excludes the encounter-combat recorded decision (CQ25-162). Eleven suites with per-suite seeding decisions need a plan section; L and needs-split are right.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-064",
+   "severity": "high",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Strongest candidate in the batch: fixtures make cursor keys unique by construction (notification helper spaces createdAt by 1s, combat-log strictly increases timestamps), so five pagination authorities are structurally blind to tie handling — and chat.ts:185-188 actually paginates on createdAt alone with lt-cursor, meaning equal-timestamp boundary rows are skipped today. The tests actively certify pagination correctness they cannot check, concealing a probable live data-loss defect; the leaf will likely surface an implementation fix too. Five endpoints with a shared seeding pattern is one coherent M.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-065",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed: all three Stryker lanes run inPlace with config comments acknowledging that a hard kill strands mutants in the live worktree, and package.json traps only clean up setup files. This repo's documented workflows include long autonomous lanes with uncommitted work and known crash modes, so mutants mixed into legitimate edits is a real, occasionally-hit risk with no recovery rail — medium, not high, because runs are occasional and the risk is at least documented. Does not reopen CQ25-221 (config construction). Disposable-worktree or supervised-runner isolation reuses existing worktree infra and is copyable harness value; one coherent M.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-066",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "The recovery contract the finding calls undefined is defined by construction: each artifact is written with ensureDirWriteFileAtomicallySync (no torn files), check mode independently enumerates every stale output (generate-hook-wiring.ts:300-305) and runs in the commit gate, and generation is a pure render-then-overwrite-all from the manifest, so rerun repairs any mixed state. Mid-batch write failure in a local dev generator is rare and self-healing; adding injectable writers and failure-injection suites adds production indirection and test churn for a failure mode with no observed cost, and does not improve harness copyability.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-067",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real integrity blemish — 490 lines of scaffolding pad both coverage numerator and denominator, and the configs contradict stryker.config.mjs which already classifies shared/src/test as test-only — but the magnitude is small relative to the covered surface, so it is polish rather than active misleading. Fix is a config-only exclude sweep plus a threshold re-baseline in one commit, and coverage-config correctness matters for a public harness reference.",
+   "oneLineDisposition": "Add *.test-helper.* and packages/shared/src/test to the coverage excludes in the root, shared, client, and scripts vitest configs (matching stryker's scaffolding classification), then re-baseline the thresholds from a production-only coverage run."
+  },
+  {
+   "candidateId": "D-068",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Positional JSONL line numbers coupling 50 scenarios across two aggregate tests are recurring friction every time a logs-audit policy changes: unrelated insertions force renumbering 40 expected diagnostic objects and regressions cannot be attributed to a policy family. Logs-audit policy is actively evolved harness tooling, so the named-scenario-table restructure pays for itself; CQ25-11 overlap is genuine novelty (its remaining scope is CodeIntel production structure, not this test corpus).",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-069",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "More than half of daemon-query.test.ts's 18 cases test daemon-client protocol or GraphCache rather than the named route, and the subject-named graph-cache.test.ts omits the central rebuild contracts — a contributor running the focused suite genuinely misses coverage, and daemon-client changes drag the full resident-daemon fixture. code-intel is an actively worked area; moving cases into subject-matched suites with a minimal fixture is a coherent multi-commit change. CQ25-66 (optional ManifestGatedCache extraction) is a distinct production concern, not a conflict.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-070",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "duplicates.test.ts (1,039 lines, 53 tests, 10 local-module imports) is the hidden authority for four production modules, defeating filename-based and code:intel covering-test discovery for duplicates-runner.ts, duplicates-check.ts, and jscpd-bin.ts. The CQ25-155 do-not-reopen covers the root drift-ai.test.ts barrel split, whose drop rationale (no coverage gain, false premise) does not transfer to independently named modules buried in one suite. Mechanical block moves into production-module-matched siblings; watch the generated coverage-map/smoke-subject registration when adding new test files.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-071",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified in the file: all seven component-level cases assert only truthiness/existence/count while their names claim geometry contracts (coordinate reversal, region scaling, DM/player rendering), and the shared Konva mock already retains x/y/width/height/fill/opacity so meaningful oracles cost nothing. Misleadingly-named green tests over fog visibility (a DM/player information boundary) are real risk; the fix is one small commit.",
+   "oneLineDisposition": "Rewrite the seven existence-only FogOverlay/FogDrawPreview cases as a compact mode/props table asserting the retained Konva attributes (x/y/width/height, fill, opacity) for region scaling, DM-vs-player presentation, and reversed preview bounds, using the existing attribute-preserving mock unchanged and leaving the paintHideAllFog cases alone."
+  },
+  {
+   "candidateId": "D-072",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: the fixture self-labels as a 'live collector run' and the test prose repeats the claim, while pinning a deleted developer worktree root 50 times in a portable, public-reference package with no regeneration path. However, goldens are supposed to be frozen captures, and the machine root is functionally harmless (it is passed explicitly as capturedRepoRoot), so the full synthetic-builder rewrite the lane proposes would trade away real captured-input fidelity for churn. Scope down to relabel-and-sanitize; that keeps the regression lock and fixes the copyability wart.",
+   "oneLineDisposition": "Rewrite the captured worktree root to a stable synthetic path throughout the fixture, relabel it in both the JSON header and the test prose as a frozen historical capture (dropping the 'live' claim), and keep the real diagnostic bodies as-is rather than rebuilding a synthetic corpus."
+  },
+  {
+   "candidateId": "D-073",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "The 1,986-line monolith fuses four independent narratives (DB/init/dev, worktree:new recovery, drop/GC, allocation/locking) into one mutable shell process with a shared assertion counter and function stubs that stay ambient across bands; any failure suppresses every later contract, taxing every change to the actively-developed worktree tooling. The novelty claim holds: CQ25-125/126 dropped production worktree-db.sh decomposition and CQ25-138/140 dropped substrate migration and Vitest rewrites, none of which this shell-native four-way test split touches; it also aligns with the CQ25-27 new-suite-over-extension contract, and smoke-subject registration is now single-sourced so registering four suites is cheap. Worktree provisioning is a flagship copyable harness surface. Needs-split with a plan section for the shared-helper extraction between bands.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-074",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Five fixture writers emit 321 lines of private copies of the portable package's config-type vocabulary that have already diverged (missing allowEmpty, typeAwareProject, refined parser-profile union), so the acceptance fixtures document an obsolete authoring surface and every type evolution requires five manual edits — a recurring tax on a package whose public copyability is a repo goal. The fix (type-only imports from the already-symlinked @musi/lint-ratchet config-types export) is mechanical, and it respects the CQ25-113 ruling since it removes copies of an exported module rather than rebuilding any shared sandbox/fixture framework. M because five writers across a Vitest file and a large shell suite must each keep their sandboxes compiling.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-075",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Rejected on inspection of the cited code: these seams are deliberate, heavily documented design, not accidental API bloat. TogglePreparedHooks carries a full JSDoc doctrine explaining why deterministic injection is the only non-flaky way to pin the cap invariant and retry schedule, transactionProbe is the same sanctioned pattern for race-sensitive mutations, and assertImportSizeWithinLimit's export is documented defence-in-depth with a clear rationale. Optional injection params cost production callers nothing to ignore, so the claimed contributor confusion is minimal; wrapping each core in an 'internal module + facade' adds an indirection layer and churn on race-sensitive surfaces (exactly where docs/CONCURRENCY.md counsels caution) for no behavioral gain. The one residual kernel (registry/event-key exports coupling representation to tests) is too small to carry an M-sized restructure.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-076",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The helper at e2e/a11y.spec.ts:71-88 confirms the baseline is a pure subtraction filter: fixing a violation leaves a permanent per-view exemption that masks later regressions of the same axe rule. That contradicts the repo's ratchet philosophy (baselines fail when debt is repaid), which weighs double in a public harness-engineering reference. Fix is a few lines in one helper plus comment updates.",
+   "oneLineDisposition": "In expectNoUnbaselinedAxeViolations, additionally assert that every baselined rule ID for the view is still present among serious/critical violations (with a message directing removal of the stale baseline entry), so repaid a11y debt forces baseline retirement."
+  },
+  {
+   "candidateId": "D-077",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: 809-line suite with spawnSync-based runs of the full Bun CLI, all in one Vitest worker, so no file-level distribution and slow focused feedback on a surface (lint-ratchet) contributors touch often; the repo demonstrably cares about gate latency (fast-commit mode exists because the tests slot is slow). Novelty vs CQ25-31 holds — that slice covers the shell suite scripts/tests/test-lint-ratchet.sh, not this Vitest file. M because it is a multi-file split plus a sync-to-async runner conversion with concurrency-safety considerations (keep the shared diagnostics group serialized), which deserves structural review.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-078",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Shared Zod schemas are the repo's declared contract surface, and request validation for character and encounter each has two test authorities (379 lines of input-schema describes inside entity-named suites) while MODULE.md documents the inputs/entity split — so navigation guidance actively points away from where half the coverage lives. Content-only relocation, no builder rewrites, so the CQ25-158 decline stays closed. One commit across four files.",
+   "oneLineDisposition": "Move the four character-inputs describes out of character.test.ts into character-inputs.test.ts and the five encounter input-schema describes (encounter.test.ts:453-597) into encounter-inputs.test.ts as verbatim content-only relocations — no payload builders or other rewrites (CQ25-158 remains closed)."
+  },
+  {
+   "candidateId": "D-079",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed the 235-line runNearDuplicatesCli block sits at the end of the 932-line detector suite with gate fixtures in the detector's fixture directory, and the merge command already has a subject-named suite, so the missing main-sensor suite reads as absent coverage. Real but narrow discoverability polish on an occasionally-touched harness surface; low because coverage exists and behavior is unaffected. Worth doing because it rides the already-scheduled CQ25-42 owner-directory move at near-zero marginal cost.",
+   "oneLineDisposition": "When executing the CQ25-42 sensor owner-directory move, also extract the runNearDuplicatesCli describe (scripts/drift-ai/near-duplicates.test.ts:698-932) plus its near-duplicate-gate fixtures into a subject-named sensor gate suite, leaving detector/runner/comparison/drift-check contracts in near-duplicates.test.ts."
+  },
+  {
+   "candidateId": "D-080",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified in generate-verify-steps.test.ts: adjacent policy cases each redeclare the full four-consumer manifest to vary one slot, so canonical-consumer-set or envelope changes fan out across ~53 inline sites in two suites — and harness.controls.json is an actively evolving surface. Builders keep scenario deltas visible, improving copyability of the flagship harness tests. Mechanical, file-local, and self-verifying against existing assertions, so S despite the site count.",
+   "oneLineDisposition": "Add typed file-local scenario builders to each generator suite — a baseline four-consumer manifest builder with per-consumer slot overrides for generate-verify-steps.test.ts and a valid hook-control builder with wiring overrides for generate-hook-wiring.test.ts — and rewrite the repetitive scenarios onto them, keeping raw inline objects for malformed-input and duplicate-control-id cases."
+  },
+  {
+   "candidateId": "D-081",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Fork confirmed: overview-query.test.ts privately re-implements repoRoot/createFixtureProject/addSource/createFixtureResolver and its packageConfigs already diverge from test-fixtures.test-helper.ts (subset of shared exports map), so the drift the finding predicts is partially present. Impact is confined to one suite's synthetic workspace fidelity, so it is local polish rather than a tax on the code-intel area, but the fix is a near-mechanical import swap with real drift-elimination payoff.",
+   "oneLineDisposition": "Replace overview-query.test.ts's local repoRoot/createFixtureProject/addSource/createFixtureResolver/packageConfigs copies with imports from scripts/code-intel/test-fixtures.test-helper.ts, keeping only the router-specific fixture source builder local."
+  },
+  {
+   "candidateId": "D-082",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: discoverScriptSmokeTestNames is module-private, executes at import time off process.cwd(), and four tests reach it via chdir + vi.resetModules + dynamic re-import (the suite's own comment documents the choreography as a workaround). The smoke-subject module is actively regenerated harness surface, and worker-global cwd mutation plus module-cache busting is real fragility that blocks safe concurrent test composition; the production seam needed is a one-function parameter extraction.",
+   "oneLineDisposition": "Export a named discovery function from path-policy-smoke-subjects.ts that takes the tests directory (keeping SCRIPT_SMOKE_TEST_NAMES as the import-time adapter) and rewrite the four discovery-branch tests to call it directly, deleting the chdir and vi.resetModules choreography."
+  },
+  {
+   "candidateId": "D-083",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: current-collector.test.ts manufactures completion order via 2 ms-per-index timer offsets and overlap via 20 ms vs 5 ms sleeps, then asserts maxInFlight and ordering. Timing-granularity concurrency assertions in the pre-commit test slot are a known gate-flake vector in this repo, and the scheduler under test is an explicit promise-completion state machine that can be driven deterministically, so the deferred-promise rewrite both de-flakes and clarifies intent.",
+   "oneLineDisposition": "Rework the three timing-driven scenarios in tools/lint-ratchet/src/kernel/current-collector.test.ts to gate mocked workers on named deferred promises that the test releases or rejects explicitly, asserting each scheduler transition without wall-clock delays."
+  },
+  {
+   "candidateId": "D-084",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Rejected: the shared helper's header explicitly records this split as a deliberate stop-point from a prior dedup pass — byte-identical metadata-validator and fs/stdout blocks were centralized, and the per-suite readMetadata/runFixture drivers were intentionally kept local because they genuinely diverge (failure-assertion variant, runTwice policy, tRPC two-kind parameterization). Folding the remaining lifecycle skeleton behind three-way typed callbacks trades four short straight-line drivers (86-162 lines each) for callback indirection on a surface whose semantics rarely change; the churn does not pay for itself at this repo's bar.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-085",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified directly: the six advertised hook/control copy files have ~17 unique relative import targets omitted from the docs/ai-harness.md copy lists (manifest schema/loaders, harness-paths, hook-shims, lib/atomic-write, lib/doc-generator, lib/records, etc.), and generate-harness-controls.ts imports ../lint-ratchet/lint-ratchet-config.js, which the same document classifies as a Musi adapter to replace — so both starters hand an adopter a non-compiling copy set and the portable/adapter boundary is false at the import-graph level. For a repo whose stated purpose is a copyable public harness reference, the outsider-facing adoption ladder being broken is the definition of high severity; the fix (import-closure-derived manifest or closed portable set, plus doc restructuring) is multi-part and needs a plan section, matching the needs-split leafability.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-086",
+   "severity": "high",
+   "size": "M",
+   "worthIt": true,
+   "reason": "The adoption guide is the primary copyability artifact for the landed lint-ratchet package seam, and it currently teaches the retired copy-set architecture, requires edits to Musi-only files outside the package, and cites the nonexistent scripts/lint-ratchet/ratchet-globs.ts (verified). For a repo whose stated goal is being a public harness-engineering reference, this actively misleads its core audience; CQ25-12 closed the seam work with no doc residue tracked, so this is the only record of the debt. Rewrite is a coherent multi-commit doc change (adoption Tier 1 + reference + README alignment).",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-087",
+   "severity": "high",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: the Dockerfile builds FROM localhost/claude-devcontainer:latest with no build source in the repo, the persist volume is external:true, and the Quick start plus the copy-and-reuse section claim repo contents suffice. The README explicitly markets these patterns for reuse in other projects, so a quick start that fails at step one actively misleads the reference audience. Realistic fix is prerequisites-first bootstrap docs plus an enumerated Musi-specific replacement-point list, with base-image reproducibility as a separable slice — needs-split stands, M overall.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-088",
+   "severity": "high",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: the repository's only in_progress queue lists a 'resolved' entry under 'Open, bounded items' and 10 of 11 items are contradicted by authoritative source-pack Status headers. Backlog drains are a routine agent workflow in this repo, so a designated active-work signal that points backward wastes real dispatch effort. One-commit fix.",
+   "oneLineDisposition": "Retire or regenerate docs/agent_notes/in_progress/codex-drain-queue-2026-06-21.md so it keeps only the still-open mutation-coverage residue item as a pointer to its source leaf, states that source-pack Status headers are authoritative, and drops every entry those headers contradict."
+  },
+  {
+   "candidateId": "D-089",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Real triage friction — 95 of 297 tracked backlog files are Done and the directory name no longer predicts actionability — but not 'high': individual packs carry accurate Status headers and backlog/README documents the provenance-retention policy, so nothing actively lies. A physical reorg would break the many path references in dedup corpora, memories, and commit history; the direction should be the generated typed catalog (record class + lifecycle state) with a checker, which fits the repo's existing generated-surface machinery and pays for itself given recurring audit/drain cycles. Multi-part change needing a plan section.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-090",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "177 script keys with 21 root scripts having zero mentions anywhere is a genuine discovery gap on a common path (command lookup), and the raw-manifest-dump 'documentation' conveys no purpose, cwd, or side-effect class. The repo already maintains generator+validator surfaces (harness.controls.json, verify steps), so a manifest-backed catalog with a drift check is in-family and cheap to keep honest; it also serves copyability for external harness adopters. Distinct from CQ25-37, which inventories scripts/-directory layout, not the user-facing command surface. One coherent multi-commit change: schema, generator, metadata population, check wiring.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-091",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The guide is the pairedGuide of an error-level mandatory rule, and its documented fallback ('raw CSS with a short reason') is impossible as written — the rule reports every locator() call with no reason inspection, and no e2e file demonstrates a sanctioned escape. Any contributor doing canvas/VTT e2e work hits a blocking error the docs told them was fine; guide-lint parity is exactly what a public harness reference must get right. Fix is one doc edit (or a small paired rule+guide change).",
+   "oneLineDisposition": "In docs/guides/add-e2e-test.md steps 4 and 11, replace 'leave a short reason' with the exact sanctioned escape — a reasoned `// eslint-disable-next-line local/e2e-prefer-role-selectors -- <reason>` suppression — since the error-level rule reports every locator() call unconditionally (or, if raw locators are meant to be impossible, remove the fallback from the guide and align the rule's message)."
+  },
+  {
+   "candidateId": "D-092",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "CONCURRENCY.md is mandatory pre-reading for every race-sensitive change, and its headline rule ('three patterns cover every write — don't invent a fourth') is contradicted by the doc's own Serializable exception section and by prepared-spell-toggle.ts, which explicitly states none of the three patterns expresses its set-level invariant. A reader anchored on the opening will misclassify a legitimate production mechanism as forbidden. One-paragraph doc amendment.",
+   "oneLineDisposition": "Amend the CONCURRENCY.md opening (lines 3-7) to state three row-level patterns plus the narrowly-scoped Serializable set-level exception with a pointer to the existing 'Serializable isolation exception' section, instead of claiming the three patterns are exhaustive."
+  },
+  {
+   "candidateId": "D-093",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "A stable top-level architecture doc claims CharacterLevelChoice enables review and rollback, but the character router exposes no such procedure and the only client consumers of levelChoices are test fixtures — contributors designing in the core level-up area are steered toward an assumed reversible workflow that doesn't exist. Cheap one-paragraph correction with clear authority (router + consumers).",
+   "oneLineDisposition": "Rewrite the CharacterLevelChoice paragraph in docs/architecture-plan.md (lines 73-77) to describe the records as an audit/history trail of level-up choices today, dropping the review-and-rollback claim since no router procedure or production UI exposes it, and noting any such capability is a future product decision."
+  },
+  {
+   "candidateId": "D-094",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The guide's dangling references are real (LOG.md has no AUD-COV or 2026-05-13 entries; no tracked baseline artifact exists), so the weekly drift thresholds cannot be applied as written and each operator hunts nonexistent records. But the path is a narrow out-of-band weekly cadence, not a common change path, so this is broken-procedure cleanup rather than medium-grade friction. Worth one commit because a procedure doc that cites deleted evidence is worse than none in a repo meant to be copied.",
+   "oneLineDisposition": "In docs/guides/coverage-cadence.md, either run test:coverage once and commit its summary as a tracked baseline linked from the guide, or delete the dangling AUD-COV/2026-05-13 LOG references and reframe the weekly run as a floor-only check until a tracked comparison artifact exists."
+  },
+  {
+   "candidateId": "D-095",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The maintenance guide's 'two sanctioned readers' inventory is contradicted by the enforced five-entry MANIFEST_DIRECT_READERS map, so anyone auditing or extending the manifest seam — a core harness surface for this public reference repo — gets a false picture of the exception population. The allowlist already records each reader's reason inline, so the fix is largely transcription. Novel post-CQ25-119 drift, not a re-report.",
+   "oneLineDisposition": "Update the 'When not to migrate' section of docs/guides/harness-manifest-parser.md to enumerate all five MANIFEST_DIRECT_READERS entries with their inline-recorded reasons, grouped by role (composition seam, typed whole-parse consumers, loose-schema/partial-tree exceptions), replacing the claim that only two readers remain."
+  },
+  {
+   "candidateId": "D-096",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: docs/README.md and the generated harness-controls.md both claim to be the authoritative exhaustive harness inventory while ai-harness.md itself disclaims exhaustiveness for its rule rows. For a repo whose stated mission is being a copyable public harness reference, an ambiguous authority chain on the flagship inventory is real friction for exactly the readers the repo exists for; the fix is a few prose edits.",
+   "oneLineDisposition": "Reword docs/README.md's harness-map section and ai-harness.md's self-description so harness.controls.json plus docs/generated/harness-controls.md are the authoritative exhaustive inventory and ai-harness.md is framed as the conceptual architecture/lifecycle/adoption/gap map."
+  },
+  {
+   "candidateId": "D-097",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: docs/generated/README.md's ownership table says 'Hand-maintained / Edit the map directly' but lint-coverage-map.md declares hybrid ownership with a generator-owned marker span. Harm is bounded because the map's own header corrects the reader before they reach the generated table, so this is local polish — but an ownership table that lies about generator-owned bytes is exactly what this harness's contracts exist to prevent, and the fix is one table cell.",
+   "oneLineDisposition": "Change lint-coverage-map.md's row in docs/generated/README.md from Hand-maintained to Hybrid, stating that the marker-delimited table is generator-owned (refresh via its generator) while surrounding policy prose is edited directly."
+  },
+  {
+   "candidateId": "D-098",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: the parent homebrew MODULE.md's add-entity recipe sends registry additions to entry-dialog.tsx (a consumer) instead of entry-editor-registry.ts, and its shared/ inventory lists one file where the child MODULE.md documents six. A wrong step in an explicit numbered recipe actively misleads the next contributor on a documented common task. Residual drift after landed CQ25-117, not a cluster reopen; small doc-only fix.",
+   "oneLineDisposition": "Fix packages/client/src/components/homebrew/MODULE.md: point the add-entity recipe's registry step at entries/entry-editor-registry.ts and replace the stale shared/ file inventory with a link to shared/MODULE.md instead of duplicating child details."
+  },
+  {
+   "candidateId": "D-099",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: packages/server/src/utils has no MODULE.md despite being a 46-file flat directory owning character auth (ADR-0002 semantics), race-sensitive mutation escapes (participant-stats-mutations.ts), and Prisma restricted-delegate trust boundaries — squarely inside the repo's own module-docs charter threshold. Missing orientation on a directory most server changes traverse is real recurring friction; writing and registering a family/trust-boundary map is a coherent M following docs/guides/add-module-doc.md.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-100",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: scripts/harness (42 files) and scripts/code-intel (36 files) both exceed the repo's MODULE threshold with only one-line ownership rows in scripts/README.md. Given the public harness-reference mission, local orientation for the harness implementation itself weighs directly on copyability. Landed CQ25-119 added path-policy docs but left both owner directories undocumented, so this is residual gap, not a reopen. Two independent module docs — keep the needs-split into one leaf per directory; each leaf is a small coherent change, M combined.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-101",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Worktree provisioning is a heavily-exercised path (lane/drain workflows) and the guide advertises self-contained provisioning while admin_url() in scripts/worktree-db.sh dies without the primary checkout's .devcontainer/.env — a file the README's root .env setup never creates. Real stall for any non-devcontainer contributor copying the harness; one-file doc fix.",
+   "oneLineDisposition": "Add a Prerequisites section to docs/guides/per-worktree-dev.md stating that provisioning reads admin DB credentials from DATABASE_URL in the primary checkout's .devcontainer/.env (distinct from the root .env) and needs a reachable Postgres, linking the devcontainer setup."
+  },
+  {
+   "candidateId": "D-102",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed gap (Prerequisites list only Bun and Docker; dev is bash scripts/dev.sh), but native-Windows contributors are not a common path for this repo, and the failure is immediate and diagnosable. Worth one or two README lines for a public reference repo, not more — severity is polish-level.",
+   "oneLineDisposition": "Add a supported-host line to README Prerequisites stating that development commands require a Bash/Unix environment and pointing Windows contributors at WSL2 or the devcontainer workflow."
+  },
+  {
+   "candidateId": "D-103",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: scripts/README.md:124 diagnoses nearest-package cwd resolution, then offers 'invoke bun run scripts/harness-check.ts directly' — also cwd-relative, so it fails identically from a nested cwd. The preceding 'cd to the root first' option works, so impact is one misleading troubleshooting clause; single-sentence fix.",
+   "oneLineDisposition": "Replace the cwd-relative 'invoke bun run scripts/harness-check.ts directly' recovery clause in scripts/README.md with the canonical root-anchored form from AGENTS.md: bun --cwd=\"$(git rev-parse --show-toplevel)\" run harness:check."
+  },
+  {
+   "candidateId": "D-104",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: backfill:spell-combat and backfill:monster-actions perform Prisma writes against serverEnv.databaseUrl with zero documentation, sitting beside four fully-documented generate:* siblings in the SRD runbook. An agent or contributor doing an SRD data refresh follows that runbook and can plausibly run the undocumented writers blind — real risk on the SRD-refresh path, cheap to close.",
+   "oneLineDisposition": "Add backfill:spell-combat and backfill:monster-actions to docs/srd-data-sources.md with target-database warning, affected fields, rerun/idempotency expectations, and validation/rollback notes — or, if the one-time backfill is complete and the scripts are obsolete, remove the commands instead and say so."
+  },
+  {
+   "candidateId": "D-105",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed: 'Current generated surfaces:' in scripts/README.md reads as exhaustive but lists 3 of 12 registered generatedSurface families (plus the nongenerated lint-ratchet-demo), actively misleading contributors about which surfaces need manifest-first maintenance — in the exact harness area the repo exists to showcase. CQ25-34 overlap is layout-rows only; novelty holds. The S-sized fix is relabel-and-link, not a new generator.",
+   "oneLineDisposition": "Relabel the scripts/README.md generated-surfaces list as illustrative examples, move the nongenerated lint-ratchet-demo entry out of it, and link the authoritative inventory (the generatedSurface facets in harness.controls.json / docs/generated/harness-controls.md) rather than hand-enumerating all twelve families."
+  },
+  {
+   "candidateId": "D-106",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed 890-line multi-audience README with the supported invocation restated four times; drift-ai is the portable, copyable harness surface this repo exists to showcase, so the external-operator quickstart being buried in maintainer rationale is a real tax. M not S: the split touches multiple new docs, must repoint readme-config-parity.test.ts pins, and must coordinate with scheduled CQ25-35 (MODULE.md absorbs the internal-maintainer audience) without violating CQ25-146's no-implementation-restructure decision.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-107",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: CONCURRENCY.md (a mandated pre-read for race-sensitive work) points updateParticipant and PARTICIPANT_FIELD_KIND at routers/encounter.ts while both live in services/encounter-combat/participant-action.ts (router is a one-line delegate), and calls the lock ordering code-point order while string-order.ts explicitly implements UTF-16 code-unit order and distinguishes the two. Misleading the central concurrency guide on a race-sensitive writer's location is real risk on a guarded path; the fix is prose edits in one document. Complements, not duplicates, CQ25-21 (which covers the spell facade/MODULE, not CONCURRENCY.md).",
+   "oneLineDisposition": "In docs/CONCURRENCY.md, repoint the updateParticipant writer and PARTICIPANT_FIELD_KIND entries from routers/encounter.ts to services/encounter-combat/participant-action.ts, and rename the lock-ordering description from code-point to UTF-16 code-unit order, noting that current ASCII identifiers make the two orders equivalent."
+  },
+  {
+   "candidateId": "D-108",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Three independent, confirmed-shape boundary failures in the MODULE.md orientation system the project tells contributors to trust: a router-layering contradiction (documented-decision conflict — must be reconciled by deciding which side moves, per repo practice), an undocumented direct-Prisma dependency in a socket handler, and a 46-file seed subsystem with no MODULE.md at all. Authoring the seed map while preserving CQ25-220's recorded caveats is a coherent multi-commit change per boundary; needs-split is right and precludes an S call.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-109",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: magic-item-inputs.test.ts exists despite schemas/MODULE.md listing the file among nine with no colocated test, area-template-MODULE.md's consumer list omits map-canvas-store.ts and misdescribes map-canvas-overlays.tsx, and xp.ts cites 'SRD 5.1 / 2024 revision' in an SRD 5.2.1 project whose property-test oracle names 5.2.1. These actively mislead in first-read docs on common shared-package paths, but the whole repair is three point corrections plus sentence-level de-brittling — one commit, so S rather than the hinted M, and the needs-split concern dissolves at that size.",
+   "oneLineDisposition": "Fix three stale claims: drop magic-item-inputs.ts from schemas/MODULE.md's no-colocated-test list (magic-item-inputs.test.ts exists), correct area-template-MODULE.md's consumer list to include map-canvas-store.ts's TemplateShape import and stop naming map-canvas-overlays.tsx as a direct shared-module consumer, and change xp.ts's CR-to-XP source comment from 'SRD 5.1 / 2024 revision' to SRD 5.2.1 per the xp.property.test.ts oracle, rewording the volatile exact inventories to be less brittle where the edit touches them."
+  },
+  {
+   "candidateId": "D-110",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: vtt/MODULE.md claims VttSurface composes the action bar and target-pick overlay while the component renders only children plus InVttDrawer, RollModeToggle has zero production consumers outside its defining file yet is advertised as active UI with paging ownership, and the encounters MODULE is nine lines for a 14-file, 1,888-line stateful feature. MODULE docs are mandatory first-reads, so wrong composition and ownership claims mislead every touch of three high-change areas. M because the encounters MODULE must be substantially authored from the import graph and the VTT fix must respect CQ25-190's do-not-reopen shell decision (correct wording only, keep the directory split).",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-111",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "MODULE.md is mandated pre-edit reading, so entry-point maps that omit 8+ production hook exports and 11 of 13 route pages while labeling file-private CampaignTabs as external actively mislead in a 42-file area; verified against both MODULE.md files and the pages directory. Fix is two inventory rewrites plus a stable inclusion rule (or generation), a coherent multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-112",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: onFinalize takes no argument yet the comment promises a pre-mutation snapshot, and routes/uploads.ts does not exist (upload-routes.ts does). With CharacterKeys member removal routed to the client implementation lane per the finding's own direction, the remainder is three comment corrections in a handful of files — small but worth it because two are flatly false boundary contracts.",
+   "oneLineDisposition": "Correct the three stale comments to match current code — tool-handlers.ts onFinalize doc (no snapshot argument), character-keys.ts socket-filter prose (filters have zero production reads), and use-map-image-upload.ts path uploads.ts -> upload-routes.ts — and route removal of the unused CharacterKeys filter members to the client implementation lane (D-042)."
+  },
+  {
+   "candidateId": "D-113",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified byte-identical 12-line files mounted independently by root and devcontainer Compose with no equality or generation check. Nothing misleads today, so low, but silent drift would surface as confusing test-DB availability differences, the fix is one small commit, and an enforced-single-source pattern matches this repo's drift-check culture and the devcontainer's standalone-copy intent.",
+   "oneLineDisposition": "Single-source the init-test-db.sql asset where mount portability permits, or keep both copies and add a cheap byte-equality drift check (doctor or an existing generated-surface check) so root and .devcontainer bootstrap cannot silently diverge."
+  },
+  {
+   "candidateId": "D-114",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: the installer hard-requires flock (absent on stock macOS) while the demo README lists only Bun and a git checkout, so the flagship copyable example fails for exactly the external adopter this public harness-reference repo targets — copyability weighs this up to medium. The second part (eslint-config comment citing the deleted 05-engine-file-consolidation.md leaf and calling the landed tools/lint-ratchet move pending) is a targeted repair CQ25-168 explicitly does not cover. Two unrelated parts justify M with a split in direction review.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-115",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: 24 numbered annotations across 4 schema test files with unqualified labels (finding 14/19/22, backlog item 35) and an L100 reference whose guard now sits at line 98 — the provenance is unlocatable and the coordinates already lie, though the surrounding rationale is durable. Mechanical comment-only sweep; CQ25-168's refusal is scoped to leaf 44's scripts-side coordinate sweep and does not bar this, and opaque audit numbers read poorly in a public reference repo.",
+   "oneLineDisposition": "In the 4 schema test files, keep each behavioral/mutation rationale but delete the opaque finding/backlog numbers and drifted LNN line references, naming the guarded schema or helper symbol instead; add a stable document path plus record id only where provenance still earns its keep."
+  },
+  {
+   "candidateId": "D-116",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: the landed plan's non-goal section still asserts Stryker mutates only in its own sandbox while three of four advertised lanes (scripts, server, lint-ratchet) run inPlace against tracked source, and docs/ai-harness.md labels only the server lane. An operator trusting the docs can hard-kill a run and be left with silently mutated source and no documented recovery. Mutation runs are manual and rare, so medium not high, but the fix is a cheap docs-only commit and operator-guide accuracy is core to this repo's public-harness-reference mission.",
+   "oneLineDisposition": "Replace the stale blanket sandbox statement in docs/agent_notes/backlog/mutation-testing-stryker.md with the per-lane split, mark the scripts, server, and lint-ratchet lanes as inPlace in docs/ai-harness.md's mutation section, and add one operator-facing hard-interruption warning with a verified git-based preflight/recovery recipe, coordinating wording with D-065 (L06-103) if its guarded-runner direction lands."
+  },
+  {
+   "candidateId": "D-117",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: harness-diagnostics.ts lives in packages/shared/src/schemas with zero client/server runtime consumers while 14 non-test script/tooling files import it by repository-relative source path, bypassing the package export boundary. The file's own header comment says adopters are told to copy it verbatim, so its application-package home directly undermines harness copyability — the repo's stated public-reference goal. Migration touches ~14 importers plus registration surfaces (path-policy smoke subjects, mutation config manifest), a coherent multi-commit change but not plan-slice scale.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-118",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: server app.ts redaction values/sensitive params and request-logger.ts event-outcome vocabularies are independently re-encoded in logs-audit-redaction.ts and logs-audit-event-fields.ts, so every sensitive-key or outcome addition needs synchronized edits with no declared authority. Some producer/auditor independence is deliberate cross-checking, so the extraction must keep the policy module as the authority the auditor certifies against rather than making the audit tautological — plan jointly with batch-1 C-035 (extends), which covers the auditor-internal half of the same vocabulary problem.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-119",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: the TEST/E2E/DATABASE_URL precedence-and-derive contract is implemented four times across test-database-url.ts, e2e/global-setup.ts, db-status.ts, and post-create.sh; db-status.ts carries an explicit comment admitting it must hand-mirror the harness or misreport, and imports a test-only module for its constant. Per-worktree DB provisioning is a flagship, copyable harness feature here, so drift among the copies breaks the exact diagnostics the repo showcases. One resolver plus a narrow CLI for the shell copy is a contained multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-120",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: invite-errors.ts substring-matches server prose (including case-sensitive \"Invalid\"), character-sheet-page.tsx exact-matches \"Character not found\", settings-page.tsx branches on two more message strings, and invite-service.ts distinguishes CONFLICT reasons only via independently authored messages. Any server copy edit silently degrades three user-facing flows to generic errors with no test tripwire on the coupling. Adding a stable reason-code field to the error payload (via shared schema, per package flow) plus centralized client narrowing is the standard tRPC pattern; migrating the three evidenced flows bounds it to M.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-121",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real contract drift: auth.ts documents successResponseSchema as the generic literal-true acknowledgment used by 14 routers, while homebrew-campaign link/unlink and inventory deleteOutputSchema declare weaker { success: z.boolean() } that accepts success:false, defeating the documented fall-through protection. Handlers already return literal true, so convergence is safe. With a canonical alias kept in auth.ts for compatibility, this is one mechanical commit touching a handful of shared-schema files, not the M the hint suggests.",
+   "oneLineDisposition": "Create a neutral shared response module owning successResponseSchema (re-export from auth.ts for compatibility), and converge homebrew-campaign linkCollectionOutputSchema/unlinkCollectionOutputSchema and inventory deleteOutputSchema to the shared literal-true contract, updating the corresponding client output types."
+  },
+  {
+   "candidateId": "D-122",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Subsumed by approved batch-1 C-021, which already covers hard-coded package topology in the analyzer cores including code-intel and whose policy-adapter direction would deliver this fix; approving it separately duplicates churn. The standalone case is also weaker than claimed: documented scope (AGENTS.md, ts-graph skill) matches behavior and single-file queries fail loudly with an explicit supported-scope message, so the exclusion is not silent on the main path. The genuinely new material — 127 tracked TS files under tools/ and examples/lint-ratchet-demo invisible to discovery-mode queries, and the extend-coverage vs. rename-plus-diagnostic decision — should be carried into C-021's brief as scope input rather than run as separate work.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-123",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Adding a local lint rule is a recurring multi-surface ritual (rule module, static plugin map in eslint-config/local-plugin.js, activation-mode choice, plus hand-authored identity/source/invocation in 32 kind=lint-rule manifest controls) with drift caught only late by harness:check. The repo has already proven this exact single-sourcing move pays off (smoke subjects, config-surface manifest, doc-generator surfaces per prior packs), and a generated rule registry is high-value for the public harness-reference copyability goal. L is right: it needs a plan section covering the catalog shape, generator derivation, and migration of 32 controls.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-124",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: at least four materially different containment contracts (code-intel lexical isInside/isSameOrInside, codemod startsWith('..') plus extension checks, skill-projection's symlink-and-physical-containment hardening, git.ts separator-boundary checks). The divergence is not cosmetic — a future writer-path tool that picks a lexical-only helper silently loses symlink/physical protection, a real hazard in a harness-heavy scripts tree where new tooling is added often. The two-primitive direction (lexical for read-only analysis, hardened resolution for writers) is the correct semantic split; M with caller-by-semantics migration.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-125",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Confirmed byte-identical duplication of the shared magicItemCategorySchema and magicItemRaritySchema enum lists in the seed module with no type-level link, so a rename drifts seed validation from API validation. Enum changes are rare and the blast radius is one seed file, so this is local polish rather than common-path friction — but the fix is a trivial import swap with existing precedent (seed-srd-spells.ts already imports shared contracts), so it easily pays for its churn.",
+   "oneLineDisposition": "In packages/server/src/seed/seed-srd-magic-items.ts, delete the private magicItemCategorySchema and magicItemRaritySchema copies and import the shared schemas from packages/shared/src/schemas/magic-item.ts (as seed-srd-spells.ts does for spells), keeping the seed-specific outer object shape unchanged."
+  },
+  {
+   "candidateId": "D-126",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "The misleading generic name is real (a five-collection partial field selection exposed as srd.getAll/getAllOutputSchema), but the server-side doc comment already explains the contract, so the residual hazard is naming polish on one endpoint. The rename surface is ~18 references plus mock-trpc.tsx — one commit, not the hinted M. Cheap contract-clarity win for a public reference repo; does not reopen the refused CQ25-167 srd.ts split.",
+   "oneLineDisposition": "Rename the srd.getAll procedure and getAllOutputSchema/GetAllOutput to explicit lookup-bundle names (e.g. srd.lookupBundle / srdLookupBundleOutputSchema) across routers/srd.ts, packages/shared/src/schemas/srd.ts, use-srd-lookups.ts, and mock-trpc.tsx, keeping the batched shape and selection unchanged."
+  },
+  {
+   "candidateId": "D-127",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: both guards pass to+href to Navigate and depend on undocumented href-over-to precedence in a caret-ranged router; the e2e spec explicitly says it is the only real-router check and unit tests can only interrogate a hand-written stub. That taxes every router upgrade on the auth-critical path. The login route has no validateSearch while the repo already models that pattern on campaign-detail-route, so the fix direction is idiomatic, and a reference repo should not model a framework-precedence hack in its auth flow.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-128",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": false,
+   "reason": "The cwd tripwire is real and recurring (documented in scripts/README.md:118-124 and worked around by the AGENTS.md --cwd convention), but the proposed dispatcher does not eliminate the underlying nearest-package.json ambiguity — package-local `bun run dev` would still mean something different — it only adds a parallel bespoke entry point. The canonical `bun --cwd=\"$(git rev-parse --show-toplevel)\"` form is already documented, dependency-free, and itself copyable, while a dispatcher adds a new hand-maintained harness surface (script registration, doc/guide migration across AGENTS.md and generated verify wiring) whose churn outweighs the marginal DX gain. Rejection is on fix economics, not on the problem's existence.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-129",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: handleSubmit parses only the opaque outer create/update input while shared validateHomebrewData + HOMEBREW_DATA_SCHEMAS sit unused, and formatFieldErrors plus the fieldErrors->EntryFormBody plumbing already exist, so invalid concrete data today costs a server round trip and yields only a generic retry message. Common authoring path, and the fix is one dialog file plus tests wiring already-built pieces together — smaller than the hinted M.",
+   "oneLineDisposition": "In entry-dialog.tsx handleSubmit, run validateHomebrewData(entryType, data) before the outer input parse and feed its issues through formatFieldErrors into the existing fieldErrors map (keeping server validation authoritative), with tests covering at least one failing field per representative entry type."
+  },
+  {
+   "candidateId": "D-130",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: NotificationItem's click handler only marks read while payloads already carry campaignId/messageId and campaign-detail-route exposes validated tab deep links, so every notification costs users a manual locate-and-navigate on a frequent path. CQ25-115 landed the stable payload identifiers this consumes, making the feature a small type-to-destination map plus navigation — genuinely S.",
+   "oneLineDisposition": "Add a notification-type-to-destination map in the notification click path so clicking marks read and navigates — campaign-accepted/invite notices to the campaign overview and whisperOffline to the campaign chat tab via the validated tab search param, closing the popover — leaving message anchoring out of scope."
+  },
+  {
+   "candidateId": "D-131",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified in packages/server/src/routers/auth.ts: deleteAccount hard-blocks owners of multi-member campaigns with 'Transfer or delete campaigns you own' while no transfer mutation or UI exists anywhere — the product instructs users to use a feature that does not exist, leaving a DM's account undeletable without destroying the campaign. Ownership, member-role, and campaign-auth infrastructure already exist, so the fix is a bounded shared-schema + owner-only transactional mutation + settings-panel action with tests: one coherent multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-132",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Recorded rejection: the common provenance questions are already answered by existing surfaces — path-policy query core for changed-path-to-smoke selection, the generated harness-controls Markdown rendered from the manifest, harness:check/registration-check diagnostics, and doctor's follow-up commands. A new joined query tool would itself become a registered harness surface (package script, smoke, path-policy row, manifest entry, docs) that must track every manifest facet change; that ongoing churn exceeds the low-severity discoverability gain, and the harness's copyability rests on the controls and generators, not on an extra viewer.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-133",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real but local UX polish: re-imported collections are indistinguishable to the point that even the E2E page object resorts to hidden-href comparison, and the import envelope already carries the name so the fix is a single dialog-level change with no schema or server work. Cheap, user-visible, and it lets the E2E helper drop its internal-URL workaround.",
+   "oneLineDisposition": "In the import-collection dialog, show the parsed collection name in an editable 'Import as' field and submit a copied envelope carrying the edited name (server already persists the envelope name verbatim); update the E2E page object to select by visible name instead of hidden href."
+  },
+  {
+   "candidateId": "D-134",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: drift-ai.config.json lists scripts and eslint-rules as first-class analyzer roots yet the comments check blanket-excludes both, hiding ~570 tooling files from a sensor that already handles tests/fixtures/declarations and runs advisory. For a public harness-engineering reference, a sensor that exempts the harness's own tree undercuts the copyability story; narrowing the exclusion is a one-commit config change with no ratchet impact while advisory behavior is retained.",
+   "oneLineDisposition": "Replace the blanket 'scripts/' and 'eslint-rules/' excludePrefixes on the drift-ai comments check with a short explicit list of generated, vendored, or deliberately prose-heavy files, keeping the check's advisory (report-only) behavior unchanged."
+  },
+  {
+   "candidateId": "D-135",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified one-sided enforcement: eslint-config/package-boundary-configs.js bans client/server frameworks and selected browser globals for shared, but nothing stops node: builtin imports or Node-only globals, and packages/shared/tsconfig.json grants Node ambient types — so a contributor can silently break the package's stated runtime-neutrality contract without tripping any gate. The pinned scan shows production shared code is already clean (only test-tier sentinels use Node), so enforcement lands with zero migration debt; this is exactly the kind of boundary-lint completeness the harness-reference goal exists to showcase.",
+   "oneLineDisposition": "Extend the shared runtime-neutrality boundary config to ban node:* builtin imports and Node-only globals (process, Buffer, __dirname, __filename, NodeJS namespace) in production shared files, carving out the existing test-tier sentinels / test-only configuration, and cover it in the boundary-config tests."
+  },
+  {
+   "candidateId": "D-136",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: admin_url (scripts/worktree-db.sh:224-240) hard-dies without .devcontainer/.env while the root Compose stack (.env.example DATABASE_URL at localhost:8002) is a distinct supported topology whose credentials it ignores; mechanically copying the devcontainer file selects the container-only db:5432 host. Worktree provisioning is a flagship copyable harness feature, so the exclusive credential-source assumption directly hurts the public-reference goal. Small precedence-chain fix; does not reopen the CQ25-125/126 refused decomposition and is disjoint from CQ25-5/62/63 state-seam work.",
+   "oneLineDisposition": "Give worktree-db.sh's admin_url an explicit credential-source precedence — a dedicated admin-URL override env var, then .devcontainer/.env, then the root .env when the Compose topology is active — validating the resolved DATABASE_URL before any write and aligning the banked L07-017 provisioning-doc finding with that precedence."
+  },
+  {
+   "candidateId": "D-137",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Verified: runSrdBackfill connects to serverEnv.databaseUrl and invokes the mutating callback with no target print or confirmation. But the two backfills are rarely-run reseed-from-upstream commands (not a common path) and the dev database is fully regenerable via db:reset/seed, so the wrong-environment blast radius is modest — severity low, not medium. The runner-level guard (print sanitized target, require explicit --apply) is one cheap commit and a copyable script-safety pattern; the per-callback dry-run change-count machinery does not pay for itself for scripts this infrequent, so the M scope is trimmed to S.",
+   "oneLineDisposition": "Make runSrdBackfill print the sanitized host/database target and exit without connecting the mutating callback unless an explicit --apply flag is passed, skipping the proposed per-callback dry-run change-count summaries."
+  },
+  {
+   "candidateId": "D-138",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Upgraded from low to medium: nine of the live ratchet registry entries in scripts/lint-ratchet/lint-ratchet-config.ts are already kind third-party (typescript-eslint, react-hooks, testing-library, vitest), so third-party rules are the dominant ratchet-addition case and the propose preview rejecting them (propose.ts:141, which itself promises a future --plugin option) is friction on the tool's main path. lint-ratchet is the harness centerpiece for external adopters — safe-preview parity for third-party rules weighs heavily on copyability. M feature with real design choices (allowlist validation, parser profiles, promotable entry emission); keep the structural review.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-139",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: 8+ production getDefault* adapters accept data?: Record<string, unknown> and each hand-probes opaque persisted fields, so the shared type-to-schema correlation established at write time is rebuilt per editor — a tax on every homebrew editor change and each new entry type. Caveat the split must honor: the wire opacity is a documented deliberate decision (homebrew.ts:289-295, stub/partial entries must not reject the whole row, with client-projection schemas as the sanctioned read pattern), so the direction must be a tolerant typed read adapter derived from the registry, not a strict discriminated union of the write schemas. Genuinely L and needs-split; novelty over landed CQ25-117 holds (that cluster typed form state after getDefault, not the persisted-read boundary).",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-140",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "All five semantic copies verified in the tree: client re-declared RollMode union (roll-context-menu.tsx:7), server SPELL_LEVEL_COUNT = 9 beside shared MAX_SPELL_LEVEL, client DEFAULT_TEMPLATE_SIZE = 20 beside shared DEFAULT_TEMPLATE_SIZE_FT, mirrored monster spell-frequency vocabulary with presentation order, and client-local crToProficiencyBonus while CR-to-XP imports from shared. Directly executes the standing CQ25-110 straggler-sweep ruling; fixes are mechanical import swaps plus two homing moves, cheap for the drift and discoverability payoff. Kept needs-split so review can weigh the proposed narrow semantic-straggler check (a harness-tooling addition) separately from the mechanical consolidation, and check the CR piece against the CQ25-182 property-test round-trip note.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-141",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified in code: ENCOUNTER_DETAIL_INCLUDE loads the full combatLogs relation with no limit while the client discards it and the visible panel truncates at the API's first 50 records with no continuation control. Every encounter-detail fetch pays for history nobody renders, and long encounters make later history unreachable — real friction on a hot combat path plus a genuine dead-payload quality defect. Single coherent shared/server/client change; pays for itself.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-142",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "The disabled stat-block action is a standing broken promise in shipped UI, and per-creature reveal is table-stakes VTT capability whose absence forces DMs to relay stats through chat every session. Most infrastructure already exists (reusable renderer, isolated DM mutation controls, encounter broadcast path), but persisted per-participant reveal state plus a spectator-safe drawer mode is multi-part work needing a plan section. Worth it as product value; it does not advance harness copyability, which is why it stays medium rather than high.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-143",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "The repo's charter is SRD 5.2.1 fidelity, and the shared rule silently overrides the seeded Finesse rule text ('attacker chooses') on the most common combat action; interactions that distinguish the ability used (e.g. Strength-gated riders) make the auto-best pick wrong, not just inflexible. Practical impact is narrower than D-141/142 — auto-best is optimal at most tables — but the fix is contained, keeps current behavior as default, and the cross-package input-schema change warrants the M-track structural review rather than a folded one-liner.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-144",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "levelChoices history is already defined in shared, persisted, and returned with every character detail, yet has zero production client consumers — players reconstruct prior class/subclass/feat/ability choices by hand while the payload rides along dead. A read-only timeline is mostly client-side rendering plus label resolution against reference data, so it pays for itself and retires the dead-payload smell; the direction correctly defers rollback since records lack a reversible mutation manifest.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-145",
+   "severity": "high",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed surface: 19 committed ruleSourceHash fields whose identity the documented update workflow derives from the caller's installed eslint/typescript-eslint tree, with a recorded refresh-then-revert incident proving a stale lane rewrites most of the baseline. Under this repo's multi-lane worktree workflow stale installations are a recurring condition, so every ordinary debt-floor update carries the contamination risk and produces review-hostile churn. The lint-ratchet is the flagship copyable harness surface (the demo README instructs external adopters to copy it wholesale), making this a direct copyability defect — squarely high at this repo's bar.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-146",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: 16 hard-coded 'bun run lint:ratchet:*' strings across kernel (baseline-spec, baseline-constants, baseline-validation, recovery-command, rule-source-drift) and governance (retire-update, trend, debt-accounting, zero-baseline, propose) non-test modules, several as module-level exported constants. Adopters of the nominally portable package who use npm/pnpm or different script names get wrong remediation output unless they edit package source — a direct copyability gap for the flagship portable artifact. Prior-pack check: CQ25-133 refused only the allowEmpty move and CQ25-74 is the testId rename, so this vocabulary-binding scope is genuinely residual, not a reopen. Not high: within the repo the command spellings are stable and day-to-day contributors are untaxed; the cost lands on the adoption path. Size L confirmed — threading a presentation binding through module constants and message assembly touches ~10 modules plus adapter, demo, and tests; needs-split stands.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-147",
+   "severity": "high",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: examples/lint-ratchet-demo/scripts holds 15 files / 1,245 lines of operational rail (276-line CLI, five merge-driver shells, preflight/truth-up hooks) against a 17-line demo app, and README.md:88-103 instructs adopters to copy it all and author their own adapter. The claimed mirror relationship with root scripts means 6 maintained forks that must track root changes — a recurring in-repo tax on every operational-rail edit, plus the largest single gap between the package's portability claim and reality. That meets the high bar for a repo whose stated purpose is a copyable harness reference. CQ25-83 (do not re-parameterize the merge-driver family) constrains implementation but is compatible: this changes distribution (package executables / versioned bootstrap), not the installer parameterization. Size L: bin entries, demo slimming, root-repo migration to the packaged rail, and smoke.sh isolation updates form a coherent multi-part change; single-leaf is plausible with a plan section.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-148",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: rule-source.ts (356 lines) + rule-source-import-guard.ts (89 lines) implement regex import extraction, a naive comment stripper, and a bespoke masking guard that hard-rejects unusual-but-legal formatting (e.g. two static imports on one physical line). typescript ~6.0.3 is already a direct dependency of tools/lint-ratchet, so the proposed parser-API replacement adds no dependency and is a strict de-risking of source-closure identity. No prior-pack ruling touches this surface. Medium, not high: the guard fails loudly rather than silently mis-hashing, so the correctness exposure is bounded and the tax bites only when editing rule-source files — but that is a real path (local rule authoring) and a 445-line partial JS lexer is a poor look in a reference harness. One caveat for the implementer: changed closure discovery may shift ruleSourceHash values, requiring a one-time baseline update.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-149",
+   "severity": "low",
+   "size": "L",
+   "worthIt": false,
+   "reason": "Rejection. The builder is a deliberate, recent design (lint-deep-dive-2026-07 leaf 40) that replaced nine hand-repeated no-restricted-syntax blocks whose flat-config replace semantics made a dropped fence a silent policy loss. The proof machinery is exactly what makes authoring order irrelevant by construction; the proposed 'generate a concrete partition from declarative scope membership' is close to a description of what already exists minus the disjointness guarantees, and the resolution snapshot alone cannot cover files outside its probe set. The ongoing tax is confined to occasional policy extension, and the authoring surface is the 266-line data file walked by a 148-line guide (docs/guides/add-restricted-syntax-fence.md) that says the engine is rarely touched; three test files plus the snapshot fence the behavior. An L rewrite of a working, tested, guide-documented engine to shrink a one-time 450-line cost does not pay at this repo's bar and risks reintroducing the hazard it was built to remove.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-150",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Verified: one logical gated-delegate change spans constants.ts (GATED_DELEGATES/GATED_MUTATORS as generator input), the generated relation graph, the lint rule, the codemod scanner tables (PATTERN_A/B, NON_CAS_HELPER_SHAPES), and two separately-worded DIRECT_WRITE_SUGGESTIONS maps (constants.ts:118-139 vs concurrency-guard.js:70-88). Medium rather than the hinted high: concurrency-guard-drift.test.ts:434-442 already key-aligns both suggestion maps with the gated delegates and the surrounding drift suite enumerates missed surfaces by failing, so the fragmentation is guided toil, not silent danger — and the gated-delegate set (5 models) changes rarely. Still worth it: the concurrency guard is a flagship harness surface, CQ25-100 established the generated artifact as the authoritative pattern, and extending the generation seam to repair/helper metadata (the finding explicitly preserves the relation graph and the separate corpora, so it respects the ruling) cuts a ~6-surface edit to ~3 and removes the duplicated prose. Size L: generator, descriptor schema, two consumers, and drift-test rework; needs-split stands.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-151",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed: expand-barrel, structured-logging-fix, and concurrency-guard all import generic infra (CodemodError/fail, createProject, writeOrPreviewFiles, sortImportBlocks) through the trpc-shared-schema barrel; ~20 consumer files route through the misleading name plus a shell smoke references the path. Every new codemod learns the wrong home for its foundations, and the extraction is mechanical but touches enough files (core-module extraction + repointing ~15 import sites across four codemod families) to be M, not S.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-152",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed: engine-context.ts documents 'zero Musi bindings' yet rule-source.ts hard-codes repoRoot/eslint-rules/<rule>.js and the node_modules/.cache/eslint-ratchet layout is independently reconstructed in eslint-config.ts and eslint-runner.ts's sweepStaleCacheEntries — a real two-module sync hazard today. tools/lint-ratchet is the flagship copyable kernel of a public harness reference, so the portability seam gap weighs beyond speculative generality; fix spans context, two path producers, adapter, demo, and tests.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-153",
+   "severity": "medium",
+   "size": "L",
+   "worthIt": true,
+   "reason": "Confirmed: 14 modes are hand-synchronized across the ParsedArgs union, its mutable ParsedArgsState twin, MODE_FLAGS, TERMINAL_FLAGS, HEAD_OPTIONS, inline-value policy, cli-validate scoping, usage text, and two dispatch ladders plus preflight classification in modes.ts — and runValidatedMode falls through to runDefault, so a mode missed in dispatch silently runs the default gate rather than failing. CQ25-119's do-not-reopen covers the landed H3-H5 cleanup, not this remaining registration surface. A typed catalog is a genuine L (grammar subtleties like terminal-flag splitting must be preserved) but pays for itself on a CLI that has grown to 14 modes and keeps growing.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-154",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Downscoped from the proposed L descriptor-table rework: the Record<LintRatchetMetric, MetricStrategy> already compile-forces registration when the union grows, only three metrics have ever existed, and closed-world unions with explicit enumerations are a deliberate pattern here (see the LintRatchetMode comment in config-types.ts) — deriving parser/type/validation from a descriptor table is churn without an extension consumer. The real defects are the header's false registration-only promise, the hand-enumerated isLintRatchetMetric guard, and the test-only metricStrategies() enumerator posing as a seam; those fit one commit.",
+   "oneLineDisposition": "Rewrite the metric-strategies.ts header to state that metrics are closed-world and enumerate the actual add-a-metric edit sites (config-types union, baseline-spec-parse isLintRatchetMetric guard, registry-validation IMPLEMENTED_METRICS/metricPairingFailures, item schema), derive the isLintRatchetMetric guard from the METRIC_STRATEGIES registry keys if that introduces no import cycle, and remove or explicitly test-scope the unused metricStrategies() enumerator."
+  },
+  {
+   "candidateId": "D-155",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed: parseFixtureCopyCommand/collectCopiedShellSourcesByFixture in fixture-shell-dependencies.ts and applyCopyCommand/applyCopyLine in fixture-sandbox-model.ts independently tokenize, resolve, and root-attribute the same cp lines, with the sandbox model additionally handling loop bindings and directory forms the closure model lacks — one caller feeds both, so every new cp spelling or helper case is a dual edit (fixture copy-set sweeps are a recurring maintenance activity in this repo). Novel versus blocked CQ25-17, which documented the analyzer but not the dual parse; deriving shell-only copy groups from the richer sandbox model is a coherent single M change and does not depend on the blocked prior leaf.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-156",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Real layering inversion, not just aesthetics: path-policy-query-core.ts imports the concrete PATH_POLICY and SCRIPT_SMOKE_TEST_NAMES, and the latter runs readdirSync at import time and pulls the 913-line generated registry into all 22 query modes though only 2 are smoke queries. Path-policy is an actively-taxed area (open CQ25-7/17/64 all touch it), and engine/data copyability is exactly what this repo advertises as a harness reference. Partial overlap with blocked CQ25-64 H15 (lazy smoke-name discovery) — the leaf must either absorb that memoisation or record that it supersedes it, so coordination with the blocked slice belongs in the direction review.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-157",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: five scoped no-restricted-imports value sites (client-configs 118, script-configs 30, package-boundary-configs 124/209, code-quality-configs 224) each manually include sharedSchemasBarrelRestrictedImportPattern, and no test enforces inclusion — a new scoped block silently erases the repo-wide fence, the classic flat-config replace-not-merge trap. For a public lint-harness reference this is a high-value, self-contained fix: an additive composer (or dedicated local rule) plus an enforcement test converts an unenforced convention into a structural guarantee. M not S because the composer touches five config files, needs a guard test, and eslint-config files carry config-surface-manifest registration overhead.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-158",
+   "severity": "low",
+   "size": "L",
+   "worthIt": false,
+   "reason": "Rejected: the metadata contract is already machine-enforced — all-local-rules.js feeds a meta-contract suite that catches omissions, so the factory would only relocate enforcement that exists. The repeated boilerplate is trivial (schema: [] on 29 non-test rules), and raw ESLint rule anatomy is the ecosystem-standard shape: for a public harness reference, standard rule modules are MORE copyable than a bespoke defineLocalRule indirection a reader must first learn. Migrating all 32 production rules is broad churn through the safety-critical lint layer with regression surface and no behavior gain; the cost/benefit fails at this repo's bar.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-159",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "concurrency-guard.js is the largest production rule (562 lines) and its create() interleaves two policies with different authority, aliases, and exemptions, so any change to either branch requires holding the whole hotspot — real tax in the race-sensitive area. Downgraded from L to M: it is one file split into two analyzer modules behind narrow interfaces with the existing 45-case corpus as a behavior floor, a coherent multi-commit refactor needing no plan doc. Sequencing matters: extracting the nested-write analyzer behind an interface is a natural precursor to scheduled CQ25-19 (lint/runtime nested-walker parity), so the leaf must be ordered before or folded into that work rather than racing it.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-160",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed parallel state machines: no-broadcast-in-transaction keeps a WeakSet + boolean stack while no-outer-client-in-transaction keeps a WeakMap frame model with client names/variables, each with its own transaction-call recognition and slightly different visitor registration (FunctionDeclaration handled only in the latter). Both are race-sensitive guards that must agree on what a transaction callback is; extending alias/callback syntax today requires blind parallel edits. The focused tracker respects the CQ25-218 recorded decision (no general classification framework, no ast-helpers merge) — the novelty claim holds. M not S because unifying the frame models is a semantic alignment (with corpus additions), not a pure code move.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-161",
+   "severity": "low",
+   "size": "S",
+   "worthIt": false,
+   "reason": "The claimed fragmentation mostly does not exist at the pin: zero-baseline.ts already exports the shared probe (createNormalLintStatusForFile, matchingTrackedFiles, aggregateNormalLintStatus, trackedFilesFromGit) and the retire path injects it — retire-promotion-proof.ts takes statusForFile as a parameter and retire-update.ts reuses the same helpers. Residual duplication is a two-line ESLint construction and optionsFromConfig, an options extractor whose semantics differ from the severity parser ruleConfigValue; a new package-level probe abstraction would add indirection without paying for its churn. Cited files retire-rule-proof.ts/retire-rule-update.ts also do not exist (actual: retire-promotion-proof.ts, retire-update.ts).",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-162",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: shell consumers (ratchet-regression-check.sh, lint-coverage-check.sh) hard-code positional read -r field lists against edit-check-protocol.ts's tab-separated rows; only target rows have a TS decoder, and the hook smoke exercises canned rows from a fake bun, so real emitter/consumer drift is never machine-checked and the permissive degrade-quietly decode turns drift into silently disabled advisory checks across the mirrored .claude/.codex/.copilot hook copies. A TS-and-shell wire protocol done safely is core copyable material for the public harness reference; centralizing row layouts, decoding every emitted form, and adding a real-emitter parity check is one coherent multi-surface change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-163",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Partially overstated: scripts/lint-message-eval.test.ts:215-223 already binds the committed pilot's copied source to the attributed file:start-end span (using sourceEndLine, which the finding wrongly called dead) — but against the working tree, not the named gitCommit, so the SHA is decorative and ad-hoc --trace inputs get no source verification while reports label the SHA 'Evaluated commit'. The honest-evidence fix is cheap and local to a three-file eval lane, so it is worth an S commit but no more; the niche weekly-replay path keeps severity at low.",
+   "oneLineDisposition": "Bind fixture source to provenance at parse/eval time by matching the sourceLine..sourceEndLine span of `git show gitCommit:filename` (or, if replay-against-capture-commit is not the intended trust model, relabel the report's 'Evaluated commit' as unverified capture metadata and document that the existing working-tree span test in scripts/lint-message-eval.test.ts is the only binding)."
+  },
+  {
+   "candidateId": "D-164",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: eslint-config/shared-policy.js (270 lines) mixes pure glob/path vocabulary, codemod source/test inventory, test-runner assertion vocabulary, a package import restriction, and a stateful max-lines loader that performs baseline file IO and can throw at import time — so any consumer wanting only a glob constant pays the IO and inherits the failure mode, and unrelated policy changes all converge on one high-fan-in file. Splitting the IO-bearing max-lines policy from the pure vocabulary modules is the residual cohesion work CQ25-43 explicitly left behind; M because it touches the ambient d.ts, ~10 TS consumers, eslint config imports, and config-surface manifest registration.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-165",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: scripts/eslint-config-shared-policy.d.ts hand-declares five wildcard modules (113 lines) shadowing @ts-check'd JSDoc JavaScript, and wildcard ambient declarations are never compiler-checked against the real module shapes, so a policy-shape change silently mistypes the 10 production TS consumers; max-lines-exceptions-codec.js even documents routing TS through the shadow as the repo pattern. Generating declarations from the checked-JS contract (tsc --allowJs declaration emit into the existing generatedSurface framework) removes a whole silent-drift class and a custom bridge adopters of the public reference would otherwise inherit. Orchestrator note: sequence with D-164 — splitting shared-policy.js changes the declared module set.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-166",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified two dialects under one name in one module family: path-policy-query-core.ts:37-44 escapes ? and brackets (only * is glob), while fixture-copy-expressions.ts:53-54 translates ? and passes bracket syntax into raw RegExp, and fixture-loop-bindings separately rejects glob-shaped remainders. A policy row containing ? or [ silently means different things to the changed-file scoping machinery vs the fixture analyzer — a silent-mismatch risk in a policy-enforcement surface that is one of this repo's headline copyable harness pieces, and contributors extend path-policy selectors regularly. M because either branch (shared documented codec, or distinct named dialects) touches query core, fixture analyzer, loop bindings, and their tests coherently; note CQ25-17 keeps a related open path-policy leaf so the plan should reference it rather than fork.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-167",
+   "severity": "low",
+   "size": "M",
+   "worthIt": false,
+   "reason": "Read both engines: the claimed harm is thinner than the summary suggests. expand-barrel's runOne already builds a full per-barrel plan before one writeOrPreviewFiles call, and trpc-shared-engine's runAll preflights all discovery errors before any write; the remaining 'intermediate states' are each independently coherent, valid changes (a barrel expanded in package A but not B compiles and lints), dry-run exists, and codemods run in a git-managed tree where recovery is trivial. Repeated project construction only costs seconds on a rarely-invoked path. Rearchitecting two engines into a single-project merged-plan commit is a coherent-M refactor whose churn (engine orchestration, collision detection, tests) is not paid back by a cold path with no observed failure mode — recorded rejection.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-168",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Verified: LintRatchetAcceptedDebtLogEntry is the only persisted variant without kind (debt-log-schema.ts:23-28), recognition is via 'acceptanceReason' in entry, and the parser routes every absent OR unrecognized kind through the accepted-debt schema (409-420) — so a typo'd kind on a future entry produces misleading acceptance-schema failures instead of an unknown-kind error, and no exhaustive switch is possible in debt-log.ts's predicate-chain classification/rendering. Entry kinds are a demonstrably recurring axis (retirement, metric-migration, coverage-shrink were all added over time), so the coordination tax repeats on a live governance surface of the ratchet — a copyability-relevant harness exemplar. M: writer emits explicit kind, compat parser isolated to legacy kind-less version-1 lines, dispatch converted to exhaustive switches, plus tests — one coherent multi-commit change.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-169",
+   "severity": "medium",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Both registers implement only forward membership (suppression-register.sh:229-237 and the eslint register's equivalent loop), so allowlist rows never expire; the ts-nocheck allowlist's two rows are already stale (scripts/drift-ai/suppressions.ts contains no @ts-nocheck; the test file's hits are fixture strings), leaving standing permission to reintroduce file-wide checking suppression with no new policy exception. This is a genuine hole in the repo's ratchet-down ethos and directly violates the spirit of the standing CQ25-106 non-vacuous-scanning ruling; both files carry the porting-knob header, so staleness also degrades the copyable-harness story. S: symmetric used-row tracking added to two shell scripts during full scans plus deleting two data rows and touching their smokes fits one commit.",
+   "oneLineDisposition": "In full-scan mode, make both suppression registers record which allowlist rows matched at least one live directive and fail on unmatched rows (changed-file scans must not infer repo-wide absence), then delete the two stale rows from scripts/data/ts-nocheck-allowlist.txt."
+  },
+  {
+   "candidateId": "D-170",
+   "severity": "medium",
+   "size": "M",
+   "worthIt": true,
+   "reason": "Confirmed structural twin of batch-1 C-038 (judged medium/M/worthIt): scripts/drift-ai.ts re-exports 23 internal module paths from the CLI entrypoint with no inclusion rule (exports coldspots-args but omits the hotspot arg parser), zero production importers, and test-only consumers — a second manually curated boundary that misleads about what is supported API, anti-exemplary for a public harness reference. Judged identically for consistency: M covers the delete-vs-explicit-api decision, retargeting the six test importers to internals, and smoke-subject/coverage-map regeneration. CQ25-155 only dropped the test-split step, so no do-not-reopen conflict. Direction and acceptance criteria should share one plan with C-038 as the batch-1 overlap note suggests.",
+   "oneLineDisposition": null
+  },
+  {
+   "candidateId": "D-171",
+   "severity": "low",
+   "size": "S",
+   "worthIt": true,
+   "reason": "Real but mild boundary friction: the ingestion kernel (auditJsonlText, lines 107-167), report merging, and runLogsAudit orchestration sit in the flat executable while the checks they dispatch live under scripts/logs-audit/, so extending one audit pass crosses the flat-file/directory seam. The 'side-effect-bearing entry' claim is overstated (isCliEntrypoint guard at line 275; only importer of the entry's exports is the module's own test), so severity stays low. Still worth one mechanical commit: it completes the boundary CQ25-119/H19 started (novel continuation, not a reopen) and matches the landed lint-ratchet kernel-extraction convention, which pays into the repo's public harness-reference copyability goal.",
+   "oneLineDisposition": "Move parseArgs/auditJsonlText/mergeReports/auditLogFiles/runLogsAudit from scripts/logs-audit.ts into one or two focused modules under scripts/logs-audit/, leave the flat file as a thin CLI delegate re-exporting only what logs-audit.test.ts actually consumes, and update that test's import paths."
+  }
+ ]
+}

@@ -35,7 +35,7 @@ script_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd 2>/dev/null) || {
 }
 # The lib path is per-metric; point ShellCheck at one representative lib so it
 # can resolve the variables and render fn every lib defines.
-# shellcheck source=scripts/git/lint-ratchet-merge-driver-lib.sh
+# shellcheck source=scripts/git/knip-unused-exports-merge-driver-lib.sh
 . "$script_dir/$MERGE_DRIVER_LIB_BASENAME" 2>/dev/null || {
   print_repair_line
   exit 0

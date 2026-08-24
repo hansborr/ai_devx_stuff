@@ -8,6 +8,7 @@
 # smoke-subjects: scripts/lib/test-worker-count.sh
 # smoke-subjects: scripts/lib/process-argv.ts
 # smoke-subjects: scripts/verify/memory-budget.sh
+# smoke-subjects: scripts/verify/memory-wait-timeout.sh
 # smoke-subjects: scripts/verify/admitted-command.sh
 # smoke-subjects: scripts/process-tree.sh
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
@@ -32,6 +33,7 @@ VITEST_RUNNER="$SCRIPT_DIR/../vitest.sh"
 OUTPUT_FILTER="$SCRIPT_DIR/../ai-hooks/output-filter.sh"
 TOOL_MEMORY_ADMISSION="$SCRIPT_DIR/../lib/tool-memory-admission.sh"
 MEMORY_BUDGET="$SCRIPT_DIR/../verify/memory-budget.sh"
+MEMORY_WAIT_TIMEOUT="$SCRIPT_DIR/../verify/memory-wait-timeout.sh"
 ADMITTED_COMMAND="$SCRIPT_DIR/../verify/admitted-command.sh"
 PROCESS_TREE="$SCRIPT_DIR/../process-tree.sh"
 TEST_WORKER_COUNT="$SCRIPT_DIR/../lib/test-worker-count.sh"
@@ -91,6 +93,7 @@ new_repo() {
   cp "$TOOL_MEMORY_ADMISSION" "$repo/scripts/lib/tool-memory-admission.sh"
   cp "$TEST_WORKER_COUNT" "$repo/scripts/lib/test-worker-count.sh"
   cp "$MEMORY_BUDGET" "$repo/scripts/verify/memory-budget.sh"
+  cp "$MEMORY_WAIT_TIMEOUT" "$repo/scripts/verify/memory-wait-timeout.sh"
   cp "$ADMITTED_COMMAND" "$repo/scripts/verify/admitted-command.sh"
   cp "$PROCESS_TREE" "$repo/scripts/process-tree.sh"
   git -C "$repo" config user.email test@example.com

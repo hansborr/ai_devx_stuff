@@ -113,8 +113,8 @@ function reportMetadata(context: DolosParseContext): {
 function readCandidatePairs(csv: string, options: DolosParseContext): DolosCandidatePair[] {
   const candidates: DolosCandidatePair[] = [];
   for (const row of parseCsvObjects(csv)) {
-    const leftPath = readPath(row, "leftFilePath");
-    const rightPath = readPath(row, "rightFilePath");
+    const leftPath = readCsvColumn(row, "leftFilePath");
+    const rightPath = readCsvColumn(row, "rightFilePath");
     const similarity = readFiniteNumber(row["similarity"]);
     if (leftPath === undefined || rightPath === undefined || similarity === undefined) continue;
     const totalOverlap = readFiniteNumber(row["totalOverlap"]) ?? 0;
@@ -139,7 +139,7 @@ function readCandidatePairs(csv: string, options: DolosParseContext): DolosCandi
   return candidates;
 }
 
-function readPath(row: CsvObject, key: string): string | undefined {
+function readCsvColumn(row: CsvObject, key: string): string | undefined {
   const value = row[key]?.trim();
   if (value === undefined || value.length === 0) return undefined;
   return toPosix(value);
@@ -184,7 +184,7 @@ function readMetadata(csv: string): Map<string, string> {
 function readFileLineCounts(csv: string): Map<string, number> {
   const counts = new Map<string, number>();
   for (const row of parseCsvObjects(csv)) {
-    const filePath = readPath(row, "path");
+    const filePath = readCsvColumn(row, "path");
     const content = row["content"];
     if (filePath === undefined || content === undefined) continue;
     counts.set(filePath, sourceLineCount(content));

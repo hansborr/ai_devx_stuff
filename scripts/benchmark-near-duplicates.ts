@@ -19,6 +19,7 @@ import {
 } from "./drift-ai/near-duplicates-exact.js";
 import { defaultNearDuplicateRunner } from "./drift-ai/near-duplicates-runner.js";
 import { buildSourceExtensions } from "./drift-ai/scope.js";
+import { PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 import { isRecord } from "./lib/records.js";
 import { nearDuplicateEntriesFromPairs } from "./sensor-near-duplicates-baseline.js";
 
@@ -28,7 +29,6 @@ const WORKER_FLAG = "--worker";
 const MILLISECONDS_PER_SECOND = 1_000;
 const EXPECTED_OPTION_ARGUMENTS = 2;
 const ODD_DIVISOR = 2;
-const USER_ARGUMENT_START = 2;
 const JSON_INDENT = 2;
 
 type BenchmarkState = "fuzzy" | "fuzzy-exact";
@@ -174,7 +174,7 @@ async function sampleWorker(cwd: string, state: BenchmarkState): Promise<Sampled
   };
 }
 
-function parseWorkerAudit(stdout: string): WorkerAudit {
+export function parseWorkerAudit(stdout: string): WorkerAudit {
   const parsed: unknown = JSON.parse(stdout);
   if (!isRecord(parsed) || (parsed.state !== "fuzzy" && parsed.state !== "fuzzy-exact")) {
     throw new Error("benchmark worker returned invalid JSON");
@@ -194,7 +194,7 @@ function parseWorkerAudit(stdout: string): WorkerAudit {
   };
 }
 
-function hasWorkerCounts(
+export function hasWorkerCounts(
   value: Record<string, unknown>,
 ): value is Record<string, unknown> & WorkerCounts {
   return (
@@ -207,7 +207,7 @@ function hasWorkerCounts(
   );
 }
 
-function isExactAudit(value: unknown): value is NonNullable<WorkerAudit["exactAudit"]> {
+export function isExactAudit(value: unknown): value is NonNullable<WorkerAudit["exactAudit"]> {
   if (!isRecord(value)) return false;
   return [
     "eligibleFunctions",
@@ -231,7 +231,7 @@ async function measureState(
   return { fresh, repeat };
 }
 
-function parseSampleCount(argv: readonly string[]): number {
+export function parseSampleCount(argv: readonly string[]): number {
   if (argv.length === 0) return DEFAULT_SAMPLE_COUNT;
   if (argv.length !== EXPECTED_OPTION_ARGUMENTS || argv[0] !== "--samples") {
     throw new Error(
@@ -290,7 +290,7 @@ function reportState(measurements: StateMeasurements): object {
 }
 
 if (import.meta.main) {
-  const argv = process.argv.slice(USER_ARGUMENT_START);
+  const argv = process.argv.slice(PROCESS_ARGV_USER_ARGS_START);
   if (argv[0] === WORKER_FLAG) {
     const state = argv[1];
     if (state !== "fuzzy" && state !== "fuzzy-exact") {

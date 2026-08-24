@@ -1,9 +1,50 @@
 # 38. The local-ESLint directory hand-copies AST helpers across two competing homes, has an out-of-order rule registry, and parks config tests in the wrong project
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-31** on branch `fix/cq-38-eslint-rule-helpers`. The
+effective implementation is `aa637df60`, `baea1e65a`, `f543b18e0`,
+`b5f25bc3f`, `510a8e5ec`, and `7bfabf09f`. The standalone `eslint-config`
+Vitest-project experiment (`c70f5c8a2` and its follow-ups) was removed after
+review showed that it added ownership plumbing and a second author command
+without adding behavioral coverage.
 Theme: Copy-paste drift in the local lint tooling · Area: lint · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
+
+## Outcome
+
+- `parentOf` uses the null-normalizing `node.parent ?? undefined` semantic.
+  ESLint gives `Program` a `null` parent, while the effect ancestry walker
+  terminates on `undefined`; the former plain-return callers already accepted
+  either absence shape. Their RuleTester suites stayed green.
+- `isFunctionNode` is the deliberately combined predicate: optional access for
+  absent call/return expressions, plus `ArrowFunctionExpression`,
+  `FunctionExpression`, and `FunctionDeclaration`. New RuleTester cases cover
+  zero-argument transactions, a bare listener `return`, and a declaration
+  boundary inside `catch`; all affected rule suites stayed green.
+- The export-driven `ast-helpers.test.js` guard originally parsed every non-test
+  rule module and rejected top-level declarations colliding with exports from
+  `ast-helpers.js`; it caught the unreported `isConstDeclarator` copy during
+  TDD. Leaf 70 later widened the same comparison to every named export from
+  every other module per rule target and every declaration depth, without
+  adding a rule or configuration framework.
+- `eslint-config/local-plugin.js` is alphabetized. One filesystem comparison
+  now proves both registry completeness and declaration order, and a second
+  assertion proves that each id references the matching module. Any
+  `eslint-rules/*` change forces the complete lint-rule project under changed
+  verification, so the registry and helper-collision guards are selectable
+  when a rule is added or copied.
+- Part three was considered and deliberately declined. The three config-focused
+  suites remain in the existing `eslint-rules` project: moving them supplied no
+  new behavioral assertion, coverage thresholds key off covered source paths
+  rather than test-project ownership, and the split required disproportionate
+  routing, worker, manifest, hook, type/lint, inventory, and documentation
+  plumbing. This is a rejected design, not deferred residue, so no follow-up
+  leaf was filed.
+- Step 7's load-time extraction from client test setup was not shipped or
+  re-filed. The owner dispatched this leaf as the three parts above, and that
+  separate, highest-risk autofix initialization change has no bearing on their
+  closure. The caveat below remains the record of why a plain shared data module
+  is invalid and why any future extraction needs its own explicit promotion.
 
 ## Problem
 
@@ -38,8 +79,9 @@ it is paid on every rule addition.
 `eslint-rules` vitest project (`eslint-rules/vitest.config.ts:17-18`, `root: here` +
 `include: ["*.test.js"]`) because `vitest.config.ts:29-38` has no `eslint-config`
 project at all, and `eslint-config/` has zero colocated tests. So a config change is
-verified by a suite named after a different directory, and its coverage lands in the
-`eslint-rules/**` threshold bucket.
+verified by a suite named after a different directory. This is an ownership and
+selection problem, not a coverage-bucket problem: Vitest applies glob thresholds to
+covered source paths, regardless of which project contains the exercising test.
 
 ## Evidence
 
@@ -168,9 +210,11 @@ verified by a suite named after a different directory, and its coverage lands in
    needs no path edit — its `repoRoot` is `resolve(here, "..")` from either directory.
    Add the project to `vitest.config.ts:29-38` with a sibling `eslint-config/vitest.config.ts`
    mirroring `eslint-rules/vitest.config.ts`. Also add an `eslint-config/**` entry to the
-   per-tree `coverage.thresholds` block at `vitest.config.ts:43-84` and re-check the
-   `eslint-rules/**` floor at `:72-77` — moving suites out changes that bucket's
-   denominator. Run `bun run test -- --coverage` once before committing to pick the floors.
+   per-tree `coverage.thresholds` block at `vitest.config.ts:43-84` to track the newly
+   explicit config-source scope. Moving suites does not itself change the
+   `eslint-rules/**` bucket: thresholds match covered source paths, not test-project
+   ownership. Run `bun run test -- --coverage` once before committing to measure the new
+   scope and confirm that existing source-path floors are unchanged.
 6. **Optional, and only if step 5 lands cleanly:** decide a home for the nine whole-repo
    config-resolution probes. Leaving them in `eslint-rules/` next to their shared
    `eslint-config-resolution-timeout.js` is a defensible answer; if they move,

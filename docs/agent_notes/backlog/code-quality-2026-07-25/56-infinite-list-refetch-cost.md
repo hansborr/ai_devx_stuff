@@ -1,6 +1,14 @@
 # 56. Every infinite list replays all loaded pages on refetch, and the SRD compendium reads pay it for immutable data
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-30** on branch `fix/cq-56-63-client-freshness`,
+commits `7df7ce125`, `740873071`, and review simplification `44dbf450e`.
+The monster and magic-item infinite queries use immutable-SRD freshness
+(`staleTime: Infinity`) without retaining every parameterized search/filter key
+for the session. Only the bounded, unparameterized `srd.getAll` query keeps
+`gcTime: Infinity`. Tests inspect the instantiated queries rather than
+intercepting option builders. Notes and inventory remain normally staleable,
+and `maxPages` was deliberately not made a house rule because evicting
+already-rendered rows is a UX change, not a transparent performance fix.
 Theme: One caching policy for cursor-paginated reads · Area: client · Severity: low · Size: S
 
 Source: client-cluster pre-merge panel and adjudication, 2026-07-27 (raised
@@ -48,11 +56,13 @@ replay sequence. The gate did not create the cost; it made it visible.
 
 ## Proposed direction
 
-Decide the policy once rather than patching two call sites:
+Apply the smallest policy that matches each query's shape:
 
 1. **Which reads are SRD-immutable?** `use-srd-lookups.ts` says the codebase
    already has an answer for lookup data; the compendium list reads belong in
-   the same bucket. Give them the same `staleTime`/`gcTime` treatment.
+   the same freshness bucket, so set `staleTime: Infinity`. Do not copy the
+   bounded lookup bundle's `gcTime: Infinity`: search and filter inputs create
+   many distinct list keys, which must retain the default finite GC time.
 2. **Is `maxPages` a house rule for cursor lists?** It bounds replay cost for
    the two genuinely mutable lists (notes, inventory) but changes what "all
    loaded rows" means for the user. This is a UX decision, not a perf tweak.

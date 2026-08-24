@@ -122,7 +122,13 @@ describe("buildCloneCandidateAdvisory", () => {
         fakeFunction("src/loot-table.ts", "rollLootTable"),
         fakeFunction("src/loot-table-v2.ts", "rollLootTableV2"),
       ],
-      siblingAllowedPairs: [{ files: ["src/loot-table-v2.ts", "src/loot-table.ts"] }],
+      siblingAllowedPairs: [
+        {
+          files: ["src/loot-table-v2.ts", "src/loot-table.ts"],
+          rationale:
+            "The versioned tables remain separate candidates; remove when the older table is retired.",
+        },
+      ],
       top: 5,
     });
     const row = advisory.sections[0]?.entries[0];

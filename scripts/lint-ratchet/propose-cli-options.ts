@@ -8,15 +8,27 @@ export interface ParsedProposeCliOptions {
   readonly ignores?: readonly string[];
   readonly metric?: string;
   readonly ruleOptionsJson?: string;
+  readonly pluginModule?: string;
+  readonly pluginExport?: string;
+  readonly parserProfile?: string;
 }
 
-type ProposeOptionName = "ignore" | "metric" | "rule-options";
+type ProposeOptionName =
+  | "ignore"
+  | "metric"
+  | "parser-profile"
+  | "plugin"
+  | "plugin-export"
+  | "rule-options";
 
 interface MutableProposeOptions {
   readonly files: string[];
   readonly ignores: string[];
   metric: string | undefined;
   ruleOptionsJson: string | undefined;
+  pluginModule: string | undefined;
+  pluginExport: string | undefined;
+  parserProfile: string | undefined;
 }
 
 function requiredArgument(args: readonly string[], index: number, message: string): string {
@@ -32,6 +44,13 @@ function inlineOption(
   if (arg.startsWith("--metric=")) return { name: "metric", value: arg.slice("--metric=".length) };
   if (arg.startsWith("--rule-options=")) {
     return { name: "rule-options", value: arg.slice("--rule-options=".length) };
+  }
+  if (arg.startsWith("--plugin=")) return { name: "plugin", value: arg.slice("--plugin=".length) };
+  if (arg.startsWith("--plugin-export=")) {
+    return { name: "plugin-export", value: arg.slice("--plugin-export=".length) };
+  }
+  if (arg.startsWith("--parser-profile=")) {
+    return { name: "parser-profile", value: arg.slice("--parser-profile=".length) };
   }
   return undefined;
 }
@@ -51,6 +70,15 @@ function assignOption(
     case "rule-options":
       options.ruleOptionsJson = value;
       return;
+    case "plugin":
+      options.pluginModule = value;
+      return;
+    case "plugin-export":
+      options.pluginExport = value;
+      return;
+    case "parser-profile":
+      options.parserProfile = value;
+      return;
   }
 }
 
@@ -62,6 +90,12 @@ function optionValueMessage(name: ProposeOptionName): string {
       return "--metric requires a metric";
     case "rule-options":
       return "--rule-options requires a JSON array";
+    case "plugin":
+      return "--plugin requires a package name";
+    case "plugin-export":
+      return "--plugin-export requires default or plugin";
+    case "parser-profile":
+      return "--parser-profile requires minimal-ts or type-aware-ts";
   }
 }
 
@@ -69,6 +103,9 @@ function optionName(arg: string): ProposeOptionName {
   if (arg === "--ignore") return "ignore";
   if (arg === "--metric") return "metric";
   if (arg === "--rule-options") return "rule-options";
+  if (arg === "--plugin") return "plugin";
+  if (arg === "--plugin-export") return "plugin-export";
+  if (arg === "--parser-profile") return "parser-profile";
   throw new ProposeArgsUsageError(`Unknown --propose option: ${arg}`);
 }
 
@@ -82,6 +119,9 @@ function parsedProposeOptions(
     ...(options.ignores.length === 0 ? {} : { ignores: options.ignores }),
     ...(options.metric === undefined ? {} : { metric: options.metric }),
     ...(options.ruleOptionsJson === undefined ? {} : { ruleOptionsJson: options.ruleOptionsJson }),
+    ...(options.pluginModule === undefined ? {} : { pluginModule: options.pluginModule }),
+    ...(options.pluginExport === undefined ? {} : { pluginExport: options.pluginExport }),
+    ...(options.parserProfile === undefined ? {} : { parserProfile: options.parserProfile }),
   };
 }
 
@@ -96,6 +136,9 @@ export function parseProposeCliOptions(args: readonly string[]): ParsedProposeCl
     ignores: [],
     metric: undefined,
     ruleOptionsJson: undefined,
+    pluginModule: undefined,
+    pluginExport: undefined,
+    parserProfile: undefined,
   };
   let cursor = 1;
   while (cursor < args.length) {

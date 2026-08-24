@@ -19,12 +19,10 @@
 // `eslint.config.js` via `calculateConfigForFile` so we verify the wiring
 // (which configs match which files) rather than reconstructing rules inline.
 
-import { ESLint } from "eslint";
 import { minimatch } from "minimatch";
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { dirname, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
@@ -32,26 +30,14 @@ import {
   restrictedSyntaxSelectors,
 } from "../eslint-config/restricted-syntax-policy.js";
 import { resolvedConfigTestTimeoutMs } from "./eslint-config-resolution-timeout.js";
-
-const here = dirname(fileURLToPath(import.meta.url));
-const repoRoot = resolve(here, "..");
-const eslint = new ESLint({
-  cwd: repoRoot,
-  overrideConfigFile: resolve(repoRoot, "eslint.config.js"),
-});
-
-/** @returns {Promise<{ rules?: Record<string, unknown> }>} */
-async function configFor(/** @type {string} */ relPath) {
-  const config = await eslint.calculateConfigForFile(resolve(repoRoot, relPath));
-  return { rules: config.rules };
-}
-
-/** @param {{ rules?: Record<string, unknown> }} config */
-function severityOf(config, /** @type {string} */ ruleId) {
-  const entry = config.rules?.[ruleId];
-  if (Array.isArray(entry)) return entry[0];
-  return entry;
-}
+import {
+  configFor,
+  eslint,
+  lintTextFor,
+  messagesFor,
+  repoRoot,
+  severityOf,
+} from "./repo-config-harness.js";
 
 // Resolved no-restricted-syntax options are selector objects (or bare selector
 // strings); normalize to the selector strings.
@@ -119,8 +105,18 @@ function bansPermissiveTrpcOutput(selector) {
   );
 }
 
-async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ code) {
-  return eslint.lintText(code, { filePath: resolve(repoRoot, relPath) });
+// The shared `messagesFor` takes any rule id string. Most assertions in this
+// suite are negative (`toEqual([])`, `toHaveLength(0)`), and those pass
+// vacuously against a misspelled id — an empty message list is exactly what a
+// rule that never ran produces. Narrowing the id to the four rules this suite
+// polices keeps a typo a static error rather than a silently green test.
+/**
+ * @param {Awaited<ReturnType<typeof lintTextFor>>} results
+ * @param {"@typescript-eslint/no-restricted-imports" | "local/no-node-builtin-reference" | "no-restricted-globals" | "no-restricted-syntax"} ruleId
+ * @returns {import('eslint').Linter.LintMessage[]}
+ */
+function messagesForRule(results, ruleId) {
+  return messagesFor(results, ruleId);
 }
 
 /**
@@ -128,9 +124,7 @@ async function lintTextFor(/** @type {string} */ relPath, /** @type {string} */ 
  * @returns {import('eslint').Linter.LintMessage[]}
  */
 function restrictedSyntaxMessages(results) {
-  return results.flatMap((result) =>
-    result.messages.filter((message) => message.ruleId === "no-restricted-syntax"),
-  );
+  return messagesForRule(results, "no-restricted-syntax");
 }
 
 // Resolved no-restricted-globals options are names or { name } objects;
@@ -728,6 +722,172 @@ describe("runtime-boundary globals (no-restricted-globals)", () => {
       for (const message of restrictedGlobalMessagesOf(config)) {
         expect(message).toContain("ADR-0006");
       }
+    },
+  );
+
+  it(
+    "shared production source bans Node globals and the NodeJS namespace",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const globalCases = [
+        { name: "process", code: "process.cwd();" },
+        { name: "Buffer", code: 'Buffer.from("value");' },
+        { name: "__dirname", code: "void __dirname;" },
+        { name: "__filename", code: "void __filename;" },
+      ];
+
+      for (const probe of globalCases) {
+        const messages = messagesForRule(
+          await lintTextFor("packages/shared/src/rules/combat.ts", probe.code),
+          "local/no-node-builtin-reference",
+        );
+        expect(messages, probe.name).toHaveLength(1);
+      }
+
+      for (const probe of [
+        "let timer: NodeJS.Timeout;\nvoid timer;",
+        "export type Bytes = Buffer;",
+        "export type Proc = typeof process;",
+        "export type BufferConstructor = typeof Buffer;",
+        "export type Directory = typeof __dirname;",
+        "export type Filename = typeof __filename;",
+        "interface Env extends NodeJS.ProcessEnv {}",
+        "interface Bytes extends Buffer {}",
+        "export type Env = typeof process.env;",
+        "export type Cwd = typeof process.cwd;",
+        "export type From = typeof Buffer.from;",
+      ]) {
+        const results = await lintTextFor("packages/shared/src/rules/combat.ts", probe);
+        const messages = messagesForRule(results, "local/no-node-builtin-reference");
+        expect(messages, probe).toHaveLength(1);
+      }
+
+      for (const probe of [
+        "function inspect(process, Buffer) { return [process, Buffer]; }",
+        "interface Buffer {}\ninterface Bytes extends Buffer {}",
+        "namespace NodeJS { export interface ProcessEnv {} }\ntype Env = NodeJS.ProcessEnv;",
+      ]) {
+        const messages = messagesForRule(
+          await lintTextFor("packages/shared/src/rules/combat.ts", probe),
+          "local/no-node-builtin-reference",
+        );
+        expect(messages, probe).toEqual([]);
+      }
+    },
+  );
+
+  it(
+    "shared production source rejects static Node builtin module references",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const probe of [
+        'import fs from "node:fs";\nvoid fs;',
+        'import fsPromises from "node:fs/promises";\nvoid fsPromises;',
+        'import path from "path";\nvoid path;',
+        'import fsPromises from "fs/promises";\nvoid fsPromises;',
+        'import type { Stats } from "node:fs";\nvoid 0 as unknown as Stats;',
+        'export { Stats } from "node:fs";',
+        'export * from "node:fs";',
+      ]) {
+        const messages = messagesForRule(
+          await lintTextFor("packages/shared/src/rules/combat.ts", probe),
+          "@typescript-eslint/no-restricted-imports",
+        );
+        expect(messages, probe).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
+    "shared production source rejects non-ESM Node builtin module references",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const probe of [
+        'const fs = await import("node:fs/promises");\nvoid fs;',
+        'const fs = await import("fs/promises");\nvoid fs;',
+        "const fs = await import(`node:fs/promises`);\nvoid fs;",
+        'type Stats = import("node:fs").Stats;\nvoid 0 as unknown as Stats;',
+        'const fs = require("node:fs");\nvoid fs;',
+        'import fs = require("node:fs");\nvoid fs;',
+      ]) {
+        const messages = messagesForRule(
+          await lintTextFor("packages/shared/src/rules/combat.ts", probe),
+          "local/no-node-builtin-reference",
+        );
+        expect(messages, probe).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
+    "keeps browser and framework restrictions in shared production and tests",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const file of [
+        "packages/shared/src/rules/combat.ts",
+        "packages/shared/src/rules/combat.test.ts",
+      ]) {
+        const config = await configFor(file);
+        expect(restrictedGlobalsOf(config), `${file} browser globals`).toEqual(
+          expect.arrayContaining(["window", "document", "localStorage", "sessionStorage"]),
+        );
+
+        const results = await lintTextFor(
+          file,
+          'import React from "react";\nvoid React;\nvoid window.location.href;',
+        );
+        expect(
+          messagesForRule(results, "@typescript-eslint/no-restricted-imports"),
+          `${file} framework imports`,
+        ).toHaveLength(1);
+        expect(
+          messagesForRule(results, "no-restricted-globals"),
+          `${file} browser globals`,
+        ).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
+    "keeps intentional Node access available to shared tests",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const file = "packages/shared/src/test-tier-sentinel.test.ts";
+      const results = await lintTextFor(
+        file,
+        [
+          'import { readFile } from "node:fs";',
+          "void readFile;",
+          'const fsPromises = await import("node:fs/promises");',
+          "void fsPromises;",
+          "const fsTemplate = await import(`node:fs`);",
+          "void fsTemplate;",
+          'type Stats = import("node:fs").Stats;',
+          "void 0 as unknown as Stats;",
+          'const requiredFs = require("node:fs");',
+          "void requiredFs;",
+          'void process.env["MUSI_RUN_SLOW_TESTS"];',
+          'Buffer.from("value");',
+          "void __dirname;",
+          "void __filename;",
+          "let timer: NodeJS.Timeout;",
+          "void timer;",
+          "export type Bytes = Buffer;",
+          "export type Proc = typeof process;",
+          "export type BufferConstructor = typeof Buffer;",
+          "export type Directory = typeof __dirname;",
+          "export type Filename = typeof __filename;",
+          "interface Env extends NodeJS.ProcessEnv {}",
+          "interface Bytes extends Buffer {}",
+          "export type ProcessEnv = typeof process.env;",
+          "export type Cwd = typeof process.cwd;",
+          "export type From = typeof Buffer.from;",
+        ].join("\n"),
+      );
+      expect(messagesForRule(results, "@typescript-eslint/no-restricted-imports")).toEqual([]);
+      expect(messagesForRule(results, "no-restricted-globals")).toEqual([]);
+      expect(messagesForRule(results, "no-restricted-syntax")).toEqual([]);
+      expect(messagesForRule(results, "local/no-node-builtin-reference")).toEqual([]);
     },
   );
 

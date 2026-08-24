@@ -375,6 +375,177 @@ describe("monitored fixture shell dependencies", () => {
     }).not.toThrow();
   });
 
+  describe("shell-closure sandbox-model parity", () => {
+    function writeShellSmoke(lines: readonly string[]): void {
+      writeSmoke([
+        "# smoke-subjects: scripts/tests/test-fixture.sh",
+        "# smoke-subjects: scripts/",
+        ...lines,
+      ]);
+    }
+
+    it("reports a nonexistent scripts/** copy operand", () => {
+      writeShellSmoke(['cp scripts/missing.sh "$repo/scripts/missing.sh"']);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow("scripts/missing.sh referenced by fixture dependency closure does not exist");
+    });
+
+    it("does not expand loop-resolved shell sources into shell-closure roots", () => {
+      writeShellSmoke([
+        "for tool in scripts/verify/memory-budget.sh; do",
+        '  cp "$tool" "$repo/scripts/verify/"',
+        "done",
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).not.toThrow();
+    });
+
+    it("keeps an assigned shell root when a loop binding shadows the copy variable", () => {
+      writeShellSmoke([
+        "TOOL=scripts/verify/memory-budget.sh",
+        "for TOOL in scripts/lib/test-worker-count.sh; do",
+        '  cp "$TOOL" "$repo/scripts/"',
+        "done",
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        "scripts/tests/test-fixture.sh fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+      );
+    });
+
+    it("does not expand globbed shell sources into shell-closure roots", () => {
+      writeShellSmoke(['cp scripts/verify/*.sh "$repo/scripts/verify/"']);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).not.toThrow();
+    });
+
+    it("does not treat a shell copy outside scripts/ as a shell-closure root", () => {
+      writeShellSmoke([
+        'mkdir -p "$repo/scripts" "$repo/worktree/scripts"',
+        'cp scripts/verify/memory-budget.sh "$repo/worktree/overlay/memory-budget.sh"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).not.toThrow();
+    });
+
+    it("still checks a direct shell source from inside a literal fixture root", () => {
+      mkdirSync(join(repoRoot, "sandbox"), { recursive: true });
+      writeFileSync(
+        join(repoRoot, "sandbox", "entry.sh"),
+        "# shellcheck source=../scripts/lib/test-worker-count.sh\n",
+      );
+      writeShellSmoke(["cp sandbox/entry.sh sandbox/scripts/entry.sh"]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        "scripts/tests/test-fixture.sh fixture sandbox copies sandbox/entry.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+      );
+    });
+
+    it("still checks shell copies overlaid onto a whole-tree-seeded root", () => {
+      writeShellSmoke([
+        'git clone -q --shared "$REPO_ROOT" "$repo"',
+        'cp scripts/verify/memory-budget.sh "$repo/scripts/verify/memory-budget.sh"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        "scripts/tests/test-fixture.sh fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+      );
+    });
+
+    it("still checks a composed helper fragment on its own", () => {
+      writeShellSmoke([
+        "copy_entry() {",
+        '  local repo="$1"',
+        '  cp scripts/verify/memory-budget.sh "$repo/scripts/verify/memory-budget.sh"',
+        "}",
+        "copy_support() {",
+        '  local repo="$1"',
+        '  cp scripts/lib/test-worker-count.sh "$repo/scripts/lib/test-worker-count.sh"',
+        "}",
+        'copy_entry "$repo"',
+        'copy_support "$repo"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        "scripts/tests/test-fixture.sh function copy_entry fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+      );
+    });
+
+    it("keeps historical group order when non-shell state pre-creates a wrapper", () => {
+      writeShellSmoke([
+        "copy_entry() {",
+        '  local repo="$1"',
+        '  cp scripts/verify/memory-budget.sh "$repo/scripts/verify/memory-budget.sh"',
+        "}",
+        "wrapper() {",
+        '  local repo="$1"',
+        '  mkdir -p "$repo/scripts"',
+        '  copy_entry "$repo"',
+        "}",
+        'wrapper "$CALLER_REPO"',
+        'copy_entry "$INDEPENDENT_REPO"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        [
+          "fixture copy-set drift:",
+          "scripts/tests/test-fixture.sh function copy_entry fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+          "scripts/tests/test-fixture.sh function wrapper fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+          "scripts/tests/test-fixture.sh fixture $INDEPENDENT_REPO copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+          "scripts/tests/test-fixture.sh fixture $CALLER_REPO copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+        ].join("\n"),
+      );
+    });
+
+    it("does not expand a copied directory into shell-closure roots", () => {
+      mkdirSync(join(repoRoot, "scripts", "bundle"), { recursive: true });
+      writeFileSync(
+        join(repoRoot, "scripts", "bundle", "entry.sh"),
+        "# shellcheck source=../lib/test-worker-count.sh\n",
+      );
+      writeShellSmoke(['cp -R scripts/bundle/. "$repo/scripts/bundle/"']);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).not.toThrow();
+    });
+
+    it("keeps unreadable-copy diagnostics ahead of shell-closure diagnostics", () => {
+      writeShellSmoke([
+        'cp "$runtime_file" "$repo/scripts/"',
+        'cp scripts/verify/memory-budget.sh "$repo/scripts/verify/memory-budget.sh"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        [
+          "fixture copy-set drift:",
+          'scripts/tests/test-fixture.sh fixture $repo seeds from "$runtime_file", which this model cannot resolve; annotate the call site with `# fixture-closure: unmodelled-copy - <reason>` or seed it literally',
+          "scripts/tests/test-fixture.sh fixture $repo copies scripts/verify/memory-budget.sh but omits sourced dependency scripts/lib/test-worker-count.sh",
+        ].join("\n"),
+      );
+    });
+  });
+
   describe("copied TS/JS entry import closures", () => {
     function writeScript(relativePath: string, ...lines: readonly string[]): void {
       const path = join(repoRoot, relativePath);
@@ -528,6 +699,33 @@ describe("monitored fixture shell dependencies", () => {
       expect(() => {
         validateFixtureShellDependencies(repoRoot);
       }).not.toThrow();
+    });
+
+    it("keeps shell-only helper composition from reordering import-closure diagnostics", () => {
+      mkdirSync(join(repoRoot, "sandbox"), { recursive: true });
+      writeFileSync(join(repoRoot, "sandbox", "internal.sh"), "#!/usr/bin/env bash\n");
+      writeClosureSmoke([
+        "copy_internal_shell() {",
+        "  cp sandbox/internal.sh sandbox/scripts/internal.sh",
+        "}",
+        "copy_entry() {",
+        '  local repo="$1"',
+        '  cp scripts/tool.ts "$repo/scripts/tool.ts"',
+        "}",
+        'copy_internal_shell "$CALLER_REPO"',
+        'copy_entry "$INDEPENDENT_REPO"',
+        'copy_entry "$CALLER_REPO"',
+      ]);
+
+      expect(() => {
+        validateFixtureShellDependencies(repoRoot);
+      }).toThrow(
+        [
+          "fixture copy-set drift:",
+          "scripts/tests/test-fixture.sh fixture $INDEPENDENT_REPO copies scripts/tool.ts but omits imported dependency scripts/tool-lib.ts",
+          "scripts/tests/test-fixture.sh fixture $CALLER_REPO copies scripts/tool.ts but omits imported dependency scripts/tool-lib.ts",
+        ].join("\n"),
+      );
     });
 
     it("reports a copy whose source expression the model cannot resolve", () => {

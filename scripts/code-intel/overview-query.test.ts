@@ -1,6 +1,4 @@
-import path from "node:path";
-
-import { ModuleKind, ModuleResolutionKind, Project, ScriptTarget } from "ts-morph";
+import type { Project } from "ts-morph";
 import { describe, expect, it } from "vitest";
 
 import { parseArgs } from "./cli-args.js";
@@ -8,54 +6,14 @@ import { CodeIntelError } from "./errors.js";
 import { formatCodeIntelQueryResult } from "./format.js";
 import { queryOverview } from "./overview-query.js";
 import { runCodeIntel } from "./runner.js";
-import { createWorkspaceResolver } from "./workspace-resolver.js";
+import {
+  addSource,
+  createFixtureProject,
+  createFixtureResolver,
+  repoRoot,
+} from "./test-fixtures.test-helper.js";
 
-const repoRoot = "/repo";
 const target = "packages/server/src/routers/sample.ts";
-const packageConfigs = [
-  {
-    name: "@musi/shared",
-    packageRoot: "packages/shared",
-    exports: {
-      "./schemas/*.js": {
-        types: "./dist/schemas/*.d.ts",
-        default: "./dist/schemas/*.js",
-      },
-    },
-  },
-  {
-    name: "@musi/server",
-    packageRoot: "packages/server",
-    exports: {},
-  },
-];
-
-function createFixtureProject(): Project {
-  return new Project({
-    useInMemoryFileSystem: true,
-    compilerOptions: {
-      module: ModuleKind.Node16,
-      moduleResolution: ModuleResolutionKind.Node16,
-      target: ScriptTarget.ES2024,
-    },
-  });
-}
-
-function sourcePath(file: string): string {
-  return path.join(repoRoot, file);
-}
-
-function addSource(project: Project, file: string, text: string): void {
-  project.createSourceFile(sourcePath(file), text, { overwrite: true });
-}
-
-function createFixtureResolver(project: Project): ReturnType<typeof createWorkspaceResolver> {
-  return createWorkspaceResolver(repoRoot, {
-    fileExists: (filePath) => project.getSourceFile(path.resolve(filePath)) !== undefined,
-    fileIsFile: (filePath) => project.getSourceFile(path.resolve(filePath)) !== undefined,
-    packages: packageConfigs,
-  });
-}
 
 function addRouterFixture(project: Project): void {
   addSource(project, target, routerFixtureText());
@@ -241,6 +199,7 @@ describe("code:intel overview", () => {
           results: queryOverview(project, resolver, target),
         },
         "text",
+        "overview",
       ),
     ).toContain("overview: packages/server/src/routers/sample.ts");
   });

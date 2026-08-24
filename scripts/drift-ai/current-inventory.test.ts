@@ -205,6 +205,15 @@ describe("discoverCurrentFiles", () => {
     ]);
   });
 
+  it("keeps an explicit file root when its own path matches an ignored segment", () => {
+    const files = discoverWithStubs({
+      paths: ["generated/app.ts"],
+      roots: ["generated/app.ts"],
+    });
+
+    expect(discoveredPaths(files)).toEqual(["generated/app.ts"]);
+  });
+
   it("still drops nested ignored segments under an explicit root", () => {
     const files = discoverWithStubs({
       paths: ["src/app.ts", "src/generated/client.ts", "src/feature/generated/types.ts"],
@@ -271,5 +280,17 @@ describe("isIgnoredCurrentPath", () => {
     expect(isIgnoredCurrentPath("src/logo.png", ignore)).toBe(true);
     expect(isIgnoredCurrentPath("package-lock.json", ignore)).toBe(true);
     expect(isIgnoredCurrentPath("src/app.ts", ignore)).toBe(false);
+  });
+
+  it("normalizes paths before applying default ignore rules", () => {
+    const ignore: DriftAiIgnoreConfig = {
+      segments: [],
+      prefixes: [],
+      globs: [],
+    };
+
+    expect(isIgnoredCurrentPath(" src/logo.png ", ignore)).toBe(true);
+    expect(isIgnoredCurrentPath(" ./package-lock.json/ ", ignore)).toBe(true);
+    expect(isIgnoredCurrentPath("", ignore)).toBe(false);
   });
 });

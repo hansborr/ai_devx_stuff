@@ -4,6 +4,17 @@
 # smoke-subjects: scripts/prisma-client-freshness.sh
 # smoke-subjects: scripts/lib/gate-env.sh
 # smoke-subjects: scripts/lib/verify-metadata.sh
+# smoke-subjects: scripts/lib/verify-commit-queue.sh
+# smoke-subjects: scripts/lib/verify-fast-commit.sh
+# smoke-subjects: scripts/lib/verify-markers.sh
+# smoke-subjects: scripts/lib/verify-path-policy.sh
+# smoke-subjects: scripts/lib/verify-run-meta.sh
+# smoke-subjects: scripts/lib/verify-state-paths.sh
+# smoke-subjects: scripts/path-policy/path-policy-query.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/segment-pattern.ts
+# smoke-subjects: scripts/path-policy/path-policy.ts
+# smoke-subjects: scripts/path-policy/smoke-test-files.ts
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
 # smoke-subjects: scripts/tests/test-land.sh
 
@@ -47,6 +58,12 @@ new_repo() {
   git -C "$repo" config user.name "Test User"
   cp "$REPO_ROOT/scripts/land.sh" "$repo/scripts/land.sh"
   cp "$REPO_ROOT/scripts/lib/verify-metadata.sh" "$repo/scripts/lib/verify-metadata.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-commit-queue.sh" "$repo/scripts/lib/verify-commit-queue.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-fast-commit.sh" "$repo/scripts/lib/verify-fast-commit.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-markers.sh" "$repo/scripts/lib/verify-markers.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-path-policy.sh" "$repo/scripts/lib/verify-path-policy.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-run-meta.sh" "$repo/scripts/lib/verify-run-meta.sh"
+  cp "$REPO_ROOT/scripts/lib/verify-state-paths.sh" "$repo/scripts/lib/verify-state-paths.sh"
   cp "$REPO_ROOT/scripts/lib/gate-env.sh" "$repo/scripts/lib/gate-env.sh"
   printf 'fixture\n' > "$repo/README.md"
   git -C "$repo" add .

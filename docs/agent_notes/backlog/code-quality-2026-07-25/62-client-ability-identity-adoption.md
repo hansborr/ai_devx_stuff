@@ -1,6 +1,10 @@
 # 62. The two client saving-throw readers each hand-roll ability identity, so they disagree with the server on alias spellings
 
-Status: Proposed — not promoted
+Status: **Done 2026-07-30** on branch
+`fix/cq-62-67-identity-and-docs`, commit `e0651d774`. Both client
+saving-throw readers now use the shared ability-identity contract, with
+component regressions for full-name and whitespace/case variants on each
+surface. The whole-client sweep found no third production reader.
 Theme: Ability-identity contract drift · Area: client (+ shared) · Severity: low · Size: XS
 
 Source: the four-model merge panel on `fix/saving-throw-proficiency-identity`,

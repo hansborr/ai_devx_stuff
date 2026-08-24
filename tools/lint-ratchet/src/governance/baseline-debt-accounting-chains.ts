@@ -1,8 +1,8 @@
+import { assertNever } from "../kernel/runtime-config.js";
 import type { BaselineDebtIncrease } from "./baseline-debt-accounting.js";
-import {
-  isAcceptedDebtLogEntry,
-  type LintRatchetAcceptedDebtLogEntry,
-  type LintRatchetDebtLogEntry,
+import type {
+  LintRatchetAcceptedDebtLogEntry,
+  LintRatchetDebtLogEntry,
 } from "./debt-log-schema.js";
 
 type DebtLogRegression = LintRatchetAcceptedDebtLogEntry["regressions"][number];
@@ -11,16 +11,23 @@ function matchingRegressions(
   increase: BaselineDebtIncrease,
   entries: readonly LintRatchetDebtLogEntry[],
 ): readonly DebtLogRegression[] {
-  return entries.flatMap((entry) =>
-    isAcceptedDebtLogEntry(entry)
-      ? entry.regressions.filter(
+  return entries.flatMap((entry) => {
+    switch (entry.kind) {
+      case "accepted-debt":
+        return entry.regressions.filter(
           (regression) =>
             regression.testId === increase.testId &&
             regression.ruleId === increase.ruleId &&
             regression.path === increase.path,
-        )
-      : [],
-  );
+        );
+      case "coverage-shrink":
+      case "metric-migration":
+      case "retirement":
+        return [];
+      default:
+        return assertNever(entry);
+    }
+  });
 }
 
 function isNextCountTransition(

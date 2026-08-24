@@ -1,3 +1,4 @@
+import type { DriftAiCommandResult } from "./command-result.js";
 import type { BufferGitRunner, StatRunner } from "./current-inventory.js";
 import {
   buildDolosAdvisory,
@@ -36,10 +37,7 @@ export type DolosCandidatesRunOptions = {
   readonly writer?: ReportWriter;
 };
 
-export type DolosCandidatesRunResult = {
-  readonly exitCode: number;
-  readonly stdout: string;
-};
+export type DolosCandidatesRunResult = DriftAiCommandResult;
 
 export function runDolosCandidates(options: DolosCandidatesRunOptions): DolosCandidatesRunResult {
   return runPrototypeCommand(options, {

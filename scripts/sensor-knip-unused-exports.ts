@@ -13,9 +13,7 @@ export {
   runKnipUnusedExportsCli,
   type RunKnipUnusedExportsCliOptions,
 } from "./sensor-knip-unused-exports-core.js";
-import { isCliEntrypoint } from "./lib/process-argv.js";
-
-const PROCESS_ARGV_USER_ARGS_START = 2;
+import { isCliEntrypoint, PROCESS_ARGV_USER_ARGS_START } from "./lib/process-argv.js";
 
 if (isCliEntrypoint(import.meta.url)) {
   const result = runKnipUnusedExportsCli({

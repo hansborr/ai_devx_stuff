@@ -1,6 +1,7 @@
 import type { ScopeMode } from "../drift-ai/scope.js";
 import type { DriftCheckId } from "../drift-ai/types.js";
 import type { FindingProvenance } from "../drift-ai/types.js";
+import type { TriageItemId } from "./triage-item-id.js";
 import type {
   AdvisoryPrerequisiteInput,
   NamedTriageInput,
@@ -28,7 +29,7 @@ export type TriageEvidence = {
 };
 
 export type TriageItem = {
-  readonly id: string;
+  readonly id: TriageItemId;
   readonly priority: TriagePriority;
   readonly category: TriageCategory;
   readonly title: string;
@@ -111,17 +112,16 @@ export type TriageOptions = {
 };
 
 export type MutableItem = {
-  readonly id: string;
+  readonly id: TriageItemId;
   priority: TriagePriority;
   readonly category: TriageCategory;
   title: string;
-  readonly locations: string[];
   readonly locationDetails: TriageLocation[];
   readonly evidence: TriageEvidence[];
 };
 
 export type BuildState = {
-  readonly items: Map<string, MutableItem>;
+  readonly items: Map<TriageItemId, MutableItem>;
   readonly deferred: Map<DeferredReason, number>;
   reviewRows: number;
   deferredRows: number;

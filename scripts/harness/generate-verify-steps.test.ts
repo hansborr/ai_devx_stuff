@@ -4,13 +4,21 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { renderVerifyStepsShellFromManifest as renderTypedVerifyStepsShell } from "./generate-verify-steps.js";
+import {
+  renderProjectionsFor,
+  renderVerifyStepsShellFromManifest as renderTypedVerifyStepsShell,
+} from "./generate-verify-steps.js";
+import { loadGeneratedSurfaces } from "./generated-surfaces-loader.js";
 import { parseHarnessManifest } from "./harness-manifest-schema.js";
+import { GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH } from "./harness-paths.js";
+import { collectVerifyArtifactFailures } from "./verify-step-artifacts.js";
+import type { VerifyStepSlot } from "./verify-step-schema.js";
 
 const fixtureRoot = join(process.cwd(), "scripts", "fixtures", "generate-verify-steps");
 
 interface ControlFixture {
   readonly controls: readonly Record<string, unknown>[];
+  readonly verifySlotCatalog?: unknown;
 }
 
 /**
@@ -24,13 +32,23 @@ function renderVerifyStepsShellFromManifest(
   fixture: unknown,
   knownScripts?: ReadonlySet<string>,
 ): string {
-  const { controls } = fixture as ControlFixture;
-  return renderTypedVerifyStepsShell(
-    parseHarnessManifest({
+  const { controls, verifySlotCatalog } = fixture as ControlFixture;
+  const usesProfiles = verifySlotCatalog !== undefined;
+  const authoredControls = controls.map((control) => ({
+    ...control,
+    // Explicit-array cases exercise the generator's materialized input
+    // contract, not the four production ids' authored-profile guard. Parse
+    // them under adopter ids, then restore their consumer ids below.
+    ...(usesProfiles ? {} : { id: `fixture/${String(control.id)}` }),
+  }));
+  let parsed;
+  try {
+    parsed = parseHarnessManifest({
       scriptParityExemptions: [],
       ciGateControlIds: [],
-      controls: controls.map((control) => ({
-        kind: String(control.id).split("/")[0],
+      ...(verifySlotCatalog === undefined ? {} : { verifySlotCatalog }),
+      controls: authoredControls.map((control, index) => ({
+        kind: String(controls[index]?.id).split("/")[0],
         category: "maintainability",
         principle: "Fixture verify-step control.",
         pairedGuide: "none",
@@ -39,9 +57,23 @@ function renderVerifyStepsShellFromManifest(
         invocation: "bun run verify",
         ...control,
       })),
-    }),
-    knownScripts,
-  );
+    });
+  } catch (error) {
+    if (error instanceof Error) {
+      throw new Error(error.message.replaceAll("fixture/", ""), { cause: error });
+    }
+    throw error;
+  }
+  const manifest = usesProfiles
+    ? parsed
+    : {
+        ...parsed,
+        controls: parsed.controls.map((control, index) => ({
+          ...control,
+          id: String(controls[index]?.id),
+        })),
+      };
+  return renderTypedVerifyStepsShell(manifest, knownScripts);
 }
 
 /**
@@ -53,6 +85,32 @@ function renderVerifyStepsShellFromManifest(
  * so `slots[N]` diagnostics keep their indices.
  */
 const PLACEHOLDER_SLOTS = [{ name: "guard", script: "lint" }] as const;
+
+type NonEmptyVerifySlots = readonly [VerifyStepSlot, ...VerifyStepSlot[]];
+
+interface VerifyConsumerSlotOverrides {
+  readonly verify?: NonEmptyVerifySlots;
+  readonly verifyChanged?: NonEmptyVerifySlots;
+  readonly verifyParallel?: NonEmptyVerifySlots;
+  readonly preCommit?: NonEmptyVerifySlots;
+}
+
+function verifyManifest(overrides: VerifyConsumerSlotOverrides = {}): ControlFixture {
+  return {
+    controls: [
+      { id: "verify-wrapper/verify", slots: overrides.verify ?? PLACEHOLDER_SLOTS },
+      {
+        id: "verify-wrapper/verify-changed",
+        slots: overrides.verifyChanged ?? PLACEHOLDER_SLOTS,
+      },
+      {
+        id: "verify-wrapper/verify-parallel",
+        slots: overrides.verifyParallel ?? PLACEHOLDER_SLOTS,
+      },
+      { id: "hook/pre-commit", slots: overrides.preCommit ?? PLACEHOLDER_SLOTS },
+    ],
+  };
+}
 
 function readFixture(name: string): string {
   return readFileSync(join(fixtureRoot, name), "utf8");
@@ -220,20 +278,10 @@ describe("verify step generator", () => {
   });
 
   it("rejects fastCommitSkip on consumers other than pre-commit", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", fastCommitSkip: true }, ...PLACEHOLDER_SLOTS],
-        },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [{ name: "lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lint", fastCommitSkip: true }, ...PLACEHOLDER_SLOTS],
+      verifyChanged: [{ name: "lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify slot lint declares fastCommitSkip, but only hook/pre-commit slots may be fast-commit skippable",
@@ -241,26 +289,17 @@ describe("verify step generator", () => {
   });
 
   it("rejects full verify slot sets that do not cover pre-commit marker bridges", () => {
-    const manifest = {
-      controls: [
-        { id: "verify-wrapper/verify", slots: [{ name: "lint", script: "lint" }] },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [
-            { name: "lint", script: "lint:changed" },
-            { name: "typecheck", script: "typecheck" },
-          ],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        {
-          id: "hook/pre-commit",
-          slots: [
-            { name: "lint", script: "lint:changed" },
-            { name: "typecheck", script: "typecheck" },
-          ],
-        },
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lint" }],
+      verifyChanged: [
+        { name: "lint", script: "lint:changed" },
+        { name: "typecheck", script: "typecheck" },
       ],
-    };
+      preCommit: [
+        { name: "lint", script: "lint:changed" },
+        { name: "typecheck", script: "typecheck" },
+      ],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify slots must include every hook/pre-commit slot because pre-commit accepts fresh verify success markers; missing: typecheck",
@@ -268,26 +307,17 @@ describe("verify step generator", () => {
   });
 
   it("rejects changed verify slot sets that do not cover pre-commit marker bridges", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [
-            { name: "lint", script: "lint" },
-            { name: "typecheck", script: "typecheck" },
-          ],
-        },
-        { id: "verify-wrapper/verify-changed", slots: [{ name: "lint", script: "lint:changed" }] },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        {
-          id: "hook/pre-commit",
-          slots: [
-            { name: "lint", script: "lint:changed" },
-            { name: "typecheck", script: "typecheck" },
-          ],
-        },
+    const manifest = verifyManifest({
+      verify: [
+        { name: "lint", script: "lint:changed" },
+        { name: "typecheck", script: "typecheck" },
       ],
-    };
+      verifyChanged: [{ name: "lint", script: "lint:changed" }],
+      preCommit: [
+        { name: "lint", script: "lint:changed" },
+        { name: "typecheck", script: "typecheck" },
+      ],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify-changed slots must include every hook/pre-commit slot because pre-commit accepts fresh verify:changed success markers; missing: typecheck",
@@ -295,23 +325,11 @@ describe("verify step generator", () => {
   });
 
   it("rejects a pre-commit slot whose command tokens diverge from the full verify slot", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "typecheck", script: "typecheck", args: ["--full"] }],
-        },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [{ name: "typecheck", script: "typecheck" }],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        {
-          id: "hook/pre-commit",
-          slots: [{ name: "typecheck", script: "typecheck" }],
-        },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "typecheck", script: "typecheck", args: ["--full"] }],
+      verifyChanged: [{ name: "typecheck", script: "typecheck" }],
+      preCommit: [{ name: "typecheck", script: "typecheck" }],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify success markers; divergent: typecheck (pre_commit: bun run typecheck; verify: bun run typecheck --full)",
@@ -319,26 +337,26 @@ describe("verify step generator", () => {
   });
 
   it("rejects a pre-commit slot whose command tokens diverge from the changed verify slot", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "typecheck", script: "typecheck" }],
-        },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [{ name: "typecheck", script: "typecheck", args: ["--", "--staged"] }],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        {
-          id: "hook/pre-commit",
-          slots: [{ name: "typecheck", script: "typecheck" }],
-        },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "typecheck", script: "typecheck" }],
+      verifyChanged: [{ name: "typecheck", script: "typecheck", args: ["--", "--staged"] }],
+      preCommit: [{ name: "typecheck", script: "typecheck" }],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify-changed and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify:changed success markers; divergent: typecheck (pre_commit: bun run typecheck; verify_changed: bun run typecheck -- --staged)",
+    );
+  });
+
+  it("does not bless an explicit-array divergence by a historically allowlisted slot name", () => {
+    const manifest = verifyManifest({
+      verify: [{ name: "test", script: "test" }],
+      verifyChanged: [{ name: "test", script: "test:changed" }],
+      preCommit: [{ name: "test", script: "test:changed" }],
+    });
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify success markers; divergent: test",
     );
   });
 
@@ -347,23 +365,11 @@ describe("verify step generator", () => {
     // space-join to "a b c". A signature that joins on " " would call them equal
     // and let a real pre-commit/verify command drift pass the marker-bridge guard;
     // the signature must compare the token vector, not its flattened form.
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "typecheck", script: "typecheck", args: ["a", "b c"] }],
-        },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        {
-          id: "hook/pre-commit",
-          slots: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
-        },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "typecheck", script: "typecheck", args: ["a", "b c"] }],
+      verifyChanged: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
+      preCommit: [{ name: "typecheck", script: "typecheck", args: ["a b", "c"] }],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify and hook/pre-commit must render identical command tokens for every shared slot because pre-commit accepts fresh verify success markers; divergent: typecheck",
@@ -376,24 +382,16 @@ describe("verify step generator", () => {
     // `AB_C` before `ABAR`, while codepoint order puts `_FOO` last and `AB_C`
     // after `ABC`. slotCommandTokens renders these into the freshness-checked
     // steps.generated.sh, so the schema must sort them deterministically.
-    const manifest = {
-      controls: [
+    const manifest = verifyManifest({
+      verify: [
         {
-          id: "verify-wrapper/verify",
-          slots: [
-            {
-              name: "lint",
-              script: "lint",
-              env: { _FOO: "1", ABAR: "2", AB_C: "3", ABC: "4" },
-            },
-            ...PLACEHOLDER_SLOTS,
-          ],
+          name: "lint",
+          script: "lint",
+          env: { _FOO: "1", ABAR: "2", AB_C: "3", ABC: "4" },
         },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
+        ...PLACEHOLDER_SLOTS,
       ],
-    };
+    });
 
     const rendered = renderVerifyStepsShellFromManifest(manifest);
 
@@ -403,17 +401,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects manifest values mixing backslash with $ expansion", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", args: ["\\$LOG_DIR"] }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lint", args: ["\\$LOG_DIR"] }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "manifest value mixes backslash with $ expansion: \\$LOG_DIR",
@@ -421,17 +411,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects manifest values using $ outside a plain variable reference", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint", args: ["$(rm -rf x)"] }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lint", args: ["$(rm -rf x)"] }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "manifest value uses $ outside a plain variable reference: $(rm -rf x)",
@@ -439,17 +421,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects slot names containing $", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint-$STAGE", script: "lint" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint-$STAGE", script: "lint" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify slots[0].name must not contain $: lint-$STAGE",
@@ -457,17 +431,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects slot names outside the log-safe allow-list", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "../lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "../lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify slots[0].name must match /^[A-Za-z0-9][A-Za-z0-9_-]*$/: ../lint",
@@ -475,17 +441,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects slot scripts containing $", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lint:$MODE" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lint:$MODE" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify slot lint script must not contain $: lint:$MODE",
@@ -514,21 +472,13 @@ describe("verify step generator", () => {
   });
 
   it("rejects slot names that collide after shell-variable normalization", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [
-            { name: "a-b", script: "lint" },
-            { name: "a_b", script: "typecheck" },
-            ...PLACEHOLDER_SLOTS,
-          ],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
+    const manifest = verifyManifest({
+      verify: [
+        { name: "a-b", script: "lint" },
+        { name: "a_b", script: "typecheck" },
+        ...PLACEHOLDER_SLOTS,
       ],
-    };
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "slots verify-wrapper/verify:a-b and verify-wrapper/verify:a_b derive the same shell variable: MUSI_VERIFY_A_B_CMD",
@@ -536,20 +486,10 @@ describe("verify step generator", () => {
   });
 
   it("rejects shell-variable collisions across consumers", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "changed-lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
-        },
-        {
-          id: "verify-wrapper/verify-changed",
-          slots: [{ name: "lint", script: "typecheck" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "changed-lint", script: "lint" }, ...PLACEHOLDER_SLOTS],
+      verifyChanged: [{ name: "lint", script: "typecheck" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "slots verify-wrapper/verify:changed-lint and verify-wrapper/verify-changed:lint derive the same shell variable: MUSI_VERIFY_CHANGED_LINT_CMD",
@@ -557,21 +497,13 @@ describe("verify step generator", () => {
   });
 
   it("rejects duplicate slot names in one consumer", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [
-            { name: "lint", script: "lint" },
-            { name: "lint", script: "typecheck" },
-            ...PLACEHOLDER_SLOTS,
-          ],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
+    const manifest = verifyManifest({
+      verify: [
+        { name: "lint", script: "lint" },
+        { name: "lint", script: "typecheck" },
+        ...PLACEHOLDER_SLOTS,
       ],
-    };
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
       "verify-wrapper/verify duplicate slot name: lint",
@@ -579,17 +511,9 @@ describe("verify step generator", () => {
   });
 
   it("rejects slot scripts missing from the known package.json scripts", () => {
-    const manifest = {
-      controls: [
-        {
-          id: "verify-wrapper/verify",
-          slots: [{ name: "lint", script: "lnit" }, ...PLACEHOLDER_SLOTS],
-        },
-        { id: "verify-wrapper/verify-changed", slots: PLACEHOLDER_SLOTS },
-        { id: "verify-wrapper/verify-parallel", slots: PLACEHOLDER_SLOTS },
-        { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
-      ],
-    };
+    const manifest = verifyManifest({
+      verify: [{ name: "lint", script: "lnit" }, ...PLACEHOLDER_SLOTS],
+    });
 
     expect(() => renderVerifyStepsShellFromManifest(manifest, new Set(["lint"]))).toThrow(
       "verify-wrapper/verify slot lint references unknown package.json script: lnit",
@@ -614,18 +538,13 @@ describe("verify step generator", () => {
     );
   });
 
-  it("emits sorted runtime guards extracting both $VAR and ${VAR} reference forms", () => {
+  it("rejects artifact ids outside the probe binding vocabulary", () => {
     const manifest = {
       controls: [
         {
           id: "verify-wrapper/verify",
           slots: [
-            {
-              name: "lint",
-              script: "lint",
-              env: { ZVAR: "${ZULU}" },
-              args: ["$ALPHA", "prefix-${BRACED_VAR}-suffix"],
-            },
+            { name: "typecheck", script: "typecheck", produces: "dist-output" },
             ...PLACEHOLDER_SLOTS,
           ],
         },
@@ -634,6 +553,184 @@ describe("verify step generator", () => {
         { id: "hook/pre-commit", slots: PLACEHOLDER_SLOTS },
       ],
     };
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify slot typecheck produces must be one of: dist-outputs",
+    );
+  });
+
+  it("rejects a requiring slot whose producer is absent from the same consumer", () => {
+    // The whole point of the artifact declaration: without this check a slot
+    // that needs dist outputs looks fully registered, passes verify:steps:check,
+    // and then races typecheck in parallel runs of the consumer that lacks it.
+    const withTypecheck: NonEmptyVerifySlots = [
+      { name: "typecheck", script: "typecheck", produces: "dist-outputs" },
+      { name: "lint", script: "lint", requiresArtifact: "dist-outputs" },
+    ];
+    const manifest = verifyManifest({
+      verify: withTypecheck,
+      verifyChanged: withTypecheck,
+      verifyParallel: [{ name: "lint", script: "lint", requiresArtifact: "dist-outputs" }],
+      preCommit: withTypecheck,
+    });
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify-parallel slot lint requires artifact dist-outputs, but no slot in verify-wrapper/verify-parallel produces it",
+    );
+  });
+
+  it("rejects two slots producing one artifact", () => {
+    const doubled: NonEmptyVerifySlots = [
+      { name: "typecheck", script: "typecheck", produces: "dist-outputs" },
+      { name: "guard", script: "lint", produces: "dist-outputs" },
+    ];
+    const manifest = verifyManifest({
+      verify: doubled,
+      verifyChanged: doubled,
+      verifyParallel: doubled,
+      preCommit: doubled,
+    });
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "artifact dist-outputs is produced by more than one slot: guard, typecheck",
+    );
+  });
+
+  it("rejects a slot that requires the artifact it produces", () => {
+    const manifest = verifyManifest({
+      verify: [
+        {
+          name: "typecheck",
+          script: "typecheck",
+          produces: "dist-outputs",
+          requiresArtifact: "dist-outputs",
+        },
+        ...PLACEHOLDER_SLOTS,
+      ],
+    });
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "verify-wrapper/verify slot typecheck must not require the artifact it produces: dist-outputs",
+    );
+  });
+
+  it("rejects a producing slot that fast-commit mode skips", () => {
+    // fastCommitSkip resolves to MUSI_VERIFY_SLOT_SKIP_RC, so the producer is
+    // never admitted and its requiring slots take the no-producer arm at
+    // runtime — the surprise closure validation exists to move to generation
+    // time. Every input is declared in the same manifest.
+    const withTypecheck: NonEmptyVerifySlots = [
+      { name: "typecheck", script: "typecheck", produces: "dist-outputs" },
+      { name: "lint", script: "lint", requiresArtifact: "dist-outputs" },
+    ];
+    const manifest = verifyManifest({
+      verify: withTypecheck,
+      verifyChanged: withTypecheck,
+      verifyParallel: withTypecheck,
+      preCommit: [
+        {
+          name: "typecheck",
+          script: "typecheck",
+          produces: "dist-outputs",
+          fastCommitSkip: true,
+        },
+        { name: "lint", script: "lint", requiresArtifact: "dist-outputs" },
+      ],
+    });
+
+    expect(() => renderVerifyStepsShellFromManifest(manifest)).toThrow(
+      "hook/pre-commit slot typecheck produces dist-outputs but declares fastCommitSkip, so a fast-commit run leaves the slots requiring dist-outputs with no producer",
+    );
+  });
+
+  it("rejects a slot that both produces one artifact and requires another", () => {
+    // The scheduler releases one artifact group at a time against the producer's
+    // recorded PID, so a chained edge fails or passes on manifest slot order.
+    // A second artifact id is the only way to express a chain, so the vocabulary
+    // is injected the way the missing-probe case is.
+    const failures = collectVerifyArtifactFailures(
+      [
+        {
+          id: "verify-wrapper/verify",
+          slots: [
+            { name: "bundle", produces: "bundle-outputs", requiresArtifact: "dist-outputs" },
+            { name: "typecheck", produces: "dist-outputs" },
+            { name: "lint", requiresArtifact: "bundle-outputs" },
+          ],
+        },
+      ],
+      [
+        { id: "dist-outputs", probeFunctionName: "musi_dist_present", summary: "dist outputs" },
+        { id: "bundle-outputs", probeFunctionName: "musi_bundle_present", summary: "bundles" },
+      ],
+    );
+
+    expect(failures).toStrictEqual([
+      "verify-wrapper/verify slot bundle produces bundle-outputs and requires dist-outputs; artifact edges are a single conditional hop, never a chain",
+    ]);
+  });
+
+  it("rejects an artifact id that no probe binding resolves", () => {
+    // The id vocabulary is derived from the binding table, so the manifest
+    // cannot reach this arm on its own; the injected binding list stands in for
+    // a table edited to declare an id without its shell probe.
+    const failures = collectVerifyArtifactFailures(
+      [
+        {
+          id: "verify-wrapper/verify",
+          slots: [
+            { name: "typecheck", produces: "dist-outputs" },
+            { name: "lint", requiresArtifact: "dist-outputs" },
+          ],
+        },
+      ],
+      [],
+    );
+
+    expect(failures).toStrictEqual([
+      "verify-wrapper/verify slot typecheck names artifact dist-outputs, which has no probe binding in verify-step-artifacts.ts",
+      "verify-wrapper/verify slot lint names artifact dist-outputs, which has no probe binding in verify-step-artifacts.ts",
+    ]);
+  });
+
+  it("rejects an artifact bound to something that is not a shell function name", () => {
+    const failures = collectVerifyArtifactFailures(
+      [{ id: "verify-wrapper/verify", slots: [{ name: "typecheck", produces: "dist-outputs" }] }],
+      [{ id: "dist-outputs", probeFunctionName: "musi probe; rm -rf /", summary: "outputs" }],
+    );
+
+    expect(failures).toStrictEqual([
+      "artifact dist-outputs binds an invalid shell probe function: musi probe; rm -rf /",
+    ]);
+  });
+
+  it("emits an empty artifact program for a manifest that declares no artifacts", () => {
+    // Degrade-cleanly contract for copiers: no declarations means empty maps and
+    // no probe bindings, so the runner's deferral branch never engages. Rendered
+    // from the fixture manifest rather than read back from the golden, so the
+    // contract is asserted against the generator, not against a stored string.
+    const manifest: unknown = JSON.parse(readFixture("manifest.json"));
+    const generated = renderVerifyStepsShellFromManifest(manifest);
+
+    expect(generated).toContain("declare -gA MUSI_VERIFY_SLOT_PRODUCES=()");
+    expect(generated).toContain("declare -gA MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT=()");
+    expect(generated).toContain("declare -gA MUSI_VERIFY_ARTIFACT_PROBE_FUNC=()");
+    expect(generated).not.toContain("MUSI_VERIFY_ARTIFACT_PROBE_FUNC[");
+    expect(generated).not.toContain("MUSI_VERIFY_SLOT_REQUIRES_ARTIFACT[");
+  });
+
+  it("emits sorted runtime guards extracting both $VAR and ${VAR} reference forms", () => {
+    const manifest = verifyManifest({
+      verify: [
+        {
+          name: "lint",
+          script: "lint",
+          env: { ZVAR: "${ZULU}" },
+          args: ["$ALPHA", "prefix-${BRACED_VAR}-suffix"],
+        },
+        ...PLACEHOLDER_SLOTS,
+      ],
+    });
 
     const rendered = renderVerifyStepsShellFromManifest(manifest);
 
@@ -708,13 +805,13 @@ LOG_DIR=/tmp/musi-verify-steps-test
 TIMINGS_FILE="$LOG_DIR/test-timings.json"
 . scripts/fixtures/generate-verify-steps/expected.generated.sh
 . scripts/verify/steps-lib.sh
-unset MUSI_VERIFY_LINT_CMD
-musi_resolve_slot_cmd verify lint
+unset MUSI_VERIFY_TEST_CMD
+musi_resolve_slot_cmd verify test
 `);
 
     expect(missingArray.status).toBe(2);
     expect(missingArray.stderr).toContain(
-      "verify steps: generated command array is missing: MUSI_VERIFY_LINT_CMD",
+      "verify steps: generated command array is missing: MUSI_VERIFY_TEST_CMD",
     );
     expect(missingArray.stderr).toContain("bun run verify:steps:check");
     expect(missingArray.stderr).toContain("scripts/harness/generate-verify-steps.ts");
@@ -766,6 +863,23 @@ printf '127:%s:%s\\n' "$resolver_rc" "\${#MUSI_RESOLVED_SLOT_CMD[@]}"
     );
     expect(result.stderr).toContain(
       "verify steps: staged script classifier returned unexpected rc 127",
+    );
+  });
+});
+
+describe("verify-step projection descriptor", () => {
+  // Every owner pass — the generator's and both freshness checkers' — selects
+  // its projections through renderProjectionsFor, so a context narrowed past
+  // what the owner advertises must name the output it would otherwise have
+  // dropped rather than write (or compare) one file fewer.
+  it("names the dropped output instead of skipping it, for either owner", () => {
+    const records = loadGeneratedSurfaces(process.cwd());
+
+    expect(() => renderProjectionsFor("collector", { records })).toThrow(
+      /rendered nothing for scripts\/verify\/steps\.generated\.sh: missing manifest/u,
+    );
+    expect(() => renderProjectionsFor("fixtureClosure", { records })).toThrow(
+      `rendered nothing for ${GENERATED_HARNESS_CHECK_FIXTURE_MANIFEST_PATH}: missing fixturePaths`,
     );
   });
 });
