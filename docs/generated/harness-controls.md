@@ -1543,6 +1543,20 @@ The root `commandPolicy` rows are evaluated in this order; the first hard match 
 
 **Repair:** autofix
 
+### `doc-generator/harness-porting-manifest`
+
+**Principle:** Derive the public adoption copy sets in docs/ai-harness.md from the source import graph instead of hand-listing them, and fail closed when a recipe closure reaches an unclassified file or an undeclared Musi adapter.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-porting-manifest.ts`
+
+**Invocation:** `bun run docs:harness-porting`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
+
+**Repair:** autofix
+
 ### `doc-generator/lint-coverage-map`
 
 **Principle:** Render docs/generated/lint-coverage-map.md end to end from the typed coverage manifest, deriving the direct-child scripts/drift-ai TypeScript row from tracked files, fail-closed ESLint reach, and live ratchet membership; the document is pure generator output with no hand-maintained span, and --check fails on any drift from the manifest.

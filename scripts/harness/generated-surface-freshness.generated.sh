@@ -135,6 +135,15 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
+      'scripts/cli-option-values.ts'|'scripts/harness-audit.ts'|'scripts/harness/'*|'scripts/import-closure/'*|'scripts/lib/'*|'scripts/lint-ratchet/'*|'docs/generated/harness-porting-manifest.md')
+        warn_if_generated_surface_stale 'harness porting copy manifest' 'docs:harness-porting:check'
+        break
+        ;;
+    esac
+  done <<< "$staged"
+
+  while IFS= read -r staged_path; do
+    case "$staged_path" in
       'eslint-config/'*|'eslint-rules/'*|'eslint.config.js'|'scripts/drift-ai/'*|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/git.ts'|'scripts/lint-coverage-map-check-eslint-reach.ts'|'scripts/lint-coverage-map-check-io.ts'|'scripts/lint-coverage-map-gen-core.ts'|'scripts/lint-coverage-map-gen.ts'|'scripts/lint-coverage-map-manifest-codemods.ts'|'scripts/lint-coverage-map-manifest-config-files.ts'|'scripts/lint-coverage-map-manifest-config-sensors.ts'|'scripts/lint-coverage-map-manifest-docs.ts'|'scripts/lint-coverage-map-manifest-drift-ai.ts'|'scripts/lint-coverage-map-manifest-harness-scripts.ts'|'scripts/lint-coverage-map-manifest-lint-rules-and-shell.ts'|'scripts/lint-coverage-map-manifest-linted-scripts-a.ts'|'scripts/lint-coverage-map-manifest-linted-scripts-b.ts'|'scripts/lint-coverage-map-manifest-misc.ts'|'scripts/lint-coverage-map-manifest-packages.ts'|'scripts/lint-coverage-map-manifest-portable-tooling.ts'|'scripts/lint-coverage-map-manifest-prose.ts'|'scripts/lint-coverage-map-manifest-ratchet-runtime.ts'|'scripts/lint-coverage-map-manifest-schema.ts'|'scripts/lint-coverage-map-manifest-script-entrypoints.ts'|'scripts/lint-coverage-map-manifest-script-fixtures.ts'|'scripts/lint-coverage-map-manifest-sections.ts'|'scripts/lint-coverage-map-manifest.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'tools/lint-ratchet/package.json'|'tools/lint-ratchet/src/kernel/codepoint-compare.ts'|'tools/lint-ratchet/src/kernel/ratchet-globs.ts'|'tsconfig.scripts.json'|'docs/generated/lint-coverage-map.md')
         warn_if_generated_surface_stale 'lint coverage-map document' 'docs:lint-coverage-map:generate:check'
         break

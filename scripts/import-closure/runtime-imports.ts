@@ -12,6 +12,12 @@ import ts from "typescript";
  * false positives (a local binding named `require`, a parameter named
  * `process`) are accepted by design; renaming the binding is cheaper than
  * teaching the analyzer to resolve it.
+ *
+ * Type-only edges are dropped by default because a fingerprint enumerates what
+ * executes. A consumer deriving a copy set — a checkout that has to compile,
+ * not run — opts into them with `typeOnlyImports: "include"`; the two polarities
+ * of the same type-only rule live here and in `scripts/lib/ts-module-refs.ts`,
+ * so a TypeScript import-phase syntax change must be checked against both.
  */
 
 export interface RuntimeSourceOptions {
@@ -22,6 +28,15 @@ export interface RuntimeSourceOptions {
    * `"skip"` ignores it, for closure walks over code that loads runtime-configured inputs.
    */
   readonly nonStaticSpecifiers?: "throw" | "skip";
+  /**
+   * `"skip"` (default) reports only runtime edges, the seed-fingerprint
+   * contract: a fingerprint enumerates what executes. `"include"` also reports
+   * type-only imports, type-only re-exports, and `import(...)` type nodes, for
+   * consumers deriving a copy set that has to *compile* rather than run. The
+   * CommonJS value-space policy does not apply to those edges — a type import
+   * loads nothing — so they are recorded, not rejected.
+   */
+  readonly typeOnlyImports?: "skip" | "include";
 }
 
 /** Rejected wherever they appear, including as property or member names. */
@@ -163,10 +178,11 @@ const isProcessNamespaceBinding = (node: ts.Identifier): boolean => {
 };
 
 /**
- * Returns the file's static runtime import specifiers, and throws on anything
- * the coarse policy refuses. Environment reads are validated, not reported: the
- * allowlist in `scripts/worktree-db.sh` is the contract, so a compliant file has
- * nothing left to say about the keys it read.
+ * Returns the file's static runtime import specifiers — plus its type-only
+ * edges when the consumer opts in — and throws on anything the coarse policy
+ * refuses. Environment reads are validated, not reported: the allowlist in
+ * `scripts/worktree-db.sh` is the contract, so a compliant file has nothing
+ * left to say about the keys it read.
  */
 export const analyzeRuntimeSource = (
   sourceFile: ts.SourceFile,
@@ -174,6 +190,7 @@ export const analyzeRuntimeSource = (
 ): readonly string[] => {
   const { allowedEnvironmentVariables } = options;
   const nonStaticSpecifiers = options.nonStaticSpecifiers ?? "throw";
+  const typeOnlyImports = options.typeOnlyImports ?? "skip";
   const imports: string[] = [];
 
   if (commonJsFileExtensions.some((extension) => sourceFile.fileName.endsWith(extension))) {
@@ -196,6 +213,38 @@ export const analyzeRuntimeSource = (
       throw commonJsError(sourceFile, `\`${specifier.text}\` names a CommonJS module`);
     }
     imports.push(specifier.text);
+  };
+
+  /**
+   * A type-only edge is recorded verbatim: it never loads a module, so the
+   * CommonJS and import-attribute policies — both about runtime loading — do
+   * not apply. Resolution still fails closed downstream if the specifier names
+   * a file the walker's extension set does not cover.
+   */
+  const rejectNonStaticTypeSpecifier = (): void => {
+    if (nonStaticSpecifiers === "skip") return;
+    throw policyError(
+      sourceFile,
+      "an import type node must name a static string specifier so the closure can follow it",
+    );
+  };
+
+  const recordTypeImport = (specifier: ts.Expression | undefined): void => {
+    if (typeOnlyImports === "skip" || specifier === undefined) return;
+    if (ts.isStringLiteralLike(specifier)) imports.push(specifier.text);
+    else rejectNonStaticTypeSpecifier();
+  };
+
+  /**
+   * `import("./x.js").T` — a module edge that exists only in type space. An
+   * interpolated specifier and a non-string literal are both edges the closure
+   * cannot follow, so both take the caller's non-static policy.
+   */
+  const recordImportTypeNode = (node: ts.ImportTypeNode): void => {
+    if (typeOnlyImports === "skip") return;
+    const { argument } = node;
+    if (ts.isLiteralTypeNode(argument)) recordTypeImport(argument.literal);
+    else rejectNonStaticTypeSpecifier();
   };
 
   const checkImportMeta = (node: ts.MetaProperty): void => {
@@ -305,14 +354,19 @@ export const analyzeRuntimeSource = (
   };
 
   const collectImports = (node: ts.Node): void => {
-    if (ts.isImportDeclaration(node) && importDeclarationIsRuntime(node)) {
-      checkImportAttributes(sourceFile, node.attributes, node.moduleSpecifier);
-      recordImport(node.moduleSpecifier);
+    if (ts.isImportDeclaration(node)) {
+      if (importDeclarationIsRuntime(node)) {
+        checkImportAttributes(sourceFile, node.attributes, node.moduleSpecifier);
+        recordImport(node.moduleSpecifier);
+      } else recordTypeImport(node.moduleSpecifier);
     }
-    if (ts.isExportDeclaration(node) && exportDeclarationIsRuntime(node)) {
-      checkImportAttributes(sourceFile, node.attributes, node.moduleSpecifier);
-      recordImport(node.moduleSpecifier);
+    if (ts.isExportDeclaration(node)) {
+      if (exportDeclarationIsRuntime(node)) {
+        checkImportAttributes(sourceFile, node.attributes, node.moduleSpecifier);
+        recordImport(node.moduleSpecifier);
+      } else recordTypeImport(node.moduleSpecifier);
     }
+    if (ts.isImportTypeNode(node)) recordImportTypeNode(node);
     if (ts.isCallExpression(node) && node.expression.kind === ts.SyntaxKind.ImportKeyword) {
       if (node.arguments.length !== dynamicImportArgumentCount) {
         throw policyError(

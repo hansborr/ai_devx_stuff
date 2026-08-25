@@ -9,7 +9,7 @@ Scope: full re-sweep of `packages/{shared,server,client}`, the harness
 weight on areas the 2026-07-25 audit never read. Feature-opportunity proposals
 are in scope.
 
-**269 leaves: 101 landed, 168 Not started; no leaf is promoted automatically.**
+**269 leaves: 104 landed, 165 Not started; no leaf is promoted automatically.**
 The owner made a priority call on 2026-08-06 — harness leaves first,
 lint-related leaves within them — granted standing merge-on-green on
 2026-08-08, and on 2026-08-14 queued the rest of the harness area for an
@@ -98,8 +98,8 @@ Companion files — do not inline them here:
   S3 merges into surviving leaves 198 and 142. Their numbering holes are
   deliberate; never renumber this pack or recreate either retired leaf as a
   scheduling unit.
-- **Leaf headers record implementation state.** One hundred and one live
-  leaves name their landed batch branch and the other 168 say `Not started`.
+- **Leaf headers record implementation state.** One hundred and four live
+  leaves name their landed batch branch and the other 165 say `Not started`.
   Read `## Scope / caveats`, resolve cited symbols against the audit pin/current
   tree as appropriate, follow TDD, and use the relevant `docs/guides/` guide
   before tRPC, Prisma, socket, race-sensitive, client cache/socket, e2e, rules,
@@ -124,7 +124,7 @@ per-land verify cost and gate flake ahead of the wider backlog — and then, for
 an extended unattended drain, five further queues covering every remaining
 harness leaf plus the three non-harness prerequisites they need
 ([DRAIN-NOTES § The queue](./DRAIN-NOTES.md#the-queue) has the derivation).
-One hundred and one leaves have landed on carrier branches and 168 remain `Not
+One hundred and four leaves have landed on carrier branches and 165 remain `Not
 started`. [drain-queue.json](./drain-queue.json) carries the waves those calls
 select, `node …/drain.mjs plan <UNIT>…` is the edge gate each lane must pass
 first, and merge commits on `main` record what lands.

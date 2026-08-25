@@ -114,6 +114,66 @@ describe("analyzeRuntimeSource CommonJS policy", () => {
   });
 });
 
+/**
+ * Copy sets differ from fingerprints: a fingerprint only has to name what
+ * executes, while a copied checkout has to compile. Consumers deriving one opt
+ * into the type edges the runtime walk drops.
+ */
+describe("analyzeRuntimeSource type-only edges", () => {
+  const typeAwareSpecifiersOf = (
+    source: string,
+    nonStaticSpecifiers: "throw" | "skip" = "throw",
+  ): readonly string[] =>
+    analyzeRuntimeSource(parse(source), { nonStaticSpecifiers, typeOnlyImports: "include" });
+
+  it("collects type-only imports and re-exports alongside the runtime edges", () => {
+    const source =
+      'import type { TypeOnly } from "./types.js";\n' +
+      'import { type Mixed, mixedValue } from "./mixed.js";\n' +
+      'export type { Reexported } from "./other-types.js";\n' +
+      'import value from "./value.js";\n' +
+      "void mixedValue;\nvoid value;\nexport type { TypeOnly, Mixed };";
+
+    expect(specifiersOf(source)).toEqual(["./mixed.js", "./value.js"]);
+    expect(typeAwareSpecifiersOf(source)).toEqual([
+      "./types.js",
+      "./mixed.js",
+      "./other-types.js",
+      "./value.js",
+    ]);
+  });
+
+  it("follows an import-type node the runtime walk never sees", () => {
+    const source = 'export type Shape = import("./deep-types.js").Shape;';
+
+    expect(specifiersOf(source)).toEqual([]);
+    expect(typeAwareSpecifiersOf(source)).toEqual(["./deep-types.js"]);
+  });
+
+  /**
+   * Both shapes are a module edge the closure cannot follow, so both take the
+   * caller's non-static policy rather than one throwing and the other vanishing.
+   */
+  it.each([
+    ["an interpolated specifier", "export type Shape = import(`./${name}.js`).Shape;"],
+    ["a non-string literal specifier", "export type Shape = import(0).Shape;"],
+  ])("fails closed on an import-type node with %s", (_case, source) => {
+    expect(() => typeAwareSpecifiersOf(source)).toThrow(/static string specifier/u);
+    expect(typeAwareSpecifiersOf(source, "skip")).toEqual([]);
+  });
+
+  /**
+   * The CommonJS value-space policy is about loading, and a type edge loads
+   * nothing, so `node:module` stays legal in type space under both modes and is
+   * merely recorded here.
+   */
+  it("records a type-only CommonJS-module import instead of rejecting it", () => {
+    expect(typeAwareSpecifiersOf('import type { Module } from "node:module";\nvoid 0;')).toEqual([
+      "node:module",
+    ]);
+  });
+});
+
 describe("analyzeRuntimeSource import.meta policy", () => {
   it("accepts allowlisted metadata members", () => {
     expect(

@@ -22,8 +22,8 @@ Do **not** read this folder at session start. Promote an item back into
 
 ## Parked items
 
-- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (101 landed,
-  168 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
+- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (104 landed,
+  165 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
   prioritised harness leaves, lint-related first, and granted standing
   merge-on-green; on 2026-08-14 the queue was extended to cover the whole
   harness area (104 queued leaves) for an unattended drain. To dispatch,

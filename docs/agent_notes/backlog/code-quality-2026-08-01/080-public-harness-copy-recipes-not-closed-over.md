@@ -1,6 +1,6 @@
 # 80. The public harness adoption recipes hand-list copy sets that are not closed over their imports, and the "portable" controls generator imports a file the same document calls a Musi adapter
 
-Status: Not started
+Status: Landed on fix/cq-080
 Theme: portable-harness copy boundary · Area: docs · Severity: high · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

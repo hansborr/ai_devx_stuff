@@ -4,7 +4,7 @@ export const markdownAndDocEntries: readonly CoverageEntry[] = [
   {
     id: "docs",
     globs: ["docs/**/*"],
-    files: "961 (mostly .md, plus JSON/MJS audit artifacts and the SRD PDF)",
+    files: "962 (mostly .md, plus JSON/MJS audit artifacts and the SRD PDF)",
     normalLint: { covered: false, note: "`docs/` in global ignores" },
     ratchets: "none",
     parser: "—",

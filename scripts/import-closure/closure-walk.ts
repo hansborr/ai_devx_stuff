@@ -42,6 +42,14 @@ export interface ClosureOptions {
    * closure walks over code that loads runtime-configured inputs.
    */
   readonly nonStaticSpecifiers?: "throw" | "skip";
+  /**
+   * Forwarded to the source policy: `"skip"` (default) walks runtime edges
+   * only, for fingerprints of what executes; `"include"` also follows type-only
+   * imports and re-exports, for copy sets that must compile. Declaration files
+   * are outside the resolver's extension set, so a type-only edge into a
+   * `.d.ts` fails the walk closed rather than being silently dropped.
+   */
+  readonly typeOnlyImports?: "skip" | "include";
 }
 
 export interface ClosureValidation {
@@ -212,7 +220,7 @@ const analysisOf = (
   options: RuntimeSourceOptions,
 ): readonly string[] => {
   const environmentPolicy = (options.allowedEnvironmentVariables ?? []).join(",");
-  const key = `${options.nonStaticSpecifiers ?? "throw"} ${environmentPolicy} ${path}`;
+  const key = `${options.nonStaticSpecifiers ?? "throw"} ${options.typeOnlyImports ?? "skip"} ${environmentPolicy} ${path}`;
   const memoized = sourceAnalysisCache.get(key);
   if (memoized !== undefined && memoized.source === source) return memoized.imports;
   const sourceFile = ts.createSourceFile(path, source, ts.ScriptTarget.Latest, true);

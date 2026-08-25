@@ -12,6 +12,23 @@
 # envelope on stdout. One finding per WARN/FAIL/BLOCK line, tagged with the
 # section's harness.controls.json id. PASS lines emit no finding. Exit code
 # semantics are unchanged (1 iff any FAIL was tallied).
+#
+# Resilience asymmetry — the two modes are NOT equally robust, so do not
+# present doctor as uniformly works-when-broken:
+#   - Prose mode is the bootstrap path. It has no eager `jq` preflight and no
+#     final envelope-emitter step, so it starts and reports far enough to
+#     diagnose a broken Bun install or a missing node_modules — which is
+#     exactly what the dependency/prisma/shared freshness checks are for. It
+#     is not pure Bash: several sub-checks (db:status, the sensors) do invoke
+#     Bun, and those individual sections degrade to FAIL/WARN lines while the
+#     rest of the report still renders.
+#   - `--json` mode hard-requires both jq (preflight below) and a working Bun
+#     (`harness-emit-envelope.ts` at the tail). Either being broken is fatal
+#     before or instead of any diagnosis, so `--json` is for healthy trees and
+#     machine consumers, never for triaging a broken toolchain.
+#
+# Adding a check: see the HOW TO ADD A CHECK decision table above the
+# registration list near the end of this file.
 set -uo pipefail
 
 JSON_MODE=0
@@ -190,6 +207,7 @@ emit_findings_from_capture() {
   done < <(grep -E '^(WARN|BLOCK|FAIL):' "$tmp" 2>/dev/null || true)
 }
 
+# protocol adapter: tally-prose
 # Stream a subcommand's output, then tally PASS/OK/WARN/BLOCK/FAIL lines.
 # In default mode the subcommand's output is tee'd live to the terminal; in
 # JSON mode it is captured silently. If the subcommand exits non-zero without
@@ -232,6 +250,10 @@ run_subcommand() {
   CURRENT_HINT=""
 }
 
+# protocol adapter: report-rc
+# A report-only sensor that says everything through its exit code: 0 = clean,
+# 1 = findings reported (prose already streamed them), >=2 = the sensor itself
+# crashed. Report-only sensors never gate doctor's exit.
 # args: title hint control_id cmd...
 run_report_subcommand() {
   local title="$1" hint="$2" control="$3"
@@ -289,6 +311,9 @@ run_report_subcommand() {
   CURRENT_HINT=""
 }
 
+# protocol adapter: drift-warn
+# A drift:ai report whose findings are `WARN <name>:` lines (no colon after
+# WARN, so the tally-prose grep would miss them). Report-only.
 # args: title hint control_id cmd...
 run_drift_report_subcommand() {
   local title="$1" hint="$2" control="$3"
@@ -341,6 +366,7 @@ run_drift_report_subcommand() {
   CURRENT_HINT=""
 }
 
+# protocol adapter: native-json
 # Special case for migration safety in JSON mode: invoke the scanner with its
 # own --json contract and merge each emitted finding into our NDJSON. This
 # preserves path/line precision that prose-line parsing would lose. In default
@@ -386,6 +412,7 @@ run_migration_safety() {
     bash "$REPO_ROOT/scripts/migration-safety-scan.sh"
 }
 
+# protocol adapter: harness-check (a documented one-off, not a general shape)
 # harness:check has no dedicated registered control (the manifest IS the
 # inventory it verifies). In JSON mode, surface failures under doctor's own
 # registered wrapper control so consumers see the blocking signal in the
@@ -423,7 +450,38 @@ run_harness_check() {
   run_subcommand "$title" "$hint" "$control" bun run "$HARNESS_CHECK_MODULE"
 }
 
+# protocol adapter: inline-shell
+# Run a check implemented as a shell function in this file, rather than as a
+# subprocess with its own output protocol. The adapter owns the whole section
+# frame so the check body only has to emit note_pass/note_warn/note_fail:
+#   - prints the blank line + `=== $title ===` header;
+#   - sets CURRENT_CONTROL/CURRENT_HINT before the body runs and clears them
+#     afterwards, on every return path the body can take. Check bodies must
+#     NOT touch that pair themselves — a value left set leaks into the next
+#     section and mis-tags its JSON findings.
+# An optional applicability guard runs *before* the header is printed, so a
+# check that does not apply to this tree (no @musi/shared workspace, no Prisma
+# schema) skips whole rather than rendering an empty section. The guard is a
+# predicate function so each check keeps its own exact test (-d vs -f).
+# args: title hint control_id check_fn [guard_fn]
+run_inline_check() {
+  local title="$1" hint="$2" control="$3" check_fn="$4" guard_fn="${5:-}"
+  if [[ -n "$guard_fn" ]] && ! "$guard_fn"; then
+    return 0
+  fi
+  CURRENT_CONTROL="$control"
+  CURRENT_HINT="$hint"
+  prose_print ""
+  prose_print "=== $title ==="
+  "$check_fn"
+  CURRENT_CONTROL=""
+  CURRENT_HINT=""
+}
+
 # --- Aggregated existing diagnostics (DX1.1, DX1.2) ---------------------------
+# Registration rows. These two run before the inline checks are defined, so
+# they sit here rather than in the main registration list at the end of the
+# file; the HOW TO ADD A CHECK table above that list covers both places.
 
 run_subcommand "worktree:status" \
   "review output above; common fixes: 'bun run worktree:init' (provision per-worktree DBs/ports/env) or check Postgres connectivity" \
@@ -459,10 +517,6 @@ env_get() {
 }
 
 check_env_files() {
-  CURRENT_CONTROL="doctor-check/env-files"
-  CURRENT_HINT="Restore the missing env file with 'bun run worktree:init' (secondaries) or copy/regenerate it under .devcontainer/.env (primary)."
-  prose_print ""
-  prose_print "=== env-file sanity ==="
   local primary_env="$PRIMARY_ROOT/.devcontainer/.env"
   if [[ -f "$primary_env" ]]; then
     note_pass "found $primary_env (admin DB credentials)"
@@ -521,8 +575,6 @@ check_env_files() {
   elif (( is_secondary )); then
     note_warn "missing $client_env — run 'bun run worktree:init' to regenerate"
   fi
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
 # --- port binding -------------------------------------------------------------
@@ -539,13 +591,8 @@ port_in_use() {
 }
 
 check_port_binding() {
-  CURRENT_CONTROL="doctor-check/port-binding"
-  CURRENT_HINT="If a port is bound and it isn't your own dev server, run 'ss -tlnp sport = :<port>' to identify the process."
-  prose_print ""
-  prose_print "=== port binding ==="
   if ! command -v ss >/dev/null 2>&1; then
     note_warn "ss not available — skipping port-binding check"
-    CURRENT_CONTROL=""; CURRENT_HINT=""
     return 0
   fi
   local root_env="$REPO_ROOT/.env"
@@ -564,7 +611,6 @@ check_port_binding() {
     # defaults (server 8001, client 8000) and binding behavior is
     # uninteresting until they're explicitly configured.
     note_pass "no worktree-specific ports configured (primary defaults apply)"
-    CURRENT_CONTROL=""; CURRENT_HINT=""
     return 0
   fi
 
@@ -581,8 +627,6 @@ check_port_binding() {
       note_pass "$label port $port is free"
     fi
   done
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
 # --- dependency freshness -----------------------------------------------------
@@ -591,52 +635,34 @@ check_port_binding() {
 # signal.
 
 check_dependency_freshness() {
-  CURRENT_CONTROL="doctor-check/dependency-freshness"
-  CURRENT_HINT="Run 'bun install' to refresh node_modules so it matches bun.lock."
-  prose_print ""
-  prose_print "=== dependency freshness ==="
   note_freshness_result "$(musi_dependency_freshness "$REPO_ROOT")" "dependency"
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
+
+# Applicability guard for the check below: skip entirely on a tree with no
+# @musi/shared workspace (sandbox/fixture repos) so a non-monorepo never
+# reports a phantom build failure — or a phantom section header.
+has_shared_workspace() { [ -d "$REPO_ROOT/packages/shared/src" ]; }
 
 check_shared_dist_freshness() {
-  # Skip entirely on a tree with no @musi/shared workspace (sandbox/fixture
-  # repos) so a non-monorepo never reports a phantom build failure.
-  [ -d "$REPO_ROOT/packages/shared/src" ] || return 0
-  CURRENT_CONTROL="doctor-check/shared-dist-freshness"
-  CURRENT_HINT="Run 'bun run --filter @musi/shared build' so the dist tests import matches packages/shared/src."
-  prose_print ""
-  prose_print "=== @musi/shared dist freshness ==="
-  # The skip-guard above already returned for a tree with no @musi/shared
-  # workspace — the only state musi_shared_dist_freshness reports as `n/a` — so
-  # `n/a` is unreachable here and note_freshness_result never sees it.
+  # The registration's has_shared_workspace guard already skipped a tree with
+  # no @musi/shared workspace — the only state musi_shared_dist_freshness
+  # reports as `n/a` — so `n/a` is unreachable here and note_freshness_result
+  # never sees it.
   note_freshness_result "$(musi_shared_dist_freshness "$REPO_ROOT")" "shared dist"
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
+# Applicability guard for the check below: skip entirely on a tree with no
+# Prisma schema (sandbox/fixture repos).
+has_prisma_schema() { [ -f "$REPO_ROOT/packages/server/prisma/schema.prisma" ]; }
+
 check_prisma_client_freshness() {
-  # Skip entirely on a tree with no Prisma schema (sandbox/fixture repos).
-  [ -f "$REPO_ROOT/packages/server/prisma/schema.prisma" ] || return 0
-  CURRENT_CONTROL="doctor-check/prisma-client-freshness"
-  CURRENT_HINT="Run 'bun run --filter @musi/server prisma:generate' so the generated client matches schema.prisma."
-  prose_print ""
-  prose_print "=== Prisma client freshness ==="
   note_freshness_result "$(musi_prisma_client_freshness "$REPO_ROOT")" "Prisma client"
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
 check_yamllint_system_tool() {
-  CURRENT_CONTROL="doctor-check/yamllint-system-tool"
-  CURRENT_HINT="Install yamllint with 'apt install yamllint' (version >=1.29.0)."
-  prose_print ""
-  prose_print "=== yamllint system tool ==="
   local bin version
   if ! command -v yamllint >/dev/null 2>&1; then
     note_warn "yamllint not found on PATH - install with 'apt install yamllint' (version >=1.29.0)"
-    CURRENT_CONTROL=""; CURRENT_HINT=""
     return 0
   fi
   bin="$(command -v yamllint)"
@@ -646,19 +672,12 @@ check_yamllint_system_tool() {
   else
     note_pass "yamllint available at $bin"
   fi
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
 check_shellcheck_system_tool() {
-  CURRENT_CONTROL="doctor-check/shellcheck-system-tool"
-  CURRENT_HINT="Install shellcheck with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing."
-  prose_print ""
-  prose_print "=== shellcheck system tool ==="
   local bin version
   if ! command -v shellcheck >/dev/null 2>&1; then
     note_warn "shellcheck not found on PATH - install with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing"
-    CURRENT_CONTROL=""; CURRENT_HINT=""
     return 0
   fi
   bin="$(command -v shellcheck)"
@@ -668,8 +687,6 @@ check_shellcheck_system_tool() {
   else
     note_pass "shellcheck available at $bin"
   fi
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
 # --- lint host-tool inventory -------------------------------------------------
@@ -774,10 +791,6 @@ report_binary_lint_tool() {
 }
 
 check_lint_tools() {
-  CURRENT_CONTROL="doctor-check/lint-tools"
-  CURRENT_HINT="Run 'bun install' to provision the npm-managed lint tools; doctor reports versions but never installs."
-  prose_print ""
-  prose_print "=== lint tools ==="
   local hadolint_kg bun_kg
   hadolint_kg="$(pkg_config_value hadolint)"
   bun_kg="$(bun -e 'const p=require(process.argv[1]);process.stdout.write(String(p.packageManager||""))' "$REPO_ROOT/package.json" 2>/dev/null || true)"
@@ -794,18 +807,98 @@ check_lint_tools() {
   report_binary_lint_tool "hadolint" "hadolint" "$hadolint_kg" "required when Dockerfiles are present" \
     "MUSI_HADOLINT_BIN"
   report_binary_lint_tool "bun" "bun" "$bun_kg" "required: runtime and package manager"
-  CURRENT_CONTROL=""
-  CURRENT_HINT=""
 }
 
-check_env_files
-check_port_binding
-check_dependency_freshness
-check_shared_dist_freshness
-check_prisma_client_freshness
-check_yamllint_system_tool
-check_shellcheck_system_tool
-check_lint_tools
+# =============================================================================
+# HOW TO ADD A CHECK
+# =============================================================================
+# Every diagnostic below is one registration row: `<adapter> <title> <hint>
+# <control-id> <what-to-run>`. Three steps, in this order.
+#
+# 1. Pick the protocol adapter that matches how your check reports. Doctor
+#    streams sub-checks as-is (DX1.3) and is forbidden to reimplement them, so
+#    the adapters exist to speak the output contracts upstream tools already
+#    have. Do not unify them; pick one.
+#
+#      | adapter        | function                     | when                  |
+#      |----------------|------------------------------|-----------------------|
+#      | inline-shell   | run_inline_check             | a check_* function in |
+#      |                |                              | this file that calls  |
+#      |                |                              | note_pass/warn/fail   |
+#      | tally-prose    | run_subcommand               | a subprocess printing |
+#      |                |                              | PASS:/OK:/WARN:/      |
+#      |                |                              | BLOCK:/FAIL: lines    |
+#      | report-rc      | run_report_subcommand        | a report-only sensor  |
+#      |                |                              | keyed on exit code    |
+#      |                |                              | 0 / 1 / >=2           |
+#      | drift-warn     | run_drift_report_subcommand  | a drift:ai report     |
+#      |                |                              | printing `WARN <n>:`  |
+#      |                |                              | lines                 |
+#      | native-json    | run_migration_safety         | a sensor with its own |
+#      |                |                              | --json envelope to    |
+#      |                |                              | merge (one-off; per   |
+#      |                |                              | sensor, not generic)  |
+#      | harness-check  | run_harness_check            | documented one-off,   |
+#      |                |                              | see its comment       |
+#
+#    None of them fitting means the upstream tool speaks a sixth protocol.
+#    Write a new `run_*` adapter with a `# protocol adapter:` comment naming
+#    it, and add a row here — do not bend an existing adapter.
+#
+# 2. Declare the control id in harness.controls.json. `bun run harness:check`
+#    enforces two-way parity, so a `doctor-check/*` id quoted here without a
+#    manifest entry (or the reverse) fails the gate.
+#
+# 3. Append the registration row. Argv order is fixed for every adapter:
+#    title, hint, control id, then the adapter's own tail (a command for the
+#    subprocess adapters; `check_fn [guard_fn]` for inline-shell). The hint is
+#    the exact follow-up command a reader should run — it becomes the finding's
+#    howToFix in --json mode.
+#
+# The rows themselves are the check inventory; there is deliberately no second
+# registry or generated block. Note that `worktree:status` and `db:status`
+# register earlier in the file, above the inline check definitions.
+# =============================================================================
+
+run_inline_check "env-file sanity" \
+  "Restore the missing env file with 'bun run worktree:init' (secondaries) or copy/regenerate it under .devcontainer/.env (primary)." \
+  "doctor-check/env-files" \
+  check_env_files
+
+run_inline_check "port binding" \
+  "If a port is bound and it isn't your own dev server, run 'ss -tlnp sport = :<port>' to identify the process." \
+  "doctor-check/port-binding" \
+  check_port_binding
+
+run_inline_check "dependency freshness" \
+  "Run 'bun install' to refresh node_modules so it matches bun.lock." \
+  "doctor-check/dependency-freshness" \
+  check_dependency_freshness
+
+run_inline_check "@musi/shared dist freshness" \
+  "Run 'bun run --filter @musi/shared build' so the dist tests import matches packages/shared/src." \
+  "doctor-check/shared-dist-freshness" \
+  check_shared_dist_freshness has_shared_workspace
+
+run_inline_check "Prisma client freshness" \
+  "Run 'bun run --filter @musi/server prisma:generate' so the generated client matches schema.prisma." \
+  "doctor-check/prisma-client-freshness" \
+  check_prisma_client_freshness has_prisma_schema
+
+run_inline_check "yamllint system tool" \
+  "Install yamllint with 'apt install yamllint' (version >=1.29.0)." \
+  "doctor-check/yamllint-system-tool" \
+  check_yamllint_system_tool
+
+run_inline_check "shellcheck system tool" \
+  "Install shellcheck with your system package manager (dnf/apt/brew); see https://github.com/koalaman/shellcheck#installing." \
+  "doctor-check/shellcheck-system-tool" \
+  check_shellcheck_system_tool
+
+run_inline_check "lint tools" \
+  "Run 'bun install' to provision the npm-managed lint tools; doctor reports versions but never installs." \
+  "doctor-check/lint-tools" \
+  check_lint_tools
 
 run_subcommand "lint-ratchet merge-driver health" \
   "run 'bun run lint:ratchet:install-merge-driver' to refresh local Git merge-driver config, installed driver copy, and info attributes" \

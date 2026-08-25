@@ -372,6 +372,31 @@ describe("validateSeedImportClosure options", () => {
     expect(files).toEqual(["entry.ts", "local.ts", "stubbed.ts"]);
   });
 
+  /**
+   * The default walk answers "what executes"; a copy-set consumer needs "what
+   * compiles", and the two differ exactly at the type-only edge. Both modes run
+   * over the same bytes here, so this also pins that the memoized analysis is
+   * keyed by the policy rather than by the path alone.
+   */
+  it("follows a type-only edge only when the consumer opts in", () => {
+    const root = tmpRepo.writeRepo(
+      {
+        "entry.ts":
+          'import type { Shape } from "./shape.js";\n' +
+          "export const identity = (value: Shape): Shape => value;\n",
+        "shape.ts": "export interface Shape {\n  readonly id: string;\n}\n",
+      },
+      "seed-closure-type-only-",
+    );
+    const options = { root, entry: "entry.ts", allowedRoots: ["."], allowedFiles: [] } as const;
+
+    expect(validateSeedImportClosure(options).files).toEqual(["entry.ts"]);
+    expect(validateSeedImportClosure({ ...options, typeOnlyImports: "include" }).files).toEqual([
+      "entry.ts",
+      "shape.ts",
+    ]);
+  });
+
   it("records an imported JSON module without parsing it for further edges", () => {
     const root = tmpRepo.writeRepo(
       {

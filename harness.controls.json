@@ -1631,6 +1631,30 @@
       }
     },
     {
+      "id": "doc-generator/harness-porting-manifest",
+      "kind": "doc-generator",
+      "category": "maintainability",
+      "principle": "Derive the public adoption copy sets in docs/ai-harness.md from the source import graph instead of hand-listing them, and fail closed when a recipe closure reaches an unclassified file or an undeclared Musi adapter.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-porting-manifest.ts",
+      "invocation": "bun run docs:harness-porting",
+      "generatedSurface": {
+        "triggerPaths": [
+          "scripts/cli-option-values.ts",
+          "scripts/harness-audit.ts",
+          "scripts/harness/",
+          "scripts/import-closure/",
+          "scripts/lib/",
+          "scripts/lint-ratchet/"
+        ],
+        "outputPaths": ["docs/generated/harness-porting-manifest.md"],
+        "checkScript": "docs:harness-porting:check",
+        "warnLabel": "harness porting copy manifest",
+        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+      }
+    },
+    {
       "id": "doc-generator/lint-guidance",
       "kind": "doc-generator",
       "category": "maintainability",

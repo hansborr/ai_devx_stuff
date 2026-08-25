@@ -42,6 +42,18 @@ import. Callers walking runtime-configured loaders may explicitly choose the
 existing `nonStaticSpecifiers: "skip"` policy; that choice belongs at the call
 site and does not weaken the default.
 
+Type-only imports, type-only re-exports, and `import(...)` type nodes are not
+runtime edges and are dropped by default: a seed fingerprint enumerates what
+executes. A caller deriving a *copy set* needs a checkout that compiles, so it
+opts into those edges with `typeOnlyImports: "include"`. The CommonJS
+value-space policy does not apply to them — a type edge loads nothing — but
+resolution does, so a type-only edge into an extension the resolver does not
+cover (a `.d.ts`, say) fails the walk closed. Like the non-static choice, this
+policy belongs at the call site. The non-static specifier policy applies as
+written: a type-space specifier the walker cannot read as a static string —
+interpolated or not a string at all — throws or skips exactly as a runtime one
+does, rather than vanishing from the closure.
+
 ## External Entry Points
 
 - `validateSeedImportClosure`, `ClosureOptions`, and `ClosureValidation` from
@@ -50,9 +62,10 @@ site and does not weaken the default.
   used by [`scripts/worktree-db.sh`](../worktree-db.sh); `--emit-closure-nul`
   emits the fingerprint copy set.
 
-The four consumer domains are worktree-db (`scripts/worktree-db.sh`), path
+The five consumer domains are worktree-db (`scripts/worktree-db.sh`), path
 policy (`scripts/path-policy/fixture-import-closure.ts`), harness generated
-surface derivation (`scripts/harness/generated-surface-dependencies.ts`), and
+surface derivation (`scripts/harness/generated-surface-dependencies.ts`), the
+public harness porting recipes (`scripts/harness/porting-recipes.ts`), and
 lint-ratchet fixture checks (`scripts/lint-ratchet/output-emission.test.ts` plus
 `scripts/tests/test-lint-ratchet.sh`). Consumer-specific allowlists, terminal
 files, external packages, and non-static-specifier choices stay at those call
@@ -76,7 +89,9 @@ sets, and diagnostics derived from the returned closure.
 - Run focused tests with
   `bun run test:scripts:file -- scripts/import-closure/*.test.ts`; the
   worktree-db, harness-check, and lint-ratchet shell smokes cover the external
-  call sites.
+  call sites, and
+  [`porting-recipes.test.ts`](../harness/porting-recipes.test.ts) covers the
+  public-copy-recipe consumer against the live tree.
 
 ## Gotchas
 

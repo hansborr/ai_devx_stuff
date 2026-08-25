@@ -259,38 +259,53 @@ The diagnostics envelope is the first exception — `@musi/harness-diagnostics`
 export map, and ESLint import boundary, so adopters copy that directory rather
 than picking a single file out of `packages/shared`.
 
+Every TypeScript copy list below is derived, not hand-typed — the shell helpers
+are the one exception, and say so where they are listed. The prose names
+entrypoints and says why a piece is portable;
+[`docs/generated/harness-porting-manifest.md`](generated/harness-porting-manifest.md)
+carries the complete file set each recipe reaches, walked from the source import
+graph by `scripts/import-closure/` and refreshed with
+`bun run docs:harness-porting`. Copy from the manifest. A hand-maintained list
+in this section would silently fall behind the import graph, which is exactly
+how earlier versions of these starters shipped copy sets that could not compile.
+
 **Portable core** is the harness machinery that should carry to another
 TypeScript repo with limited policy edits:
 
 - The diagnostics envelope and fusion path: the portable
-  `@musi/harness-diagnostics` package (`tools/harness-diagnostics/`),
-  `scripts/harness/harness-diagnostics-output.ts`,
+  `@musi/harness-diagnostics` package (`tools/harness-diagnostics/`) entered
+  through `scripts/harness/harness-diagnostics-output.ts`,
   `scripts/harness-audit.ts`, and
-  `scripts/harness/harness-audit-report.ts` — plus the CLI substrate
-  they parse through: `scripts/lib/cli.ts` (spec-driven `parseCli`
-  with a structural schema contract) and its value reader
-  `scripts/cli-option-values.ts`. The pair copies together —
-  `cli.ts` imports that sibling reader and nothing else, so the
-  substrate carries no package imports; the per-tool option schemas
-  use Zod, which the envelope schema already requires, so the copy
-  set gains no new dependency.
+  `scripts/harness/harness-audit-report.ts`. Those entrypoints parse through
+  the CLI substrate — `scripts/lib/cli.ts` (spec-driven `parseCli` with a
+  structural schema contract) and its value reader
+  `scripts/cli-option-values.ts` — whose per-tool option schemas use Zod, which
+  the envelope schema already requires, so the copy set gains no new
+  dependency. The manifest's `diagnostics-starter` recipe is the full file
+  set.
 - The lint-ratchet engine under `scripts/lint-ratchet/` plus the
   `scripts/lint-ratchet.ts` entrypoint. The current registry still contains
   Musi-specific rules; use `docs/guides/lint-ratchet-adoption.md` for the
   adopter copy recipe and replacement points.
-- The hook and control wiring machinery:
+- The hook and control wiring machinery, entered through
   `scripts/harness/generate-hook-wiring.ts`,
   `scripts/harness/hook-wiring-schema.ts`,
   `scripts/harness/hook-wiring-doc.ts`,
   `scripts/harness/generate-harness-controls.ts`,
   `scripts/harness/generate-verify-steps.ts`, and
-  `scripts/harness/verify-step-schema.ts`.
+  `scripts/harness/verify-step-schema.ts`. Those six are entrypoints, not the
+  copy set: they reach further modules across `scripts/harness/`,
+  `scripts/lib/`, and `scripts/import-closure/`, and — through the one-file
+  indirections in `scripts/lib/atomic-write.ts` and
+  `scripts/lib/codepoint-compare.ts` — the `@musi/lint-ratchet` engine package.
+  The manifest's `hook-control-core` recipe lists every one.
 - Reusable shell helpers for hook state, caching, bounded output, and wiring
   checks: `scripts/ai-hooks/cache.sh`,
   `scripts/ai-hooks/throttle-state.sh`,
   `scripts/ai-hooks/output-filter.sh`,
   `scripts/ai-hooks/check-wiring.sh`, and the shared sourcing helper
-  `scripts/ai-hooks/common.sh`.
+  `scripts/ai-hooks/common.sh`. These are sourced, not imported, so no closure
+  walker derives them; this list is the authoritative one.
 
 **Musi adapters** are this repo's instantiation of that machinery. Treat these
 as examples to replace, not portable policy:
@@ -312,6 +327,18 @@ as examples to replace, not portable policy:
 - Harness shims and registrations under `.claude/`, `.codex/`, `.copilot/`,
   and `.github/hooks/copilot.json`.
 
+The porting manifest enforces this split rather than restating it. Every file a
+recipe's closure reaches must be portable machinery under a declared root or a
+declared adapter edit carrying a replacement note, so a new import from portable
+code into Musi policy *outside* those roots fails
+`bun run docs:harness-porting:check` instead of shipping inside a copy recipe.
+The roots are directory prefixes: Musi policy added under one is classified
+portable until it is declared an adapter, which is what the adapter list is for. One such edge exists today:
+`scripts/harness/generate-harness-controls.ts` imports the concrete ratchet
+registry, and the manifest names the replacement an adopter writes. Adapters are
+walked as terminal files, so what a Musi adapter imports is Musi policy and
+stays out of every copy set.
+
 **App code** is not part of the copyable harness. Musi's packages, Prisma
 schema, SRD data, campaign/VTT domain code, module docs, and product tests are
 evidence for how the harness is used, but adopters should not copy them to get
@@ -320,9 +347,13 @@ the harness running.
 Minimal starter:
 
 1. Copy the `tools/harness-diagnostics` package (`@musi/harness-diagnostics`)
-   plus `scripts/harness/harness-diagnostics-output.ts`,
+   and the `diagnostics-starter` file set from
+   [the porting manifest](generated/harness-porting-manifest.md). Its
+   entrypoints are `scripts/harness/harness-diagnostics-output.ts`,
    `scripts/harness-audit.ts`, and
-   `scripts/harness/harness-audit-report.ts`.
+   `scripts/harness/harness-audit-report.ts`; the manifest adds the CLI
+   substrate and write helpers they import, and the engine package behind
+   them.
 2. Add one producer that writes `HARNESS_DIAGNOSTICS_OUTPUT`, either by
    adopting `lint:ratchet` or by wrapping an existing check. A producer builds
    an envelope and hands it to `emitHarnessDiagnostics(envelope, route,
@@ -342,7 +373,12 @@ Advanced controls starter:
 
 1. Copy `harness.controls.json` as a template, then delete Musi controls before
    filling in the target repo's policy.
-2. Copy the hook wiring and generated-doc scripts listed in portable core.
+2. Copy the `hook-control-core` file set from
+   [the porting manifest](generated/harness-porting-manifest.md), together with
+   the directory copies it lists, then make the edits it names: the adapter
+   replacement, and the `porting-knob` values hard-coded inside the copied
+   files. The manifest derives that knob list from the markers themselves, so
+   it stays complete as the machinery moves.
 3. Copy only the harness shims the target tools need, then replace local hook
    policy with the target repo's branch, database, command, and protected-path
    rules.

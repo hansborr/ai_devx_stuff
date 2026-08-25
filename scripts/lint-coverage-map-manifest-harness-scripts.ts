@@ -151,6 +151,24 @@ export const generateHarnessControlsEntries: readonly CoverageEntry[] = [
       "Generates `eslint-config/local-plugin.generated.js` from the rule modules on disk, and `harness.controls.lint-rules.generated.json` from those modules plus their activation surfaces, so neither the `local` plugin registry nor the lint-rule harness controls need a hand-maintained list.",
   },
   {
+    id: "scripts-harness-porting-manifest-ts",
+    globs: [
+      "scripts/harness/generate-porting-manifest.ts",
+      "scripts/harness/porting-recipes.ts",
+      "scripts/harness/porting-recipes.test.ts",
+    ],
+    files: "3 .ts",
+    normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
+    ratchets:
+      "`ratchet/local-type-assertion-boundary`; the test also uses the script-test Vitest floors",
+    parser: "ESLint via `tsconfig.scripts.json` parser override",
+    proposed:
+      "none — the derived public copy manifest is gate-checked by `docs:harness-porting:check` and its classification failures are covered by focused unit tests",
+    status: ["linted", "ratcheted"],
+    followUp:
+      "Derives the docs/ai-harness.md adoption copy sets from the source import closure (`scripts/import-closure/`) instead of hand lists, and fails closed when a recipe reaches an unclassified file or an undeclared Musi adapter.",
+  },
+  {
     id: "scripts-harness-generated-surfaces-ts",
     globs: [
       "scripts/harness/generated-surface-dependencies.ts",

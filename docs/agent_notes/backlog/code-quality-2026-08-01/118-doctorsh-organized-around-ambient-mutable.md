@@ -1,6 +1,6 @@
 # 118. Every inline doctor check hand-manages ambient section state, and adding a diagnostic means picking among five undocumented runner protocols with no recipe
 
-Status: Not started
+Status: Landed on fix/cq-173
 Theme: diagnostic check registration · Area: harness · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

@@ -147,21 +147,6 @@ export const driftAiFixtureEntries: readonly CoverageEntry[] = [
     followUp: "Engine-agnostic ground truth for comparing clone engines before promotion.",
   },
   {
-    id: "scripts-drift-ai-fixtures-near-duplicate-gate-ts",
-    globs: ["scripts/drift-ai/fixtures/near-duplicate-gate/*.ts"],
-    files: "3 .ts (two admitted functions plus one synthetic changed-file clone)",
-    normalLint: {
-      covered: false,
-      note: "targeted `scripts/drift-ai/fixtures/**` ignore, matching `tsconfig.scripts.json`",
-    },
-    ratchets: "none",
-    parser: "—",
-    proposed:
-      "`excluded` — executable-looking detector inputs consumed as text by `near-duplicates.test.ts`; never live code",
-    status: ["excluded"],
-    followUp: "Pins the changed-file no-new gate and committed-baseline behavior.",
-  },
-  {
     id: "scripts-drift-ai-fixtures-near-duplicates-v2",
     globs: ["scripts/drift-ai/fixtures/near-duplicates-v2/**"],
     files: "6 .ts + 1 .json (C3 exact-function, repeated-block, and precision-trap corpus)",

@@ -44,6 +44,7 @@ scripts/harness/generate-hook-wiring.ts
 scripts/harness/generate-lint-rule-controls.ts
 scripts/harness/generate-local-plugin.ts
 scripts/harness/generate-manifest-json-schema.ts
+scripts/harness/generate-porting-manifest.ts
 scripts/harness/generate-pre-push-scope-trigger.ts
 scripts/harness/generate-restricted-disable-rules.ts
 scripts/harness/generate-skill-artifacts.ts
@@ -66,6 +67,7 @@ scripts/harness/local-rule-config.ts
 scripts/harness/local-rule-discovery.ts
 scripts/harness/manifest-contract-check.ts
 scripts/harness/porting-knob-parity.ts
+scripts/harness/porting-recipes.ts
 scripts/harness/pre-push-scope-trigger.generated.sh
 scripts/harness/pre-push-scope-trigger.ts
 scripts/harness/registration-check.ts

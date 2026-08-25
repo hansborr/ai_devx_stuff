@@ -62,6 +62,23 @@ Downstream of that seam, the durable clusters are:
   [`local-rule-discovery.ts`](./local-rule-discovery.ts)), restricted disable
   rules, the pre-push scope trigger, and the agent-facing controls doc each
   have a `generate-*.ts` with a paired `--check` mode.
+- **Public porting recipes.**
+  [`porting-recipes.ts`](./porting-recipes.ts) declares each `docs/ai-harness.md`
+  adoption recipe as an entrypoint set plus a portable/adapter classification,
+  and [`generate-porting-manifest.ts`](./generate-porting-manifest.ts) walks
+  those entrypoints through `scripts/import-closure/` to render
+  `docs/generated/harness-porting-manifest.md`. The walk opts into type-only
+  edges (`typeOnlyImports: "include"`) because an adopter's checkout has to
+  compile, not merely run. Declared adapters are walked as
+  terminal files, and any member that is neither under a portable root nor a
+  declared adapter carrying a corroborated replacement note fails the check —
+  the copy sets an outside adopter follows can never drift from the import
+  graph. Copying is not the whole adoption: each recipe's copy set is also
+  scanned for `porting-knob` markers through
+  [`porting-knob-parity.ts`](./porting-knob-parity.ts), so the Musi values
+  hard-coded inside portable machinery are rendered per recipe instead of being
+  hand-listed in the guide, and a declared whole-package copy is corroborated
+  against the `name` in the `package.json` its directory holds.
 - **Skill artifacts.** [`generate-skill-artifacts.ts`](./generate-skill-artifacts.ts)
   projects skill overlays and smoke-subject blocks through
   [`skill-artifact-projection.ts`](./skill-artifact-projection.ts);
@@ -135,6 +152,10 @@ check, not by any generator write.
   `scripts/tests/test-harness-emit-envelope.sh` (run one with `bash <path>`).
 - [`registration-explain.test.ts`](./registration-explain.test.ts) covers the
   `--explain` report model separately from the gate path.
+- [`porting-recipes.test.ts`](./porting-recipes.test.ts) proves the
+  classification failures on synthetic trees and pins the real-tree manifest
+  byte-for-byte, so a widened import shows up as a test diff before it reaches
+  an adopter.
 
 ## Gotchas
 

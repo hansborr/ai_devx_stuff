@@ -177,6 +177,21 @@ export const otherScriptFixtureEntries: readonly CoverageEntry[] = [
     followUp: "—",
   },
   {
+    id: "scripts-fixtures-near-duplicate-gate-ts",
+    globs: ["scripts/fixtures/near-duplicate-gate/*.ts"],
+    files: "3 .ts (two admitted functions plus one synthetic changed-file clone)",
+    normalLint: {
+      covered: false,
+      note: "targeted `scripts/fixtures/**` ignore, matching `tsconfig.scripts.json` and knip project-graph exclusions",
+    },
+    ratchets: "none",
+    parser: "—",
+    proposed:
+      "`excluded` — executable-looking sensor inputs consumed as text by `sensor-near-duplicates.test.ts`; never live code",
+    status: ["excluded"],
+    followUp: "Pins the changed-file no-new gate and committed-baseline behavior.",
+  },
+  {
     id: "scripts-tests-harness-check-fixture-manifest-generated-txt",
     globs: ["scripts/tests/harness-check-fixture-manifest.generated.txt"],
     files: "1 .txt",

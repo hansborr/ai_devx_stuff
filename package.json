@@ -119,6 +119,8 @@
     "docs:baseline-conflict-recipes:check": "bun run scripts/generate-baseline-conflict-recipes.ts -- --check",
     "docs:harness-controls": "bun run scripts/harness/generate-harness-controls.ts",
     "docs:harness-controls:check": "bun run scripts/harness/generate-harness-controls.ts -- --check",
+    "docs:harness-porting": "bun run scripts/harness/generate-porting-manifest.ts",
+    "docs:harness-porting:check": "bun run scripts/harness/generate-porting-manifest.ts -- --check",
     "docs:local-eslint-rule-starter:check": "bun scripts/check-local-eslint-rule-starter.ts",
     "docs:lint-coverage-map:check": "bun run scripts/lint-coverage-map-check.ts",
     "docs:lint-coverage-map:audit": "bun run scripts/lint-coverage-map-check.ts -- --check-eslint-reach",

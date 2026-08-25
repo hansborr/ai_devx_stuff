@@ -611,10 +611,6 @@
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
-        "scripts/drift-ai/near-duplicates.test.ts": {
-          "count": 5,
-          "messagesFingerprint": "sha256:0514f216b46741d6b8cef19e40948a868c1d0cfbb9ba0da685aa1ce407e335fc"
-        },
         "scripts/drift-ai/prototype-subcommands.test.ts": {
           "count": 2,
           "messagesFingerprint": "sha256:aaaf105ea01e877f38d4239d8c5e79b5def7be96de3e82e5b76e58e427e029c1"
@@ -646,6 +642,10 @@
         "scripts/sensor-blob-size.test.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
+        },
+        "scripts/sensor-near-duplicates.test.ts": {
+          "count": 5,
+          "messagesFingerprint": "sha256:0514f216b46741d6b8cef19e40948a868c1d0cfbb9ba0da685aa1ce407e335fc"
         },
         "scripts/test-support/tmp-repo.test-helper.ts": {
           "count": 1,

@@ -116,9 +116,10 @@ export const topLevelScriptEntrypointEntries: readonly CoverageEntry[] = [
       "scripts/sensor-near-duplicates-baseline-io.ts",
       "scripts/sensor-near-duplicates-merge-cli.ts",
       "scripts/sensor-near-duplicates-merge-cli.test.ts",
+      "scripts/sensor-near-duplicates.test.ts",
     ],
     files:
-      "9 .ts (changed-file near-clone gate, reasoned admission CLI plus its parser characterization tests, HEAD-anchored shrink-only pair-identity baseline, semantic merge CLI, and focused merge coverage)",
+      "10 .ts (changed-file near-clone gate plus its baseline-gate suite, reasoned admission CLI plus its parser characterization tests, HEAD-anchored shrink-only pair-identity baseline, semantic merge CLI, and focused merge coverage)",
     normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
     ratchets:
       "`ratchet/local-type-assertion-boundary`; merge test also uses the script-test Vitest floors",

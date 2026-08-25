@@ -1,6 +1,6 @@
 # 173. The near-duplicate sensor gate contract is buried inside the detector suite
 
-Status: Not started
+Status: Landed on fix/cq-173
 Theme: Sensor test ownership · Area: harness · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

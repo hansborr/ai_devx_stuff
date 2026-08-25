@@ -78,6 +78,7 @@ const config = {
         "!scripts/**/*.d.ts",
         "!scripts/codemods/fixtures/**",
         "!scripts/drift-ai/fixtures/**",
+        "!scripts/fixtures/**",
         "!scripts/logs-audit/fixtures/**",
       ],
       ignore: ["scripts/codemods/fixtures/**"],

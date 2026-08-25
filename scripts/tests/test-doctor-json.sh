@@ -237,6 +237,28 @@ setup_fast_doctor_fixture
 bash -n "$SCRIPT" || fail "doctor.sh fails bash -n"
 ok "doctor.sh passes bash -n"
 
+# --- inline checks do not hand-manage ambient JSON-mode state ----------------
+# Contract: only the `run_*` protocol adapters may set or clear
+# CURRENT_CONTROL/CURRENT_HINT. An inline `check_*` body that sets them itself
+# has to remember to clear them on every early-return path, and a leaked value
+# mis-tags the next section's JSON findings. `run_inline_check` owns that
+# lifecycle for all of them, so any assignment inside a non-adapter function is
+# a regression.
+AMBIENT_OFFENDERS="$(
+  awk '
+    /^[A-Za-z_][A-Za-z0-9_]*\(\) \{/ { fn = $1; sub(/\(\).*/, "", fn); next }
+    /^\}/ { fn = ""; next }
+    /^[[:space:]]*CURRENT_(CONTROL|HINT)=/ {
+      if (fn != "" && fn !~ /^run_/) printf "%s:%d: %s\n", FILENAME, FNR, $0
+    }
+  ' "$SCRIPT"
+)"
+if [ -n "$AMBIENT_OFFENDERS" ]; then
+  printf '%s\n' "$AMBIENT_OFFENDERS" >&2
+  fail "CURRENT_CONTROL/CURRENT_HINT are set outside a run_* adapter (route the check through run_inline_check)"
+fi
+ok "only run_* adapters manage CURRENT_CONTROL/CURRENT_HINT"
+
 bash "$SCRIPT" --help >"$DOCTOR_HELP_OUT" 2>&1 || fail "doctor --help should succeed"
 grep -qF -- '--json' "$DOCTOR_HELP_OUT" \
   || fail "doctor --help should mention --json"
@@ -384,6 +406,28 @@ ok "default-mode summary section is unchanged"
 grep -qF '=== lint tools ===' "$DEFAULT_OUT" \
   || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode '=== lint tools ===' section missing"; }
 ok "default-mode lint-tools section is present"
+
+# A check whose registration carries an applicability guard must skip *whole*:
+# no section header, no findings. The fixture root has no @musi/shared
+# workspace and no Prisma schema, so both freshness sections must be absent
+# rather than rendering an empty header. A wrapper that prints the header
+# before consulting the guard regresses exactly here.
+for absent_section in '=== @musi/shared dist freshness ===' '=== Prisma client freshness ==='; do
+  if grep -qF "$absent_section" "$DEFAULT_OUT"; then
+    head -c 2000 "$DEFAULT_OUT" >&2
+    fail "default-mode printed '$absent_section' on a tree that does not have that workspace"
+  fi
+done
+ok "guarded inline checks skip their section header entirely"
+
+# The unguarded inline checks still render, in registration order.
+for present_section in '=== env-file sanity ===' '=== port binding ===' \
+                       '=== dependency freshness ===' '=== yamllint system tool ===' \
+                       '=== shellcheck system tool ==='; do
+  grep -qF "$present_section" "$DEFAULT_OUT" \
+    || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode '$present_section' section missing"; }
+done
+ok "default-mode inline-check sections are present"
 
 grep -qF '=== lint-ratchet merge-driver health ===' "$DEFAULT_OUT" \
   || { head -c 2000 "$DEFAULT_OUT" >&2; fail "default-mode lint-ratchet merge-driver health section missing"; }

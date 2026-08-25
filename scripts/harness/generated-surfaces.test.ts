@@ -65,7 +65,7 @@ function makeFacetRoot(facetOverrides: FacetOverrides = {}, invocation?: string)
 }
 
 describe("loadGeneratedSurfaces (real manifest)", () => {
-  it("returns exactly the seventeen registered generated surfaces in deterministic id order", () => {
+  it("returns exactly the eighteen registered generated surfaces in deterministic id order", () => {
     const records = loadGeneratedSurfaces(repoRoot);
     expect(records.map((record) => record.id)).toEqual([
       "check/command-policy-generator",
@@ -82,6 +82,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "check/verify-steps-generator",
       "doc-generator/baseline-conflict-recipes",
       "doc-generator/harness-controls",
+      "doc-generator/harness-porting-manifest",
       "doc-generator/lint-coverage-map",
       "doc-generator/lint-guidance",
       "doc-generator/manifest-json-schema",
@@ -104,6 +105,7 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "verify:steps:check",
       "docs:baseline-conflict-recipes:check",
       "docs:harness-controls:check",
+      "docs:harness-porting:check",
       "docs:lint-coverage-map:generate:check",
       "docs:lint-guidance:check",
       "harness:manifest-schema:check",

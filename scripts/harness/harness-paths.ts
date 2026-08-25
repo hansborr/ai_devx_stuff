@@ -17,6 +17,7 @@ export const GENERATED_VERIFY_STEPS_PATH = "scripts/verify/steps.generated.sh";
 export const GENERATED_SURFACE_FRESHNESS_PATH =
   "scripts/harness/generated-surface-freshness.generated.sh";
 export const GENERATED_HARNESS_CONTROLS_DOC_PATH = "docs/generated/harness-controls.md";
+export const GENERATED_HARNESS_PORTING_MANIFEST_PATH = "docs/generated/harness-porting-manifest.md";
 export const GENERATED_PRE_PUSH_SCOPE_TRIGGER_PATH =
   "scripts/harness/pre-push-scope-trigger.generated.sh";
 
