@@ -2,6 +2,8 @@
 
 Verified against GitHub Copilot CLI 1.0.70. Requires a logged-in account (`copilot login`); without one, non-interactive runs fail immediately.
 
+Runs always require `-m`. An access-denied-by-policy response is an account/org setting (`https://github.com/settings/copilot`), not a missing-model error — no wrapper flag fixes it.
+
 ## Model catalog (`-m` is wrapper-required)
 
 - `gemini-3.6-flash` — the Gemini pick: not served by claude or codex; fast, cheap, useful for fresh-angle reviews and idea generation.

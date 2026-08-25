@@ -494,6 +494,17 @@ These pieces are intentionally Musi-specific and should not be copied verbatim:
   portable only when the adopter supplies the essential consumers and replaces
   or deliberately omits the Musi-only adapters above.
 
+### Adding a tracked config file
+
+Declare the file once in `eslint-config/config-surface-manifest.json`, rerun
+`bun run harness:config-surfaces` (it regenerates `tsconfig.configs.json`), and
+commit the generated outputs; the ESLint groups and the coverage map derive
+from the same manifest. Two residual gotchas the manifest cannot express:
+define a package `*.config.ts` inline rather than `...spread`ing an imported
+base config (typed lint flags `no-misused-spread` on Promise-typed exports),
+and keep sandbox directories such as `.stryker-tmp/` in the ESLint ignores in
+`eslint-config/base-configs.js`, or in-place backup copies break lint.
+
 ## Decision guide
 
 Start with Tier 1 if:

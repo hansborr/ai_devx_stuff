@@ -264,3 +264,45 @@ deadlines instead make the ceiling host-state-dependent and can prolong
 orphan-load or CPU-burning failures. These incidents do not warrant CPU
 arbitration or load-adaptive budgets; the failure-only starting-load line
 records evidence without making any budget or deadline load-adaptive.
+
+## 6. Full-scan escalation, heap, and concurrent gates
+
+A staged change that trips a path-policy full-scan trigger (the
+`full-scan-trigger:*` classes in
+[`path-policy-query-core.ts`](../../scripts/path-policy/path-policy-query-core.ts)
+— `eslint-config/**` is the common one) escalates `lint:changed` to a
+full-tree ESLint run and `test:changed` to the full suite, and the parallel
+pre-commit runner executes both concurrently. Facts that follow:
+
+- **Heap is managed, never hand-prefixed.**
+  [`scripts/lib/gate-env.sh`](../../scripts/lib/gate-env.sh) exports
+  `--max-old-space-size=${MUSI_GATE_DEFAULT_NODE_OLD_SPACE_MB}` unless the
+  caller already set one, and every gate entry point sources it. Do not
+  prefix `NODE_OPTIONS` yourself; if a full-tree lint still runs out of heap,
+  raise `MUSI_GATE_NODE_OLD_SPACE_MB`.
+- **Two concurrent full verifies in different worktrees fail each other.** The
+  commit queue and the memory-admission deadline are shared across worktrees,
+  so timing assertions in one gate measure the other's load: the same branch
+  has passed a solo verify and then failed two consecutive runs with two
+  different timing-shaped errors while a sibling lane verified. Before blaming
+  a branch, run `ps -eo pid,etimes,pcpu,args --sort=-pcpu | head` and look
+  for another lane's `scripts/verify.sh`, `scripts/test-scripts.sh`, or
+  `verify-async.sh` loop. Serialize full verifies across lanes.
+- **The manual-verify bridge is a chained sequence.** When the parallel gate
+  flakes on a load-sensitive test that passes sequentially, run the
+  sequential full `bun run verify` and commit within
+  `MUSI_GATE_MARKER_FRESHNESS_SECONDS` (120 s) so the pre-commit marker bridge
+  reuses the result — chain them in one command
+  (`bun run verify && git commit …`) so the window cannot lapse. Marker paths
+  are worktree-keyed, so a sibling's marker never bridges yours.
+- **`git merge --no-ff` runs no pre-commit hook.** There is no
+  `.husky/pre-merge-commit`; a merge runs only `commit-msg` and `post-merge`.
+  That is why `land.sh` verifies the tree first and merges second, and why a
+  bare merge is never a substitute for it. A linear-descendant `--no-ff`
+  merge's tree equals the branch-tip tree, so a branch-tip full verify
+  validated exactly what `main` receives.
+- **The gate watchdog** defaults to `MUSI_GATE_INTERACTIVE_TIMEOUT_DEFAULT`
+  (2400 s; override with `MUSI_INTERACTIVE_TIMEOUT`). Exit 124 from a gate is
+  that timeout, not a failing slot — read the per-slot logs for what was still
+  running.
+

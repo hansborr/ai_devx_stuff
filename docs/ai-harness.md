@@ -205,6 +205,19 @@ marker labels, invalid one-sided frontmatter, and forbidden-side files.
 under `.claude/skills/` and `.codex/skills/`, including ignored local
 directories, so an uninventoried skill tree remains an error.
 
+Two surfaces in `scripts/tests/test-skill-dispatch-wrappers.sh` are still
+hand-authored and sit outside the refresh: the `for f in … ; do` loop that
+`cmp`s each agent-cli reference file between the `.claude` and `.codex` trees
+(adding a reference is fine; renaming or deleting one fails `mirror: missing …`
+until the list is edited) and the harness-block content invariants (the
+`.claude` SKILL.md must mention the idle enforcer, the `.codex` one must carry
+its Codex polling pattern, and neither string may leak into the other tree).
+The refresh rebuilds the shared core around the harness block, so only the
+block body is ever authored by hand — never splice the core. A brand-new skill
+(as opposed to a new file in an existing one) still needs its own manifest
+`skillWiring` record with `gitignoreOptIns`, which is exact-set checked rather
+than generated.
+
 When changing shared behavior, update `scripts/ai-hooks/` first. The thin
 shims themselves are generated projections — never edit one by hand. When the
 harness payload shape requires a shim-side change, adjust the `hookWiring`
@@ -212,6 +225,66 @@ entries in `harness.controls.json` (or the per-adapter templates in
 `scripts/harness/hook-shims.ts`) and rerun `bun run harness:wiring`. If a hook
 body is intentionally harness-specific, keep that fact in
 `harness.controls.json` so the generated wiring and docs stay aligned.
+
+### How the commit wrapper resolves its target checkout
+
+`git-commit-quiet.sh` and the protected-branch guard judge a `git commit`
+against the checkout it resolves from the command text
+(`ai_resolve_target_dir` in `scripts/ai-hooks/git-classify.sh`): a contiguous
+leading `cd <dir> &&` chain or a `git -C <dir>` in the commit-bearing segment,
+else the session cwd. The resolver reads literal text and never expands shell.
+Consequences an agent committing into another worktree (a lane) from its own
+shell must know:
+
+- **Use a literal path.** `git -C "$LANE" commit …` or `cd "$LANE" && …` cannot
+  be resolved; the wrapper now fails closed with a "names a target checkout the
+  hook cannot verify" reason instead of judging the session checkout. Write
+  `git -C /home/node/persist/lanes/<lane> commit …`.
+- **Nothing before the `git` token, and no `$(…)` before the `commit` verb.**
+  `timeout 120 git -C <lane> commit …` and `git -C $(pwd) commit …` both fall
+  back to the session cwd; from a primary parked on `main` that is a
+  "Committing on main or master is not allowed" rejection for a commit that
+  would have landed on a lane branch. A substitution *after* the verb (`-m
+  "$(cat msg)"`) is fine.
+- **Stage first, then commit with no pathspec.** Fast-commit mode runs
+  `lint:changed`/`suppressions:changed`, which abort on unstaged
+  source-relevant work; `git commit -- <path>` leaves that path looking
+  unstaged to the changed verification. The diagnostic is "source-relevant
+  unstaged or untracked changes are present" — a `Failed: lint suppressions`
+  slot with no violation lines is this abort, not an ESLint OOM.
+- **A rejected compound runs nothing.** The guard judges the whole string
+  before execution, so `cd <lane> && bun run gen && git add -A && git commit`
+  rejected on a bare mid-chain `git add` (resolved against the session cwd)
+  also skips the regeneration and the add. Re-running only the commit then
+  lands whatever was already staged — a subset that looks complete. Keep
+  git-write calls in their own shell call with their own literal `git -C`, and
+  after any rejection re-check `git -C <lane> status --short`.
+- **Direct commits on `main` are refused** in every worktree, including
+  one-line bookkeeping rows. Budget a throwaway branch plus `git merge --no-ff`
+  (merges run no pre-commit hook) or fold the edit into an open lane branch.
+- The reliable shape is a bare `git -C <literal-path> add <file> && git -C
+  <literal-path> commit -m "<subject ≥ 20 chars>" -m "<body ≥ 40 chars>"` in
+  its own shell call. `-F <file>` works from the wrapper with an absolute path
+  readable by the hook; a delegate whose `/tmp` differs from the hook's has hit
+  "could not read log file", so prefer `-m`/`-m` in delegate briefs.
+
+### Stop-family delivery is user-facing only
+
+The `Stop` and `SubagentStop` adapters emit `systemMessage` and exit 0 — never
+`hookSpecificOutput.additionalContext`. This is an owner decision
+(`docs/agent_notes/backlog/sequential-drain-2026-07/03-phase3-review-followups.md`
+§4), not an omission: an agent-facing nudge about shared mutable state
+("uncommitted changes present") carries no attribution, and agents that
+received one treated other agents' in-flight work as their own loose end —
+committing a parallel agent's WIP, or reverting work they did not recognize
+(a consult-only agent did this too). The rule for any future hook: **no
+agent-facing nudge about shared mutable state (dirty tree, staged files)
+without attribution** — either report only the delta attributable to this
+delegation, or word it as an unattributed observation with "do not commit or
+revert work you do not recognize; verify ownership first". Prefer structural
+guards (the agent-cli worktree lock, per-lane worktrees) over advisory prose.
+A failing-verify nudge is the safe half to revive if the family is ever
+re-enabled: its remediation is investigation, not mutation.
 
 ## Environment Variable Naming
 
@@ -555,6 +628,7 @@ needs them.
 | `docs/guides/add-module-doc.md` | Maintainability | Inferential | Agents adding or refreshing module docs without the charter, `Concepts:` breadcrumb, index refresh, and verification recipe | When adding or refreshing module docs | `bun run module:index:check`, `scripts/tests/test-generate-module-index.sh` |
 | `docs/guides/coverage-cadence.md` | Maintainability, behavior | Inferential | Agents turning coverage into an edit-loop gate or missing the manual baseline cadence | Manual, weekly | `bun run test:coverage` |
 | `docs/guides/per-worktree-dev.md` | Maintainability | Inferential | Agents running a secondary worktree without its provisioned DB, ports, Redis, and env files | When working in a secondary worktree | `bun run worktree:init`, `bun run doctor` |
+| `docs/guides/parallel-lane-drains.md` | Maintainability | Inferential | Agents fanning a backlog drain across worktree lanes without the lane, commit, integration, and teardown protocol, or running a high-risk migration as parallel lanes instead of sequential landed slices | When orchestrating a multi-lane or multi-slice drain | `worktree:*` scripts, `land.sh`, `bun run test:scripts` |
 | `docs/guides/local-eslint-rules.md` | Maintainability | Inferential | Agents adding local ESLint diagnostics outside the repo's message guidance convention | When editing `eslint-rules/` | `eslint-rules/message-guidance.test.js` |
 | `docs/guides/harness-manifest-parser.md` | Maintainability, architecture fitness | Inferential | Agents growing a new partial, cast-backed reader of `harness.controls.json` instead of the typed seam, or migrating one without the fixture-copy-closure and diagnostic constraints | When reading the manifest from TypeScript, or on a `MANIFEST_DIRECT_READERS` tripwire failure | `bun run harness:check` (read tripwire + closure checks) |
 | `docs/guides/lint-overview.md` | Maintainability | Inferential | Agents changing the lint system's parts without the architecture map and rationale that orient them | When editing lint config or rules | `bun run lint` |
@@ -894,6 +968,12 @@ Triage rules:
   `module:index:check`, migration safety, and the script smoke tests still emit
   only human text; adding the envelope there would let `harness:audit` (or
   future hooks or dashboards) combine every signal without parsing prose.
+- The commit wrapper's target resolver reads literal text only. A command
+  prefix before `git` (`timeout 120 git -C <lane> commit`) or a `$(…)` before
+  the `commit` verb (`git -C $(pwd) commit`) silently resolves to the session
+  cwd instead of failing closed the way `git -C "$VAR"` now does; the guard then
+  judges the wrong checkout. See "How the commit wrapper resolves its target
+  checkout".
 - Slow drift now has a weekly fused artifact for `lint:ratchet` plus
   current-scope `drift:ai --check all`. Remaining slow-lane gaps include runtime
   JSONL capture for `logs:audit`, changed behavior without nearby tests, scoped

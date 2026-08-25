@@ -6,6 +6,8 @@ Verified against codex-cli 0.142.5.
 
 - `-m` maps to codex's own model flag; omitting it runs the user-configured default model.
 - `-e` maps to `-c model_reasoning_effort=<level>`.
+- Model slugs retire server-side without a client error you would recognize: a retired default in `~/.codex/config.toml` (`gpt-5.6-sol`, retired 2026-08) presents as `401 token_expired` on every run — not a login problem, so `codex login` does not fix it. Point the config default (or `-m`) at a live slug; `gpt-5.6-terra`, `gpt-5.6-luna`, and `gpt-5.5` were live at the time of writing.
+- When codex cannot serve (quota or outage), the GPT fallback is `consult cursor -m gpt-5.6-sol-high` (see [cursor.md](cursor.md)); a quota bounce is account state, not a wrapper error.
 
 ## Native review harness (`review codex`)
 

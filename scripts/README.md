@@ -74,10 +74,29 @@ Full-suite discovery is directory-based: every `scripts/tests/test-*.sh` file
 is a smoke test. Helper-only shell files belong in `scripts/tests/lib/`; they
 are sourced or invoked by smoke tests but are not standalone smoke subjects.
 
-Changed-mode selection is subject-based. If a new script needs targeted
-`test:scripts:changed` coverage, update the `scripts/path-policy/` subject map
-so edits to the implementation select the right `scripts/tests/test-<subject>.sh`
-file.
+Changed-mode selection is subject-based and single-sourced from the smoke file
+itself: declare each subject as a `# smoke-subjects: <repo-path>` header line
+(at least one, the smoke's own path included; parsed by
+`scripts/path-policy/smoke-subject-headers.ts`), optionally pin its position in
+the sequential run with a unique `# smoke-order: <NNN>` (unordered smokes sort
+last), then run `bun run test:scripts:subjects` and commit the regenerated
+`scripts/path-policy/path-policy-smoke-subjects-data.ts` and
+`scripts/fixtures/test-scripts/all-smoke-tests.txt`. `test:scripts:subjects:check`
+guards drift. The agent-cli skill smoke's headers live inside a generated
+`# BEGIN GENERATED SKILL SMOKE SUBJECTS` block owned by
+`bun run harness:skills:refresh` — edit the canonical skill tree, not the header.
+
+One thing no generator catches: some smokes assert the **exact set** of smokes
+`--changed` selects for a given file (`scripts/tests/test-test-scripts.sh`, the
+`MUSI_SCRIPTS_CHANGED_FILES=` blocks). Adding a `# smoke-subjects:` line for a
+widely-touched subject such as `.github/workflows/ci.yml` legitimately joins
+your smoke to that set and makes those pins stale — and removing a subject
+bites the same way. `test:scripts:subjects:check`, `harness:check`, and the
+coverage map validate the registry, not assertions written against it, so this
+surfaces only in the full gate at land. Before committing a new or changed
+smoke, grep `scripts/tests/` for `MUSI_SCRIPTS_CHANGED_FILES=` and extend any
+expected-set literal that must gain (or lose) your smoke. Extend the exact set;
+never weaken the assertion to a substring match.
 
 ## Generated Files
 
@@ -113,6 +132,35 @@ Current generated surfaces:
 `bun run harness:check` runs the relevant `--check` modes and fails when these
 generated files are stale. Do not hand-edit generated regions as a substitute
 for changing the manifest or generator.
+
+Registering a **new doc generator** (`generate-*.ts` via `runDocGenerator` with
+`--check`) is one manifest record plus regeneration:
+
+1. Add the control record to `harness.controls.json` with a nested
+   `generatedSurface` facet — `triggerPaths`, `outputPaths`, `checkScript`,
+   `warnLabel`, `bunHook`, `fixturePaths` (the schema in
+   `scripts/harness/generated-surfaces.ts` is strict). `bunHook: {refresh,
+   check}` declares wrapped/bypass per script, plus an optional `scripts`
+   record for extra package scripts the generator owns, so no hook heredoc is
+   hand-edited. The `:check` script needs **no** `scriptParityExemptions`
+   entry — it is a parity alias derived from `checkScript`, and a redundant
+   exemption fails `harness:check`.
+2. Add the base and `:check` scripts to `package.json`.
+3. Run `bun run verify:steps` (regenerates every loader-derived artifact:
+   freshness and classified-bun-scripts fragments, the fixture copy manifest,
+   and `steps.generated.sh`), then `bun run docs:harness-controls`.
+4. `fixturePaths` names the files the generator needs copied into the
+   `test-harness-check.sh` fixture; `scripts/harness/fixture-closure-check.ts`
+   fails on both missing and stale declarations and requires regular files.
+   The fixture's `package.json` script wiring and the smoke's
+   `# smoke-subjects:` headers stay hand-maintained.
+5. Still hand-maintained on purpose: the id and `checkScript` `toEqual`
+   tripwire lists in `scripts/harness/generated-surfaces.test.ts` — extend them
+   with the new record.
+
+`harness:check` validates the chain and `verify:steps:check` gates artifact
+freshness; since 2026-07-22 pre-commit's `harness:registration:check`
+admission catches a missed inventory at commit time rather than at land.
 
 Run gate scripts (`bun run harness:check`, `verify:*`, `doctor`) from the
 worktree root. `bun run <name>` resolves the script against the nearest

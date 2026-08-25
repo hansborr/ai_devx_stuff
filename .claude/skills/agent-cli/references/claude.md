@@ -5,6 +5,7 @@ Verified against claude 2.1.201.
 ## Models and effort
 
 - `-m` accepts aliases (`fable`, `opus`, `sonnet`, `haiku`) or full ids (`claude-fable-5`); omitting it runs the user-configured default model.
+- Dated model ids use hyphens everywhere: `claude-opus-4-8`, never the prose spelling `claude-opus-4.8`. The dotted form is rejected with "There's an issue with the selected model. It may not exist or you may not have access to it", which reads like an entitlement problem rather than a typo (verified 2026-07-27: `canonicalModel: claude-opus-4-8`, first-party, 1M context).
 - `-e low|medium|high|xhigh|max` on Claude 5-era models; older models have fewer tiers.
 
 ## Consult permission profile

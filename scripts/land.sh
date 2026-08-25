@@ -31,6 +31,12 @@
 # is checked for movement before main is touched.
 #
 # Not automatic: the push is left to a human. This script never pushes.
+#
+# Runtime: the full sequential verify routinely exceeds ten minutes, which is
+# longer than an agent harness's foreground shell call allows. Agents must run
+# this script backgrounded and wait for the `land: exit:` trailer; a foreground
+# call killed mid-verify (exit 143) leaves main untouched and the feature
+# branch clean, so the recovery is simply to re-run it in the background.
 set -euo pipefail
 
 LAND_EXIT_CODE=1

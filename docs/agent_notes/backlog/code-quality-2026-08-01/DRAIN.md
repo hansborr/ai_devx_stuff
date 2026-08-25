@@ -210,6 +210,44 @@ step 5's bookkeeping and let the next round review that too. Accepted P2s and
 open questions the round leaves behind go to the ledger's "Deferred for
 owner" table (see standing rules), not into the report and not into the fix.
 
+The rendered review mission already carries the independence clause (review
+only from the repository and your own experiments; a shell-blocked seat says so
+and marks its static claims) and the guard-code threat model (accidental drift
+by a cooperative caller, not an adversary). Every **fix mission** you write by
+hand carries these, each one learned from a round that would not converge:
+
+- **Name the capability, not the spellings.** A fix prompt that lists the
+  reviewer's repros produces a fix that recognizes those repros; the next round
+  finds the fifth. Write "close the *capability* — any route to X, however the
+  binding was obtained; the spellings above are symptoms", and quote the
+  reviewer's own "this fixed the spelling rather than the capability" back at
+  the fixer when a round reopens. When a guard loop still will not converge,
+  measure what the code defends against *today* and surface delete-or-reduce
+  as an option rather than hardening again.
+- **Prose corrections are verified against the code AND the tests.** Before
+  rewriting a sentence a reviewer called false, the fixer verifies the new
+  sentence against the code path *and* greps for a landed test asserting the
+  opposite. Each fix round otherwise inverts the same sentence into the
+  opposite falsehood (three rounds on one sentence, 2026-07); the falsifying
+  evidence was a test in the same package every time.
+- **Backlog annotation is its own commit.** A "**FIXED <sha>**" note cannot
+  ride in the fix commit — a commit cannot contain its own sha and amend is
+  policy-blocked — so the mission says "fix commit first, then a separate
+  `docs(<scope>): annotate finding #N fixed` commit" (commit-msg hook: subject
+  ≥ 20 chars, body ≥ 40 chars). A delegate told to fold them together stalls
+  asking for an amend.
+- **Delegate-authored leaves get an existence check.** Every `scripts/...`
+  path and `bun run <script>` a delegate writes into a leaf's Verify section is
+  checked against the tree before the leaf is accepted; invented paths have
+  reached `main` this way.
+- **Never assert impossibility in a brief.** "X is unavailable" caps every
+  seat's severity on anything that contradicts it. Check package caches,
+  registry sources, and vendored copies — not just `command -v` — and word the
+  premise as a question ("check whether …; say which branch you took"). The
+  incident record is the pain-point topic
+  `pain_points/subagents-and-review-convergence.md`, "A settled disposition
+  that asserts impossibility caps reviewer severity".
+
 **7. Land.** Standing merge-on-green covers this — do not stop to ask.
 
 ```bash

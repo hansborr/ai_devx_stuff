@@ -172,6 +172,41 @@ Size and pace lanes with that serialization in mind:
   serialize, doubling the lane count does not double commit throughput; it
   deepens the queue. A handful of lanes is usually the sweet spot.
 
+## What Survives A Devcontainer Rebuild
+
+The container's overlay filesystem is ephemeral. Only the host bind mounts and
+named volumes declared in `.devcontainer/docker-compose.yml` survive a rebuild:
+`/workspace`, `/home/node/persist`, the per-CLI config homes (`~/.claude`,
+`~/.codex`, `~/.copilot`, `~/.cursor`, `~/.config/cursor`), `/commandhistory`,
+`/tmp` (a host bind), and the `postgres-data` / `redis-data` volumes.
+Everything else is destroyed — including a lane parent such as
+`/home/node/lanes`.
+
+A lane worktree's `.git` is only a `gitdir:` pointer into
+`/workspace/.git/worktrees/<lane>`; its objects, branch refs, and stashes all
+live in `/workspace/.git`, so **committed lane work survives a rebuild
+automatically** even when the lane directory does not. Before a rebuild the
+only real risks are:
+
+1. uncommitted or untracked files in lane trees;
+2. gitignored artifacts that exist nowhere else — `reports/` is the usual
+   offender;
+3. commits reachable only from a detached worktree `HEAD`
+   (`git branch --contains <sha>` prints nothing), because `git worktree prune`
+   drops that last anchor.
+
+After a rebuild, clear the stale registrations:
+
+```bash
+git -C /workspace worktree prune --expire now
+bun run worktree:gc -- --force
+```
+
+`prune` drops worktree entries whose directories are gone; `gc --force` frees
+their slots in `.worktree-state/allocations.json` (the 15-slot Redis/port
+registry) and drops their per-lane Postgres databases, which outlived the
+rebuild on the compose volume.
+
 ## Recovery
 
 When `bun run dev` reports residual worktree drift, inspect first:

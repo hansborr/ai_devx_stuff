@@ -55,3 +55,41 @@ sonnet shim.
   (the attempt record is finalized `no-answer`) means nothing ran and the lane
   can simply be re-dispatched, while exit 20 on such a log means the attempt is
   un-finalized and needs explicit recovery before that output path is reused.
+
+## Conductors and implementers: let agent-cli own the wait
+
+A built-in subagent (Agent tool) that backgrounds a detached process —
+`agent-run.sh`, `land.sh` — and then ends its turn never wakes: detached
+processes are not harness-tracked children, so no notification fires, and the
+conductor's task result reads like in-progress work ("waiting on their
+answers"). Implementer subagents have the mirror-image failure: they finish and
+commit, then idle without ever sending their final report. Warnings in the
+brief did not prevent either; six conductors stalled this way in one drain.
+
+The structural fix is to spawn conductors and implementers **through
+agent-cli** (`agent-run.sh work claude …`) instead of the Agent tool: the
+orchestrator's own background Bash (or `agent-wait.sh`) owns the waiting, and
+the `-o` answer file owns delivery, so a delegate that goes quiet after its
+last commit still leaves its report on disk and the run's `agent-run:` trailers
+still say what HEAD did.
+
+When a built-in subagent must be used anyway, its brief carries the in-turn
+poll rule as an *operating rule that names the artifacts*, not as a warning:
+
+> Whenever you wait on a detached process — an implementer, each review seat,
+> `land.sh` — wait inside ONE long-lived in-turn shell loop that sleeps and
+> polls for the `-o` answer file / the `.msg` / the log's `land: exit:` line.
+> Cap it generously and re-enter another loop rather than stopping. Report only
+> when the unit is closed, abandoned, or parked; nothing will wake you.
+
+A conductor briefed that way ran a four-round panel plus `land.sh` to a clean
+close with zero stalls; the one briefed without it stalled immediately. When a
+stalled conductor's notification arrives anyway, check `ps aux | grep
+agent-run`, the `-o` files, and the land log, then `SendMessage`-resume the same
+agent with the rule above — one message, and it picks up cleanly. An idle
+implementer is "work probably done, report lost": read `git -C <lane> log` and
+`status` before nudging, and nudge at most once.
+
+The cause is written up in the pain-point topic
+`pain_points/agent-cli-and-external-reviews.md` ("A backgrounded consult never
+wakes its dispatcher").
