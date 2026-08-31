@@ -88,7 +88,16 @@ Mechanics — treat the executable configs as authoritative:
    config globs: preflight — confirm the lane's mutate targets are clean
    (`git status --porcelain` over them) before starting; recovery — check
    `git status`/`git diff` on the mutate paths, `git restore` them, and remove
-   `.stryker-tmp/`.
+   `.stryker-tmp/`. *(Partly done by
+   [066-three-mutation-test-lanes-can-strand-live.md](066-three-mutation-test-lanes-can-strand-live.md),
+   which landed first: `docs/ai-harness.md`'s mutation section already carries
+   the interruption warning and a recovery recipe written against that runner —
+   preflight abort, stale-state detection, and re-running the same command with
+   `--restore`. Note the recipe there is deliberately not the git one drafted
+   above: an in-place run rewrites the whole tree via `disableTypeChecks`, so
+   `.stryker-tmp/backup-*` is the only complete restore source and must not be
+   deleted. What is left for this leaf is the pointer from the plan doc, plus
+   steps 1 and 2 in full.)*
 
 If [066-three-mutation-test-lanes-can-strand-live.md](066-three-mutation-test-lanes-can-strand-live.md)
 lands its supervised runner first, step 3's recipe must instead describe that

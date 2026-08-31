@@ -1,6 +1,6 @@
 # 97. Two database-writing SRD backfill commands sit in the server manifest with no operator documentation anywhere
 
-Status: Not started
+Status: Landed on fix/cq-091
 Theme: operator runbook coverage · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

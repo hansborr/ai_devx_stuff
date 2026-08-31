@@ -74,11 +74,15 @@ lines, so adopting a TS core buys a tested parse layer, not a smaller bash file.
   `scripts/<topic>-*.sh`") — the contract the decomposition target must follow.
 - `package.json:24-30` — six package scripts invoke `bash scripts/worktree-db.sh
   <sub>`.
-- `scripts/tests/test-worktree-db.sh` — 1,829 lines of coverage. It sources
-  `worktree-db.sh` at `:25` and then `worktree-drift-hook.sh`, `dev.sh`, and
-  `worktree-new.sh` at `:27-33`, so it is the executable check for the whole
-  sourcing surface, not just the library. Sourcing is safe because `main()` is
-  guarded at `scripts/worktree-db.sh:2522-2526`.
+- The worktree shell smokes — four standalone suites since
+  code-quality-2026-08-01 leaf 063 split the former single 2,347-line
+  entrypoint. `scripts/tests/test-worktree-db.sh` sources `worktree-db.sh`,
+  `worktree-drift-hook.sh` and `dev.sh`; `scripts/tests/test-worktree-new.sh`
+  sources `worktree-new.sh`; `scripts/tests/test-worktree-drop-gc.sh` and
+  `scripts/tests/test-worktree-locking.sh` source `worktree-db.sh`. Together
+  they are the executable check for the whole sourcing surface, not just the
+  library, and all four must be run — no single one covers it. Sourcing is safe
+  because `main()` is guarded at the end of `scripts/worktree-db.sh`.
 
 ## Proposed direction
 
@@ -131,7 +135,11 @@ should not gate them.
      with the hazard spelled out at `:25-27`.
    - `scripts/worktree-drift-hook.sh:24`, guarded at `:22`; reads `$META_DB` at
      `:53` and `:59`.
-   - `scripts/tests/test-worktree-db.sh:25`.
+   - the four worktree shell smokes: `scripts/tests/test-worktree-db.sh`
+     (also `worktree-drift-hook.sh` and `dev.sh`),
+     `scripts/tests/test-worktree-new.sh` (via `worktree-new.sh`),
+     `scripts/tests/test-worktree-drop-gc.sh`, and
+     `scripts/tests/test-worktree-locking.sh`.
    - the six `package.json:24-30` invocations, via `main()` at the facade's top
      level.
 
@@ -159,13 +167,16 @@ should not gate them.
    (c) The `declare -F compute_fingerprint` / `compute_slug` probes key off
    exactly those two names, so a split that keeps those two defined but drops
    any other callee passes the guards and fails in production.
-   `bash scripts/tests/test-worktree-db.sh` sources all four files and is the
-   only cheap defence; keep it green on every commit of the split.
+   The four worktree shell smokes
+   (`bash scripts/tests/test-worktree-{db,new,drop-gc,locking}.sh`) source all
+   four files between them and are the only cheap defence; keep all four green
+   on every commit of the split.
 
    (d) Add each new `scripts/worktree-db/*.sh` part to the `# smoke-subjects:`
-   header at `scripts/tests/test-worktree-db.sh:3-12` and regenerate with
-   `bun run test:scripts:subjects`, or changes to the parts will not select this
-   smoke.
+   header of whichever worktree suites exercise it — the state codec belongs to
+   `test-worktree-drop-gc.sh` and `test-worktree-locking.sh` — and regenerate
+   with `bun run test:scripts:subjects`, or changes to the parts will not select
+   those smokes.
 5. Treat TS-core extraction as an *optional, per-cluster* follow-up, not a
    rewrite. Where a decomposed part turns out to be mostly `jq` pipelines
    (fingerprinting and status reporting are the likely candidates), give it a
@@ -183,16 +194,11 @@ should not gate them.
   decomposed part turns out to be mostly `jq` pipelines.
 - **Step 4 is live infrastructure.** `worktree-db.sh` provisions real databases,
   ports, and Redis DBs for every worktree; a mistake here breaks `bun run dev`
-  for everyone. `scripts/tests/test-worktree-db.sh` is the safety net — every
-  commit in step 4 must keep it green.
-- **The merge-driver install slice is pinned by a text-matching test.**
-  `scripts/tests/test-lint-ratchet.sh:2125-2147` reads `scripts/worktree-db.sh`
-  by hardcoded path and matches column-0-anchored regexes against the four
-  installers at `:170`, `:177`, `:184`, `:191`, asserting their set equals the
-  dispatcher's. Moving that slice into `scripts/worktree-db/` fails with a
-  confusing "installers differ" message, not a sourcing error; update that
-  check's path and regexes in the same commit.
-- Two more surfaces name `scripts/worktree-db.sh` by path and need updating if
+  for everyone. The four worktree shell smokes
+  (`test-worktree-db.sh`, `test-worktree-new.sh`, `test-worktree-drop-gc.sh`,
+  `test-worktree-locking.sh`) are the safety net — every commit in step 4 must
+  keep all four green.
+- Two surfaces name `scripts/worktree-db.sh` by path and need updating if
   the referenced content moves: `harness.controls.json:529` pins
   `"source": "scripts/worktree-db.sh"` for `sensor/worktree-status`, and
   `docs/guides/per-worktree-dev.md:28` points at `scripts/worktree-db.sh:4-36`

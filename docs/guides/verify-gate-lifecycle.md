@@ -295,6 +295,42 @@ pre-commit runner executes both concurrently. Facts that follow:
   reuses the result — chain them in one command
   (`bun run verify && git commit …`) so the window cannot lapse. Marker paths
   are worktree-keyed, so a sibling's marker never bridges yours.
+- **Run `scripts/ai-hooks/test.sh`, `git add`, and `git commit` in separate
+  Bash tool calls, and never background a full verify (`land.sh`,
+  `bun run verify`) in the same call as a `git commit`.** The PreToolUse
+  hook wraps any Bash command containing `git commit` in
+  [`git-commit-quiet.sh`](../../scripts/ai-hooks/git-commit-quiet.sh) —
+  everything *before* the `git commit` in the same command string included —
+  so the chained prefix runs inside the wrapper's held cross-worktree
+  commit-queue lock (`git-commit-quiet.sh:102-156`).
+  - *Mechanism:* unlike the fail-fast per-worktree single-writer lock
+    (lines 79-90, `flock -n 9`), the queue lock is acquired in a blocking
+    foreground poll loop (lines 140-156) bounded by `COMMIT_QUEUE_WAIT`
+    (defaults to the same ~2400 s interactive timeout; expiry block
+    response at lines 159-167). The wrapper exports its resolved
+    `MUSI_COMMIT_QUEUE_LOCK` into the child environment (lines 210-212)
+    and a nested wrapper reads that first (line 112), so inheritance — not
+    common-dir keying — binds every nested `git-commit-quiet.sh`
+    invocation in the prefix to the outer wrapper's held lock, whatever
+    repo it targets; only an explicit `MUSI_COMMIT_QUEUE_LOCK` override
+    breaks the chain (13 of the suite's 20 fixture invocations set one).
+  - *Incidents:* 2026-08-17 — `bash scripts/ai-hooks/test.sh` chained with
+    `git commit` in one agent Bash call deadlocked for 20+ minutes.
+    2026-08-18 — `nohup bash scripts/land.sh &` in the same call as its
+    `git commit` hung ~35 minutes in `test-ai-hooks` (the `scripts` verify
+    slot, [`steps.generated.sh:12`](../../scripts/verify/steps.generated.sh)
+    → `package.json:57` `test:scripts` → `scripts/test-scripts.sh:138` →
+    [`scripts/tests/test-ai-hooks.sh:32`](../../scripts/tests/test-ai-hooks.sh),
+    which execs the suite); the identical commit relaunched from a Bash
+    call with no `git commit` in it landed green.
+  - *Signature:* the queue wait expiring at its ~2400 s bound in the
+    `scripts` slot's `test-ai-hooks` case, every other slot green,
+    reported by the outer runner as a generic slot failure or timeout with
+    no failing assertion — though the slot log carries the wait loop's
+    60 s heartbeat naming the holder and queue depth ("still waiting for
+    shared commit queue", lines 148-154), the fastest positive
+    confirmation. That is lock contention: kill the wedged run and retry
+    from a commit-free Bash call; do not wait it out as a flake.
 - **`git merge --no-ff` runs no pre-commit hook.** There is no
   `.husky/pre-merge-commit`; a merge runs only `commit-msg` and `post-merge`.
   That is why `land.sh` verifies the tree first and merges second, and why a

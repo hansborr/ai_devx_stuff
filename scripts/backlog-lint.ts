@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { z } from "zod";
 
 import { checkBacklogFiles } from "./backlog-lint-core.js";
+import { packDirOf } from "./backlog-lint-grammar.js";
 import type { BacklogLintFile, BacklogLintResult } from "./backlog-lint-types.js";
 import { parseCli } from "./lib/cli.js";
 import { defaultGitRunner, listTrackedFiles } from "./lib/git.js";
@@ -16,6 +17,8 @@ export type {
   BacklogLintOptions,
   BacklogLintResult,
 } from "./backlog-lint-types.js";
+
+export const BACKLOG_DIR = "docs/agent_notes/backlog";
 
 export interface RunBacklogLintOptions {
   readonly cwd?: string;
@@ -46,10 +49,8 @@ interface MutableCliOptions {
 }
 
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const DEFAULT_BACKLOG_DIR = "docs/agent_notes/backlog";
+const DEFAULT_BACKLOG_DIR = BACKLOG_DIR;
 const PROCESS_ARGV_USER_ARGS_START = 2;
-// A pack member's path under the backlog root is exactly `<pack>/<file>`.
-const PACK_MEMBER_SEGMENTS = 2;
 
 function listBacklogMarkdownFiles(cwd: string, backlogDir: string): string[] {
   // listTrackedFiles is `ls-files -z` + NUL-split, so a non-ASCII backlog
@@ -61,7 +62,11 @@ function listBacklogMarkdownFiles(cwd: string, backlogDir: string): string[] {
   ]).sort();
 }
 
-function loadBacklogFiles(cwd: string, backlogDir: string): BacklogLintFile[] {
+/**
+ * Every tracked backlog Markdown file, read through this facade so the
+ * advisory lint and the generated catalog enumerate exactly the same corpus.
+ */
+export function loadBacklogFiles(cwd: string, backlogDir: string): BacklogLintFile[] {
   return listBacklogMarkdownFiles(cwd, backlogDir).map((path) => ({
     path,
     text: readFileSync(resolve(cwd, path), "utf8"),
@@ -127,15 +132,6 @@ function invalidNamedFilesResult(messages: readonly string[]): BacklogLintResult
   };
 }
 
-/** The pack directory of a repo-relative display path, if it is a member. */
-function packDirForDisplayPath(displayPath: string, backlogDir: string): string | undefined {
-  const prefix = `${backlogDir}/`;
-  if (!displayPath.startsWith(prefix)) return undefined;
-  const segments = displayPath.slice(prefix.length).split("/");
-  if (segments.length !== PACK_MEMBER_SEGMENTS) return undefined;
-  return `${backlogDir}/${segments[0] ?? ""}`;
-}
-
 /**
  * File-mode pack context: the named files plus the immediate `.md` siblings of
  * each named file's pack directory, so the pack-level checks can see the whole
@@ -149,7 +145,7 @@ function loadPackCorpus(
   const byPath = new Map(named.map((file) => [file.path, file]));
   const loadedDirs = new Set<string>();
   for (const file of named) {
-    const packDir = packDirForDisplayPath(file.path, backlogDir);
+    const packDir = packDirOf(file.path, backlogDir);
     if (packDir === undefined || loadedDirs.has(packDir)) continue;
     loadedDirs.add(packDir);
     const absoluteDir = resolve(cwd, packDir);

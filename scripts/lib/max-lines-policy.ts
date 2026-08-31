@@ -26,6 +26,7 @@ interface MaxLinesPolicy {
     readonly skipComments: true;
   };
   readonly ratchetFloor: { readonly cap: number };
+  readonly engineZone: { readonly files: readonly string[]; readonly cap: number };
   readonly exceptions: readonly MaxLinesExceptionPolicy[];
   readonly generatedExemptions: readonly MaxLinesGeneratedExemptionPolicy[];
 }
@@ -62,9 +63,23 @@ function readGeneratedExemptionPolicy(
   };
 }
 
+function readEngineZonePolicy(raw: unknown): MaxLinesPolicy["engineZone"] {
+  if (!isRecord(raw) || typeof raw.cap !== "number") {
+    throw new Error("maxLinesPolicy.engineZone.cap must be a number");
+  }
+  if (!Array.isArray(raw.files))
+    throw new Error("maxLinesPolicy.engineZone.files must be an array");
+  return {
+    files: raw.files.map((glob: unknown, index) =>
+      readNonEmptyString(glob, `maxLinesPolicy.engineZone.files[${String(index)}]`),
+    ),
+    cap: raw.cap,
+  };
+}
+
 export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
   if (!isRecord(raw)) throw new Error("maxLinesPolicy must be an object");
-  const { counting, ratchetFloor, exceptions, generatedExemptions } = raw;
+  const { counting, ratchetFloor, engineZone, exceptions, generatedExemptions } = raw;
   if (!isRecord(counting)) throw new Error("maxLinesPolicy.counting must be an object");
   if (counting.skipBlankLines !== true || counting.skipComments !== true) {
     throw new Error("maxLinesPolicy.counting flags must be true");
@@ -79,6 +94,7 @@ export function readMaxLinesPolicy(raw: unknown): MaxLinesPolicy {
   return {
     counting: { skipBlankLines: true, skipComments: true },
     ratchetFloor: { cap: ratchetFloor.cap },
+    engineZone: readEngineZonePolicy(engineZone),
     exceptions: exceptions.map(readExceptionPolicy),
     generatedExemptions: generatedExemptions.map(readGeneratedExemptionPolicy),
   };

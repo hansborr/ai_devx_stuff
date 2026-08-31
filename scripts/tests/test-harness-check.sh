@@ -29,6 +29,10 @@
 # porting-knob-parity scans `.husky` for source markers and the hook/pre-push
 # control declares it as its source, so edits there can still fail this smoke.
 # smoke-subjects: .husky/pre-push
+# `.husky/pre-commit` is a harness:check input too: registration-preflight-wiring
+# reads its literal text on purpose (see that file's header comment), so a hook
+# rewrite can silently stop matching its assertions unless this smoke reruns.
+# smoke-subjects: .husky/pre-commit
 # smoke-subjects: scripts/harness/pre-push-scope-trigger.ts
 # smoke-subjects: scripts/harness/generate-pre-push-scope-trigger.ts
 # smoke-subjects: scripts/harness/pre-push-scope-trigger.generated.sh
@@ -454,6 +458,56 @@ write_valid_manifest() {
 {
   "scriptParityExemptions": ["lint:changed"],
   "ciGateControlIds": ["verify-wrapper/verify"],
+  "commandCatalog": [
+    {
+      "manifest": "package.json",
+      "script": "lint:changed",
+      "effect": "check",
+      "purpose": "Fixture lint over changed files."
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet",
+      "effect": "check",
+      "purpose": "Fixture ratchet gate. Every fixture ratchet control declares it, so the command's own purpose is authored here rather than derived."
+    },
+    {
+      "manifest": "package.json",
+      "script": "typecheck",
+      "effect": "ci-primitive",
+      "purpose": "Fixture typecheck."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:changed",
+      "effect": "ci-primitive",
+      "purpose": "Fixture tests for changed files."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts",
+      "effect": "ci-primitive",
+      "purpose": "Fixture shell smoke suite."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts:changed",
+      "effect": "ci-primitive",
+      "purpose": "Fixture shell smokes for changed subjects."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format:check",
+      "effect": "check",
+      "purpose": "Fixture format check."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format:changed:check",
+      "effect": "check",
+      "purpose": "Fixture format check over changed files."
+    }
+  ],
   "verifySlotCatalog": [
     {
       "name": "lint",
@@ -1118,6 +1172,18 @@ mutate_non_object_manifest_entry() {
 JSON
 }
 
+mutate_uncatalogued_script() {
+  local fixture_dir=$1
+  # A script outside the control-prefix convention: script parity ignores it,
+  # so only the command-catalog completeness rule can catch it. The one smoke
+  # this rule needs — it proves the rule is reached from the real binary. Its
+  # other two messages (a catalog entry naming a dead script, and a script
+  # documented twice) are pinned per-message by command-catalog.test.ts, which
+  # needs no fixture tree.
+  write_package_json "$fixture_dir" ',
+    "start": "echo start"'
+}
+
 mutate_undeclared_db_script() {
   local fixture_dir=$1
   # Add a db:* script without a manifest entry — the widened
@@ -1484,6 +1550,8 @@ run_failure_checks() {
   run_failure_case "orphan-rule" "is not declared in the manifest" mutate_orphan_rule
   run_failure_case "undeclared-script" "not declared in harness.controls.json and not exempt" mutate_undeclared_script
   run_failure_case "undeclared-db-script" "db:undeclared" mutate_undeclared_db_script
+  run_failure_case "uncatalogued-script" 'script "start" has no purpose line' \
+    mutate_uncatalogued_script
   run_failure_case "missing-ci-gate" "no CI step carries HARNESS_CI_GATE" mutate_missing_ci_gate
   run_failure_case "unparseable-ci-workflow" "could not be parsed as YAML" \
     mutate_unparseable_ci_workflow
@@ -1712,6 +1780,12 @@ run_explain_provenance_check() {
         "name": "explain-probe",
         "full": { "script": "explain-probe:slot" },
         "changed": { "kind": "inherit" }
+      }]
+      | .commandCatalog += [{
+        "manifest": "package.json",
+        "script": "explain-probe:slot",
+        "effect": "ci-primitive",
+        "purpose": "Explain probe fixture slot body."
       }]
       | .controls += [{
         "id": "check/explain-probe",

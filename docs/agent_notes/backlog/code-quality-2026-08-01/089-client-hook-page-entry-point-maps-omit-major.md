@@ -1,6 +1,6 @@
 # 89. The client hooks and pages entry-point maps hide most of their production surface and advertise a file-private component as importable
 
-Status: Not started
+Status: Landed on fix/cq-088
 Theme: module-doc entry-point completeness · Area: docs · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

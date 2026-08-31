@@ -12,7 +12,8 @@ Verified against codex-cli 0.142.5.
 ## Native review harness (`review codex`)
 
 - Diff modes via passthrough: `-- --commit <SHA>`, `-- --base <branch>`, `-- --uncommitted`. Prefer committed/base diffs.
-- An optional wrapper `-p` adds custom review instructions and composes with the mode flags.
+- `-p` (custom review instructions) does **not** compose with the diff-mode flags: the native CLI declares the prompt and each of `--base`/`--commit`/`--uncommitted` mutually exclusive (a clap `conflicts_with` in codex itself — `error: the argument '--base <BRANCH>' cannot be used with '[PROMPT]'`, verified on 0.151.0 — not a wrapper restriction). A bare `review codex -p '<instruction>'` with no mode flag is accepted. When you need both a diff mode and a custom instruction — including "do not dispatch other agents/CLIs" — use `consult codex` instead (already the preferred shape for orchestrated reviews).
+- Given only a diff-mode flag and no instruction, the native review seat has repeatedly sub-dispatched other agent-cli backends (`consult claude -m fable`, `consult copilot`, `consult cursor`) and quoted the nested result back as its own untagged summary; treat an untagged summary from this seat as a cue to grep its log for a nested `consult` dispatch before trusting it as an independent read, and budget the seat at roughly ten minutes regardless of diff size.
 - No `-o` support: read the `[P0]`/`[P1]`/`[P2]` findings from the log. For orchestrated reviews prefer `consult codex`, which collects the result in `-o`.
 - Review runs are read-only by intent and drift-checked like consults: a review that mutates the worktree exits 4 with a `DIRTY` trailer.
 

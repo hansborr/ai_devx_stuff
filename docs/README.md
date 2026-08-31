@@ -10,12 +10,19 @@ what you need.
 
 ## Harness map
 
-[`ai-harness.md`](ai-harness.md) is the authoritative, single-source inventory
-of the agent harness — every guide, lint rule, sensor, and gate, with what each
-one prevents. It is the map; the sections below are just entry points into it.
-Do not re-enumerate the guides here — that table lives in `ai-harness.md`.
+[`harness.controls.json`](../harness.controls.json) and its generated
+projection
+[`docs/generated/harness-controls.md`](generated/harness-controls.md) are the
+authoritative, single-source inventory of harness controls: every registered
+control, grouped by kind. Ask them whether a control exists.
 
-For a bounded open-run-observe introduction before using the inventory, take
+[`ai-harness.md`](ai-harness.md) is the conceptual map over that inventory: the
+harness architecture, the guide and sensor lifecycle, the adoption boundary,
+the gap map, and the complete table of task guides, which it alone owns. The
+sections below are just entry points into it. Do not re-enumerate the guides
+here — that table lives in `ai-harness.md`.
+
+For a bounded open-run-observe introduction before using these documents, take
 the [`15-minute harness tour`](harness-tour.md).
 
 ## By topic

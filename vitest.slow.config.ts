@@ -12,6 +12,7 @@
 // the parent's `exclude` into ours, which would re-add `**/*.slow.test.*`
 // and skip every slow file.
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 import { defaultExclude, defineConfig, defineProject } from "vitest/config";
 
@@ -19,7 +20,7 @@ import clientConfig from "./packages/client/vitest.config.ts";
 import serverConfig from "./packages/server/vitest.config.ts";
 import sharedConfig from "./packages/shared/vitest.config.ts";
 
-const repoRoot = path.dirname(new URL(import.meta.url).pathname);
+const repoRoot = path.dirname(fileURLToPath(import.meta.url));
 const sharedBaseConfig = await sharedConfig;
 const serverBaseConfig = await serverConfig;
 const clientBaseConfig = await clientConfig;

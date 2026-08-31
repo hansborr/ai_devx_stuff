@@ -1,6 +1,6 @@
 # 242. Derive slow-test project roots with fileURLToPath
 
-Status: Not started
+Status: Landed on fix/cq-074
 Theme: Slow-test Vitest config derives filesystem roots from a URL pathname · Area: tests · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -54,3 +54,20 @@ projects remain discoverable through the dedicated slow tier.
   addresses Windows directory-junction portability in lint-ratchet fixtures;
   it does not touch this Vitest root.
 - No prior-pack residual or ordering dependency is recorded for this change.
+
+## Disposition
+
+Landed as written: `vitest.slow.config.ts` now derives `repoRoot` as
+`path.dirname(fileURLToPath(import.meta.url))`, with `fileURLToPath` imported
+from `node:url`. The three `path.join(repoRoot, "packages/…")` calls, the
+imported base configs, include patterns, `defaultExclude`, and project order are
+untouched.
+
+TDD: the bug reproduces by copying the config into a directory whose name
+contains a space and symlinking the siblings it imports — the roots come back as
+`…/dir%20with%20space/packages/shared`. That is now a check in
+`scripts/tests/test-test-slow.sh`, the registered smoke for this config: it
+asserts every resolved slow project root is percent-free and exists on disk. Red
+before the change, green after. `bash scripts/tests/test-test-slow.sh` passes
+(10 assertions) and `vitest list --config vitest.slow.config.ts` resolves all
+three projects.

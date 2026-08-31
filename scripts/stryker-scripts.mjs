@@ -5,9 +5,16 @@ export default createStrykerConfig({
   // In-place (vs the default sandbox) is load-bearing here: several script
   // tests resolve the live repo via `import.meta.url` and `git` (e.g. the lint
   // ratchet registry check, module-doc-paths), which a copied sandbox breaks
-  // because it is not a git checkout. Tradeoff: a hard kill mid-run can leave
-  // mutated sources on disk — Stryker restores them from `.stryker-tmp/backup`
-  // on a clean exit. Do not switch to sandbox without re-checking those tests.
+  // because it is not a git checkout. Tradeoff: an in-place run rewrites the
+  // whole tree, not just the globs below — `disableTypeChecks` defaults to true,
+  // so every JS/TS file gets `// @ts-nocheck` written into it — and a kill
+  // Stryker never observes (SIGKILL, OOM) leaves all of it on disk. Stryker
+  // recovers by moving `.stryker-tmp/backup-*` back on exit and on the signals
+  // it handles; scripts/mutation-run.sh covers the rest with a clean-target
+  // preflight, interrupted-run detection, and a backup-first recovery. Never
+  // delete `.stryker-tmp` to get unstuck: it is the only complete copy of your
+  // pre-run files. Run this lane through `bun run test:scripts:mutation`, not a
+  // bare `stryker run`. Do not switch to sandbox without re-checking those tests.
   inPlace: true,
   reportDir: "reports/mutation-scripts",
   vitest: {

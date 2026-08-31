@@ -18,6 +18,28 @@ export const generateHarnessControlsEntries: readonly CoverageEntry[] = [
     followUp: "—",
   },
   {
+    id: "scripts-harness-command-catalog-ts",
+    globs: [
+      "scripts/harness/command-catalog.ts",
+      "scripts/harness/command-catalog.test.ts",
+      "scripts/harness/command-catalog-schema.ts",
+      "scripts/harness/command-catalog-sections.ts",
+      "scripts/harness/command-catalog-sources.ts",
+      "scripts/harness/command-catalog-sources.test.ts",
+      "scripts/harness/generate-command-catalog.ts",
+      "scripts/harness/package-manifest-scripts.ts",
+    ],
+    files: "8 .ts",
+    normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
+    ratchets: "`ratchet/local-type-assertion-boundary`",
+    parser: "ESLint via `tsconfig.scripts.json` parser override",
+    proposed:
+      "none — the command-catalog model, its metadata projections and its generator are under normal lint with the rest of the harness scripts",
+    status: ["linted", "ratcheted"],
+    followUp:
+      "Backs `docs/generated/command-catalog.md` and the command-catalog completeness rule in `harness:check`.",
+  },
+  {
     id: "scripts-harness-control-field-validation-ts",
     globs: ["scripts/harness/control-field-validation.ts"],
     files: "1 .ts",

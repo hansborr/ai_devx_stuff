@@ -1,6 +1,6 @@
 # 95. The homebrew module index's add-entity recipe points contributors at a registry consumer and hides five of six shared helpers
 
-Status: Not started
+Status: Landed on fix/cq-091
 Theme: Parent index drift after module split · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

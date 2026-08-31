@@ -4,7 +4,7 @@ export const markdownAndDocEntries: readonly CoverageEntry[] = [
   {
     id: "docs",
     globs: ["docs/**/*"],
-    files: "963 (mostly .md, plus JSON/MJS audit artifacts and the SRD PDF)",
+    files: "977 (mostly .md, plus JSON/MJS audit artifacts and the SRD PDF)",
     normalLint: { covered: false, note: "`docs/` in global ignores" },
     ratchets: "none",
     parser: "—",
@@ -43,7 +43,7 @@ export const markdownAndDocEntries: readonly CoverageEntry[] = [
       "packages/**/README.md",
     ],
     files:
-      "root guidance docs + 33 client + 13 server + 3 shared MODULE docs + 1 nested package README",
+      "root guidance docs + 33 client + 14 server + 3 shared MODULE docs + 1 nested package README",
     filesCountNote:
       "a narrative breakdown by kind, not a total: the leading term names the root guidance docs rather than counting them.",
     normalLint: { covered: false },

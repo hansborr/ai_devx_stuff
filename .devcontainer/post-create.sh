@@ -51,7 +51,7 @@ trap flush_log EXIT
 cd "$WORKSPACE" || exit 1
 
 # Test databases the vitest / Playwright harnesses assume exist. They are
-# created on first postgres-volume init by .devcontainer/init-test-db.sql, but
+# created on first postgres-volume init by the repo-root init-test-db.sql, but
 # that hook only fires on an empty data dir and has been observed to leave them
 # absent on a fresh volume — so we (re)provision them here, idempotently.
 # Populated by resolve_test_db_names() from the same env the harness reads; the

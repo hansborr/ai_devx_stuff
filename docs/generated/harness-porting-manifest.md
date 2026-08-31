@@ -115,8 +115,9 @@ Copy these directories whole:
 |---|---|---|
 | `tools/lint-ratchet/` | `@musi/lint-ratchet` | This copy set's `scripts/lib/` one-file indirections re-export entries of the ratchet kernel's utility contract — atomic replacement writes, deterministic codepoint ordering — so the recipe reaches the engine package. Which of them a recipe needs is visible in its file list below. Copy the directory as a unit per docs/guides/lint-ratchet-adoption.md, or, rather than take the whole engine package for the utilities those indirections forward, reimplement them against your own helpers and drop the package. |
 
-Copy these 30 files (derived from the import graph):
+Copy these 31 files (derived from the import graph):
 
+- `scripts/harness/command-catalog-schema.ts`
 - `scripts/harness/command-policy-schema.ts`
 - `scripts/harness/control-field-validation.ts`
 - `scripts/harness/generate-harness-controls-validation.ts`

@@ -1,6 +1,6 @@
 # 86. The drift:ai operator guide is one 890-line README serving five audiences, restating the supported invocation four times
 
-Status: Not started
+Status: Landed on fix/cq-085
 Theme: audience-split operator docs · Area: docs · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

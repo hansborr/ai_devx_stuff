@@ -1,6 +1,6 @@
 # 91. The e2e guide's raw-locator fallback is impossible as written — the paired lint rule rejects every `locator()` call with no reason inspection
 
-Status: Not started
+Status: Landed on fix/cq-091
 Theme: guide-lint parity · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

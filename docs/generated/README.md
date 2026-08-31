@@ -6,6 +6,7 @@ editing or regenerating a file.
 
 | File | Ownership | Maintenance contract |
 |---|---|---|
+| `command-catalog.md` | Generated | Do not edit by hand. Per-command purposes come from the registering harness control, or from the `commandCatalog` section of `harness.controls.json` for scripts no single control speaks for (those no control declares, plus the aggregating commands several controls declare); the per-family section blurbs live in `scripts/harness/command-catalog-sections.ts` and the effect legend in `scripts/harness/command-catalog-schema.ts`. Refresh with `bun run docs:command-catalog`; check with `bun run docs:command-catalog:check`. `bun run harness:check` fails when a tracked package.json script has no metadata source, or two. |
 | `harness-controls.md` | Generated | Do not edit by hand. Refresh with `bun run docs:harness-controls`; check with `bun run docs:harness-controls:check`. |
 | `harness-porting-manifest.md` | Generated | Do not edit by hand. Recipe entrypoints and the portable/adapter classification live in `scripts/harness/porting-recipes.ts`; the copy sets are walked from the import graph. Refresh with `bun run docs:harness-porting`; check with `bun run docs:harness-porting:check`. |
 | `local-lint-rules.md` | Generated | Do not edit by hand. Refresh with `bun run docs:lint-guidance`; check with `bun run docs:lint-guidance:check`. |

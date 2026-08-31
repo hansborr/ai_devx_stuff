@@ -65,7 +65,7 @@ function makeFacetRoot(facetOverrides: FacetOverrides = {}, invocation?: string)
 }
 
 describe("loadGeneratedSurfaces (real manifest)", () => {
-  it("returns exactly the eighteen registered generated surfaces in deterministic id order", () => {
+  it("returns exactly the twenty registered generated surfaces in deterministic id order", () => {
     const records = loadGeneratedSurfaces(repoRoot);
     expect(records.map((record) => record.id)).toEqual([
       "check/command-policy-generator",
@@ -80,7 +80,9 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "check/skill-artifacts-generator",
       "check/smoke-subjects-generator",
       "check/verify-steps-generator",
+      "doc-generator/backlog-catalog",
       "doc-generator/baseline-conflict-recipes",
+      "doc-generator/command-catalog",
       "doc-generator/harness-controls",
       "doc-generator/harness-porting-manifest",
       "doc-generator/lint-coverage-map",
@@ -103,7 +105,9 @@ describe("loadGeneratedSurfaces (real manifest)", () => {
       "harness:skills:check",
       "test:scripts:subjects:check",
       "verify:steps:check",
+      "docs:backlog-catalog:check",
       "docs:baseline-conflict-recipes:check",
+      "docs:command-catalog:check",
       "docs:harness-controls:check",
       "docs:harness-porting:check",
       "docs:lint-coverage-map:generate:check",
@@ -317,6 +321,25 @@ describe("renderFreshnessShell (freshness pre-commit projection)", () => {
     expect(rendered).toContain("'scripts/example-generator.ts'|'scripts/example-data/'*");
     expect(rendered).toContain("warn_if_generated_surface_stale 'example output' 'example:check'");
     expect(readFileSync(join(repoRoot, ".husky/pre-commit"), "utf8")).toBe(hookBefore);
+  });
+
+  it("drops a path a trigger prefix already covers, so the case has no dead arm", () => {
+    // A record whose output lives inside one of its own trigger directories
+    // used to render both patterns, and shellcheck rejects the resulting
+    // always-overridden/never-matched pair (SC2221/SC2222).
+    const record: GeneratedSurfaceRecord = {
+      id: "check/prefix-covered",
+      source: "scripts/prefix-covered.ts",
+      checkScript: "prefix:check",
+      refreshScript: "prefix",
+      triggerPaths: ["docs/notes/", "scripts/prefix-covered.ts"],
+      outputPaths: ["docs/notes/CATALOG.md"],
+      warnLabel: "prefix covered",
+      bunHook: { refresh: "bypass", check: "wrapped" },
+    };
+    const rendered = renderFreshnessShell([record]);
+    expect(rendered).toContain("'docs/notes/'*|'scripts/prefix-covered.ts'");
+    expect(rendered).not.toContain("'docs/notes/CATALOG.md'");
   });
 });
 

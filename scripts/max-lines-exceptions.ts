@@ -10,6 +10,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { forwardMissingMergeDriverWarning } from "@musi/lint-ratchet/git-rail/merge-driver-presence.js";
+import { minimatch } from "minimatch";
 
 import { maxLinesPolicy } from "../eslint-config/max-lines-policy.js";
 import { writeFileAtomicallySync } from "./lib/atomic-write.js";
@@ -99,63 +100,109 @@ type EntryAudit = {
   readonly summaryLines: readonly string[];
 };
 
+// The cap a path would get with no baseline entry at all: the engine-zone cap
+// for paths matching the lint-ratchet engine globs, otherwise the repo-wide
+// ratchet floor. dot:true mirrors how ESLint flat config resolves the same
+// `files` globs. Deliberately local — only two zones exist today, so this is
+// not worth a public zone-resolution API.
+function defaultCapForPath(relativePath: string): number {
+  const zone = validatedMaxLinesPolicy.engineZone;
+  if (zone.files.some((glob) => minimatch(relativePath, glob, { dot: true }))) return zone.cap;
+  return validatedMaxLinesPolicy.ratchetFloor.cap;
+}
+
+type CapAuditFinding = {
+  readonly kind: "capBelow" | "missing" | "unreadable" | "unneeded";
+  readonly warning: string;
+};
+
+// Classify one entry against its source read. "unneeded" is deliberately not
+// the generated-exemption guard's "redundant cap entry" (an exempt path that
+// also carries a baseline entry) — this one compares the cap against the file's
+// live line count and fires only when the no-exception default already covers
+// it. A cap-below entry is never also reported unneeded.
+function auditOneEntryCap(
+  entry: MaxLinesExceptionEntry,
+  read: SourceRead,
+): CapAuditFinding | undefined {
+  if (read.kind === "missing") {
+    return {
+      kind: "missing",
+      warning: `WARN: ${entry.path} has a max-lines exception but no file exists on disk — remove the dead entry (ESLint local/max-lines will never flag it).`,
+    };
+  }
+  if (read.kind === "unreadable") {
+    return {
+      kind: "unreadable",
+      warning: `WARN: ${entry.path} could not be read (${read.reason}) — its cap was not checked; fix access or remove the entry if the file is gone.`,
+    };
+  }
+  const effective = computeEffectiveLineCount(entry.path, read.text, maxLinesPolicy.counting);
+  if (effective === undefined) return undefined;
+  if (effective > entry.cap) {
+    return {
+      kind: "capBelow",
+      warning: `WARN: ${entry.path} cap ${String(entry.cap)} is below its current ${String(effective)} effective lines — raise the cap in eslint-config/max-lines-exceptions.baseline.json (then run 'bun run lint:max-lines-exceptions:update' to normalize) or split the file.`,
+    };
+  }
+  const defaultCap = defaultCapForPath(entry.path);
+  // Only a cap above the default can be unneeded: an entry that tightens the
+  // cap below its default is load-bearing (removing it would loosen the gate).
+  if (entry.cap > defaultCap && effective <= defaultCap) {
+    return {
+      kind: "unneeded",
+      warning: `WARN: ${entry.path} cap ${String(entry.cap)} is unneeded — its ${String(effective)} effective lines are at or under the ${String(defaultCap)}-line default that applies with no exception; remove the entry from eslint-config/max-lines-exceptions.baseline.json (or keep a smaller cap if renewed growth is expected).`,
+    };
+  }
+  return undefined;
+}
+
 // Compare every committed cap against the file's live effective line count,
 // counted through the same code path ESLint uses (max-lines-effective-lines).
 // A cap below the current count means ESLint local/max-lines is already failing
 // this run; an ENOENT-missing file means a dead entry ESLint can never flag; an
-// otherwise-unreadable file means the cap could not be checked at all. All three
-// are warnings only — this validator never fails on them (ESLint owns the cap
-// gate); its job is to stop reporting an unqualified OK while any is true.
+// otherwise-unreadable file means the cap could not be checked at all; a cap
+// whose file has shrunk to at or under its no-exception default is unneeded
+// headroom that will never expire on its own. All four are warnings only — this
+// validator never fails on them (ESLint owns the cap gate); its job is to stop
+// reporting an unqualified OK while any is true.
 function auditEntryCaps(input: {
   readonly entries: readonly MaxLinesExceptionEntry[];
   readonly sourceRoot: string;
   readonly readSource: (absolutePath: string) => SourceRead;
 }): EntryAudit {
-  const counting = maxLinesPolicy.counting;
   const detailWarnings: string[] = [];
-  let capBelow = 0;
-  let missing = 0;
-  let unreadable = 0;
+  const counts = { capBelow: 0, missing: 0, unreadable: 0, unneeded: 0 };
 
   for (const entry of input.entries) {
-    const read = input.readSource(resolve(input.sourceRoot, entry.path));
-    if (read.kind === "missing") {
-      missing += 1;
-      detailWarnings.push(
-        `WARN: ${entry.path} has a max-lines exception but no file exists on disk — remove the dead entry (ESLint local/max-lines will never flag it).`,
-      );
-      continue;
-    }
-    if (read.kind === "unreadable") {
-      unreadable += 1;
-      detailWarnings.push(
-        `WARN: ${entry.path} could not be read (${read.reason}) — its cap was not checked; fix access or remove the entry if the file is gone.`,
-      );
-      continue;
-    }
-    const effective = computeEffectiveLineCount(entry.path, read.text, counting);
-    if (effective !== undefined && effective > entry.cap) {
-      capBelow += 1;
-      detailWarnings.push(
-        `WARN: ${entry.path} cap ${String(entry.cap)} is below its current ${String(effective)} effective lines — raise the cap in eslint-config/max-lines-exceptions.baseline.json (then run 'bun run lint:max-lines-exceptions:update' to normalize) or split the file.`,
-      );
-    }
+    const finding = auditOneEntryCap(
+      entry,
+      input.readSource(resolve(input.sourceRoot, entry.path)),
+    );
+    if (finding === undefined) continue;
+    counts[finding.kind] += 1;
+    detailWarnings.push(finding.warning);
   }
 
   const summaryLines: string[] = [];
-  if (capBelow > 0) {
+  if (counts.capBelow > 0) {
     summaryLines.push(
-      `WARN: ${String(capBelow)} cap(s) below current effective lines — ESLint local/max-lines will fail on these files.`,
+      `WARN: ${String(counts.capBelow)} cap(s) below current effective lines — ESLint local/max-lines will fail on these files.`,
     );
   }
-  if (missing > 0) {
+  if (counts.missing > 0) {
     summaryLines.push(
-      `WARN: ${String(missing)} exception path(s) missing on disk — remove the dead entr${missing === 1 ? "y" : "ies"}.`,
+      `WARN: ${String(counts.missing)} exception path(s) missing on disk — remove the dead entr${counts.missing === 1 ? "y" : "ies"}.`,
     );
   }
-  if (unreadable > 0) {
+  if (counts.unreadable > 0) {
     summaryLines.push(
-      `WARN: ${String(unreadable)} exception path(s) could not be read — their caps were not checked.`,
+      `WARN: ${String(counts.unreadable)} exception path(s) could not be read — their caps were not checked.`,
+    );
+  }
+  if (counts.unneeded > 0) {
+    summaryLines.push(
+      `WARN: ${String(counts.unneeded)} cap(s) unneeded — effective lines are at or under the default cap; remove the stale entr${counts.unneeded === 1 ? "y" : "ies"}.`,
     );
   }
   return { detailWarnings, summaryLines };

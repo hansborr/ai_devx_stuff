@@ -1,6 +1,5 @@
-import { expect, test } from "./fixtures.js";
+import { test } from "./fixtures.js";
 import { uniqueName } from "./helpers/test-data.js";
-import { TIMEOUT_SHORT } from "./helpers/timeouts.js";
 import { CharacterWizardPO } from "./page-objects/character-wizard.po.js";
 import { DashboardPO } from "./page-objects/dashboard.po.js";
 
@@ -18,8 +17,8 @@ test.describe("Wizard step validation", () => {
     const wizard = new CharacterWizardPO(page);
     await dashboard.clickCreateCharacter();
 
-    await expect(wizard.continueButton).toBeDisabled();
-    await expect(page.getByText("Complete this step to continue")).toBeVisible();
+    await wizard.expectContinueDisabled();
+    await wizard.expectIncompleteStepHint();
   });
 
   test("class step - cannot advance without selecting a class", async ({ userPage: { page } }) => {
@@ -32,8 +31,8 @@ test.describe("Wizard step validation", () => {
     await wizard.clickContinue();
 
     // Now on class step - Continue should be disabled
-    await expect(wizard.continueButton).toBeDisabled();
-    await expect(page.getByText("Complete this step to continue")).toBeVisible();
+    await wizard.expectContinueDisabled();
+    await wizard.expectIncompleteStepHint();
   });
 
   test("background step - cannot advance without selecting background and boosts", async ({
@@ -50,11 +49,11 @@ test.describe("Wizard step validation", () => {
     await wizard.clickContinue();
 
     // Now on background step - Continue should be disabled (no background selected)
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.expectContinueDisabled();
 
     // Select background but don't pick boosts - still disabled
     await wizard.clickCard("Soldier");
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.expectContinueDisabled();
   });
 
   test("background +2/+1 mode - must select BOTH +2 and +1 abilities to advance", async ({
@@ -74,15 +73,12 @@ test.describe("Wizard step validation", () => {
     await wizard.clickCard("Soldier");
 
     // Select only +2 - should still be disabled
-    await expect(wizard.boostPlus2).toBeVisible({ timeout: TIMEOUT_SHORT });
-    await wizard.boostPlus2.click();
-    await page.getByRole("option", { name: "STR" }).click();
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.selectPlus2Boost("STR");
+    await wizard.expectContinueDisabled();
 
     // Now select +1 - should become enabled
-    await wizard.boostPlus1.click();
-    await page.getByRole("option", { name: "CON" }).click();
-    await expect(wizard.continueButton).toBeEnabled();
+    await wizard.selectPlus1Boost("CON");
+    await wizard.expectContinueEnabled();
   });
 
   test("background +1/+1/+1 mode - must select all three abilities to advance", async ({
@@ -102,22 +98,19 @@ test.describe("Wizard step validation", () => {
     await wizard.clickCard("Soldier");
 
     // Switch to +1/+1/+1 mode
-    await wizard.boostModeTriple.click();
+    await wizard.selectTripleBoostMode();
 
     // Select only first +1 - should be disabled
-    await wizard.boostFirst.click();
-    await page.getByRole("option", { name: "STR" }).click();
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.selectFirstBoost("STR");
+    await wizard.expectContinueDisabled();
 
     // Select second +1 - still disabled
-    await wizard.boostSecond.click();
-    await page.getByRole("option", { name: "DEX" }).click();
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.selectSecondBoost("DEX");
+    await wizard.expectContinueDisabled();
 
     // Select third +1 - should become enabled
-    await wizard.boostThird.click();
-    await page.getByRole("option", { name: "CON" }).click();
-    await expect(wizard.continueButton).toBeEnabled();
+    await wizard.selectThirdBoost("CON");
+    await wizard.expectContinueEnabled();
   });
 
   test("personality step - cannot advance without entering a name", async ({
@@ -149,12 +142,12 @@ test.describe("Wizard step validation", () => {
     await wizard.clickContinue();
 
     // Now on personality step - Continue should be disabled without a name
-    await expect(page.getByText("Personality & Details")).toBeVisible();
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.expectPersonalityStep();
+    await wizard.expectContinueDisabled();
 
     // Enter a name - should become enabled
     await wizard.setCharacterName("Validation Hero");
-    await expect(wizard.continueButton).toBeEnabled();
+    await wizard.expectContinueEnabled();
   });
 });
 

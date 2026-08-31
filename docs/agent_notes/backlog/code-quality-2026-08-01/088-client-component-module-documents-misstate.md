@@ -1,6 +1,6 @@
 # 88. Three high-change client component MODULE maps are unreliable: the VTT map credits `VttSurface` with composition it does not do, the combat map advertises orphaned UI and paging ownership that does not exist, and the encounters map is nine lines for a 1,888-line feature
 
-Status: Not started
+Status: Landed on fix/cq-088
 Theme: component MODULE map accuracy · Area: docs · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

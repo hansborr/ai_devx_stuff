@@ -11,6 +11,7 @@
 # smoke-subjects: vitest.slow.config.ts
 # smoke-subjects: packages/shared/vitest.config.ts
 # smoke-subjects: packages/server/vitest.config.ts
+# smoke-subjects: packages/server/src/test/vitest-project-options.ts
 # smoke-subjects: packages/client/vitest.config.ts
 # smoke-subjects: scripts/vitest.config.ts
 # smoke-subjects: eslint-rules/vitest.config.ts
@@ -110,20 +111,51 @@ grep -qF '"import-closure/**/*.ts"' scripts/vitest.config.ts \
   || fail "scripts/vitest.config.ts should collect import-closure production coverage"
 ok "scripts Vitest coverage includes the import-closure module"
 
-# --- 1. Every package config carries the slow-tier exclude -----------------
+# --- 1. Every package project carries the slow-tier exclude ----------------
 # The shared package gets the runtime checks below via the sentinel. For
-# server and client we don't keep production sentinel fixtures, so a static
-# grep is the smoke against someone deleting the exclude line. test-scripts
-# routes server/client vitest config changes to this smoke; without the
-# static check, the smoke would only validate `shared`.
-for pkg in shared server client; do
-  cfg="packages/$pkg/vitest.config.ts"
-  grep -qF '"**/*.slow.test.*"' "$cfg" \
-    || fail "$cfg should retain '**/*.slow.test.*' in exclude"
-  grep -qF "...defaultExclude" "$cfg" \
-    || fail "$cfg should preserve defaultExclude alongside the slow pattern"
-done
-ok "every package vitest.config.ts excludes **/*.slow.test.* alongside defaultExclude"
+# server and client we don't keep production sentinel fixtures, so this
+# resolves each package's Vitest config and asserts the *composed*
+# `test.exclude` still carries the slow pattern alongside every
+# `defaultExclude` entry. Resolving beats grepping the config text: the
+# server project now builds its exclude from `SERVER_TEST_EXCLUDE` in
+# `packages/server/src/test/vitest-project-options.ts`, so neither literal
+# appears in `packages/server/vitest.config.ts` any more — but deleting the
+# pattern from the shared module, or stopping the config composing it, still
+# fails here. Config evaluation needs no database (see the header of
+# `vitest-project-options.ts`). test-scripts routes changes to every file in
+# that chain to this smoke via the `# smoke-subjects:` headers above.
+exclude_check_output="$(bun --config=/dev/null --eval '
+import { defaultExclude } from "vitest/config";
+
+const failures = [];
+
+for (const pkg of ["shared", "server", "client"]) {
+  const configPath = `./packages/${pkg}/vitest.config.ts`;
+  const module = await import(configPath);
+  const config = await module.default;
+  const exclude = config?.test?.exclude;
+
+  if (!Array.isArray(exclude)) {
+    failures.push(`${configPath} test.exclude is not an array: ${String(exclude)}`);
+    continue;
+  }
+  if (!exclude.includes("**/*.slow.test.*")) {
+    failures.push(`${configPath} drops "**/*.slow.test.*": ${JSON.stringify(exclude)}`);
+  }
+  const missing = defaultExclude.filter((pattern) => !exclude.includes(pattern));
+  if (missing.length > 0) {
+    failures.push(
+      `${configPath} drops defaultExclude ${JSON.stringify(missing)}: ${JSON.stringify(exclude)}`,
+    );
+  }
+}
+
+if (failures.length > 0) {
+  throw new Error(`every package Vitest project must exclude the slow tier alongside defaultExclude:\n${failures.join("\n")}`);
+}
+' 2>&1)" \
+  || fail "package Vitest projects should exclude the slow tier: $exclude_check_output"
+ok "every package vitest project excludes **/*.slow.test.* alongside defaultExclude"
 
 # --- 2. Default config skips the slow sentinel -----------------------------
 default_list="$(MUSI_RUN_SLOW_TESTS='' "$VITEST_BIN" list --project=shared 2>&1)" \
@@ -236,5 +268,122 @@ if grep -qF 'slow tests changed' "$stderr_file2"; then
   fail "slow-test hint must NOT fire on regular *.test.ts changes: $(cat "$stderr_file2")"
 fi
 ok "test-changed.sh stays quiet about slow tests when only regular tests change"
+
+# --- 6. Slow config derives package roots from a filesystem path ----------
+# `vitest.slow.config.ts` anchors all three package projects to the directory
+# holding the config. Deriving that directory from a file URL's `pathname`
+# keeps percent-encoding (`dir with space` -> `dir%20with%20space`), so every
+# project root points at a path that does not exist. Copy the config into a
+# sandbox directory whose name contains a space, symlink the sibling files it
+# imports, and assert the resolved roots are real directories.
+spaced_dir="$SANDBOX/dir with space"
+mkdir -p "$spaced_dir"
+cp "$REPO_ROOT/vitest.slow.config.ts" "$spaced_dir/vitest.slow.config.ts"
+for entry in packages node_modules vitest.config.ts package.json; do
+  ln -s "$REPO_ROOT/$entry" "$spaced_dir/$entry"
+done
+
+spaced_root_output="$(SPACED_CONFIG="$spaced_dir/vitest.slow.config.ts" bun --config=/dev/null --eval '
+import { existsSync } from "node:fs";
+
+const module = await import(process.env.SPACED_CONFIG);
+const config = await module.default;
+const projects = config?.test?.projects ?? [];
+const failures = [];
+
+if (projects.length !== 3) {
+  failures.push(`expected 3 slow projects, got ${projects.length}`);
+}
+
+for (const project of projects) {
+  const root = project?.root;
+  if (typeof root !== "string") {
+    failures.push(`project root is not a string: ${String(root)}`);
+    continue;
+  }
+  if (root.includes("%")) {
+    failures.push(`project root keeps URL percent-encoding: ${root}`);
+    continue;
+  }
+  if (!existsSync(root)) {
+    failures.push(`project root does not exist on disk: ${root}`);
+  }
+}
+
+if (failures.length > 0) {
+  throw new Error(`slow-tier project roots must be filesystem paths:\n${failures.join("\n")}`);
+}
+' 2>&1)" \
+  || fail "slow config should resolve project roots under a path with a space: $spaced_root_output"
+ok "slow config derives package roots as filesystem paths, not URL pathnames"
+
+# --- 7. Coverage denominators exclude test scaffolding --------------------
+# Coverage thresholds are only interpretable if the denominator is production
+# code. Test-support modules are executed by the suites that import them, so
+# leaving them in the covered set inflates coverage without covering behavior
+# - and it contradicts `stryker.config.mjs`, which already classifies
+# `packages/shared/src/test/**` as scaffolding with no behavior worth mutating.
+# In projects mode Vitest resolves coverage from the root config alone, so the
+# root `coverage.exclude` is the only list that decides the real denominator;
+# the per-project blocks apply solely to standalone `vitest --config
+# packages/<pkg>/vitest.config.ts` runs and are not checked here.
+#
+# The enumerator mirrors the root exclude's own conventions, so it catches one
+# reachable regression: a pattern dropped from the root exclude. It cannot see a
+# scaffolding family that outgrows those conventions entirely (a new
+# `src/testing/` directory, a `*.mock-helper.ts` spelling) - such a family is
+# invisible to this selector too, and only a reader adds it here.
+#
+# `eslint-rules`' three test-support modules have production-looking filenames
+# and are identifiable only by import topology, so they are named literally in
+# both the root exclude and this list. Asserting they still exist turns a rename
+# into a loud failure rather than a silently orphaned exclude pattern.
+eslint_rules_support=""
+for support_path in \
+  eslint-rules/rule-tester.js \
+  eslint-rules/repo-config-harness.js \
+  eslint-rules/eslint-config-resolution-timeout.js; do
+  [ -f "$support_path" ] \
+    || fail "named eslint-rules test-support module no longer exists: $support_path"
+  eslint_rules_support="$eslint_rules_support$support_path
+"
+done
+scaffolding_paths="$(git ls-files \
+  '*test-helper.ts' '*test-helper.tsx' 'packages/*/src/test/*' 'tools/lint-ratchet/test/*' \
+  | grep -v '/worktrees/' \
+  | grep -E '\.tsx?$' \
+  | grep -v '\.test\.tsx\?$')" \
+  || fail "expected to find test-scaffolding files to check"
+scaffolding_paths="$scaffolding_paths
+$eslint_rules_support"
+
+coverage_check_output="$(SCAFFOLDING_PATHS="$scaffolding_paths" bun --config=/dev/null --eval '
+const scaffolding = (process.env.SCAFFOLDING_PATHS ?? "").split("\n").filter(Boolean);
+const failures = [];
+const matchesAny = (patterns, candidate) =>
+  (patterns ?? []).some((pattern) => new Bun.Glob(pattern).match(candidate));
+
+const rootModule = await import("./vitest.config.ts");
+const rootConfig = await rootModule.default;
+const rootExclude = rootConfig?.test?.coverage?.exclude;
+for (const filePath of scaffolding) {
+  if (!matchesAny(rootExclude, filePath)) {
+    failures.push(`root coverage.exclude does not cover scaffolding file ${filePath}`);
+  }
+}
+
+// Scaffolding imported as `@musi/shared/test/*.js` is recorded against
+// `packages/shared/dist/` and only reaches a `src/` path through the source
+// map, so the excludes have to be applied again after that remap.
+if (rootConfig?.test?.coverage?.excludeAfterRemap !== true) {
+  failures.push("root coverage.excludeAfterRemap must be true");
+}
+
+if (failures.length > 0) {
+  throw new Error(`coverage denominator must exclude test scaffolding:\n${failures.join("\n")}`);
+}
+' 2>&1)" \
+  || fail "root coverage config should exclude test scaffolding: $coverage_check_output"
+ok "root coverage.exclude covers every enumerated test-scaffolding module"
 
 printf 'test-test-slow tests passed (%d)\n' "$PASS"

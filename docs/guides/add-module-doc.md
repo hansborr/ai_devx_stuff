@@ -29,7 +29,30 @@ orientation file for a code surface.
    broadcasts, transactions, locks, or optimistic writes.
 9. In External Entry Points, link to facades, hooks, components, router calls,
    or imports that callers should use. Avoid documenting private helper files
-   unless using them directly would be a bug.
+   unless using them directly would be a bug. The section is an inventory, not
+   a sample: list every export non-test production code imports from outside
+   the directory, or state a narrower scope in the section itself. Never list a
+   file-private symbol; a composition root nothing outside imports belongs in
+   Data Flow instead. Derive the list mechanically rather than from memory:
+
+   ```bash
+   # Candidate exports of one file.
+   bun run code:intel -- exports <file>
+   # Who imports that file, `*.test.ts(x)` excluded.
+   bun run code:intel -- dependents <file> --exclude-tests
+   # Per symbol: non-test files outside <dir> that name it.
+   git grep -lw "<symbol>" -- '<package-src>' \
+     ':(exclude)<dir>' ':(exclude)*.test.*' ':(exclude)*.spec.*' \
+     ':(exclude)*/test/*' ':(exclude)*test-helper*'
+   ```
+
+   The last two pathspecs exclude the test-only modules that live outside
+   `*.test.*` — the per-package `src/test/` trees of fixtures and mocks, and
+   `*test-helper*` modules — which `--exclude-tests` does not drop either, as
+   it matches `*.test.ts(x)` basenames only (`STRICT_TEST_BASENAME_PATTERN` in
+   `scripts/lib/path-taxonomy.ts`). `dependents` reports file-level edges, so
+   the per-symbol `git grep` is what decides which of a multi-export file's
+   symbols earn a row.
 10. In Test Seams, name the focused test files, test helpers, mocks, or command
     slices a contributor should run when changing the module.
 11. In Gotchas, record invariants and cross-module dependencies that are easy

@@ -66,7 +66,7 @@ test.describe("Character creation wizard", () => {
     await wizard.selectEquipmentOption("A");
     await wizard.clickContinue();
 
-    await expect(page.getByText("Personality & Details")).toBeVisible();
+    await wizard.expectPersonalityStep();
     await expect(page.getByRole("heading", { name: "Choose Your Spells" })).toHaveCount(0);
 
     await wizard.setCharacterName(charName);

@@ -1,6 +1,6 @@
 # 105. Three client comments document superseded contracts: a phantom onFinalize snapshot argument, an abandoned socket-filter design, and a nonexistent server file
 
-Status: Not started
+Status: Landed on fix/cq-228
 Theme: stale boundary comments · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

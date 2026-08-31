@@ -1,6 +1,6 @@
 # 98. The scripts guide's "Current generated surfaces" list presents three of twelve registered generator families as the complete set, and includes a nongenerated demo
 
-Status: Not started
+Status: Landed on fix/cq-094
 Theme: generated-surface inventory drift · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

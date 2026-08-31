@@ -159,7 +159,7 @@ export const packageTestEntries: readonly CoverageEntry[] = [
       "packages/server/src/**/__type-tests__/**/*.ts",
       "packages/server/src/**/**/*-test-helper.ts",
     ],
-    files: "260 .ts",
+    files: "263 .ts",
     normalLint: { covered: true, note: "test-relaxed tier with vitest rules" },
     ratchets: "`ratchet/local-type-assertion-boundary`, `ratchet/no-real-time-in-package-tests`",
     parser: "ESLint `type-aware-ts`",

@@ -1,6 +1,6 @@
 # 94. docs/README.md brands ai-harness.md the authoritative harness inventory while the generated controls projection claims the same authority — and ai-harness.md itself disclaims exhaustiveness
 
-Status: Not started
+Status: Landed on fix/cq-094
 Theme: single authority chain for harness docs · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

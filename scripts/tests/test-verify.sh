@@ -2420,7 +2420,7 @@ SOURCE_RELEVANT_DRIFT_PATHS=(
   ".codex/skills/playwright-cli/agents/openai.yaml"
   ".devcontainer/Dockerfile"
   ".devcontainer/docker-compose.yml"
-  ".devcontainer/start-servers.sh"
+  ".devcontainer/post-create.sh"
   "packages/server/prisma.config.ts"
 )
 for source_relevant_path in "${SOURCE_RELEVANT_DRIFT_PATHS[@]}"; do

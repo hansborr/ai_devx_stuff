@@ -16,6 +16,10 @@ export default defineProject({
     exclude: [...defaultExclude, "**/worktrees/**"],
     maxWorkers: NON_SERVER_TEST_MAX_WORKERS,
     coverage: {
+      // Not the load-bearing copy: `bun run test:coverage` runs Vitest in
+      // projects mode, where coverage resolves from the root `vitest.config.ts`
+      // alone. This block applies only to a standalone
+      // `vitest --config <this file>` run.
       include: ["src/**/*.ts"],
       exclude: ["src/**/*.test.ts"],
     },

@@ -177,9 +177,9 @@ export default {
     type: "suggestion",
     docs: {
       description:
-        "Pino logger messages must be static; pass dynamic values via the metadata object",
+        "Pino logger messages must be static with dynamic values in the metadata object, and createScriptLogger may only be imported from the sanctioned server script paths",
       principle:
-        "Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.",
+        "Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context. The createScriptLogger factory builds a standalone-script logger with no request context, so importing it is restricted by file path to packages/server/src/seed/, packages/server/scripts/, and packages/server/prisma/seed*.ts; runtime server code uses request or server log context instead.",
       category: "maintainability",
       pairedGuide: "docs/guides/local-eslint-rules.md",
       repairKind: "codemod",

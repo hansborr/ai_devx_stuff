@@ -10,6 +10,11 @@
 //    checkScript alias of one, or sits in the scriptParityExemptions escape
 //    for one-off operational utilities (redundant alias-covered exemptions
 //    fail so the list cannot silently re-grow);
+//  - parity (command catalog): every script in every tracked package.json has
+//    exactly one purpose source — the single control that declares it, or a
+//    commandCatalog entry for the scripts no control reaches and for the
+//    aggregating commands several controls declare (declaring both fails), so
+//    a new command cannot land with nothing saying what it is for;
 //  - parity (doctor): every doctor-check id emitted by doctor.sh is declared
 //    in the manifest and every manifest doctor check is still emitted;
 //  - parity (porting): every Porting This checklist id has a greppable source

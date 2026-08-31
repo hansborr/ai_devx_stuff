@@ -26,6 +26,7 @@
 
 import { z } from "zod";
 
+import { commandCatalogSchema } from "./command-catalog-schema.js";
 import { CONTROL_CATEGORIES, REPAIR_KINDS } from "./control-field-validation.js";
 import { HARNESS_MANIFEST_FILENAME } from "./harness-manifest.js";
 import {
@@ -57,9 +58,9 @@ export const HARNESS_MANIFEST_SCHEMA_POINTER = "./schemas/harness.controls.schem
 const MANIFEST_ROOT_DESCRIPTION = [
   "Musi harness control manifest (harness.controls.json): the registration inventory of every enforcement control in the harness.",
   "GENERATED from the Zod parser in scripts/harness/harness-manifest-schema.ts by `bun run harness:manifest-schema`; do not edit by hand.",
-  "AUTHORITATIVE HERE: the root keys, the per-kind field inventories (unknown keys are rejected, so a stray field is a registration typo), primitive field typing, the non-emptiness of `slots` and of the root `commandPolicy` rule array (whose array order is agent-command policy scan order: first hard match wins, otherwise the first soft match advises), and the structure of the ordered `verifySlotCatalog` plus per-control `slotProfile` declarations.",
+  "AUTHORITATIVE HERE: the root keys, the per-kind field inventories (unknown keys are rejected, so a stray field is a registration typo), primitive field typing, the non-emptiness of `slots` and of the root `commandPolicy` rule array (whose array order is agent-command policy scan order: first hard match wins, otherwise the first soft match advises), the structure of the ordered `verifySlotCatalog` plus per-control `slotProfile` declarations, and the shape of each `commandCatalog` entry.",
   "DELIBERATELY OPEN: the interiors of the `generatedSurface`, `hookWiring` and `skillWiring` facets, the entries of the root `commandPolicy` rule array, and the command vocabulary inside materialized slots or catalog/profile slot bodies, which stay with their owning repo-side validators (generated-surfaces.ts, hook-wiring-schema.ts, skill-inventory-schema.ts, command-policy-schema.ts, verify-step-schema.ts) so their aggregated diagnostics remain authoritative.",
-  "REPO-SIDE ONLY, not expressible here: control-id uniqueness, `repairCommand` being required exactly when `repairKind` is `codemod`, the slot vocabulary, catalog/profile resolution semantics (unique names, valid override targets, non-empty selected programs, and mandatory production modes), marker-bridge divergence filtering, and every check that compares the manifest against the actual tree (`bun run harness:check`). A document this schema accepts can still fail those.",
+  "REPO-SIDE ONLY, not expressible here: control-id uniqueness, `repairCommand` being required exactly when `repairKind` is `codemod`, the slot vocabulary, catalog/profile resolution semantics (unique names, valid override targets, non-empty selected programs, and mandatory production modes), marker-bridge divergence filtering, `commandCatalog` completeness against the tracked package.json manifests (exactly one metadata source per script key, and an authored entry for the aggregating scripts several controls declare), and every check that compares the manifest against the actual tree (`bun run harness:check`). A document this schema accepts can still fail those.",
   "ASSEMBLY: readers see one manifest assembled from two files — harness.controls.json owns every kind except `lint-rule`, and the generated include harness.controls.lint-rules.generated.json owns those. This schema describes the assembled document. harness.controls.json alone is also a valid instance; the include is a `controls`-only fragment carrying no root arrays, so it is not one.",
 ].join(" ");
 
@@ -270,6 +271,11 @@ export const harnessManifestSchema = z
     // zod-heavy and this one is copied into several reduced fixture trees.
     // Optional like verifySlotCatalog: reduced fixtures project no policy.
     commandPolicy: z.array(facetObject).min(1).optional(),
+    // Optional like the two above, and for the same reason: reduced fixture
+    // manifests project no catalog. Absence is not a pass — the coverage check
+    // reads an absent catalog as an empty one, so every script that no control
+    // declares fails for want of a purpose line.
+    commandCatalog: commandCatalogSchema.optional(),
     controls: z.array(harnessControlSchema).min(1),
   })
   .superRefine((manifest, context) => {

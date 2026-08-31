@@ -1,6 +1,6 @@
 # 99. The concurrency rulebook sends readers to a facade router for the participant writer and misnames its lock ordering
 
-Status: Not started
+Status: Landed on fix/cq-094
 Theme: concurrency guide accuracy · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

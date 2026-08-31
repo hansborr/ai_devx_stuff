@@ -15,8 +15,15 @@
 
 import type { DriftLeaf, DriftLinkSource } from "./backlog-lint-drift.js";
 import { collectDriftFindings } from "./backlog-lint-drift.js";
+import type { ParsedBacklogNote } from "./backlog-lint-grammar.js";
+import {
+  buildPackShapes,
+  isIndexCandidate,
+  isLeafBase,
+  packDirOf,
+  parseBacklogNote,
+} from "./backlog-lint-grammar.js";
 import { declaredIndexCatalogBases } from "./backlog-lint-index-table.js";
-import { extractMetadata } from "./backlog-lint-metadata.js";
 import { recognizedStatus } from "./backlog-lint-status.js";
 import type { BacklogLintFile, BacklogLintFinding } from "./backlog-lint-types.js";
 
@@ -29,16 +36,11 @@ export interface PackCheckOptions {
   readonly focusPaths?: readonly string[];
 }
 
-/** A file that lives directly inside a pack directory. */
-interface PackMember {
-  readonly file: BacklogLintFile;
-  readonly base: string;
-}
-
 interface Pack {
   readonly dir: string;
-  readonly members: readonly PackMember[];
-  readonly index?: PackMember;
+  /** The pack's immediate members, each parsed exactly once. */
+  readonly members: readonly ParsedBacklogNote[];
+  readonly index?: ParsedBacklogNote;
   readonly indexIsCanonical: boolean;
 }
 
@@ -56,111 +58,23 @@ interface ScopedFinding {
   readonly revealPaths?: readonly string[];
 }
 
-const CANONICAL_INDEX_BASE = "00-index.md";
-const LEAF_BASE_PATTERN = /^\d+[a-z]?-.+\.md$/iu;
-const NN_PREFIX_PATTERN = /^\d+[a-z]?-/iu;
 const MIN_PACK_LEAVES = 2;
-const PACK_MEMBER_SEGMENTS = 2;
 
-// Non-canonical names that still read as a pack's task index, most-index-like
-// first. Matched against the basename with any `NN-` prefix and `.md` removed.
-const INDEX_NAME_KEYWORDS: readonly string[] = [
-  "index",
-  "promotion-map",
-  "readme",
-  "report",
-  "overview",
-  "summary",
-  "contents",
-  "toc",
-];
-
-function baseName(path: string): string {
-  const slash = path.lastIndexOf("/");
-  return slash < 0 ? path : path.slice(slash + 1);
-}
-
-/** The pack directory a file belongs to, or undefined if it is not a member. */
-function packDirOf(path: string, backlogDir: string): string | undefined {
-  const prefix = `${backlogDir}/`;
-  if (!path.startsWith(prefix)) return undefined;
-  const rest = path.slice(prefix.length);
-  const segments = rest.split("/");
-  // Exactly <pack>/<file>: immediate members only, so the backlog root itself
-  // and deeper rule/finding subdirectories are never treated as packs.
-  if (segments.length !== PACK_MEMBER_SEGMENTS) return undefined;
-  return `${backlogDir}/${segments[0] ?? ""}`;
-}
-
-function isLeafBase(base: string): boolean {
-  return LEAF_BASE_PATTERN.test(base);
-}
-
-function indexKeywordRank(base: string): number {
-  const stripped = base.replace(NN_PREFIX_PATTERN, "").replace(/\.md$/iu, "").toLowerCase();
-  const rank = INDEX_NAME_KEYWORDS.indexOf(stripped);
-  return rank < 0 ? Number.POSITIVE_INFINITY : rank;
-}
-
-// A note that names itself the pack's index — "Task index", "Parked task
-// index", "Index" — rather than merely mentioning the word (e.g. a leaf whose
-// status says it ran `module:index`).
-const SELF_INDEX_PATTERN = /\btask index\b|^index\b/u;
-
-function selfDeclaresIndex(file: BacklogLintFile): boolean {
-  const status = extractMetadata(file.text).status;
-  return status !== undefined && SELF_INDEX_PATTERN.test(status.value.trim().toLowerCase());
-}
-
-interface IndexCandidate {
-  readonly member: PackMember;
-  readonly selfIndex: boolean;
-  readonly nameRank: number;
-}
-
-function indexCandidate(member: PackMember): IndexCandidate | undefined {
-  const nameRank = indexKeywordRank(member.base);
-  const selfIndex = selfDeclaresIndex(member.file);
-  if (nameRank === Number.POSITIVE_INFINITY && !selfIndex) return undefined;
-  return { member, selfIndex, nameRank };
-}
-
-function betterCandidate(left: IndexCandidate, right: IndexCandidate): IndexCandidate {
-  if (left.selfIndex !== right.selfIndex) return left.selfIndex ? left : right;
-  if (left.nameRank !== right.nameRank) return left.nameRank < right.nameRank ? left : right;
-  return left.member.base.localeCompare(right.member.base) <= 0 ? left : right;
-}
-
-function chooseIndex(members: readonly PackMember[]): {
-  readonly index?: PackMember;
-  readonly canonical: boolean;
-} {
-  const canonical = members.find((member) => member.base === CANONICAL_INDEX_BASE);
-  if (canonical !== undefined) return { index: canonical, canonical: true };
-  let best: IndexCandidate | undefined;
-  for (const member of members) {
-    const candidate = indexCandidate(member);
-    if (candidate === undefined) continue;
-    best = best === undefined ? candidate : betterCandidate(best, candidate);
-  }
-  return { index: best?.member, canonical: false };
-}
-
+/**
+ * Pack shape (membership, leaf naming, index choice) is owned by
+ * `backlog-lint-grammar.ts`; this module only adds the policy on top of it.
+ */
 function buildPacks(options: PackCheckOptions): Pack[] {
-  const byDir = new Map<string, PackMember[]>();
-  for (const file of options.corpus) {
-    const dir = packDirOf(file.path, options.backlogDir);
-    if (dir === undefined) continue;
-    const bucket = byDir.get(dir) ?? [];
-    bucket.push({ file, base: baseName(file.path) });
-    byDir.set(dir, bucket);
-  }
-  return [...byDir.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([dir, members]) => {
-      const { index, canonical } = chooseIndex(members);
-      return { dir, members, index, indexIsCanonical: canonical };
-    });
+  const notes = options.corpus.map((file) => parseBacklogNote(file));
+  return buildPackShapes(notes, options.backlogDir).map((shape) => {
+    const index = shape.members.find((member) => member.base === shape.indexBase);
+    return {
+      dir: shape.dir,
+      members: shape.members,
+      ...(index === undefined ? {} : { index }),
+      indexIsCanonical: shape.indexIsCanonical,
+    };
+  });
 }
 
 function leafCount(pack: Pack): number {
@@ -189,7 +103,7 @@ function structuralFindings(pack: Pack): ScopedFinding[] {
     {
       finding: {
         kind: "nonstandard-index-name",
-        path: pack.index.file.path,
+        path: pack.index.path,
         message: "de-facto pack index has a non-canonical name (expected 00-index.md)",
       },
       packDir: pack.dir,
@@ -203,17 +117,17 @@ function driftLeaves(pack: Pack): DriftLeaf[] {
     .filter((member) => isLeafBase(member.base) && member.base !== pack.index?.base)
     .map((member) => ({
       base: member.base,
-      path: member.file.path,
-      statusValue: extractMetadata(member.file.text).status?.value,
+      path: member.path,
+      statusValue: member.statusValue,
     }));
 }
 
 function declaredCatalogMembers(pack: Pack): DriftLinkSource[] {
   if (pack.index === undefined) return [];
   const memberByBase = new Map(pack.members.map((member) => [member.base, member]));
-  return [...declaredIndexCatalogBases(pack.index.file.text)].flatMap((base) => {
+  return [...declaredIndexCatalogBases(pack.index.text)].flatMap((base) => {
     const member = memberByBase.get(base);
-    return member === undefined ? [] : [{ base, path: member.file.path, text: member.file.text }];
+    return member === undefined ? [] : [{ base, path: member.path, text: member.text }];
   });
 }
 
@@ -222,11 +136,11 @@ function packDriftFindings(pack: Pack): ScopedFinding[] {
   // canonical task index; a pack that has not adopted 00-index.md is already
   // flagged by structuralFindings and its de-facto index is not parsed here.
   if (pack.index === undefined || !pack.indexIsCanonical) return [];
-  const indexPath = pack.index.file.path;
+  const indexPath = pack.index.path;
   const drift = collectDriftFindings({
     indexPath,
     indexBase: pack.index.base,
-    indexText: pack.index.file.text,
+    indexText: pack.index.text,
     catalogs: declaredCatalogMembers(pack),
     memberBases: new Set(pack.members.map((member) => member.base)),
     leaves: driftLeaves(pack),
@@ -253,35 +167,29 @@ function keepScoped(scoped: ScopedFinding, focus: FocusContext): boolean {
   }
 }
 
-function isIndexShaped(member: PackMember): boolean {
-  return (
-    indexKeywordRank(member.base) !== Number.POSITIVE_INFINITY || selfDeclaresIndex(member.file)
-  );
-}
-
 // The status-vocabulary (typo) check targets task leaves only: NN-*.md members
 // that are neither the pack's index nor an index-shaped companion (a report or
 // README whose "status" is a role label, not a lifecycle state).
-function statusCheckLeaves(pack: Pack): PackMember[] {
+function statusCheckLeaves(pack: Pack): ParsedBacklogNote[] {
   return pack.members.filter(
     (member) =>
-      isLeafBase(member.base) && member.base !== pack.index?.base && !isIndexShaped(member),
+      isLeafBase(member.base) && member.base !== pack.index?.base && !isIndexCandidate(member),
   );
 }
 
 function unknownStatusFindings(
-  leaves: readonly PackMember[],
+  leaves: readonly ParsedBacklogNote[],
   focus: ReadonlySet<string> | undefined,
 ): BacklogLintFinding[] {
   const findings: BacklogLintFinding[] = [];
   for (const member of leaves) {
-    if (focus !== undefined && !focus.has(member.file.path)) continue;
-    const status = extractMetadata(member.file.text).status;
+    if (focus !== undefined && !focus.has(member.path)) continue;
+    const status = member.metadata.status;
     if (status === undefined || status.value.length === 0) continue;
     if (recognizedStatus(status.value)) continue;
     findings.push({
       kind: "unknown-status",
-      path: member.file.path,
+      path: member.path,
       line: status.line,
       message: `Status "${status.value}" contains no recognized status token`,
     });

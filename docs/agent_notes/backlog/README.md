@@ -1,13 +1,44 @@
 # Backlog
 
 Status: Living reference index
-Updated: 2026-08-12
+Updated: 2026-08-30
 
 Parked workstreams that still matter, but should stay out of the default
-agent loop.
+agent loop — plus, deliberately, the drained packs, closed audits, and
+dedup/verdict ledgers retained as the provenance record. The directory name
+therefore promises more actionability than the directory holds.
 
 Do **not** read this folder at session start. Promote an item back into
 `in_progress/` only when the active loop empties or a human reprioritizes it.
+
+## What is actually actionable
+
+[CATALOG.md](./CATALOG.md) is the authoritative answer, generated from the
+tracked tree: every file's record class (pack index, leaf, ledger, standalone
+note, working artifact) and lifecycle state (actionable, terminal, unknown),
+with per-pack rollups. It answers mechanically, from each note's own `Status:`
+line and the one vocabulary in `scripts/backlog-lint-status.ts`, and the page's
+own legend states the rule and its two measured limits: a note that misdescribes
+itself is classified as it is written, and a closure phrased past the first
+token of its status ("Scheduled work landed 2026-08-01 on …") is still counted
+actionable. `lifecycleFromStatus` carries the dated measurement of how many
+notes each limit touches — including this file, whose `Living reference index`
+status is one of them. Read the catalog instead of opening notes one by one.
+Every branch that touches a backlog note refreshes it with
+`bun run docs:backlog-catalog` before landing: `bun run harness:check` — which
+both `scripts/land.sh` and CI run — fails on a stale page. If two lanes
+conflict on its counts, take either side and re-run the generator. It is
+generated — never
+hand-edit it, and never treat it as a queue: it presents state and ranks
+nothing.
+
+The curated "Parked items" list below stays as narrative context — why a pack
+exists, what it decided, what to read first. It is not a complete map of the
+namespace and does not try to be.
+
+Three surfaces, three questions: `CATALOG.md` says what each file *is*, the
+ready queue below says what to *dispatch*, and `../in_progress/` says what is
+being *worked on*.
 
 ## Ready queue
 
@@ -22,8 +53,8 @@ Do **not** read this folder at session start. Promote an item back into
 
 ## Parked items
 
-- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (104 landed,
-  165 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
+- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (140 landed,
+  129 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
   prioritised harness leaves, lint-related first, and granted standing
   merge-on-green; on 2026-08-14 the queue was extended to cover the whole
   harness area (104 queued leaves) for an unattended drain. To dispatch,
@@ -46,6 +77,14 @@ Do **not** read this folder at session start. Promote an item back into
   future scope and deliberately unscheduled.)_ Two owner-approved gate
   follow-ups. This pack does not reopen the closed `pain-points-2026-07-29`
   pack.
+- `pain-points-2026-08-25/00-index.md` — second live-tree reconciliation of
+  the thirteen persisted Musi pain-point notes (one parallel pass per note):
+  ten bounded leaves, six of them documentation-only, none with ordering
+  edges. The disposition ledger records the ~100 fixed, duplicate, external,
+  too-large, insufficient-evidence, and owner-decision findings; the two
+  largest open residues (a hung smoke suite with no per-suite deadline, and
+  the `eslint-rules`/`lint-ratchet` coverage floors) are owner decisions, not
+  leaves. This is not a second ready queue.
 - `pain-points-2026-07-29/00-index.md` — live-tree and ownership reconciliation
   of the twelve persisted Musi pain-point notes: thirteen bounded leaves, one
   of them the mandatory parallel-verify item. The disposition ledger records

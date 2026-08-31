@@ -16,8 +16,17 @@ export default createStrykerConfig({
   // the per-worktree test DB relative to the live worktree root; Stryker's copied
   // sandbox breaks that path resolution (global-setup is looked up at
   // <sandbox>/src/test instead of <sandbox>/packages/server/src/test) and the
-  // dry run fails. Tradeoff: a hard kill mid-run can leave mutated sources on
-  // disk — Stryker restores them from .stryker-tmp/backup on a clean exit.
+  // dry run fails. Tradeoff: an in-place run rewrites far more than the mutate
+  // globs below. Stryker's `disableTypeChecks` defaults to true, so every JS/TS
+  // file in the tree gets `// @ts-nocheck` written into it, and a kill Stryker
+  // never observes (SIGKILL, OOM) leaves all of that on disk. Stryker restores
+  // by moving .stryker-tmp/backup-* back over the worktree on exit and on the
+  // signals it handles (SIGABRT/SIGINT/SIGHUP/SIGTERM); scripts/mutation-run.sh
+  // is the rail for the rest — it preflights the mutate targets clean, refuses
+  // to start on a leftover backup directory, and recovers from that backup.
+  // Never `rm -rf .stryker-tmp` to get unstuck: it is the only complete copy of
+  // your pre-run files, including uncommitted work outside these globs. Run this
+  // lane through `bun run test:server:mutation`, not a bare `stryker run`.
   inPlace: true,
   reportDir: "reports/mutation-server",
   vitest: {

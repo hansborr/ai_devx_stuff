@@ -1,6 +1,6 @@
 # 92. The concurrency rulebook opens by declaring its three patterns exhaustive and forbidding a fourth, while its own Serializable-exception section and a production module use a shape those patterns cannot express
 
-Status: Not started
+Status: Landed on fix/cq-091
 Theme: doc taxonomy contradicts itself · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

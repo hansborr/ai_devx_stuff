@@ -4,12 +4,96 @@ This devcontainer is built for **Podman** on a Linux host with SELinux. Most of 
 non-obvious configuration exists to work around differences between Podman and Docker.
 This document explains each decision so the patterns can be reused in other projects.
 
+## Prerequisites
+
+The Quick start below assumes four things this repository does **not** contain.
+Every one of them fails at image build, pod creation, or container start —
+before `postCreateCommand`, the only setup this repository documents — so check
+them first. Each item names the file that declares the dependency — that file is
+the authority, this list is a pointer.
+
+### 1. Base image
+
+`Dockerfile` builds `FROM localhost/claude-devcontainer:latest`. The
+`localhost/` prefix is not a fetchable registry — it resolves only against
+local image storage — and this repository ships no Containerfile or build
+script for it, so a fresh checkout fails at the first line of the build.
+
+The only in-repo record of its provenance is the comment at the top of
+`docker-compose.yml`: the image is built by `devcontainer-rebuild.sh` in the
+external `devcontainer-base` repository, which also installs the
+`devcontainers.slice` unit covered below.
+
+Whatever supplies the image has to satisfy the contract the rest of this
+directory relies on:
+
+- **a `node` user at UID 1000** — assumed by `docker-compose.yml`'s
+  `userns_mode: "keep-id"` and `devcontainer.json`'s `"remoteUser": "node"`;
+- **zsh writing history to `/commandhistory`** — the `shell-history` volume
+  persists that path, but nothing in this repo configures the shell to use it
+  (see [Shell history](#shell-history));
+- **`shellcheck` and `yamllint` on `PATH`** — see
+  [System tools](#system-tools);
+- **`/usr/local/bin/init-firewall.sh`** — run by `devcontainer.json`'s
+  `postStartCommand`. A rebuilt base that drops it fails *after* the container
+  is otherwise up, with `waitFor: postStartCommand` holding the editor back;
+- **the agent CLI binaries** (`claude`, `codex`, `copilot`, `cursor`). The
+  volumes under [Other agent CLIs](#other-agent-clis-codex-copilot-cursor)
+  persist their auth and history, not the binaries themselves.
+
+### 2. The `devcontainers.slice` cgroup
+
+`docker-compose.yml`'s `x-podman.pod_args` sets
+`--cgroup-parent=devcontainers.slice` so the collective memory caps cover the
+whole compose pod rather than the app container alone. The slice is a systemd
+unit installed by that same external `devcontainer-rebuild.sh`. Without it
+podman-compose cannot create the pod, and the stack never starts.
+
+Fallback if you do not want the slice: delete the whole `x-podman` block from
+`docker-compose.yml`. You lose the shared memory cap; nothing else depends on
+it.
+
+### 3. The `persist` volume
+
+`docker-compose.yml` declares `persist` as `external: true`, which tells Podman
+not to create it — Podman refuses to start until it exists. It is mounted at
+`/home/node/persist` and holds cross-project agent state that deliberately
+outlives any single project's compose stack; `AGENTS.md` points at
+`/home/node/persist/musi/pain_points.log` inside it.
+
+`devcontainer.json`'s `initializeCommand` attempts to create it for you:
+
+```bash
+{ podman volume create --ignore persist >/dev/null 2>&1 || true; }
+```
+
+`--ignore` makes an existing volume a no-op, so a host that manages `persist`
+deliberately is left alone. The `>/dev/null 2>&1 || true` is deliberate: the
+same `initializeCommand` prepares the scratch directory first, and a host with
+no `podman` on `PATH` must not have the whole command — and with it the
+container start — fail on the volume step. The cost is that a failed create is
+**silent**. If Podman is absent, or too old for `volume create --ignore`, you
+get no warning here and the original `volume persist not found` at first start;
+create the volume by hand when you see it. Do the same if you bring the stack up
+with `podman-compose` directly — `initializeCommand` is run by the devcontainer
+CLI/VS Code, not by Compose.
+
+### 4. A host `~/.gitconfig`
+
+Already covered under [Git identity](#git-identity): the file is bind-mounted
+read-only and Podman errors if it is missing. Create it first.
+
 ## Quick start
+
+Confirm the [Prerequisites](#prerequisites) above first — all four fail before
+any of this runs.
 
 ```bash
 # First time only — copy and edit environment variables
 cp .devcontainer/.env.example .devcontainer/.env
-# Edit .devcontainer/.env — set PROJECT_NAME and POSTGRES_PASSWORD.
+# Edit .devcontainer/.env — set PROJECT_NAME and POSTGRES_PASSWORD, then
+# re-spell the new password into DATABASE_URL, TEST_DATABASE_URL, and
+# E2E_DATABASE_URL, which hard-code it (see the reuse checklist below).
 # The shipped JWT_SECRET is a known dev-only placeholder: it boots unedited in
 # development but is rejected in production, so replace it with a real secret
 # (openssl rand -base64 48) before any non-local use.
@@ -128,15 +212,16 @@ the volumes above make the login and history survive it.
 - shell-history:/commandhistory:U
 ```
 
-Same principle as above. The Dockerfile configures zsh to write history to
-`/commandhistory/.zsh_history` via `INC_APPEND_HISTORY`, which flushes each
-command to disk immediately rather than at shell exit. The volume keeps history
-intact across rebuilds.
+Same principle as above. The zsh config that writes history to
+`/commandhistory/.zsh_history` via `INC_APPEND_HISTORY` — flushing each command
+to disk immediately rather than at shell exit — lives in the
+[base image](#1-base-image), not in this repo's Dockerfile. The volume keeps
+that history intact across rebuilds.
 
 ### Git identity
 
 ```yaml
-- ${HOME}/.gitconfig:/home/node/.gitconfig:ro
+- ${HOME}/.gitconfig:/home/node/.gitconfig:ro,z
 ```
 
 Bind-mounts your host `~/.gitconfig` directly into the container as read-only. Git
@@ -159,13 +244,13 @@ sudo chcon -t container_file_t ~/.gitconfig
 
 ```yaml
 # docker-compose.yml
-name: ${PROJECT_NAME:-myproject}
+name: ${PROJECT_NAME}
 
 services:
   app: # fixed — matches devcontainer.json "service"
-    container_name: ${PROJECT_NAME:-myproject}
+    container_name: ${PROJECT_NAME}
   db:
-    container_name: ${PROJECT_NAME:-myproject}_db
+    container_name: ${PROJECT_NAME}_db
 ```
 
 ```ini
@@ -203,7 +288,7 @@ application at runtime.
 ## `postCreateCommand` vs `postStartCommand`
 
 ```json
-"postStartCommand": "sudo /usr/local/bin/init-firewall.sh",
+"postStartCommand": "(cd /workspace && bun run worktree:gc >/tmp/musi_logs/worktree-gc.log 2>&1 &); sudo /usr/local/bin/init-firewall.sh",
 "waitFor": "postStartCommand"
 ```
 
@@ -215,7 +300,10 @@ application at runtime.
 
 - **`postStartCommand`** runs every time the container starts (including after a
   host reboot). Used for the firewall init script, because iptables rules are
-  ephemeral and are lost when the container stops.
+  ephemeral and are lost when the container stops, and — backgrounded ahead of
+  it, so it never delays the wait below — for the `worktree:gc` sweep of stale
+  per-worktree state. Only the firewall half comes from the base image; see the
+  `postStartCommand` row of the [reuse checklist](#reusing-this-setup-in-another-project).
 
 - **`waitFor: postStartCommand`** prevents VS Code from connecting to the container
   until the start command completes. Without it, the editor can open before the
@@ -270,19 +358,50 @@ version is read from its single source (package.json for the npm-managed tools,
 
 ## Reusing this setup in another project
 
-The Podman and persistence fixes are not project-specific. To apply them elsewhere:
+Copying `.devcontainer/` wholesale does not work. The directory mixes portable
+Podman/persistence patterns with Musi-specific surfaces, and everything under
+[Prerequisites](#prerequisites) comes along with the copy. Split it into two
+columns: keep the first, replace the second.
 
-1. Copy the entire `.devcontainer/` directory into the new repo.
-2. Copy `.devcontainer/.env.example` to `.devcontainer/.env` and set `PROJECT_NAME`
-   (and database credentials if using postgres).
-3. Edit `docker-compose.yml` to add/remove services and update `forwardPorts` in
-   `devcontainer.json` to match. The service name `app` and all Podman-specific
-   settings can stay as-is.
-4. The `mounts: []` in `devcontainer.json` is intentional: mounts that were
-   previously listed there used `${devcontainerId}` in their names, which caused
-   the rebuild-wipe problem. All persistent mounts now live in `docker-compose.yml`.
+### Keep as-is — the portable patterns
+
+| Pattern | Where | Why it travels |
+| --- | --- | --- |
+| `userns_mode: "keep-id"` | `docker-compose.yml` | Rootless-Podman UID mapping; nothing project-specific |
+| `:U` on named volumes | `docker-compose.yml` | Podman volume ownership; nothing project-specific |
+| `pull_policy: missing` | `docker-compose.yml` | Podman image-pull behaviour |
+| The fixed service name `app` | `docker-compose.yml`, `devcontainer.json` | `"service"` does not expand variables, so a generic name means `devcontainer.json` never needs editing on a rename or copy |
+| `mounts: []` | `devcontainer.json` | Deliberately empty; `${devcontainerId}` mounts are what caused the rebuild-wipe |
+| Fixed-name state volumes (`claude-config`, `codex-config`, `copilot-config`, `cursor-config`, `cursor-auth`, `shell-history`) | `docker-compose.yml` | Agent and shell state across rebuilds; only the compose project prefix changes |
+| `${HOME}/.gitconfig` read-only bind mount | `docker-compose.yml` | Host git identity, any project |
+| `/var/tmp/...:/tmp` disk-backed scratch | `docker-compose.yml`, `devcontainer.json` `initializeCommand` | Works around a small tmpfs `/tmp`; only the directory name is project-specific |
+| `PROJECT_NAME` as the single rename point | `.env`, `docker-compose.yml` | The mechanism is portable; the value is not |
+| Gating server start on a post-create sentinel | `container-entrypoint.sh` | The shape travels — see the replace table for the body |
+
+### Replace — Musi-specific surfaces
+
+| Surface | Where | Replace with |
+| --- | --- | --- |
+| `FROM localhost/claude-devcontainer:latest` | `Dockerfile` | Your own base image, satisfying the contract in [Base image](#1-base-image) — or a public image plus your own tool installs |
+| `--cgroup-parent=devcontainers.slice` | `docker-compose.yml` `x-podman` | Your own slice, or delete the `x-podman` block entirely |
+| The external `persist` volume, its `/home/node/persist` mount, and the `podman volume create --ignore persist` in `initializeCommand` | `docker-compose.yml`, `devcontainer.json` | Drop all three unless you also keep cross-project state outside the project stack |
+| `PROJECT_NAME`, `POSTGRES_DB` / `POSTGRES_USER` / `POSTGRES_PASSWORD`, `JWT_SECRET` | `.env` (from `.env.example`) | Your project's name and credentials |
+| `DATABASE_URL`, `TEST_DATABASE_URL`, `E2E_DATABASE_URL`, `REDIS_URL`, `CORS_ORIGIN` | `.env` (from `.env.example`) | Nothing derives these — each one hand-repeats a value from the rows above and below, and must be re-edited in lockstep. The three `*_DATABASE_URL`s each spell out `POSTGRES_USER`, `POSTGRES_PASSWORD`, the `db` service name, and a database name (`musi`, `musi_test`, `musi_test_e2e` — `post-create.sh` reads the last two names back out of these URLs and creates those databases); `REDIS_URL` spells out the `redis` service name; `CORS_ORIGIN` spells out the frontend port |
+| Ports 8000, 8001, 8002, 8003, 8004 | `docker-compose.yml` `ports`, `devcontainer.json` `forwardPorts` + `portsAttributes` | Your services' ports — the two files are hand-kept in step, so change both |
+| `/var/tmp/devcontainer-musi` | `devcontainer.json` `initializeCommand` | Your project's scratch directory name. Compose already writes this path as `/var/tmp/devcontainer-${PROJECT_NAME}`, so the `PROJECT_NAME` row covers that side; `initializeCommand` does not expand variables and hard-codes the name |
+| The `db` and `redis` services | `docker-compose.yml` | Your backing services, or delete them and their `depends_on` entries |
+| `../init-test-db.sql` | `docker-compose.yml` db volume mount | Your test-database bootstrap — the file itself lives at the repo root, single-sourced with the root Compose stack — or delete the mount |
+| `post-create.sh` | `devcontainer.json` `postCreateCommand` | Entirely Musi provisioning (bun install, `@musi/shared` build, Prisma generate, database create/migrate/seed). Keep the fail-loud `.setup-complete` / `.setup-failed` protocol, rewrite the steps |
+| `container-entrypoint.sh` | `Dockerfile` `COPY`, `docker-compose.yml` `command:` | Keep the sentinel wait; replace `bun run dev` and the `worktree:gc` sweep |
+| `postStartCommand` | `devcontainer.json` | `bun run worktree:gc` is Musi's; `sudo /usr/local/bin/init-firewall.sh` is your base image's, if it has one |
+| The VS Code `extensions` list | `devcontainer.json` | Your stack's extensions (`Prisma.prisma` and the ESLint/Prettier pair are stack choices) |
+
+Between them the two `.env` rows name every key `.env.example` ships except
+`TZ`, which is a host preference rather than a project surface.
+`scripts/devcontainer-contract.test.ts` fails if a key is added to
+`.env.example` without being named here.
 
 A future improvement would be to split the developer-specific mounts
-(`claude-config`, `bash-history`, `gitconfig`) into a separate
+(`claude-config`, `shell-history`, `gitconfig`) into a separate
 `docker-compose.developer.yml` that lives outside the repo and is merged at
 startup, so each project's compose file only contains project-specific services.

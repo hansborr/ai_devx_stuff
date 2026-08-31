@@ -1,6 +1,6 @@
 # 63. The worktree shell suite is four independent test suites hidden in one 1,986-line shared-state script
 
-Status: Not started
+Status: Landed on fix/cq-063
 Theme: shell smoke suite decomposition · Area: tests · Severity: high · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -167,3 +167,56 @@ staying shell-native. Ordered plan:
   contract and mirrors the per-cluster split mechanics its plan already uses
   elsewhere, with no dependency. CQ25-32's smokeTest-list widening concerns
   skill artifacts, not this registration surface.
+
+## Disposition
+
+Landed as written, against the live tree rather than the audit's numbers: the
+monolith had grown to 2,347 lines, 73 `ok` assertions, and 16 `trap … EXIT`
+installs, so the parity guard was 73 = 41/7/12/13, not 71 = 39/7/12/13.
+
+`test-worktree-db.sh` (smoke-order 060, 41 assertions) keeps the DB/init/dev
+band and sources `worktree-db.sh`, `worktree-drift-hook.sh`, and `dev.sh`;
+`test-worktree-new.sh` (062, 7 + 1 added in review) sources `worktree-new.sh` only;
+`test-worktree-drop-gc.sh` (064, 12) and `test-worktree-locking.sh` (066, 13)
+source `worktree-db.sh` only. Each suite owns its own `PASS`/`fail()`/`ok()`
+(prior-pack 27.2's shared assertion library has not landed) and passes
+standalone. The one cross-band fixture hoisted to `scripts/tests/lib/` is
+`test-tmpdir.sh`, a file-backed temp-dir registry whose single `EXIT` handler is
+installed at source time, in the same block that creates the registry, so no
+suite can hold a registry with nothing to clean it up (the locking suite
+replaces the handler with one that also reaps its flock holder); the `git` argv
+stub, fake-`bun` runners, and fingerprint builders were single-band and stayed
+inline. The CR18 drop-band overrides now install inside
+each case's subshell so nothing stays ambient for the `cmd_gc` cases.
+
+Bug fixed on the way: the hand-maintained trap chain had already dropped
+`dependency_dir`, `dependency_stub_dir`, `shared_build_dir`,
+`shared_build_stub_dir`, `dev_prebuild_dir`, and `dev_prebuild_stub_dir` from
+later replacements, and `gc_incomplete_dir` was never trapped — all leaked on
+any abort. The registry replaces the chain, so there is no trap string left to
+forget a name in.
+
+Narrowed: the locking suite's sequenced top-level accessor overrides
+(`state_dir`, `allocations_file`, `port_in_use`, `list_live_slugs`, …) stay
+top-level inside that one file — each section re-installs what it depends on,
+and subshelling them would require a cross-subshell `PASS` counter that belongs
+to 27.2. Reference updates: `HARNESS-CLUSTER-PLAN.md` H11 row and "keep it
+green" guidance, and `29-bash-to-ts-cores.md`'s sourcing-surface bullets, now
+name all four suites; H12 was already superseded by leaf 108. The leaf's
+`test-lint-ratchet.sh:2167` caveat was obsolete — that file no longer reads
+`worktree-db.sh`, and review round 1 also dropped that same dead pin from the
+prior pack's H11 row, its "keep it green" paragraph, and
+`29-bash-to-ts-cores.md`.
+
+Review round 1 changed two things the split had delivered. `test-worktree-new.sh`
+now declares `scripts/worktree-db.sh` in its `# smoke-subjects:` header: it never
+sources that file directly, but its recovery case executes `cmd_drop` and holds
+the repo's only assertion on `worktree-db.sh`'s `not a git worktree:` message, so
+step 4's "bands 1/3/4" assumption would have cost changed-mode selection the
+monolith had. `scripts/tests/test-test-scripts.sh`'s changed-selection case
+therefore expects all four suites in smoke-order, not three. The same round added
+one assertion to that suite for `worktree-new.sh`'s `declare -F compute_slug`
+double-source guard, which the monolith exercised only by accident by sourcing
+both files into one process; the suite still sources `worktree-new.sh` alone and
+checks the guard in a throwaway shell. Final parity: 74 = 41/8/12/13, the added
+assertion being the only assertion this unit did not inherit from the monolith.

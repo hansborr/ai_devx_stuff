@@ -1,6 +1,6 @@
 # 79. E2E specs assert wizard state through raw selectors and public page-object locator fields instead of one page-object contract
 
-Status: Not started
+Status: Landed on fix/cq-079
 Theme: page-object encapsulation · Area: e2e · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -92,3 +92,72 @@ Mechanics to make that executable, all in
   handles the documentation side of the same idiom question in
   `docs/guides/add-e2e-test.md`. No ordering dependency, but the migrated
   call sites here should match the idiom that leaf lands on.
+
+## Disposition
+
+Landed essentially as written. Every pin was re-resolved by symbol against the
+live tree before editing and all held; only line anchors had drifted.
+
+`CharacterWizardPO` gained the named surface the leaf asked for. The private
+`selectBoost(locator, ability)` is now reached through six atomic methods —
+`selectPlus2Boost`, `selectPlus1Boost`, `selectTripleBoostMode`,
+`selectFirstBoost`, `selectSecondBoost`, `selectThirdBoost` — and
+`selectSplitBoosts`/`selectTripleBoosts` compose those same methods, so the
+sequence has one definition. `selectPlus2Boost` carries the
+`toBeVisible({ timeout: TIMEOUT_SHORT })` wait that both the old
+`selectSplitBoosts` and the spec's hand-rolled sequence performed first. State
+assertions became `expectContinueDisabled()` / `expectContinueEnabled(opts?)`,
+the enabled one taking Playwright's `{ timeout }` shape so
+`character-data-integrity.spec.ts` keeps its `2_000`; `clickContinue` now calls
+`expectContinueEnabled`. The disabled one takes no options: no call site needs
+one, and a longer wait for "still disabled" would only weaken the check. The
+two repeated raw text assertions became `expectIncompleteStepHint()` and
+`expectPersonalityStep()`, the latter also replacing the inline assertion in
+`fillWizardThroughReview`.
+
+Call-site results:
+
+- `wizard-validation.spec.ts` — all 8 raw `getBy*` calls and all 18 public
+  locator-field accesses are gone; the file no longer imports `expect` or
+  `TIMEOUT_SHORT`. The parallel/serial describe split and both comments
+  explaining it are untouched.
+- `character-data-integrity.spec.ts` — the two `continueButton` accesses now go
+  through the new assertion methods, and the raw Perception click goes through
+  the existing `selectProficiencies`. The step-visible guard before the disabled
+  assertion is deliberately kept as a raw `getByText`: folding it into
+  `selectProficiencies` would move the guard *after* the assertion it guards.
+- `character-create.spec.ts` — the personality-step assertion now calls
+  `expectPersonalityStep()`. The adjacent `toHaveCount(0)` check that the
+  non-caster flow skips the spell step is a genuine one-off and stays raw.
+- `a11y.spec.ts` — the character-card click now uses the existing
+  `DashboardPO.clickCharacterCard`, which leaf 078 handed here.
+- `CampaignChatPO.clearDiceNotation` was deleted; unit 077 left the removal to
+  this unit and nothing under `e2e/` referenced it.
+
+Deliberately narrowed:
+
+- `encounter-combat.spec.ts` and its 6 raw `getBy*` calls are untouched
+  (CONSTRAINTS ruling, CQ25-162).
+- The eleven public `readonly` locator fields stay public. The leaf explicitly
+  declines wholesale privatization; after this change no spec reads any of them,
+  so a follow-on could make them private with no call-site churn, but that is
+  not this leaf's scope.
+- The `a11y.spec.ts` "Sign In" and "Register" heading assertions and all four
+  `navigation-errors.spec.ts` raw calls stay. No existing page-object method
+  covers them and the leaf forbids inventing methods for one-off assertions
+  outside the wizard. `navigation-errors.spec.ts:56-59` looked like an exact
+  match for `CampaignsPO.goto()`, but routing it there makes
+  `playwright/expect-expect` fail (the assertion moves out of the test body and
+  `goto` does not match the rule's configured `assertFunctionPatterns`, which is
+  `["^expect", "^castSingleTargetSpell$", "^performShortRest$"]` in
+  `eslint-config/test-configs.js`); reverted rather than widen the lint
+  configuration.
+- The `.locator(`-only drift sensor is unchanged, as the leaf's caveats require.
+
+Verification: no verify slot runs e2e, so the touched specs were run by hand
+with `PLAYWRIGHT_BROWSERS_PATH=/home/node/persist/ms-playwright bun run e2e --`.
+`wizard-validation.spec.ts`, `character-data-integrity.spec.ts`, and
+`character-create.spec.ts` — 15 passed. `a11y.spec.ts` — 4 passed, and 10 passed
+under `--repeat-each=3`. That repeat did not reproduce the intermittent
+character-card click failure unit 078 recorded on this line; the migration is
+not claimed as a fix for it.

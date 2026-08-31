@@ -1,6 +1,6 @@
 # 84. The backlog directory is simultaneously an action queue, an evidence archive, and a completed-work store, and only reading all 301 files tells you which is which
 
-Status: Not started
+Status: Landed on fix/cq-084
 Theme: backlog actionability legibility · Area: docs · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

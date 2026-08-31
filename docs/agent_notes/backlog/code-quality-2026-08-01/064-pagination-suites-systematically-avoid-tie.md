@@ -1,6 +1,6 @@
 # 64. Pagination suites never seed equal-order-key rows at page boundaries, so three timestamp-cursor endpoints silently skip tied rows today and none of the five can catch a tie regression
 
-Status: Not started
+Status: Landed on fix/cq-064
 Theme: pagination tie coverage · Area: tests · Severity: high · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -172,3 +172,57 @@ semantics. Per-suite runs go through the root script, e.g.
   cursor fixture update in encounter-combat-inputs.test.ts; if 064 lands first,
   024 must carry that updated fixture while splitting the test file.
 - No prior-pack ruling owns server-side pagination test coverage.
+
+## Disposition
+
+Landed with one deviation from the plan, described below. Shape 1 (chat,
+notification, combat-log) moved from a timestamp cursor with a strict
+inequality to a keyset ("seek") predicate over an `orderBy` extended to a total
+order (`[createdAt desc, id desc]` for chat and notification,
+`[round asc, createdAt asc, id asc]` for combat-log). `nextCursor` is the
+boundary row's id, as planned; the next page resolves that id to the boundary's
+ordering values — scoped to the caller's tenancy (user, campaign, encounter)
+and never to the endpoint's own filter — and compares against them through
+`packages/server/src/utils/cursor-pagination.ts`. The shared schemas stay
+opaque `z.string()` and no client changed (the three affected clients still
+send no cursor, and the only `getNextPageParam` users round-trip the value
+opaquely). Shape 2 (magic-item, monster) appended `id: "asc"` as the terminal
+`orderBy` key and keeps Prisma's row cursor.
+
+**Deviation: the plan's `cursor: { id }, skip: 1` spelling is unsafe for shape
+1 and was replaced in review.** Prisma positions the cursor row independently
+of `where`, but `skip` is a plain SQL OFFSET over the *filtered* result set, so
+the offset only lands past the boundary row while that row still satisfies
+`where`. Under `unreadOnly: true`, marking the boundary notification read
+between two page fetches (`notification.markRead`, `markAllRead` — both live
+paths) made the offset eat the first genuinely new row, which no page then
+returned. The keyset predicate compares ordering values instead of counting
+rows and has no such dependency. `ChatMessage` and `CombatLog` have no
+production update or delete path, so the defect was unreachable there; both
+were converted anyway so the three shape-1 endpoints share one idiom rather
+than inviting a future update path to reintroduce it silently. Magic-item and
+monster keep the row cursor: their gap was only the non-total `orderBy`. An
+unresolvable cursor — a deleted row, or an id outside the caller's tenancy —
+now ends the traversal with an empty page rather than failing the request or
+restarting at page one.
+
+Each of the five suites gained a tie test seeded by direct Prisma insert with
+pinned equal instants, a read-back tie-precondition assertion, full traversal
+to a null cursor, and an exact ordered-id-sequence check. The combat-log trap
+is covered explicitly: the pre-fix cross-round tie test lost both rows of the
+later round, not just the tied boundary row. `notification-test-helper.ts`
+gained `seedNotificationsAt`; the two existing combat-log timestamp-cursor
+tests were rewritten to the id contract with their limit/hasMore assertions
+kept, and the empty-string-cursor guard test survives. Leaf 024 had not
+landed, so `encounter-inputs.test.ts` (unsplit) carries the id-shaped cursor
+literal; 024 must keep it when splitting. `encounter-combat/MODULE.md` now
+names the keyset seek and the total order.
+
+Two regression tests pin the keyset contract directly, and both fail against
+`cursor` + `skip: 1`: `notification.list` pages under `unreadOnly` across a
+boundary row marked read between the two fetches, and `chat.list` pages across
+a boundary message flipped into another player's whisper (no production path
+does that today, so the fixture writes it directly). Notification and
+combat-log each also pin the empty page for a cursor that resolves to nothing,
+and `utils/cursor-pagination.test.ts` pins both predicate shapes without a
+database.

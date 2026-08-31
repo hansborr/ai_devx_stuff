@@ -25,6 +25,7 @@ const validPolicy = {
     skipComments: true,
   },
   ratchetFloor: { cap: 250 },
+  engineZone: { files: ["tools/example/**/*.ts"], cap: 500 },
   exceptions: [validException],
   generatedExemptions: [validGeneratedExemption],
 } as const;
@@ -41,6 +42,22 @@ describe("readMaxLinesPolicy", () => {
         counting: { skipBlankLines: true, skipComments: false },
       }),
     ).toThrow(/counting flags must be true/u);
+  });
+
+  it("throws when the engine zone is missing or malformed", () => {
+    const { engineZone: _engineZone, ...withoutEngineZone } = validPolicy;
+    expect(() => readMaxLinesPolicy(withoutEngineZone)).toThrow(
+      /maxLinesPolicy\.engineZone\.cap must be a number/u,
+    );
+    expect(() =>
+      readMaxLinesPolicy({ ...validPolicy, engineZone: { files: ["a/**"], cap: "500" } }),
+    ).toThrow(/maxLinesPolicy\.engineZone\.cap must be a number/u);
+    expect(() =>
+      readMaxLinesPolicy({ ...validPolicy, engineZone: { files: "a/**", cap: 500 } }),
+    ).toThrow(/maxLinesPolicy\.engineZone\.files must be an array/u);
+    expect(() =>
+      readMaxLinesPolicy({ ...validPolicy, engineZone: { files: ["a/**", "  "], cap: 500 } }),
+    ).toThrow(/maxLinesPolicy\.engineZone\.files\[1\] must be a non-empty string/u);
   });
 
   it("throws when the exceptions field is not an array", () => {

@@ -1,6 +1,6 @@
 # 87. The server's contributor maps leave the homebrew validation boundary undefined, hide a socket handler's direct Prisma reads, and give the 46-file seed subsystem no map at all
 
-Status: Not started
+Status: Landed on fix/cq-085
 Theme: contributor orientation maps · Area: docs · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

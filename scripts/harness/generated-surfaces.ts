@@ -167,6 +167,21 @@ function renderCasePattern(path: string): string {
 }
 
 /**
+ * Trigger and output paths with any exact path a declared directory prefix
+ * already matches removed. A record legitimately declares an output inside one
+ * of its own trigger directories (a generated note beside the notes it
+ * summarizes); rendering both patterns into one `case` arm produces a dead
+ * alternative that shellcheck rejects as SC2221/SC2222.
+ */
+function casePaths(record: GeneratedSurfaceRecord): string[] {
+  const paths = [...record.triggerPaths, ...record.outputPaths];
+  const prefixes = paths.filter((path) => path.endsWith("/"));
+  return paths.filter(
+    (path) => path.endsWith("/") || !prefixes.some((prefix) => path.startsWith(prefix)),
+  );
+}
+
+/**
  * Pure projection of the facet records into the pre-commit staleness warner
  * `musi_warn_generated_surfaces_stale()`. Every record renders its own
  * while/case block over the staged paths, so a staged path shared by several
@@ -187,9 +202,7 @@ export function renderFreshnessShell(records: readonly GeneratedSurfaceRecord[])
   ];
 
   for (const record of records) {
-    const patterns = [...record.triggerPaths, ...record.outputPaths]
-      .map(renderCasePattern)
-      .join("|");
+    const patterns = casePaths(record).map(renderCasePattern).join("|");
     lines.push(
       "",
       "  while IFS= read -r staged_path; do",

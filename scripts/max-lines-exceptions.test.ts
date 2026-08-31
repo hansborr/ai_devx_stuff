@@ -67,6 +67,14 @@ function entry(
   });
 }
 
+// A source with exactly `count` effective lines, so a fixture can sit
+// precisely where a case needs it relative to the default floor and its
+// entry's cap (silent fixtures pick the band between the two; unneeded-cap
+// fixtures pick a count at or under the applicable default).
+function sourceWithEffectiveLines(count: number): string {
+  return Array.from({ length: count }, (_, i) => `const a${String(i)} = 1;`).join("\n");
+}
+
 describe("maxLinesExceptionsSpec format/parse", () => {
   it("sorts by path and derives the summary count", () => {
     const text = formatMaxLinesExceptionsBaseline([
@@ -203,9 +211,10 @@ describe("checkMaxLinesExceptionsBaseline / --update", () => {
       "eslint-config/max-lines-exceptions.baseline.json",
       formatMaxLinesExceptionsBaseline([entry()]),
     );
-    // The entry's file must exist and stay under cap, or the cap audit would add
-    // a dead-entry / cap-below warning and break the merge-driver-only assertions.
-    tmpRepo.writeRepoFile(root, "packages/a.ts", "export const a = 1;\n");
+    // The entry's file must exist with effective lines between the default
+    // floor and the cap, or the cap audit would add a dead-entry / cap-below /
+    // unneeded-cap warning and break the merge-driver-only assertions.
+    tmpRepo.writeRepoFile(root, "packages/a.ts", sourceWithEffectiveLines(350));
     tmpRepo.writeRepoFile(root, "scripts/git/.gitkeep", "");
     copyFileSync(
       join(repoRoot, "scripts/git/baseline-merge-driver.sh"),
@@ -582,7 +591,8 @@ describe("cap-vs-effective audit", () => {
       argv: [],
       baselinePath,
       sourceRoot: "/src",
-      readSource: (p) => (p.endsWith("small.ts") ? content(ONE_EFFECTIVE) : { kind: "missing" }),
+      readSource: (p) =>
+        p.endsWith("small.ts") ? content(sourceWithEffectiveLines(350)) : { kind: "missing" },
       warn: (line) => warnings.push(line),
     });
     expect(result.exitCode).toBe(0);
@@ -590,6 +600,132 @@ describe("cap-vs-effective audit", () => {
       "OK: max-lines exceptions baseline is normalized and framework-valid",
     );
     expect(warnings).toEqual([]);
+  });
+
+  it("warns that a cap is unneeded when effective lines are at or under the 300 default", () => {
+    const baselinePath = writeBaseline([entry({ path: "packages/small.ts", cap: 400 })]);
+    const warnings: string[] = [];
+    const result = runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) => (p.endsWith("small.ts") ? content(ONE_EFFECTIVE) : { kind: "missing" }),
+      warn: (line) => warnings.push(line),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe(
+      "OK: max-lines exceptions baseline is normalized and framework-valid",
+    );
+    expect(warnings).toEqual([
+      "WARN: packages/small.ts cap 400 is unneeded — its 1 effective lines are at or under the 300-line default that applies with no exception; remove the entry from eslint-config/max-lines-exceptions.baseline.json (or keep a smaller cap if renewed growth is expected).",
+      "WARN: 1 cap(s) unneeded — effective lines are at or under the default cap; remove the stale entry.",
+    ]);
+  });
+
+  it("resolves the 500-line engine-zone default for lint-ratchet engine paths", () => {
+    // 320 effective lines: over the repo-wide 300 floor (so a non-zone path
+    // would still need its cap) but under the 500-line engine-zone default.
+    const engineZoneSource = sourceWithEffectiveLines(320);
+    const baselinePath = writeBaseline([
+      entry({ path: "tools/lint-ratchet/src/kernel/example.ts", cap: 600 }),
+    ]);
+    const warnings: string[] = [];
+    const result = runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) =>
+        p.endsWith("example.ts") ? content(engineZoneSource) : { kind: "missing" },
+      warn: (line) => warnings.push(line),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(warnings).toEqual([
+      "WARN: tools/lint-ratchet/src/kernel/example.ts cap 600 is unneeded — its 320 effective lines are at or under the 500-line default that applies with no exception; remove the entry from eslint-config/max-lines-exceptions.baseline.json (or keep a smaller cap if renewed growth is expected).",
+      "WARN: 1 cap(s) unneeded — effective lines are at or under the default cap; remove the stale entry.",
+    ]);
+  });
+
+  it("pins the at-or-under boundary at exactly the default cap", () => {
+    const warningsFor = (count: number): string[] => {
+      const warnings: string[] = [];
+      runMaxLinesExceptionsCli({
+        argv: [],
+        baselinePath: writeBaseline([entry({ path: "packages/edge.ts", cap: 400 })]),
+        sourceRoot: "/src",
+        readSource: (p) =>
+          p.endsWith("edge.ts") ? content(sourceWithEffectiveLines(count)) : { kind: "missing" },
+        warn: (line) => warnings.push(line),
+      });
+      return warnings;
+    };
+    // Exactly the 300 default is "at or under" and warns; one line over does not.
+    expect(warningsFor(300).some((w) => w.includes("cap 400 is unneeded"))).toBe(true);
+    expect(warningsFor(301)).toEqual([]);
+  });
+
+  it("matches engine-zone globs with dot:true, like ESLint flat config", () => {
+    const baselinePath = writeBaseline([
+      entry({ path: "tools/lint-ratchet/.gen/example.ts", cap: 600 }),
+    ]);
+    const warnings: string[] = [];
+    runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) =>
+        p.endsWith("example.ts") ? content(sourceWithEffectiveLines(320)) : { kind: "missing" },
+      warn: (line) => warnings.push(line),
+    });
+    // A dot segment stays inside the engine zone (500 default), so 320 warns.
+    expect(warnings.some((w) => w.includes("under the 500-line default"))).toBe(true);
+  });
+
+  it("stays silent for a cap that tightens below its applicable default", () => {
+    // An engine-zone file capped at 350, under the zone's 500 default: removing
+    // the entry would raise the file's cap to 500, so the entry is load-bearing
+    // even though its effective lines are under the default.
+    const baselinePath = writeBaseline([
+      entry({ path: "tools/lint-ratchet/src/tight.ts", cap: 350 }),
+    ]);
+    const warnings: string[] = [];
+    runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) =>
+        p.endsWith("tight.ts") ? content(sourceWithEffectiveLines(340)) : { kind: "missing" },
+      warn: (line) => warnings.push(line),
+    });
+    expect(warnings).toEqual([]);
+  });
+
+  it("stays silent for a cap whose effective lines sit between the default and the cap", () => {
+    const stillNeededSource = sourceWithEffectiveLines(350);
+    const baselinePath = writeBaseline([entry({ path: "packages/mid.ts", cap: 400 })]);
+    const warnings: string[] = [];
+    const result = runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) => (p.endsWith("mid.ts") ? content(stillNeededSource) : { kind: "missing" }),
+      warn: (line) => warnings.push(line),
+    });
+    expect(result.exitCode).toBe(0);
+    expect(warnings).toEqual([]);
+  });
+
+  it("never reports a cap-below entry as also unneeded", () => {
+    const baselinePath = writeBaseline([entry({ path: "big.ts", cap: 1 })]);
+    const warnings: string[] = [];
+    runMaxLinesExceptionsCli({
+      argv: [],
+      baselinePath,
+      sourceRoot: "/src",
+      readSource: (p) => (p.endsWith("big.ts") ? content(THREE_EFFECTIVE) : { kind: "missing" }),
+      warn: (line) => warnings.push(line),
+    });
+    expect(warnings.some((w) => w.includes("cap 1 is below its current"))).toBe(true);
+    expect(warnings.join("\n")).not.toContain("unneeded");
   });
 
   it("runs the same audit in --update mode", () => {

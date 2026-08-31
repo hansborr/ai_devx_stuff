@@ -1,9 +1,25 @@
 # 83. The repository's only in-progress queue lists eleven open items, and ten are already done, resolved in place, or point at deleted leaves
 
-Status: Not started
+Status: Landed on fix/cq-082
 Theme: active-work signal accuracy · Area: docs · Severity: high · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
+
+## Disposition
+
+Landed batched with 082 on `fix/cq-082` (carrier). The queue was regenerated
+in place, keeping only the `mutation-coverage-2026-06/75` residue and
+stating that source-pack Status headers are authoritative. One correction to
+this leaf's own evidence: its "genuinely open" pin (the absence of
+`scripts/lint-ratchet/max-lines-policy.test.ts`) had rotted — the module
+moved to `scripts/lib/` in `0b649d05` and is tested there. Recovering the
+archived leaf #75 from git history shows four of its five test directions
+landed in full and the fifth landing its classification and SPDX-OR-join
+half; only the module-private `licenseFromNearbyFile` LICENSE-text
+sniffing remains untested. The surviving queue entry records that narrower
+residue, and `finished_work/mutation-coverage-2026-06.md` was corrected to
+match, breaking the circular pointer in both directions. Net: 11 of 11
+listed items were stale as written, strengthening the leaf's premise.
 
 ## Problem
 

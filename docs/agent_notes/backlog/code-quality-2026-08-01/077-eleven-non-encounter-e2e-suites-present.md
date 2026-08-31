@@ -1,6 +1,6 @@
 # 77. Eleven whole-file serial E2E suites present shared-state workflow narratives as 77 nominally independent tests
 
-Status: Not started
+Status: Landed on fix/cq-077
 Theme: e2e test isolation · Area: e2e · Severity: high · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -169,3 +169,73 @@ Read `docs/guides/add-e2e-test.md` before editing the specs.
   Done 2026-07-19, which named independent seeding as the prerequisite this
   leaf now supplies) — so there is no pending dependency, but reuse leaf 04's
   opt-in pattern rather than touching `fullyParallel`.
+
+## Disposition
+
+The plan required by step 1 of the proposed direction. One row per in-scope
+serial suite: how its tests split between genuine workflow steps and
+independent contracts, what seeds each independent contract, and the
+directive the describe ends up carrying.
+
+Two substrate facts set the seeding budget for every row. First,
+`setupUserWithCharacter` and `setupDmAndPlayer` logged their browser contexts
+in through the **UI** (`loginViaUi`), so "seed one more user" cost a full
+login form round-trip; both now use the headless token login the `userPage`
+fixture already used (`loginViaApi`), which is what makes per-test seeding
+affordable at all. Second, `character.create` only writes starting equipment
+when the caller passes `startingEquipment`, and the e2e fixture surface
+deliberately excludes that field
+(`e2e/helpers/__type-tests__/api-fixture-restrictions.ts`), so any assertion
+about background starting equipment has to ride a wizard-created character.
+
+| Suite | Scenario folds | Independent contracts (seed) | Final mode | Reason |
+|---|---|---|---|---|
+| campaign-chat | 1 scenario, 5 steps: empty state → DM sends → player sees → player replies → author names | 2 (`setupCampaignOwner`) | `parallel` | The message exchange is one two-context conversation; the input-behavior contracts need only a campaign chat tab. |
+| campaign-collab | 1 scenario, 7 steps: invite → join → member list → player badge → no Settings tab → assign character → DM sees character | 3 (`setupCampaignOwner`; `setupCampaignOwner` + `setupApiUser`; `userPage`) | `parallel` | Invite→join→membership is one story. Revoke, direct-URL join, and the invalid-code error each create the invite they act on. |
+| campaign-lifecycle | 1 scenario, 4 steps: empty state → create → rename → delete | 3 (`setupCampaignOwner`) | `parallel` | Empty-state-through-delete is one campaign's life; card link, DM badge, and tab navigation only need a campaign to exist. |
+| campaign-notes | 1 scenario, 5 steps: empty state → create → edit → search filters → delete | 1 (`setupDmAndPlayer`) | `parallel` | The DM CRUD chain mutates one note set; the shared-vs-DM-only visibility contract is a separate two-role claim that seeds its own notes, and asserts the DM-only note visible on the DM's board before asserting it hidden from the player. |
+| campaign-npcs | 1 scenario, 5 steps: empty state → create → edit → search filters → delete | 1 (`setupDmAndPlayer`) | `parallel` | Same shape as notes: one CRUD chain plus one player-visibility contract. |
+| character-data-integrity | 1 scenario, 8 steps: wizard create → species badge → saving throws → background skills → class skills → class features → armor/weapon proficiencies → background feat | 0 | `parallel` | The contract is "a **wizard**-created character derives correct sheet data". Per-test seeding would mean seven wizard runs, and the API fixture cannot express the wizard's skill choices — prohibitive, so the narrative folds and the describe is left with a single test. |
+| character-sheet | 1 scenario, 4 steps: damage → heal → temp HP → death saves at 0 | 3 (`setupUserWithCharacter`) | `parallel` | The HP tracker steps read each other's HP; name, level-up, and inspiration are order-independent once each owns a character. Level-up drops its `healHp(1)` prelude, which existed only to undo the previous test's damage. |
+| dice-roller | 1 scenario, 2 steps: custom-notation roll → other player sees it | 3 (`setupCampaignOwner`) | `parallel` | Only the broadcast claim needs a second context; quick-die, quick-roll, and the disabled-button contract each start from a clean notation input. |
+| inventory | 1 scenario, 8 steps: wizard create → starting equipment → add item → add second item → edit → equip → attune → delete | 0 | `parallel` | One progressively mutated item set, and the starting-equipment assertion requires the wizard-created character (see above). Kept whole rather than seeded per test; the describe is left with a single test. |
+| notifications | 1 scenario, 4 steps: no unread → player joins → popover lists it → click marks read | 1 (`registerApiUser` + `apiJoinCampaign`) | `parallel` | Unread counts are cross-test state by construction. Live socket delivery stays in the scenario; mark-all-read seeds its own join over the API *before* the DM's browser opens, so its unread count arrives in the mount fetch and the contract never depends on socket-delivery ordering. |
+| spell-rest | 1 scenario, 5 steps: add cantrip → add level 1 spell → prepare → cast and slot decrements → long rest restores | 2 (`setupUserWithCharacter`) | `parallel` | Prepare/cast/recover is one slot-state story. The panel-visibility and short-rest contracts do not depend on it, and pulling short rest out of the chain strengthens the long-rest assertion. |
+
+All eleven rows landed as planned. The 77 tests became 30: eleven scenarios
+carrying 57 named steps, and nineteen independent contracts that seed their
+own state. Every converted describe now carries `mode: "parallel"`;
+`fullyParallel` was not touched, and `encounter-combat.spec.ts` (CQ25-162) is
+still the only whole-file serial group under `e2e/`.
+
+Every `parallel` opt-in above is legitimate under the leaf's own step-4 test:
+after the split, no converted describe carries cross-test mutable state and no
+converted test mutates the globally-seeded `userPage` user's campaigns,
+characters, spell slots, or notifications. The one `userPage` consumer
+(campaign-collab's invalid-code contract) is read-only.
+
+Sibling read-only contracts that share a seed shape (campaign-lifecycle's DM
+badge, dice-roller's quick-die and disabled-button checks, campaign-chat's two
+input-behavior checks) were deliberately **not** folded back into their
+neighbours to save a seed each. The leaf's two risk clauses point opposite
+ways, and only one of them still applies: the wall-time clause is about
+"naive per-test seeding that reintroduces full UI logins", and these seeds are
+token-auth API registrations behind `openApiAuthedContext` — the exact path the
+leaf named as the enabling change — so the cost is a context plus two HTTP
+calls, not a login form. The retry-granularity clause, by contrast, applies in
+full: folding two independent contracts into one test re-couples their pass/
+fail reporting and lets a flake in one force a retry of both, which is the
+property this leaf exists to remove. Independent contracts therefore stay
+independent tests, and the "independent contracts" column above is the shape
+the code carries.
+
+Folding a narrative into one `test()` puts the scenario's seeding and all of
+its steps under a single test timeout, so the headroom against Playwright's
+30 s default was measured rather than assumed: each of the eleven suites was
+run once on its own (`bun run e2e -- e2e/<suite>.spec.ts --reporter=list`) and
+every test passed. The slowest scenario is campaign-collab's invite→join→
+assign story at 9.0 s, followed by inventory at 7.7 s and spell-rest at 7.5 s;
+the remaining eight land between 4.6 s and 6.6 s, and no independent contract
+exceeds 6.5 s. The worst case therefore uses under a third of the default
+budget — over 3x headroom — so no scenario carries an explicit
+`test.setTimeout` and `playwright.config.ts` was left alone.

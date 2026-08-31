@@ -128,3 +128,16 @@ to match, and the output is then silently unattested rather than failing a test.
    the generators would emit today, because `docs/refs/` is absent by design on
    any machine that has not done step 1. No gate regenerates and diffs, and
    none can.
+
+## No backfill step
+
+There is no separate backfill command in this procedure, and there is nothing
+missing from the table above. `packages/server` once carried two of them —
+`backfill:spell-combat` and `backfill:monster-actions` — one-time migrations
+that re-derived spell `combatData` and the four monster action columns on
+databases seeded before those fields existed. Seed-time enrichment superseded
+them: `seed-srd-spells.ts` and `seed-srd-monsters.ts` now compute those columns
+through the same parsers on every `db:seed`, so a reseed produces the state the
+backfills used to produce. Both commands and their scripts were removed. If you
+find a database missing those columns, reseed it
+(`bun run --filter @musi/server db:seed`, or `db:reset` for a clean rebuild).

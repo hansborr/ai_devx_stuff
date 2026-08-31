@@ -84,6 +84,21 @@ export const topLevelScriptEntrypointEntries: readonly CoverageEntry[] = [
     followUp: "—",
   },
   {
+    id: "scripts-mutation-targets-ts",
+    globs: [
+      "scripts/mutation-targets.ts",
+      "scripts/mutation-targets.test.ts",
+      "scripts/lib/mutation-targets.ts",
+    ],
+    files: "3 .ts",
+    normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
+    ratchets: "`ratchet/local-type-assertion-boundary`",
+    parser: "ESLint via `tsconfig.scripts.json` parser override",
+    proposed: "none — normal lint pins `restrict-template-expressions` `allowNumber: false`",
+    status: ["linted", "ratcheted"],
+    followUp: "—",
+  },
+  {
     id: "scripts-sensor-knip-unused-exports-ts",
     globs: [
       "scripts/sensor-knip-unused-exports.ts",
@@ -236,6 +251,19 @@ export const topLevelScriptEntrypointEntries: readonly CoverageEntry[] = [
     status: ["excluded"],
     followUp:
       "Changes trigger full suppression-register scans so allowlist shrinkage checks unchanged source files.",
+  },
+  {
+    id: "scripts-devcontainer-contract-test-ts",
+    globs: ["scripts/devcontainer-contract.test.ts"],
+    files:
+      "1 .ts (guards the `.devcontainer/` startup and prerequisite contract, and the test-DB bootstrap SQL both Compose stacks share, against Dockerfile/compose drift)",
+    normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
+    ratchets: "`ratchet/local-type-assertion-boundary`",
+    parser: "ESLint via `tsconfig.scripts.json` parser override",
+    proposed: "none — normal lint covers this top-level scripts test",
+    status: ["linted", "ratcheted"],
+    followUp:
+      "Keeps the README Prerequisites section, the single server-start path, and the single-sourced test-DB bootstrap SQL pinned to the files they restate.",
   },
   {
     id: "scripts-devcontainer-env-example-test-ts",

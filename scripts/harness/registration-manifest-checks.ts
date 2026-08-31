@@ -1,4 +1,9 @@
 import { isObjectLike } from "../lib/records.js";
+import {
+  collectCommandCatalogCoverageFailures,
+  type CommandCatalogCoverageInputs,
+  type PackageManifestScripts,
+} from "./command-catalog.js";
 import { isNonEmptyString } from "./control-field-validation.js";
 import {
   checkAgentOverlayControlParity,
@@ -52,6 +57,14 @@ export interface ManifestRegistrationInputs {
   readonly ratchetIds: ReadonlySet<string>;
   readonly overlayRuleIds: ReadonlySet<string>;
   readonly doctorSource: string;
+  /**
+   * Every TRACKED package.json and its scripts. Script parity above only sees
+   * the root manifest and only the control-prefixed keys; the command-catalog
+   * coverage rule below sees every script in every manifest, which is what
+   * makes "no command lands undocumented" hold for `dev`, `test:*` and the
+   * workspace packages too.
+   */
+  readonly packageManifests: readonly PackageManifestScripts[];
 }
 
 export interface ManifestRegistrationState {
@@ -64,6 +77,8 @@ export interface ManifestRegistrationState {
 
 interface DeclaredControlSets {
   readonly scripts: Set<string>;
+  /** Script -> how many controls declare it; the catalog reads the count. */
+  readonly scriptControlCounts: Map<string, number>;
   readonly rules: Set<string>;
   readonly ratchets: Set<string>;
 }
@@ -90,7 +105,7 @@ function manifestControls(
 function recordInvocationScript(
   raw: RawControl,
   id: string,
-  declaredScripts: Set<string>,
+  declared: DeclaredControlSets,
   context: ManifestCheckContext,
 ): void {
   if (!isNonEmptyString(raw.invocation)) return;
@@ -104,7 +119,11 @@ function recordInvocationScript(
     );
     return;
   }
-  declaredScripts.add(scriptName);
+  declared.scripts.add(scriptName);
+  declared.scriptControlCounts.set(
+    scriptName,
+    (declared.scriptControlCounts.get(scriptName) ?? 0) + 1,
+  );
 }
 
 interface LintRuleInvocationCheck {
@@ -181,7 +200,39 @@ function validateManifestControl(
   } else {
     validateNonLintEntry(raw, id, context);
   }
-  recordInvocationScript(raw, id, declared.scripts, context);
+  recordInvocationScript(raw, id, declared, context);
+}
+
+/**
+ * Control invocations plus generatedSurface checkScript aliases, counted per
+ * script. An alias is a source of its own — it documents the `--check` twin —
+ * so it counts alongside any invocation that names the same script.
+ */
+function controlScriptCounts(
+  invocationCounts: ReadonlyMap<string, number>,
+  aliasScripts: ReadonlySet<string>,
+): ReadonlyMap<string, number> {
+  const counts = new Map(invocationCounts);
+  for (const script of aliasScripts) counts.set(script, (counts.get(script) ?? 0) + 1);
+  return counts;
+}
+
+/**
+ * Exactly one metadata source per script key, across every tracked manifest —
+ * and, where several controls declare one script, an authored entry saying what
+ * the command itself is for. Reported under its own `(command catalog)` heading rather than `(parity)`:
+ * the two rules answer different questions — parity asks whether an
+ * enforcement-shaped script is registered as a control, coverage asks whether
+ * ANY script says what it is for — and a reader repairing one should not have
+ * to sort the other's failures out of the same list.
+ */
+function checkCommandCatalogCoverage(
+  inputs: CommandCatalogCoverageInputs,
+  failures: ManifestCheckContext["failures"],
+): void {
+  for (const failure of collectCommandCatalogCoverageFailures(inputs)) {
+    pushFailure(failures, "(command catalog)", failure);
+  }
 }
 
 export function collectManifestRegistrationFailures(
@@ -201,6 +252,7 @@ export function collectManifestRegistrationFailures(
   };
   const declared: DeclaredControlSets = {
     scripts: new Set(),
+    scriptControlCounts: new Map(),
     rules: new Set(),
     ratchets: new Set(),
   };
@@ -230,6 +282,14 @@ export function collectManifestRegistrationFailures(
       aliasScripts,
     },
     context,
+  );
+  checkCommandCatalogCoverage(
+    {
+      manifests: inputs.packageManifests,
+      controlScripts: controlScriptCounts(declared.scriptControlCounts, aliasScripts),
+      catalog: schemaResult.manifest?.commandCatalog ?? [],
+    },
+    failures,
   );
   return {
     controls,

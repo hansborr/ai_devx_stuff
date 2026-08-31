@@ -19,6 +19,10 @@ export default defineProject({
       "logs-audit/fixtures/**",
     ],
     coverage: {
+      // Not the load-bearing copy: `bun run test:coverage` runs Vitest in
+      // projects mode, where coverage resolves from the root `vitest.config.ts`
+      // alone. This block applies only to a standalone
+      // `vitest --config <this file>` run.
       include: [
         "codemods/**/*.ts",
         "drift-ai/**/*.ts",
@@ -31,6 +35,8 @@ export default defineProject({
       ],
       exclude: [
         "**/*.test.ts",
+        // Colocated test scaffolding, executed by the suites importing it.
+        "**/*.test-helper.*",
         "**/worktrees/**",
         "codemods/fixtures/**",
         "drift-ai/fixtures/**",

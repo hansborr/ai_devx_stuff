@@ -24,6 +24,7 @@ import {
 export type HarnessFreshnessPathKind = "file" | "directory";
 
 type HarnessFreshnessCategory =
+  | "guide-missing-from-table"
   | "missing-harness"
   | "missing-referenced-guide"
   | "stale-backtick-path"
@@ -69,6 +70,12 @@ const DEFAULT_HARNESS_PATH = "docs/ai-harness.md";
 const DEFAULT_GUIDES_DIR = "docs/guides";
 const PATH_LIKE_RE = /^[\w.@-]+(?:\/[\w.@-]+)+(?:\/|\.[A-Za-z0-9][\w-]*)$/u;
 const GUIDE_REFERENCE_RE = /docs\/guides\/[\w.-]+\.md/gu;
+// A guide named anywhere else in the document (a Sensors row's paired guide, a
+// prose aside) is an incidental reference, not membership in the table the docs
+// front door advertises as complete. If the header is ever reworded away, every
+// guide reports as absent from the table — loud by design, and this sensor is
+// report-only.
+const GUIDES_TABLE_HEADER_RE = /^\|\s*Guide\s*\|/u;
 
 export function runHarnessFreshnessCheck(
   options: RunHarnessFreshnessCheckOptions = {},
@@ -97,13 +104,14 @@ export function runHarnessFreshnessCheck(
   const guidePaths = discoverGuidePaths(guidesDir, listDirectory);
   const guidePathSet = new Set(guidePaths);
   const guideReferences = extractGuideReferences(harness);
+  const guidesTablePaths = extractGuidesTablePaths(harness);
   const backtickPaths = extractBacktickPathReferences(harness);
   const isIgnored =
     options.isIgnored ??
     defaultPathIgnored(repoRoot, backtickPathIgnoreCandidates(backtickPaths), "harness-freshness");
 
   return [
-    ...unreferencedGuideFindings(harnessPath, guidePaths, guideReferences),
+    ...guideTableFindings(harnessPath, guidePaths, guideReferences, guidesTablePaths),
     ...staleBacktickPathFindings(harnessPath, backtickPaths, pathExists, isIgnored),
     ...missingReferencedGuideFindings(harnessPath, guideReferences, guidePathSet),
   ];
@@ -143,24 +151,45 @@ export function formatHarnessFreshnessText(findings: readonly HarnessFreshnessFi
   return lines.join("\n");
 }
 
-function unreferencedGuideFindings(
+// A guide on disk is either absent from the whole file or present in it but
+// outside the canonical Guides table — never both, so one walk emits both
+// categories. Both anchor to the guide file rather than a harness line: the
+// missing row has no line to point at.
+function guideTableFindings(
   harnessPath: string,
   guidePaths: readonly string[],
   guideReferences: readonly GuideReference[],
+  guidesTablePaths: ReadonlySet<string>,
 ): HarnessFreshnessFinding[] {
   const referenced = new Set(guideReferences.map((reference) => reference.path));
-  return guidePaths
-    .filter((guidePath) => !referenced.has(guidePath))
-    .map((guidePath) => ({
+  const findings: HarnessFreshnessFinding[] = [];
+  for (const guidePath of guidePaths) {
+    if (!referenced.has(guidePath)) {
+      findings.push({
+        check: "harness-freshness",
+        file: guidePath,
+        message: `guide is not referenced by ${harnessPath}`,
+        hint: `add the guide to ${harnessPath} or remove the stale guide file.`,
+        details: {
+          category: "unreferenced-guide",
+          path: guidePath,
+        },
+      });
+      continue;
+    }
+    if (guidesTablePaths.has(guidePath)) continue;
+    findings.push({
       check: "harness-freshness",
       file: guidePath,
-      message: `guide is not referenced by ${harnessPath}`,
-      hint: `add the guide to ${harnessPath} or remove the stale guide file.`,
+      message: `guide is referenced by ${harnessPath} but absent from its Guides table`,
+      hint: `add a Guides-table row for the guide in ${harnessPath}.`,
       details: {
-        category: "unreferenced-guide",
+        category: "guide-missing-from-table",
         path: guidePath,
       },
-    }));
+    });
+  }
+  return findings;
 }
 
 function staleBacktickPathFindings(
@@ -237,6 +266,18 @@ function extractGuideReferences(markdown: string): readonly GuideReference[] {
     }
   }
   return references;
+}
+
+function extractGuidesTablePaths(markdown: string): ReadonlySet<string> {
+  const lines = markdown.split("\n");
+  const headerIndex = lines.findIndex((line) => GUIDES_TABLE_HEADER_RE.test(line));
+  if (headerIndex === -1) return new Set();
+  const paths = new Set<string>();
+  for (const line of lines.slice(headerIndex + 1)) {
+    if (!line.startsWith("|")) break;
+    for (const match of line.matchAll(GUIDE_REFERENCE_RE)) paths.add(match[0]);
+  }
+  return paths;
 }
 
 function extractBacktickPathReferences(markdown: string): readonly BacktickPathReference[] {

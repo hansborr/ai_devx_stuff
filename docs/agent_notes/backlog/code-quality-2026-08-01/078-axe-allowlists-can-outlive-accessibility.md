@@ -1,6 +1,6 @@
 # 78. The axe baseline only subtracts, so repaid accessibility debt never forces its exemption to be retired
 
-Status: Not started
+Status: Landed on fix/cq-078
 Theme: ratcheting test baselines · Area: e2e · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -84,3 +84,39 @@ fabricated row must fail as stale (new path).
   sweeps raw-locator usage across e2e specs, and `a11y.spec.ts` contains raw
   `getByRole` calls (`:95`, `:106`, `:126`). No ordering dependency; just
   avoid editing this file concurrently in both leaves.
+
+## Disposition
+
+Landed as written, with no narrowing of the required piece.
+`expectNoUnbaselinedAxeViolations` now runs the impact filter once and asserts
+twice against that same result set: the existing unbaselined-remainder
+assertion, then a stale-baseline assertion that every rule ID in the view's
+baseline is still observed. The stale message names the view and the rule IDs,
+states plainly that a repaid exemption is good news, and directs the reader to
+delete the row rather than revert the fix or weaken the assertion.
+`BASELINE_SERIOUS_OR_CRITICAL_VIOLATION_IDS` gained a doc comment stating the
+map is a two-way contract and giving every row the retirement condition the
+`## Problem` section found missing.
+
+Both directions were sanity-checked against a live run, as the proposed
+direction asks (`PLAYWRIGHT_BROWSERS_PATH=... bun run e2e -- e2e/a11y.spec.ts`,
+per-worktree servers and DB from `worktree:init`):
+
+- Stale path (new). With `login` temporarily carrying a fabricated
+  `"fabricated-stale-rule"` row, the pre-change helper passed — the defect
+  reproduced exactly. After the change the same tree fails with `Login page no
+  longer has the baselined serious/critical axe violations
+  "fabricated-stale-rule". This is good news: …`.
+- Unbaselined path (existing). With `login` temporarily emptied, the run fails
+  with `Login page has unbaselined serious/critical axe violations:` and the
+  `link-in-text-block` node dump, unchanged by this leaf.
+- Restored tree: all four tests pass. Every one of the four baselined rows is
+  still live debt, so the ratchet introduced no red on landing, and repeating
+  the spec three times showed no flake in the new assertion — the
+  conditionally-rendered risk in `## Scope / caveats` did not materialise for
+  these four rows.
+
+Out of scope and deliberately untouched, per `## Scope / caveats`: the three
+underlying accessibility defects, and per-node/per-selector baselines below
+rule-ID granularity (the exemption breadth at the `campaignDetail` row). The
+raw `getByRole` calls in this file remain leaf 079's.

@@ -119,6 +119,24 @@ Use `backlog/` for work that still matters but should not be visible in the defa
 - Broad audits or strategy docs that need later mining, not daily rereads.
 - Future-phase themes that have not been promoted into a concrete leaf task.
 
+The folder also **retains finished packs on purpose**, as the provenance record
+deduplication reads, so its name does not tell you what is still open. Three
+surfaces answer three different questions, and none substitutes for another:
+
+| Surface | Question it answers |
+| --- | --- |
+| `backlog/CATALOG.md` (generated) | What is each file, and is it still actionable? |
+| `backlog/ready-2026-07/00-index.md` | What should be dispatched next? |
+| `in_progress/` | What is being worked on now? |
+
+`CATALOG.md` is generated — never hand-edit it. Every branch that touches a
+backlog note refreshes it with `bun run docs:backlog-catalog` and commits it
+before landing; leaving it to an integrator does not work, because
+`bun run harness:check` — which both `scripts/land.sh` and CI run — fails on a
+stale page, so the lane that skipped the refresh fails its own land. Two lanes
+that both regenerate conflict on its counts; resolve by taking either side and
+re-running the generator. It presents state only and deliberately ranks nothing.
+
 When promoting backlog work:
 
 1. Move the note or folder back into `in_progress/`.

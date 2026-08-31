@@ -228,6 +228,16 @@ For the full copy set and the minimum copied test set, see
     --reason "<why accepting this baseline increase is better than forcing a low-quality fix now>"
   ```
 
+  A brand-new file's findings are invisible to `lint:ratchet:update` until the
+  file is at least staged (`git add`): the update's file scope is
+  `git ls-files` — tracked files only — so `--allow-worse` cannot accept a
+  finding it never saw. The update then reports a normal success while
+  recording nothing for the new file, and the commit gate later fails on that
+  finding as unaccepted new debt, which looks like the flag was ignored. If an
+  `--allow-worse --reason` update only "takes" once the new file is staged or
+  committed, that scoping rule is why — stage the file first, then rerun the
+  update.
+
   The `--reason` text is durably recorded as the `acceptanceReason` field of a new line in the
   committed debt log `lint-ratchet.debt-log.jsonl` (see the next bullet), so the
   rationale outlives the commit message. The update records that line immediately

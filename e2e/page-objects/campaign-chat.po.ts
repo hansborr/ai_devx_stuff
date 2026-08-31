@@ -56,10 +56,6 @@ export class CampaignChatPO {
     await this.diceInput.fill(notation);
   }
 
-  async clearDiceNotation(): Promise<void> {
-    await this.diceInput.fill("");
-  }
-
   async clickQuickDie(die: string): Promise<void> {
     await this.quickDiceGroup.getByRole("button", { name: `Add 1${die}` }).click();
   }

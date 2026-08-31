@@ -1,77 +1,76 @@
-import { type BrowserContext, expect, type Page, test } from "./fixtures.js";
-import { registerAndLogin } from "./helpers/auth.setup.js";
+import { expect, test } from "./fixtures.js";
+import { setupApiUser } from "./helpers/campaign-setup.js";
 import { uniqueName } from "./helpers/test-data.js";
 import { CharacterSheetPO } from "./page-objects/character-sheet.po.js";
 import { CharacterWizardPO } from "./page-objects/character-wizard.po.js";
 import { DashboardPO } from "./page-objects/dashboard.po.js";
 
 test.describe("Character data integrity", () => {
-  test.describe.configure({ mode: "serial" });
+  // One self-seeding scenario against its own registered user — safe to fan
+  // across workers despite the global fullyParallel:false.
+  // (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
 
-  let context: BrowserContext | undefined;
-  let page: Page;
-  let charName: string;
-  let sheet: CharacterSheetPO;
+  // The claim is about a character built through the *wizard*: its species,
+  // proficiencies, and features all follow from choices the wizard makes, and
+  // the API fixture cannot express the skill picks. So the eight former tests
+  // stay one scenario over one wizard run rather than eight.
+  test("wizard-created character's sheet reflects its build", async ({ browser }) => {
+    const owner = await setupApiUser(browser, "data-integrity");
+    const charName = uniqueName("IntegrityHero");
+    const dashboard = new DashboardPO(owner.page);
+    const sheet = new CharacterSheetPO(owner.page);
 
-  test.beforeAll(async ({ browser }) => {
-    context = await browser.newContext();
-    page = await context.newPage();
-    await registerAndLogin(page, "data-integrity");
-    charName = uniqueName("IntegrityHero");
-  });
+    try {
+      await test.step("create character through wizard", async () => {
+        const wizard = new CharacterWizardPO(owner.page);
 
-  test.afterAll(async () => {
-    await context?.close();
-  });
+        await dashboard.clickCreateCharacter();
+        await wizard.createDefaultCharacter(charName);
+        await dashboard.expectCharacterExists(charName);
+      });
 
-  test("create character through wizard", async () => {
-    const dashboard = new DashboardPO(page);
-    const wizard = new CharacterWizardPO(page);
+      await test.step("character sheet shows correct species badge", async () => {
+        await dashboard.clickCharacterCard(charName);
+        await sheet.expectSpeciesBadge("Human");
+      });
 
-    await dashboard.clickCreateCharacter();
-    await wizard.createDefaultCharacter(charName);
-    await dashboard.expectCharacterExists(charName);
-  });
+      await test.step("character sheet shows correct saving throw proficiencies", async () => {
+        await sheet.expectSavingThrowProficient("Strength");
+        await sheet.expectSavingThrowProficient("Constitution");
+        await sheet.expectSavingThrowNotProficient("Dexterity");
+      });
 
-  test("character sheet shows correct species badge", async () => {
-    const dashboard = new DashboardPO(page);
-    await dashboard.clickCharacterCard(charName);
-    sheet = new CharacterSheetPO(page);
-    await sheet.expectSpeciesBadge("Human");
-  });
+      await test.step("character sheet shows background skill proficiencies", async () => {
+        await sheet.expectSkillProficient("Athletics");
+        await sheet.expectSkillProficient("Intimidation");
+      });
 
-  test("character sheet shows correct saving throw proficiencies", async () => {
-    await sheet.expectSavingThrowProficient("Strength");
-    await sheet.expectSavingThrowProficient("Constitution");
-    await sheet.expectSavingThrowNotProficient("Dexterity");
-  });
+      await test.step("character sheet shows class-selected skill proficiencies", async () => {
+        await sheet.expectSkillProficient("Perception");
+        await sheet.expectSkillProficient("Survival");
+      });
 
-  test("character sheet shows background skill proficiencies", async () => {
-    await sheet.expectSkillProficient("Athletics");
-    await sheet.expectSkillProficient("Intimidation");
-  });
+      await test.step("sheet shows class features", async () => {
+        await sheet.expectFeatureVisible("Fighting Style");
+        await sheet.expectFeatureVisible("Second Wind");
+        await sheet.expectFeatureVisible("Weapon Mastery");
+      });
 
-  test("character sheet shows class-selected skill proficiencies", async () => {
-    await sheet.expectSkillProficient("Perception");
-    await sheet.expectSkillProficient("Survival");
-  });
+      await test.step("sheet shows armor and weapon proficiencies", async () => {
+        await sheet.expectProficiencyVisible("Light Armor");
+        await sheet.expectProficiencyVisible("Heavy Armor");
+        await sheet.expectProficiencyVisible("Simple Weapons");
+        await sheet.expectProficiencyVisible("Martial Weapons");
+        await sheet.expectProficiencyVisible("Common");
+      });
 
-  test("sheet shows class features", async () => {
-    await sheet.expectFeatureVisible("Fighting Style");
-    await sheet.expectFeatureVisible("Second Wind");
-    await sheet.expectFeatureVisible("Weapon Mastery");
-  });
-
-  test("sheet shows armor and weapon proficiencies", async () => {
-    await sheet.expectProficiencyVisible("Light Armor");
-    await sheet.expectProficiencyVisible("Heavy Armor");
-    await sheet.expectProficiencyVisible("Simple Weapons");
-    await sheet.expectProficiencyVisible("Martial Weapons");
-    await sheet.expectProficiencyVisible("Common");
-  });
-
-  test("sheet shows background feat", async () => {
-    await sheet.expectFeatureVisible("Savage Attacker");
+      await test.step("sheet shows background feat", async () => {
+        await sheet.expectFeatureVisible("Savage Attacker");
+      });
+    } finally {
+      await owner.teardown();
+    }
   });
 });
 
@@ -99,10 +98,10 @@ test.describe("Wizard validation", () => {
 
     // Proficiencies step — Continue should be disabled without skills
     await expect(page.getByText("Choose Proficiencies")).toBeVisible();
-    await expect(wizard.continueButton).toBeDisabled();
+    await wizard.expectContinueDisabled();
 
     // Select one skill — should become enabled (Fighter needs >= 1)
-    await page.getByRole("button", { name: "Perception", exact: true }).click();
-    await expect(wizard.continueButton).toBeEnabled({ timeout: 2_000 });
+    await wizard.selectProficiencies("Perception");
+    await wizard.expectContinueEnabled({ timeout: 2_000 });
   });
 });

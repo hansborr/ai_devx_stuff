@@ -41,6 +41,12 @@ musi_exit_after_git_hook_env_assertion_if_requested
 RUNNER_SH="$SCRIPT_DIR/../test-scripts.sh"
 unset MUSI_SCRIPTS_CHANGED_FILES
 unset MUSI_SCRIPTS_DELETED_FILES
+# MUSI_SCRIPTS_CONCURRENCY is a documented debugging override an agent may
+# export for a whole troubleshooting session. This suite hard-codes exact
+# stub-log orders, so the ambient value must never reach run_runner's
+# "${MUSI_SCRIPTS_CONCURRENCY:-1}" default. Individual cases still pass an
+# explicit value through run_runner to exercise parallel mode.
+unset MUSI_SCRIPTS_CONCURRENCY
 
 PASS=0
 fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
@@ -199,7 +205,8 @@ ok "concurrency=1 keeps the sequential output shape"
 # --- default concurrency uses parallel mode when nproc reports headroom -----
 : > "$STUB_LOG_FILE"
 default_parallel_log_dir="$SANDBOX/default-parallel-logs"
-output=$(PATH="$SANDBOX/bin:$PATH" \
+output=$(env -u MUSI_SCRIPTS_CONCURRENCY \
+  PATH="$SANDBOX/bin:$PATH" \
   STUB_LOG="$STUB_LOG_FILE" \
   MUSI_SCRIPTS_LOG_DIR="$default_parallel_log_dir" \
   MUSI_SCRIPTS_CHANGED_FILES="scripts/ai-hooks/cache.sh" \
@@ -370,17 +377,21 @@ MUSI_SCRIPTS_CHANGED_FILES="scripts/verify-history.sh" run_runner --changed >/de
   || fail "verify-history.sh change should select only test-verify-history: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects test-verify-history when scripts/verify-history.sh changed"
 
-# --- --changed selects worktree-db smoke on worktree helper changes ------
+# --- --changed selects worktree-db smokes on worktree helper changes -----
+# worktree-db.sh is a subject of all four worktree suites: three source it
+# directly, and the worktree:new suite executes its cmd_drop through the
+# recovery command, so an edit there must select every one of them.
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES="scripts/worktree-db.sh" run_runner --changed >/dev/null
-[ "$(cat "$STUB_LOG_FILE")" = "runner ran test-worktree-db" ] \
-  || fail "worktree-db.sh change should select worktree smoke: $(cat "$STUB_LOG_FILE")"
-ok "--changed selects test-worktree-db on worktree helper change"
+expected=$'runner ran test-worktree-db\nrunner ran test-worktree-new\nrunner ran test-worktree-drop-gc\nrunner ran test-worktree-locking'
+[ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
+  || fail "worktree-db.sh change should select the worktree smokes: $(cat "$STUB_LOG_FILE")"
+ok "--changed selects the worktree-db smokes on worktree helper change"
 
 # --- --changed selects dependency freshness smoke on hook changes --------
 : > "$STUB_LOG_FILE"
 MUSI_SCRIPTS_CHANGED_FILES=".husky/pre-commit" run_runner --changed >/dev/null
-expected=$'runner ran test-verify-history\nrunner ran test-dependency-freshness'
+expected=$'runner ran test-verify-history\nrunner ran test-dependency-freshness\nrunner ran test-harness-check'
 [ "$(cat "$STUB_LOG_FILE")" = "$expected" ] \
   || fail "pre-commit change should select hook smokes: $(cat "$STUB_LOG_FILE")"
 ok "--changed selects hook smokes on pre-commit change"

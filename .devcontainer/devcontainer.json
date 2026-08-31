@@ -31,7 +31,7 @@
       }
     }
   },
-  "initializeCommand": "mkdir -p /var/tmp/devcontainer-musi && chmod 1777 /var/tmp/devcontainer-musi",
+  "initializeCommand": "mkdir -p /var/tmp/devcontainer-musi && chmod 1777 /var/tmp/devcontainer-musi && { podman volume create --ignore persist >/dev/null 2>&1 || true; }",
   "remoteUser": "node",
   "mounts": [],
   "containerEnv": {

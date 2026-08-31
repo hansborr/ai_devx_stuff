@@ -1,6 +1,6 @@
 # 228. Align shared export guidance with ADR-0005's scoped-only decision
 
-Status: Not started
+Status: Landed on fix/cq-228
 Theme: Resolve the promised shared aggregate-export review against ADR-0005's barrel prohibition · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

@@ -112,12 +112,8 @@ export const shellScriptEntries: readonly CoverageEntry[] = [
   },
   {
     id: "devcontainer-container-entrypoint-sh",
-    globs: [
-      ".devcontainer/container-entrypoint.sh",
-      ".devcontainer/start-servers.sh",
-      ".devcontainer/post-create.sh",
-    ],
-    files: "3 .sh",
+    globs: [".devcontainer/container-entrypoint.sh", ".devcontainer/post-create.sh"],
+    files: "2 .sh",
     normalLint: { covered: true, note: "`bun run lint:shell`" },
     ratchets: "ShellCheck floor",
     parser: "system `shellcheck` (install via `dnf`/`apt`/`brew`; 0.9.0 in this container)",
@@ -139,8 +135,8 @@ export const shellScriptEntries: readonly CoverageEntry[] = [
   },
   {
     id: "init-test-db-sql",
-    globs: ["init-test-db.sql", ".devcontainer/init-test-db.sql"],
-    files: "2 .sql",
+    globs: ["init-test-db.sql"],
+    files: "1 .sql",
     normalLint: { covered: false },
     ratchets: "none",
     parser: "—",

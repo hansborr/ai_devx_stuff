@@ -15,15 +15,33 @@ import { parseRuleSourceManifest } from "./semgrep-rule-manifest.js";
 // by `check-metadata.test.ts`; this file pins the operator-facing surfaces that the
 // registry does not own and that several earlier tasks edited by hand: the
 // `drift-ai.config.example.json` starter knobs, the `README.md` check and
-// subcommand enumerations, and the README's internal backlog links. Adding a check
-// id or a subcommand cannot silently leave these stale, and a removed backlog
-// folder cannot leave a dead README pointer.
+// subcommand enumerations, the README's index of the `docs/` audience files, and
+// the agent-notes links in both. Adding a check id or a subcommand cannot silently
+// leave these stale, a removed backlog or archive folder cannot leave a dead
+// pointer, and an audience doc cannot drift out of the README's index.
 //
 // It is report-only: it never rewrites the docs or the example config.
 
 const dir = path.dirname(fileURLToPath(import.meta.url));
 const README_PATH = path.join(dir, "README.md");
-const PROTOTYPE_SUBCOMMAND_DOC_PATH = path.join(dir, "docs", "prototype-subcommands.md");
+const DOCS_DIR = path.join(dir, "docs");
+const PROTOTYPE_SUBCOMMAND_DOC_PATH = path.join(DOCS_DIR, "prototype-subcommands.md");
+/**
+ * The audience docs the README delegates to. The README keeps the authoritative
+ * check/subcommand/flag tables and one canonical invocation narrative; everything
+ * else lives here, so a doc that stops being linked from the README is a doc
+ * nobody can find. Listed rather than globbed: a new sibling file must be a
+ * deliberate addition to the index, not silently absorbed by a glob.
+ */
+const README_LINKED_DOCS = [
+  "check-reference.md",
+  "musi-integration.md",
+  "portability-contract.md",
+  "prototype-calibration.md",
+  "prototype-contract.md",
+  "prototype-subcommands.md",
+  "subcommand-reference.md",
+] as const;
 const EXAMPLE_CONFIG_PATH = path.join(dir, "..", "..", "drift-ai.config.example.json");
 const EXAMPLE_SEMGREP_MANIFEST_PATH = path.join(dir, "..", "..", "semgrep-rules.example.json");
 
@@ -145,21 +163,34 @@ function semgrepPrototypeDocSection(): string {
   return doc.slice(start, end);
 }
 
-// Relative README markdown links that point into the backlog tree.
-function backlogLinkTargets(readme: string): string[] {
+// Relative markdown links that point into the agent-notes tree — both the live
+// backlog and the finished_work archive. The archive half matters as much as the
+// backlog half: the operator docs cite archived rationale, and an archive folder
+// that gets pruned would otherwise leave a dead pointer no gate notices.
+function agentNoteLinkTargets(markdown: string): string[] {
   const targets: string[] = [];
-  for (const match of readme.matchAll(/\[[^\]]*\]\(([^)]+)\)/gu)) {
+  for (const match of markdown.matchAll(/\[[^\]]*\]\(([^)]+)\)/gu)) {
     const target = match[1];
-    if (target !== undefined && target.includes("docs/agent_notes/backlog/")) targets.push(target);
+    if (target !== undefined && target.includes("docs/agent_notes/")) targets.push(target);
   }
   return targets;
 }
 
-function brokenBacklogLinks(readme: string, baseDir: string): string[] {
-  return backlogLinkTargets(readme).filter((target) => {
+function brokenAgentNoteLinks(markdown: string, baseDir: string): string[] {
+  return agentNoteLinkTargets(markdown).filter((target) => {
     const filePath = path.resolve(baseDir, target.split("#")[0] ?? target);
     return !existsSync(filePath) || statSync(filePath).size === 0;
   });
+}
+
+/**
+ * The audience docs the README's index no longer points at. Shared by the live
+ * assertion and its staleness case, the way `brokenAgentNoteLinks` is, so that
+ * changing how a link is matched is exercised by both instead of leaving the
+ * staleness case restating a predicate nothing runs.
+ */
+function unlinkedAudienceDocs(readme: string): string[] {
+  return README_LINKED_DOCS.filter((name) => !readme.includes(`docs/${name}`));
 }
 
 function missing(expected: ReadonlySet<string>, actual: ReadonlySet<string>): string[] {
@@ -230,8 +261,20 @@ describe("readme/config parity", () => {
     );
   });
 
-  it("README backlog links resolve to non-empty targets", () => {
-    expect(brokenBacklogLinks(readReadme(), dir)).toEqual([]);
+  it("README and audience-doc agent-notes links resolve to non-empty targets", () => {
+    const broken: string[] = brokenAgentNoteLinks(readReadme(), dir);
+    for (const name of README_LINKED_DOCS) {
+      broken.push(
+        ...brokenAgentNoteLinks(readFileSync(path.join(DOCS_DIR, name), "utf8"), DOCS_DIR),
+      );
+    }
+    expect(broken).toEqual([]);
+  });
+
+  // The split moved four audiences out of the README. Each new host file has to
+  // stay reachable from the README, or the trim just hid the content.
+  it("README links every audience doc under docs/", () => {
+    expect(unlinkedAudienceDocs(readReadme())).toEqual([]);
   });
 
   // The semgrep starter manifest is copy-paste infrastructure like the example
@@ -304,8 +347,20 @@ describe("readme/config parity catches staleness", () => {
 
   it("flags a dead backlog link", () => {
     const stale = "See [old queue](../../docs/agent_notes/backlog/drift-ai-tasks/00-index.md).";
-    expect(brokenBacklogLinks(stale, dir)).toEqual([
+    expect(brokenAgentNoteLinks(stale, dir)).toEqual([
       "../../docs/agent_notes/backlog/drift-ai-tasks/00-index.md",
     ]);
+  });
+
+  it("flags a dead finished_work archive link", () => {
+    const stale = "See [archive](../../docs/agent_notes/finished_work/drift-ai-gone.md).";
+    expect(brokenAgentNoteLinks(stale, dir)).toEqual([
+      "../../docs/agent_notes/finished_work/drift-ai-gone.md",
+    ]);
+  });
+
+  it("flags an audience doc the README stopped linking", () => {
+    const stale = "# drift:ai\n\nSee [Check reference](docs/check-reference.md).";
+    expect(unlinkedAudienceDocs(stale)).toContain("portability-contract.md");
   });
 });

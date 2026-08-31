@@ -142,6 +142,18 @@ Long missions travel better as a file — no shell quoting, reusable across retr
   --mission-file /tmp/agent-task.prompt -o /tmp/agent-task.msg > /tmp/agent-task.log 2>&1
 ```
 
+## Review conduct
+
+Working rules for whoever drives multi-round review loops; each cost a repeat multi-round cycle when missing:
+
+- **Convergence checkpoint.** After three consecutive rounds where the same mechanism produces a new P0/P1, or immediately when a fix strategy conflicts with an explicit task constraint, stop dispatching and hand the decision (expand scope, change design, or defer) to the requester. "One more round" is not convergence evidence.
+- **Coverage-deletion check.** When a review recommends deleting test coverage as redundant, verify the deletion against the task's written acceptance clauses, not only against what other tests cover — "covered elsewhere" is a behavior claim, acceptance clauses are a contract claim, and the two do not partition the same way. A cheap counterweight: give one panel seat an explicit "confirm the prior findings are genuinely fixed and introduced nothing new" brief on a fix round.
+- **Fail-open severity bar (gate/check code).** The threat-model bullet above is necessary but not sufficient for code that itself gates or checks something, where "a future edit could remove this" is true of every check and the class is inexhaustible. To file a fail-open finding at P0/P1 on gate code, establish all three: the state is reachable by an ordinary good-faith edit; no other layer catches it — name the layers checked; and the consequence is a real gate hole, not a lost redundant diagnostic.
+- **Settled-dispositions list.** Carry a running list of closed questions and the evidence that closed each one forward into every later round's brief, so no round re-litigates one. When a round's finding contradicts a disposition a prior round settled, the requester rules on the reversal — a fix agent handed only the current round's brief cannot see that it is being asked to undo the last round's mandatory fix.
+- **Don't settle "unanswerable" without checking.** Before recording a disposition as unanswerable (e.g., "the tool isn't installed, so its output format can't be observed"), check cheaper alternatives first: vendored source, a cached build, the tool's own integration tests, upstream release notes. A disposition that forecloses a remedy also caps the severity of any finding that needs that remedy — when a reviewer's finding contradicts a disposition you authored, re-verify it yourself before trusting the label.
+- **Blocked reviewer = static read.** A reviewer that reports its shell or tools were blocked is doing a static read no matter what its verdict says. Read that line before the verdict, and treat a clean call from a blocked seat as unconfirmed on anything empirical.
+- **Judge a P2 by what it would institutionalize**, not by its label or seat count — a single seat can be right against several that found nothing. A leaf's own suggested phrasing is a draft, not a spec, when it conflicts with the leaf's own verification clause; the clause wins. A P2-only fix round does not require spending a second scarce reviewer seat (e.g., a per-unit Opus budget): fix with a cheaper seat pointed at the reviewer's answer file, add the fixed P2s to the settled-dispositions list, and re-confirm with the original panel's remaining (non-scarce) seat only.
+
 ## Follow-ups
 
 Sessions persist across all four backends; prefer resume over a cold run (cursor: resume from the same worktree that ran the original dispatch — see [references/cursor.md](references/cursor.md)):

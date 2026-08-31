@@ -1,171 +1,133 @@
-import { type BrowserContext, expect, type Page, test } from "./fixtures.js";
-import {
-  apiCreateCampaign,
-  apiCreateCharacter,
-  apiLogin,
-  apiRegister,
-  createApiContext,
-  DEFAULT_CHARACTER_INPUT,
-} from "./helpers/api.js";
-import { createAuthenticatedContext, loginViaUi } from "./helpers/auth.setup.js";
-import { makeUser, type TestUser, uniqueName } from "./helpers/test-data.js";
+import { expect, test } from "./fixtures.js";
+import { apiCreateCampaign, apiCreateCharacter, createApiContext } from "./helpers/api.js";
+import { setupApiUser, setupCampaignOwner } from "./helpers/campaign-setup.js";
+import { uniqueName } from "./helpers/test-data.js";
 import { CampaignDetailPO } from "./page-objects/campaign-detail.po.js";
 import { CampaignsPO } from "./page-objects/campaigns.po.js";
 import { JoinPO } from "./page-objects/join.po.js";
 
 test.describe("Campaign collaboration", () => {
-  test.describe.configure({ mode: "serial" });
+  // Each test registers its own users and creates the campaign and invites it
+  // acts on; the invalid-code contract is read-only — safe to fan across
+  // workers despite the global fullyParallel:false. (testsuite-audit leaf 04)
+  test.describe.configure({ mode: "parallel" });
 
-  // DM context
-  let dmContext: BrowserContext | undefined;
-  let dmPage: Page;
-  let dmUser: TestUser;
-  let dmCampaigns: CampaignsPO;
-  let dmDetail: CampaignDetailPO;
+  test("DM invites a player who joins and assigns a character", async ({ browser }) => {
+    const campaignName = uniqueName("CollabCampaign");
+    const playerCharName = uniqueName("PlayerHero");
 
-  // Player context
-  let playerContext: BrowserContext | undefined;
-  let playerPage: Page;
-  let playerUser: TestUser;
-  let playerCampaigns: CampaignsPO;
-  let playerDetail: CampaignDetailPO;
+    const dm = await setupApiUser(browser, "dm");
+    const player = await setupApiUser(browser, "player");
 
-  let campaignName: string;
-  let campaignId: string;
-  let dmCharName: string;
-  let playerCharName: string;
-  let inviteCode: string;
-
-  test.beforeAll(async ({ browser }) => {
-    dmUser = makeUser("dm");
-    playerUser = makeUser("player");
-    campaignName = uniqueName("CollabCampaign");
-    dmCharName = uniqueName("DmHero");
-    playerCharName = uniqueName("PlayerHero");
-
-    // API setup
     const apiCtx = await createApiContext();
-    await apiRegister(apiCtx, dmUser.email, dmUser.password, dmUser.displayName);
-    await apiRegister(apiCtx, playerUser.email, playerUser.password, playerUser.displayName);
-
-    const dmAuth = await apiLogin(apiCtx, dmUser.email, dmUser.password);
-    const playerAuth = await apiLogin(apiCtx, playerUser.email, playerUser.password);
-
-    await apiCreateCharacter(apiCtx, dmAuth.accessToken, {
-      name: dmCharName,
-      ...DEFAULT_CHARACTER_INPUT,
-    });
-    await apiCreateCharacter(apiCtx, playerAuth.accessToken, {
-      name: playerCharName,
-      ...DEFAULT_CHARACTER_INPUT,
-    });
-
-    const campaign = await apiCreateCampaign(apiCtx, dmAuth.accessToken, {
+    await apiCreateCharacter(apiCtx, player.token, { name: playerCharName });
+    const campaign = await apiCreateCampaign(apiCtx, dm.token, {
       name: campaignName,
       description: "Collaboration test campaign",
     });
-    campaignId = campaign.id;
     await apiCtx.dispose();
 
-    // Browser login — DM
-    dmContext = await browser.newContext();
-    dmPage = await dmContext.newPage();
-    await loginViaUi(dmPage, dmUser.email, dmUser.password);
-    await dmPage.goto(`/campaigns/${campaignId}`);
-    dmCampaigns = new CampaignsPO(dmPage);
-    dmDetail = new CampaignDetailPO(dmPage);
+    const dmCampaigns = new CampaignsPO(dm.page);
+    const dmDetail = new CampaignDetailPO(dm.page);
+    const playerCampaigns = new CampaignsPO(player.page);
+    const playerDetail = new CampaignDetailPO(player.page);
+    let inviteCode = "";
 
-    // Browser login — Player
-    playerContext = await browser.newContext();
-    playerPage = await playerContext.newPage();
-    await loginViaUi(playerPage, playerUser.email, playerUser.password);
-    playerCampaigns = new CampaignsPO(playerPage);
-    playerDetail = new CampaignDetailPO(playerPage);
-  });
+    try {
+      await dm.page.goto(`/campaigns/${campaign.id}`);
 
-  test.afterAll(async () => {
-    await playerContext?.close();
-    await dmContext?.close();
-  });
+      await test.step("DM creates invite code", async () => {
+        await dmDetail.clickTab("Members");
+        await dmDetail.createInvite();
+        inviteCode = await dmDetail.getInviteCode();
+        expect(inviteCode).toBeTruthy();
+      });
 
-  test("DM creates invite code", async () => {
-    await dmDetail.clickTab("Members");
-    await dmDetail.createInvite();
-    inviteCode = await dmDetail.getInviteCode();
-    expect(inviteCode).toBeTruthy();
-  });
+      await test.step("Player joins campaign via invite code", async () => {
+        await playerCampaigns.goto();
+        await playerCampaigns.joinCampaign(inviteCode);
+        await playerCampaigns.expectCampaignExists(campaignName);
+      });
 
-  test("Player joins campaign via invite code", async () => {
-    await playerCampaigns.goto();
-    await playerCampaigns.joinCampaign(inviteCode);
-    await playerCampaigns.expectCampaignExists(campaignName);
-  });
+      await test.step("Player appears in DM's member list", async () => {
+        await dmCampaigns.goto();
+        await dmCampaigns.clickCampaign(campaignName);
+        await dmDetail.clickTab("Members");
+        await dmDetail.expectMemberVisible(player.user.displayName);
+      });
 
-  test("Player appears in DM's member list", async () => {
-    await dmCampaigns.goto();
-    await dmCampaigns.clickCampaign(campaignName);
-    await dmDetail.clickTab("Members");
-    await dmDetail.expectMemberVisible(playerUser.displayName);
-  });
+      await test.step("Player sees campaign with Player badge", async () => {
+        await playerCampaigns.goto();
+        await playerCampaigns.clickCampaign(campaignName);
+        await playerDetail.expectPlayerBadge();
+      });
 
-  test("Player sees campaign with Player badge", async () => {
-    await playerCampaigns.goto();
-    await playerCampaigns.clickCampaign(campaignName);
-    await playerDetail.expectPlayerBadge();
-  });
+      await test.step("Player does NOT see Settings tab", async () => {
+        await playerDetail.expectTabHidden("Settings");
+      });
 
-  test("Player does NOT see Settings tab", async () => {
-    await playerDetail.expectTabHidden("Settings");
-  });
+      await test.step("Player assigns their character to campaign", async () => {
+        await playerDetail.clickTab("Members");
+        await playerDetail.assignCharacter(playerCharName);
+        await playerDetail.expectMemberVisible(playerCharName);
+      });
 
-  test("Player assigns their character to campaign", async () => {
-    await playerDetail.clickTab("Members");
-    await playerDetail.assignCharacter(playerCharName);
-    await playerDetail.expectMemberVisible(playerCharName);
-  });
-
-  test("DM sees player's assigned character", async () => {
-    await dmCampaigns.goto();
-    await dmCampaigns.clickCampaign(campaignName);
-    await dmDetail.clickTab("Members");
-    await dmDetail.expectMemberVisible(playerCharName);
+      await test.step("DM sees player's assigned character", async () => {
+        await dmCampaigns.goto();
+        await dmCampaigns.clickCampaign(campaignName);
+        await dmDetail.clickTab("Members");
+        await dmDetail.expectMemberVisible(playerCharName);
+      });
+    } finally {
+      await player.teardown();
+      await dm.teardown();
+    }
   });
 
   test("Player joins via /join/:code URL", async ({ browser }) => {
-    // DM creates another invite for the direct-URL test
-    await dmDetail.clickTab("Members");
-    await dmDetail.createInvite();
-    const directCode = await dmDetail.getInviteCode();
+    const owner = await setupCampaignOwner(browser, {
+      prefix: "joinurlDM",
+      campaignPrefix: "JoinUrlCampaign",
+      startTab: "Members",
+    });
+    const joiner = await setupApiUser(browser, "joinurl");
 
-    // Create a new player context
-    const newPlayerCtx = await createAuthenticatedContext(browser, "joinurl");
-    const joinPO = new JoinPO(newPlayerCtx.page);
+    try {
+      await owner.detail.createInvite();
+      const directCode = await owner.detail.getInviteCode();
 
-    await joinPO.goto(directCode);
-    await joinPO.expectInvitedTo(campaignName);
-    await joinPO.clickJoin();
-    await joinPO.expectRedirectToCampaign();
-
-    await newPlayerCtx.context.close();
+      const joinPO = new JoinPO(joiner.page);
+      await joinPO.goto(directCode);
+      await joinPO.expectInvitedTo(owner.campaignName);
+      await joinPO.clickJoin();
+      await joinPO.expectRedirectToCampaign();
+    } finally {
+      await joiner.teardown();
+      await owner.teardown();
+    }
   });
 
-  test("joining with invalid code shows error", async ({ browser }) => {
-    const tempCtx = await createAuthenticatedContext(browser, "badcode");
-    const joinPO = new JoinPO(tempCtx.page);
+  test("joining with invalid code shows error", async ({ userPage: { page } }) => {
+    const joinPO = new JoinPO(page);
 
     await joinPO.goto("BADCODE123");
-    await joinPO.expectError(/invalid|expired|not found/i);
-
-    await tempCtx.context.close();
+    await joinPO.expectError(/invalid|expired|not found/iu);
   });
 
-  test("DM revokes invite", async () => {
-    await dmCampaigns.goto();
-    await dmCampaigns.clickCampaign(campaignName);
-    await dmDetail.clickTab("Members");
-    await dmDetail.createInvite();
-    const codeToRevoke = await dmDetail.getInviteCode();
-    await dmDetail.revokeInvite(codeToRevoke);
-    await dmDetail.expectInviteGone(codeToRevoke);
+  test("DM revokes invite", async ({ browser }) => {
+    const owner = await setupCampaignOwner(browser, {
+      prefix: "revokeDM",
+      campaignPrefix: "RevokeCampaign",
+      startTab: "Members",
+    });
+
+    try {
+      await owner.detail.createInvite();
+      const codeToRevoke = await owner.detail.getInviteCode();
+      await owner.detail.revokeInvite(codeToRevoke);
+      await owner.detail.expectInviteGone(codeToRevoke);
+    } finally {
+      await owner.teardown();
+    }
   });
 });

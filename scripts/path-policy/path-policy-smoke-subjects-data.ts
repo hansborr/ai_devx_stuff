@@ -146,10 +146,26 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/import-closure/closure-walk.ts",
     "scripts/import-closure/runtime-imports.ts",
     "scripts/import-closure/runtime-resolution.ts",
-    "scripts/worktree-new.sh",
     "scripts/worktree-drift-hook.sh",
     "scripts/dev.sh",
     "scripts/tests/test-worktree-db.sh",
+    "scripts/tests/lib/test-tmpdir.sh",
+  ],
+  "test-worktree-new": [
+    "scripts/worktree-new.sh",
+    "scripts/worktree-db.sh",
+    "scripts/tests/test-worktree-new.sh",
+    "scripts/tests/lib/test-tmpdir.sh",
+  ],
+  "test-worktree-drop-gc": [
+    "scripts/worktree-db.sh",
+    "scripts/tests/test-worktree-drop-gc.sh",
+    "scripts/tests/lib/test-tmpdir.sh",
+  ],
+  "test-worktree-locking": [
+    "scripts/worktree-db.sh",
+    "scripts/tests/test-worktree-locking.sh",
+    "scripts/tests/lib/test-tmpdir.sh",
   ],
   "test-dependency-freshness": [
     "scripts/dependency-freshness.sh",
@@ -594,6 +610,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "vitest.slow.config.ts",
     "packages/shared/vitest.config.ts",
     "packages/server/vitest.config.ts",
+    "packages/server/src/test/vitest-project-options.ts",
     "packages/client/vitest.config.ts",
     "scripts/vitest.config.ts",
     "eslint-rules/vitest.config.ts",
@@ -627,6 +644,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
   ],
   "test-generate-harness-controls": [
     "scripts/harness/control-field-validation.ts",
+    "scripts/harness/command-catalog-schema.ts",
     "scripts/harness/command-policy-schema.ts",
     "scripts/harness/generate-harness-controls.ts",
     "scripts/harness/generate-harness-controls-validation.ts",
@@ -680,6 +698,7 @@ export const SCRIPT_SMOKE_SUBJECTS = {
     "scripts/harness/porting-knob-parity.ts",
     "scripts/harness/porting-knob-parity.test.ts",
     ".husky/pre-push",
+    ".husky/pre-commit",
     "scripts/harness/pre-push-scope-trigger.ts",
     "scripts/harness/generate-pre-push-scope-trigger.ts",
     "scripts/harness/pre-push-scope-trigger.generated.sh",
@@ -822,6 +841,10 @@ export const SCRIPT_SMOKE_SUBJECTS = {
   "test-slow-drift-audit": [
     "scripts/slow-drift-audit.sh",
     "scripts/tests/test-slow-drift-audit.sh",
+  ],
+  "test-mutation-run": [
+    "scripts/mutation-run.sh",
+    "scripts/tests/test-mutation-run.sh",
   ],
   "test-lint-ratchet": [
     "scripts/lint-ratchet.ts",

@@ -1,6 +1,6 @@
 # 217. Correct the architecture plan's unsupported level-up rollback claim
 
-Status: Not started
+Status: Landed on fix/cq-094
 Theme: Architecture plan overstates level-choice audit rows as rollback support · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

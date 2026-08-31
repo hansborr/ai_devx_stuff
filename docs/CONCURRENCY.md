@@ -1,10 +1,15 @@
 # Concurrency patterns
 
-Three patterns cover every concurrency-sensitive write in this codebase.
-When adding a new mutation, first confirm it actually needs gating (see
-§Scope below), then pick the pattern that matches — don't invent a
-fourth. See §"Alternatives considered" at the end for why CAS was
-chosen over `pg_advisory_xact_lock` or Serializable-everywhere.
+Three patterns cover every *row-level* concurrency-sensitive write in
+this codebase. When adding a new mutation, first confirm it actually
+needs gating (see §Scope below), then pick the pattern that matches —
+don't invent a fourth. The one sanctioned departure is not row-level at
+all: when the invariant is genuinely a property of sibling rows that no
+single-row `where` can name, the write runs in a Serializable
+transaction instead — see §"Serializable isolation exception" for the
+two paths that qualify and the bar they clear. See §"Alternatives
+considered" at the end for why CAS was chosen over
+`pg_advisory_xact_lock` or Serializable-everywhere.
 
 The stable architectural decision and its enforcing gates are recorded in
 `docs/adr/0007-runtime-guarded-mutation-boundaries.md` (ADR-0007), which
@@ -145,8 +150,8 @@ arbitrary scalar or `Json` data. This distinction is production-critical:
 
 There is no bypass, environment switch, options object, raw factory or test
 escape. Every query-capable `new PrismaClient` construction is centralized in
-`createPrismaClient`; production, seeds, backfills and test-database preparation
-all use it. Construction order is construct → extend → narrow:
+`createPrismaClient`; production, seeds and test-database preparation all use
+it. Construction order is construct → extend → narrow:
 `createPrismaClient` installs the extension, then `toDbClient` applies the
 compile-time restricted-delegate shape at business-code boundaries. The
 extension is pinned in both array and interactive-callback `$transaction`
@@ -359,22 +364,26 @@ writers can't acquire rows in opposite directions and deadlock:
 
 ### Cross-table writers
 
-**1. `routers/encounter.ts:updateParticipant` (DM override)** — writes
-`CharacterStats` + `EncounterParticipant` when the DM overrides a
-character participant. Row identities: `Stats(X) + EP(P_X)` where
-`P_X.characterId = X`. Lock order: **Stats → EP** (canonical).
+**1. `services/encounter-combat/participant-action.ts:updateParticipant`
+(DM override)** — writes `CharacterStats` + `EncounterParticipant` when the
+DM overrides a character participant; the same-named router procedure is a
+one-line pass-through to this service. Row identities: `Stats(X) + EP(P_X)`
+where `P_X.characterId = X`. Lock order: **Stats → EP** (canonical).
 
 **2. `services/spell-casting/combat-transaction.ts:executeCombatSpellTransaction`**
 — structured spell casts first acquire the encounter turn gate. They then
 form the union of every positively damaged character ID and the caster
-character ID, deduplicate it, sort it by code point, and visit that list
-exactly once through `updateCharacterStatsLocked`. The caster's concentration
-replacement and damage (when overlapped) share that first locked update; a
-caster with no other stats change receives the sanctioned version-bump no-op.
+character ID, deduplicate it, sort it in UTF-16 code-unit order
+(`compareCodeUnits`, `packages/server/src/utils/string-order.ts` — every id
+this repository sorts is ASCII, where code-unit and code-point order agree),
+and visit that list exactly once through `updateCharacterStatsLocked`. The
+caster's concentration replacement and damage (when overlapped) share that
+first locked update; a caster with no other stats change receives the
+sanctioned version-bump no-op.
 Each damaged character's concentration check completes before the pass moves
 on. The cast then acquires `CharacterSpellSlot` once (leveled spells only),
 followed by positively damaged non-character `EncounterParticipant` rows in
-code-point participant-ID order. Lock order is therefore **Encounter gate →
+code-unit participant-ID order. Lock order is therefore **Encounter gate →
 sorted Stats union → CSS → sorted EP**. Later writes to a stats row already
 held by its concentration check are not new lock acquisitions.
 
@@ -423,7 +432,7 @@ cantrips and rituals write only `Stats` and are not cross-table writers.
 ### No deadlock between these paths
 
 - **1 vs 2:** Both acquire any shared `Stats` row before `EP`; path 2 also
-  sorts every multi-row family by code point.
+  sorts every multi-row family by UTF-16 code unit.
 - **1 vs 3–8:** Paths 3–8 don't touch `EP`; path 1 doesn't touch
   `CC`/`CSS`. At most `Stats` is shared.
 - **2/6/7/8 pairwise:** Shared caster rows are acquired in the canonical
@@ -746,12 +755,11 @@ on a **whitelist** of non-racing fields:
 - **Blind path** (`expectedVersion` omitted): uses
   `blindUpdateParticipant` directly. Used for non-racing metadata:
   `actionUsed`, `bonusActionUsed`, `reactionUsed`, `isVisible`,
-  `name`, `initiative`, `sortOrder`, `initiativeModifier`. Does NOT
-  increment `version`, so toggle clicks can't invalidate concurrent
-  CAS-protected operations.
+  `name`, `initiative`, `sortOrder`. Does NOT increment `version`, so toggle
+  clicks can't invalidate concurrent CAS-protected operations.
 
 Field classification lives in the `PARTICIPANT_FIELD_KIND` map in
-`routers/encounter.ts`, declared `as const satisfies
+`services/encounter-combat/participant-action.ts`, declared `as const satisfies
 Record<keyof UpdateParticipantInput, "racing" | "non-racing">`. The
 `satisfies` clause makes the map **exhaustive**: every field on the
 update input must carry a `"racing"` / `"non-racing"` entry or the build

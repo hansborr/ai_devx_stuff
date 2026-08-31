@@ -9,7 +9,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      '.claude/settings.json'|'harness.controls.json'|'scripts/ai-hooks/command-normalize.sh'|'scripts/ai-hooks/command-paths.sh'|'scripts/ai-hooks/git-classify.sh'|'scripts/ai-hooks/policy-eval.sh'|'scripts/ai-hooks/policy.sh'|'scripts/harness/command-policy-projection.ts'|'scripts/harness/command-policy-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-command-policy.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/ai-hooks/policy-rules.generated.sh')
+      '.claude/settings.json'|'harness.controls.json'|'scripts/ai-hooks/command-normalize.sh'|'scripts/ai-hooks/command-paths.sh'|'scripts/ai-hooks/git-classify.sh'|'scripts/ai-hooks/policy-eval.sh'|'scripts/ai-hooks/policy.sh'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/command-policy-projection.ts'|'scripts/harness/command-policy-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-command-policy.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/ai-hooks/policy-rules.generated.sh')
         warn_if_generated_surface_stale 'agent command policy rules and native deny projection' 'harness:command-policy:check'
         break
         ;;
@@ -36,7 +36,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/records.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
+      'harness.controls.json'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-wiring.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-shim-files.ts'|'scripts/harness/hook-shims.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/atomic-write.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'.claude/settings.json'|'.claude/hooks/'*|'.codex/hooks.json'|'.codex/hooks/'*|'.copilot/hooks/'*|'.github/hooks/copilot.json')
         warn_if_generated_surface_stale 'AI hook wiring' 'harness:wiring:check'
         break
         ;;
@@ -45,7 +45,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
+      'harness.controls.json'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-hook-timeout-constants.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-timeout-constants.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/ai-hooks/hook-timeouts.generated.sh')
         warn_if_generated_surface_stale 'hook timeout constants' 'harness:hook-timeouts:check'
         break
         ;;
@@ -108,8 +108,17 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'harness.controls.json'|'scripts/harness-registration-check.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surface-dependencies.ts'|'scripts/harness/generated-surfaces-loader.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/registration-explain.ts'|'scripts/harness/registration-explain-cli.ts'|'scripts/harness/registration-explain-describe.ts'|'scripts/harness/registration-explain-matchers.ts'|'scripts/harness/registration-explain-model.ts'|'scripts/harness/registration-explain-render.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'scripts/path-policy/path-policy-smoke-subjects.ts'|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/import-closure/closure-walk.ts'|'scripts/import-closure/runtime-imports.ts'|'scripts/import-closure/runtime-resolution.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
+      'harness.controls.json'|'scripts/harness-registration-check.ts'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-verify-steps.ts'|'scripts/harness/generated-surface-dependencies.ts'|'scripts/harness/generated-surfaces-loader.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/registration-explain-cli.ts'|'scripts/harness/registration-explain-describe.ts'|'scripts/harness/registration-explain-matchers.ts'|'scripts/harness/registration-explain-model.ts'|'scripts/harness/registration-explain-render.ts'|'scripts/harness/registration-explain.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/import-closure/closure-walk.ts'|'scripts/import-closure/runtime-imports.ts'|'scripts/import-closure/runtime-resolution.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'scripts/path-policy/path-policy-smoke-subjects-data.ts'|'scripts/path-policy/path-policy-smoke-subjects.ts'|'scripts/verify/steps.generated.sh'|'scripts/harness/generated-surface-freshness.generated.sh'|'scripts/ai-hooks/classified-bun-scripts.generated.sh'|'scripts/tests/harness-check-fixture-manifest.generated.txt')
         warn_if_generated_surface_stale 'verify step and generated-surface metadata' 'verify:steps:check'
+        break
+        ;;
+    esac
+  done <<< "$staged"
+
+  while IFS= read -r staged_path; do
+    case "$staged_path" in
+      'docs/agent_notes/backlog/'*|'scripts/backlog-catalog-render.ts'|'scripts/backlog-lint.ts'|'scripts/backlog-lint-classify.ts'|'scripts/backlog-lint-core.ts'|'scripts/backlog-lint-drift.ts'|'scripts/backlog-lint-format.ts'|'scripts/backlog-lint-grammar.ts'|'scripts/backlog-lint-index-table.ts'|'scripts/backlog-lint-metadata.ts'|'scripts/backlog-lint-packs.ts'|'scripts/backlog-lint-status.ts'|'scripts/backlog-lint-types.ts'|'scripts/cli-option-values.ts'|'scripts/generate-backlog-catalog.ts'|'scripts/lib/cli.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/git.ts')
+        warn_if_generated_surface_stale 'backlog catalog' 'docs:backlog-catalog:check'
         break
         ;;
     esac
@@ -126,7 +135,16 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'eslint-config/config-surfaces.js'|'eslint-config/path-glob-policy.js'|'eslint-config/script-test-policy.js'|'harness.controls.json'|'harness.controls.lint-rules.generated.json'|'scripts/harness/command-policy-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-wiring-doc.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'docs/generated/harness-controls.md')
+      'examples/lint-ratchet-demo/package.json'|'harness.controls.json'|'harness.controls.lint-rules.generated.json'|'package.json'|'packages/client/package.json'|'packages/server/package.json'|'packages/shared/package.json'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/command-catalog-sections.ts'|'scripts/harness/command-catalog-sources.ts'|'scripts/harness/command-catalog.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-command-catalog.ts'|'scripts/harness/generated-surfaces.ts'|'scripts/harness/harness-check-validation.ts'|'scripts/harness/harness-manifest-loader.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/package-manifest-scripts.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/git.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/ratchet-manifest-message.ts'|'tools/harness-diagnostics/package.json'|'tools/lint-ratchet/package.json'|'docs/generated/command-catalog.md')
+        warn_if_generated_surface_stale 'command catalog' 'docs:command-catalog:check'
+        break
+        ;;
+    esac
+  done <<< "$staged"
+
+  while IFS= read -r staged_path; do
+    case "$staged_path" in
+      'eslint-config/config-surfaces.js'|'eslint-config/path-glob-policy.js'|'eslint-config/script-test-policy.js'|'harness.controls.json'|'harness.controls.lint-rules.generated.json'|'scripts/harness/command-catalog-schema.ts'|'scripts/harness/command-policy-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-harness-controls-validation.ts'|'scripts/harness/generate-harness-controls.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/harness-paths.ts'|'scripts/harness/hook-wiring-doc.ts'|'scripts/harness/hook-wiring-schema.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'scripts/lint-ratchet/lint-ratchet-config.ts'|'scripts/lint-ratchet/registry-builders.ts'|'docs/generated/harness-controls.md')
         warn_if_generated_surface_stale 'harness controls docs' 'docs:harness-controls:check'
         break
         ;;
@@ -162,7 +180,7 @@ musi_warn_generated_surfaces_stale() {
 
   while IFS= read -r staged_path; do
     case "$staged_path" in
-      'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-manifest-json-schema.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'schemas/harness.controls.schema.json')
+      'scripts/harness/command-catalog-schema.ts'|'scripts/harness/control-field-validation.ts'|'scripts/harness/generate-manifest-json-schema.ts'|'scripts/harness/harness-manifest-schema.ts'|'scripts/harness/harness-manifest.ts'|'scripts/harness/verify-step-artifacts.ts'|'scripts/harness/verify-step-programs.ts'|'scripts/harness/verify-step-schema.ts'|'scripts/lib/codepoint-compare.ts'|'scripts/lib/doc-generator.ts'|'scripts/lib/lint-rule-docs.ts'|'scripts/lib/records.ts'|'schemas/harness.controls.schema.json')
         warn_if_generated_surface_stale 'published manifest JSON Schema' 'harness:manifest-schema:check'
         break
         ;;

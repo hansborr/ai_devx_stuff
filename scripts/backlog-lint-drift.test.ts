@@ -8,7 +8,6 @@ import {
   parseIndexTaskTable,
 } from "./backlog-lint-index-table.js";
 import { collectPackFindings } from "./backlog-lint-packs.js";
-import { terminalStatus } from "./backlog-lint-status.js";
 import type { BacklogLintFile, BacklogLintFindingKind } from "./backlog-lint-types.js";
 
 const DIR = "docs/agent_notes/backlog/pack";
@@ -198,51 +197,6 @@ describe("collectDriftFindings", () => {
     );
 
     expect(collectDriftFindings(driftInput(text, [leaf("10-x.md", "Done")], [source]))).toEqual([]);
-  });
-});
-
-describe("terminalStatus", () => {
-  it.each([
-    "done",
-    "implemented",
-    "shipped",
-    "closed",
-    "drained",
-    "Done — landed",
-    "Implemented 2026-07-07",
-  ])("reads %j as finished", (status) => {
-    expect(terminalStatus(status)).toBe(true);
-  });
-
-  it.each([
-    "unimplemented",
-    "not implemented",
-    "NOT implemented",
-    "not really done",
-    "not yet fully implemented",
-    "Proposed — NOT implemented. Re-verify.",
-    "Design recorded",
-    "Ready",
-  ])("reads %j as not finished", (status) => {
-    expect(terminalStatus(status)).toBe(false);
-  });
-
-  // The two cases below document accepted tokenizer QUIRKS, not endorsed
-  // semantics. They pin the current behavior so a future tokenizer change
-  // that alters either is a deliberate decision, not an accident.
-
-  it("quirk: a negation neutralizes every later terminal token in its clause", () => {
-    // "not" carries to the end of the clause (there is no punctuation between),
-    // so the affirmative "shipped" is also neutralized and the status reads
-    // active even though the author meant it as finished.
-    expect(terminalStatus("not done but shipped")).toBe(false);
-  });
-
-  it("quirk: hyphens split clauses, so a negated hyphenated status reads terminal", () => {
-    // "-" is a clause boundary; "not-yet-done" splits into three clauses and
-    // the bare "done" clause carries no negation, so the status reads finished
-    // despite the negation. Pre-existing blindness (the old \s+ split had it too).
-    expect(terminalStatus("not-yet-done")).toBe(true);
   });
 });
 

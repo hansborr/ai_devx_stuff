@@ -72,9 +72,20 @@ boundaries:
 
 ## Level-Up Choice Tracking
 
-`CharacterLevelChoice` records the player-facing choices made at a level
-(ASI vs feat, subclass, skills, similar) so recent level-up decisions can be
-reviewed and rolled back without full character snapshot versioning.
+`CharacterLevelChoice` records the player-facing choices a level-up actually
+makes: the level/class and HP gain (an `other` row of type `level_up`), the
+ASI-or-feat selection, the subclass selection, and sorcerer metamagic picks.
+Those rows are written inside the level-up transaction alongside the character
+mutations, and come back as read-only history with character detail.
+
+They are partial audit history, not a reversible mutation manifest. A row
+carries the decision that was made, not the character state before it, and the
+level-up's other writes — stats and hit dice, the class and character levels,
+class features, sorcery-point maximum, spell slots — have no recorded inverse.
+The character router exposes `levelUp` with no undo, downgrade, or rollback
+counterpart. Adding one would be a separate product decision with its own
+design for state capture, authorization, conflict handling, and inverse
+operations; the choice rows do not make it mechanically available.
 
 ## Key Architecture Decisions
 

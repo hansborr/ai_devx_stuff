@@ -1,6 +1,6 @@
 # 65. Fifteen server service suites re-wipe a database the global test lifecycle already cleans before every test
 
-Status: Not started
+Status: Landed on fix/cq-065
 Theme: test lifecycle ownership · Area: tests · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -148,3 +148,29 @@ as-is.
   work the leaves concurrently: if 004 lands first, remove the redundant cleans
   at the post-move suite paths; if 065 lands first, 004 must move the cleaned
   suites without reintroducing the deleted hooks or imports.
+
+## Disposition
+
+Landed as written; all 26 `await cleanDb()` sites re-resolved at the audited
+lines. Twenty-one calls were deleted: the suite-`beforeEach` openers in
+fourteen files (including `presence-multi-tab.test.ts`'s file-level hook and
+both `describe` blocks in `invite-service.test.ts`,
+`level-up-multiclass-sorcerer.test.ts`, and `level-up-concurrency.test.ts`),
+the leading clean inside `inventory-service.test.ts`'s `setup()` helper, its
+two `afterEach` trailers, and `homebrew-import-service.test.ts`'s `afterAll`.
+Emptied hooks and now-unused `clean-db.js`/hook imports were removed.
+`removeInventoryFailureTrigger()` stays in
+`character-create-transaction.test.ts`'s `beforeEach`, and
+`level-up-subclass.test.ts`'s SRD-row `afterEach` (not a `cleanDb` call) is
+untouched. The five mid-test resets — `invite-service.test.ts` ×4 and the
+per-iteration reset in `level-up-concurrency.test.ts`'s race loop — are kept,
+each annotated with what its reset actually buys that the global `beforeEach`
+cannot. The four invite resets are load-bearing: `setupInvite()` re-seeds
+users at fixed emails between phases of a single test. The race-loop reset is
+not required by any assertion in the loop (each iteration seeds its own
+`asi-race-${i}` email and every read is keyed by that iteration's
+`characterId`); its comment says so and names what it does buy — bounding row
+accumulation so every iteration races against the same DB state a fresh test
+would see. The 15 files run green focused (119 tests); the leaf's "run the
+full suite once" step is covered by `land.sh`'s full verify rather than a
+lane-side run.

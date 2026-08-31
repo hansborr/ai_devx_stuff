@@ -1,8 +1,13 @@
 # AI Harness
 
 Musi's AI harness is the repo-owned support system around coding agents. Keep
-this file as an inventory and gap map, not a design essay. First visit? Start
-with the [15-minute harness tour](harness-tour.md) before this inventory.
+this file as the conceptual map — harness architecture, the guide and sensor
+lifecycle, the adoption boundary, the gap map, and the complete table of task
+guides — not a design essay. It is not the control inventory: for exhaustive
+control membership ("is there a control for X?") the authority is
+`harness.controls.json` and its generated projection
+[`docs/generated/harness-controls.md`](generated/harness-controls.md).
+First visit? Start with the [15-minute harness tour](harness-tour.md).
 
 ## Terms
 
@@ -574,6 +579,26 @@ behavioral and stays text: the under-lock fast-mode snapshot, the
 unstaged/NUL/source-selection ordering ahead of gate dispatch, and the
 engine's admission-before-marker-before-bridge sequence.
 
+Second worked example — `docs/generated/command-catalog.md`. The question "what
+is this script for?" was answered nowhere: `README.md` and `AGENTS.md` covered
+the everyday subset and told a reader to dump the raw script bodies for the
+rest. The values already existed — a harness control's `principle` says what its
+command enforces — so the catalog projects them rather than restating them, and
+`harness.controls.json` grew a `commandCatalog` section holding one purpose line
+per script no single control speaks for — the ones no control declares, plus
+aggregating commands like `lint` and `doctor`, where the many controls on the
+script are the rules it runs rather than descriptions of the command.
+Completeness is the part that makes it stay true: `bun run harness:check` fails
+when a script in any tracked `package.json` has neither source, has both, or is
+one of those aggregates with no authored entry. That is script parity's rule
+widened from "an enforcement-shaped name must be a registered control" to "every
+command must say what it is for", and it reaches the non-root manifests that
+script parity never looks at. The generator's own prose is one audience blurb
+per script family plus the six-line effect legend — every row's purpose is
+projected from a control or from an authored `commandCatalog` entry, never
+restated here — and a family with no blurb fails the run rather than rendering
+an unlabeled section.
+
 ## Green-Output Policy
 
 Actionable red output is the harness's scarce signal; green paths stay quiet
@@ -630,10 +655,14 @@ needs them.
 | `docs/guides/per-worktree-dev.md` | Maintainability | Inferential | Agents running a secondary worktree without its provisioned DB, ports, Redis, and env files | When working in a secondary worktree | `bun run worktree:init`, `bun run doctor` |
 | `docs/guides/parallel-lane-drains.md` | Maintainability | Inferential | Agents fanning a backlog drain across worktree lanes without the lane, commit, integration, and teardown protocol, or running a high-risk migration as parallel lanes instead of sequential landed slices | When orchestrating a multi-lane or multi-slice drain | `worktree:*` scripts, `land.sh`, `bun run test:scripts` |
 | `docs/guides/local-eslint-rules.md` | Maintainability | Inferential | Agents adding local ESLint diagnostics outside the repo's message guidance convention | When editing `eslint-rules/` | `eslint-rules/message-guidance.test.js` |
+| `docs/guides/lint-message-evals.md` | Maintainability | Inferential | Agents changing the `why` / `howToFix` diagnostic envelope without replaying the treatment/control repair eval, or reading its four-rule structural grade as a full-pipeline pass | When changing lint message guidance or the recorded eval arms | `bun run eval:lint-messages`, weekly `.github/workflows/slow-drift.yml` replay |
 | `docs/guides/harness-manifest-parser.md` | Maintainability, architecture fitness | Inferential | Agents growing a new partial, cast-backed reader of `harness.controls.json` instead of the typed seam, or migrating one without the fixture-copy-closure and diagnostic constraints | When reading the manifest from TypeScript, or on a `MANIFEST_DIRECT_READERS` tripwire failure | `bun run harness:check` (read tripwire + closure checks) |
 | `docs/guides/lint-overview.md` | Maintainability | Inferential | Agents changing the lint system's parts without the architecture map and rationale that orient them | When editing lint config or rules | `bun run lint` |
 | `docs/guides/add-restricted-syntax-fence.md` | Maintainability | Inferential | Agents adding a `no-restricted-syntax` fence by hand-editing config blocks instead of the composition builder, or regenerating the resolution snapshot to hide a policy loss | When adding or changing a `no-restricted-syntax` fence | `eslint-rules/restricted-syntax-builder.test.js`, `eslint-rules/restricted-syntax-and-globals-config.test.js` |
-| `docs/guides/lint-ratchet.md` and `docs/guides/lint-ratchet-adoption.md` | Maintainability | Inferential | Agents changing ratchets without preserving baseline lifecycle, registry checks, and adopter-facing assumptions | When editing ratchet config or docs | `bun run lint:ratchet`, `bun run lint:ratchet:zero-baseline` |
+| `docs/guides/lint-ratchet.md` | Maintainability | Inferential | Agents changing a ratchet without the first-ratchet quickstart, command reference, baseline lifecycle, and zero-baseline rules | When adding a ratchet or changing ratchet config | `bun run lint:ratchet`, `bun run lint:ratchet:check-baseline`, `bun run lint:ratchet:zero-baseline` |
+| `docs/guides/lint-ratchet-reference.md` | Maintainability, architecture fitness | Inferential | Agents changing ratchet internals without the shared baseline kernel, registry preflight, coverage-map gate, CI parity wiring, metric and item shapes, baseline identity and rule-source hashing, or parser profiles | When editing the ratchet engine, its registry, or the lint coverage map | `bun run lint:ratchet:check-registry`, `bun run lint:ratchet:check-debt-accounting`, `bun run docs:lint-coverage-map:check` |
+| `docs/guides/lint-ratchet-merges.md` | Maintainability | Inferential | Agents resolving a generated-baseline merge by hand, dropping debt-log entries, or working a clone whose baseline merge drivers and truth-up hooks were never installed | When a generated baseline conflicts on merge or rebase, or when provisioning a clone | `bun run lint:ratchet:merge-driver:check`, `bun run lint:max-lines-exceptions:merge-driver:check`, `bun run doctor` |
+| `docs/guides/lint-ratchet-adoption.md` | Maintainability | Inferential | Adopters copying the ratchet without its two adoption tiers, runtime copy model, and named ongoing ownership cost | Manual, external-adopter work | `examples/lint-ratchet-demo/smoke.sh`, `.github/workflows/lint-ratchet-demo.yml` |
 | `docs/guides/biome-lint-adoption.md` | Maintainability | Inferential | Agents treating Biome as a drop-in replacement for the authoritative ESLint/ratchet setup | Manual, external-adopter work | `bun run lint` |
 | `.claude/skills/playwright-cli/SKILL.md` and `.codex/skills/playwright-cli/SKILL.md` | Behavior | Inferential | Browser verification being run with the wrong workflow | Manual | Playwright e2e logs and Playwright lint rules |
 | `docs/guides/add-e2e-test.md` | Behavior | Inferential | Agents adding e2e tests without the page-object, fixture, selector, and route-exploration recipe | Area-specific | `local/e2e-prefer-role-selectors`, Playwright e2e |
@@ -719,7 +748,7 @@ needs them.
 | `local/no-broadcast-in-transaction` | Architecture fitness, behavior | Computational | Socket broadcast helpers called inside Prisma `$transaction` callbacks instead of after commit | `bun run lint`, `bun run lint:changed` | ADR-0003, `docs/guides/add-socket-broadcast.md` |
 | Mutation testing | Behavior | Computational | Tests that execute code without proving meaningful behavior, across shared logic, scripts, server services, and the portable lint-ratchet engine | Manual: `bun run test:mutation`, `test:scripts:mutation`, `test:server:mutation`, `test:lint-ratchet:mutation` | `docs/agent_notes/backlog/mutation-testing-stryker.md` |
 | Mutation survivor summarizer | Behavior, maintainability | Computational | Raw Stryker `mutation.json` dumps nobody triages: ranks `Survived` and `NoCoverage` mutants by file and directory area with bounded per-file samples; report-only triage aid — survivor counts never gate; exit 2 only for infrastructure failures (unreadable/malformed report, unwritable output, CLI misuse) | Manual after a mutation run: `bun run mutation:survivors` (`--input`, `--format text\|json`, `--output`, `--top`) | `scripts/mutation-survivors.ts`, Mutation Testing section below |
-| `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
+| `drift:ai harness-freshness` | Maintainability | Computational | `docs/ai-harness.md` guide inventory drift: unreferenced `docs/guides/*.md`, guides referenced elsewhere in the file but absent from the Guides table, missing referenced guides, and stale backtick repo paths | `bun run drift:ai harness-freshness`, via `doctor` | This map |
 | `drift:ai module-doc-paths` | Maintainability | Computational | Stale backtick file references in `MODULE.md` / `*-MODULE.md` notes (path existence only; multi-base resolution, precision over recall); opt-in, report-only | Manual: `bun run drift:ai --check module-doc-paths` (or `--check all`) | `scripts/drift-ai/README.md`, `MODULE.md` files |
 | `drift:ai` default report | Maintainability, architecture fitness | Computational | AI-specific drift on changed files: jscpd copy/paste blocks (8 lines / 60 tokens / mild, no percentage threshold), suspicious sibling modules, over-narrated comments, and newly added suppression comments; duplicate findings, skips, and malformed-tool diagnostics stay advisory and the check has no verify slot | Manual, report-only by default: `bun run drift:ai` (filter with `--check`; pass `--config <path>` to test another config) | `scripts/drift-ai/README.md`, `drift-ai.config.json` |
 | `drift:ai` opt-in checks | Maintainability, architecture fitness | Computational | Slower whole-graph AI-drift signals: commented-out code blocks, stale module-doc paths, knip-backed orphan files / duplicate export aliases / unused exports, TypeScript import cycles, server layer-direction reverse imports, fuzzy plus parser-token exact near-duplicate functions, and duplicate type/schema/literal/constant shapes | Manual, report-only by default: `bun run drift:ai --check commented-out-code`, `--check module-doc-paths`, `--check orphan-files`, `--check knip-duplicates`, `--check import-cycles`, `--check layer-direction`, `--check near-duplicates`, `--check duplicate-types`, `--check duplicate-schemas`, `--check duplicate-literals`, `--check duplicate-constants`, `--check unused-exports`, or `--check all` | `scripts/drift-ai/README.md`, target `knip` / `tsconfig` |
@@ -879,7 +908,22 @@ because Stryker is a slower quality audit, not an edit-loop gate.
 
 All four lane configs are `.mjs` entrypoints backed by
 `stryker.shared.mjs`, which owns the common plugin, runner, reporter, cache,
-and threshold settings.
+and threshold settings. All four commands go through
+`scripts/mutation-run.sh`, which passes the lane config and any extra
+arguments straight to `stryker run`. For the three `inPlace` lanes (scripts,
+lint-ratchet, server) it also refuses to start unless that lane's mutate
+targets are clean and no interrupted run is detected, and recovers the
+worktree on exit.
+
+An `inPlace` run rewrites more than the lane's mutate globs: Stryker's
+`disableTypeChecks` defaults to `true`, so it writes `// @ts-nocheck` into
+every JS/TS file in the tree and backs each one up under
+`.stryker-tmp/backup-*`. That backup, not git, is the complete pre-run copy —
+it is also what holds your uncommitted work in files outside the globs. So if
+a run is interrupted, do not `rm -rf .stryker-tmp`: re-run the same command
+with `--restore` (for example `bun run test:server:mutation -- --restore`),
+which moves the backup back the way Stryker does on a clean exit and only
+falls back to `git restore` for mutate targets the backup did not cover.
 
 Scopes:
 

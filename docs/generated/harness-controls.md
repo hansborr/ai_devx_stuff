@@ -457,7 +457,7 @@ The root `commandPolicy` rows are evaluated in this order; the first hard match 
 
 **Rule:** `local/structured-logging`
 
-**Principle:** Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context.
+**Principle:** Logger calls must use static message strings with variable data in the metadata object so log aggregation can group identical messages. Direct console calls bypass structured fields and request context. The createScriptLogger factory builds a standalone-script logger with no request context, so importing it is restricted by file path to packages/server/src/seed/, packages/server/scripts/, and packages/server/prisma/seed*.ts; runtime server code uses request or server log context instead.
 
 **Category:** maintainability
 
@@ -1487,7 +1487,7 @@ The root `commandPolicy` rows are evaluated in this order; the first hard match 
 
 ### `drift-scope/harness-freshness`
 
-**Principle:** Detect docs/ai-harness.md inventory drift: unreferenced docs/guides/*.md, missing referenced guides, and stale backtick repo paths.
+**Principle:** Detect docs/ai-harness.md inventory drift: unreferenced docs/guides/*.md, guides referenced elsewhere in the file but absent from the canonical Guides table, missing referenced guides, and stale backtick repo paths.
 
 **Category:** maintainability
 
@@ -1515,6 +1515,20 @@ The root `commandPolicy` rows are evaluated in this order; the first hard match 
 
 ## Doc generators
 
+### `doc-generator/backlog-catalog`
+
+**Principle:** Project the tracked backlog tree into docs/agent_notes/backlog/CATALOG.md as a record class plus lifecycle state per file with per-pack rollups, so "what here is actionable?" is answerable without opening every note; classification reads each note's own Status header through the shared backlog-note grammar and status vocabulary, and --check reports drift in the backlog lint's advisory tier rather than gating a commit.
+
+**Category:** maintainability
+
+**Source:** `scripts/generate-backlog-catalog.ts`
+
+**Invocation:** `bun run docs:backlog-catalog`
+
+**Paired guide:** [docs/guides/lint-overview.md](../guides/lint-overview.md)
+
+**Repair:** autofix
+
 ### `doc-generator/baseline-conflict-recipes`
 
 **Principle:** Project the per-baseline merge-conflict recovery recipes into the merge runbook from their live authorities: the package renderer for lint-ratchet and scripts/git/baseline-merge-driver.sh for Musi's other families; --check fails on drift.
@@ -1526,6 +1540,20 @@ The root `commandPolicy` rows are evaluated in this order; the first hard match 
 **Invocation:** `bun run docs:baseline-conflict-recipes`
 
 **Paired guide:** [docs/guides/lint-ratchet-merges.md](../guides/lint-ratchet-merges.md)
+
+**Repair:** autofix
+
+### `doc-generator/command-catalog`
+
+**Principle:** Project every package.json script across every tracked manifest into docs/generated/command-catalog.md with a one-line purpose and a side-effect class, sourced from the registering harness control where one exists and from the manifest's commandCatalog section otherwise, so the repository's command surface is discoverable without reading raw script bodies; the same model backs a harness:check completeness rule that fails when a script has no metadata source or two, and --check fails on drift between the manifest and the generated page.
+
+**Category:** maintainability
+
+**Source:** `scripts/harness/generate-command-catalog.ts`
+
+**Invocation:** `bun run docs:command-catalog`
+
+**Paired guide:** [docs/ai-harness.md](../ai-harness.md)
 
 **Repair:** autofix
 

@@ -1,6 +1,6 @@
 # 103. Primary onboarding lists no host-environment prerequisite even though its first development command requires Bash
 
-Status: Not started
+Status: Landed on fix/cq-228
 Theme: onboarding prerequisites · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

@@ -41,6 +41,55 @@ export default defineConfig({
       provider: "v8",
       reporter: ["json-summary", "json", "text"],
       reportsDirectory: "./coverage",
+      // In projects mode Vitest resolves coverage from this root config only
+      // (the per-project `coverage` blocks apply solely to standalone
+      // `vitest --config packages/<pkg>/vitest.config.ts` runs), so the
+      // scaffolding excludes have to live here to take effect. Test-support
+      // modules are executed by the suites that import them, so counting them
+      // pads the denominator with easily covered lines and makes the
+      // thresholds below harder to interpret. Matches stryker's
+      // `!packages/shared/src/test/**` classification (`stryker.config.mjs`).
+      // The repo spells scaffolding four ways and all four are listed: a
+      // `test-helper` sibling of the module it serves (`.test-helper.` when it
+      // follows the file it helps, `-test-helper.` when it names a directory
+      // family), a per-package `src/test/` directory, and `tools/lint-ratchet`'s
+      // top-level `test/` tree. The three `eslint-rules` modules below are named
+      // one by one instead: they carry production-looking filenames with no
+      // convention to glob, and are identifiable only by import topology (each
+      // is imported solely by `*.test.js` suites in that directory). Vitest 4
+      // appends its own non-overridable excludes (test files, setup files,
+      // config files, `node_modules`) after this list, so this key only has to
+      // name the scaffolding patterns.
+      exclude: [
+        "**/*.test-helper.*",
+        "**/*-test-helper.*",
+        "packages/*/src/test/**",
+        "tools/lint-ratchet/test/**",
+        "eslint-rules/rule-tester.js",
+        "eslint-rules/repo-config-harness.js",
+        "eslint-rules/eslint-config-resolution-timeout.js",
+      ],
+      // `@musi/shared/test/*.js` resolves through the package's `dist/`
+      // build, so a client or server suite records coverage against
+      // `packages/shared/dist/test/*.js` and only the source map turns it back
+      // into `src/test/`. Re-apply the excludes after that remap, or
+      // scaffolding re-enters the denominator by the dist route.
+      excludeAfterRemap: true,
+      // Floors, not targets. Re-derived 2026-08-30 from a full
+      // `bun run test:coverage` against the production-only denominator above
+      // (1343 files reported), as lines/statements/functions/branches:
+      // shared 99.85/99.70/91.91/98.55, server 94.90/94.09/95.25/87.71,
+      // client 88.42/86.76/82.51/82.22, scripts 90.85/88.45/94.14/80.43,
+      // global 89.99/88.08/90.01/79.81, harness-diagnostics 100/100/100/90.90.
+      // Those groups sit under their measured figures and are unchanged.
+      // `eslint-rules/**` (70.57/67.22/68.58/53.43, below on all four) and
+      // `tools/lint-ratchet/src/**` (lines 87.51, statements 85.99, branches
+      // 78.69 — its 93.50 functions figure clears the 90 floor) sit above
+      // theirs and fail the run today. That shortfall predates the scaffolding
+      // exclude: the exclude removes nothing from `tools/lint-ratchet/src/**`,
+      // and the three named `eslint-rules` test-support modules it does remove
+      // are 17 fully covered lines, worth 0.1-0.7pp of that gap (the group
+      // measured 70.84/67.49/69.19/53.52 with them counted).
       thresholds: {
         lines: 87,
         statements: 85,

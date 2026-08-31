@@ -64,13 +64,7 @@ export function createTestAndE2eConfigs(repoRoot) {
         "playwright/expect-expect": [
           "error",
           {
-            assertFunctionPatterns: [
-              "^expect",
-              "^addSpell$",
-              "^castSingleTargetSpell$",
-              "^performShortRest$",
-              "^prepareSpell$",
-            ],
+            assertFunctionPatterns: ["^expect", "^castSingleTargetSpell$", "^performShortRest$"],
           },
         ],
         "playwright/no-conditional-in-test": "error",

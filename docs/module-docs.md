@@ -41,7 +41,15 @@ is genuinely not applicable:
 - **Purpose** - what the directory owns and what it deliberately does not own.
 - **Data Flow** - important query/mutation/socket/store/transaction flow.
 - **External Entry Points** - public hooks, facades, components, router calls,
-  or imports used from outside the directory.
+  or imports used from outside the directory. This section is an inventory, not
+  a sample: it must name **every** export of the directory that non-test
+  production code imports from outside it — tests, `src/test/` fixtures and
+  mocks, and `*test-helper*` modules are not production consumers — or declare
+  a narrower scope in the section itself (for example "top-level files only;
+  submodules list their own"). It must never name a file-private symbol — a
+  reader who tries to import a listed name should get working code, not a
+  compile error. Internal composition landmarks that no outside file imports
+  belong in Data Flow.
 - **State Ownership** - cache keys, store slices, DB rows, socket events,
   broadcasts, locks, or optimistic updates owned here.
 - **Test Seams** - focused tests, helper seams, mocks, or boundary tests a
@@ -57,6 +65,14 @@ be more explicit about contracts, invariants, and broadcasts.
 Run `bun run module:index` after adding, moving, renaming, or deleting a
 `*MODULE.md` orientation file. The generated root `MODULE-INDEX.md` is the
 quick cold-start map; the local module doc remains the source of truth.
+
+External Entry Points inventories are hand-derived today, so they can go stale
+between the recipe in
+[`docs/guides/add-module-doc.md`](guides/add-module-doc.md) being run and the
+next export change. Mechanizing that check — a drift gate that re-derives each
+section's inventory and fails on a mismatch, with `bun run module:index` as the
+precedent for a generated module-doc surface — is an optional follow-up, not a
+requirement of this charter.
 
 ## Agent Standards Mapping
 

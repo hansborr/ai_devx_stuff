@@ -202,18 +202,20 @@ export const driftAiFixtureEntries: readonly CoverageEntry[] = [
     normalLint: { covered: false, note: "`docs:lint-coverage-map` treats Markdown as docs" },
     ratchets: "none",
     parser: "—",
-    proposed: "`not-code` — portable tools-checkout contract doc that travels with the tool",
+    proposed:
+      "`not-code` — portable operator entry point (quickstart plus the authoritative check/flag/subcommand tables) that travels with the tool",
     status: ["not-code"],
     followUp: "—",
   },
   {
     id: "scripts-drift-ai-docs-md",
     globs: ["scripts/drift-ai/docs/*.md"],
-    files: "3 .md",
+    files: "7 .md",
     normalLint: { covered: false, note: "`docs:lint-coverage-map` treats Markdown as docs" },
     ratchets: "none",
     parser: "—",
-    proposed: "`not-code` — focused prototype-lane docs split out of the portable README",
+    proposed:
+      "`not-code` — focused audience docs split out of the portable README (prototype lane, check reference, portability contract, supported subcommands, Musi integration)",
     status: ["not-code"],
     followUp: "—",
   },

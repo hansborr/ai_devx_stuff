@@ -33,6 +33,7 @@ runner ran test-lint-ratchet
 runner ran test-lint-shell
 runner ran test-merge-driver-dispatch
 runner ran test-migration-safety-scan
+runner ran test-mutation-run
 runner ran test-parallel-runner
 runner ran test-post-create
 runner ran test-pre-push
@@ -53,3 +54,6 @@ runner ran test-verify-logs
 runner ran test-verify-metadata
 runner ran test-verify
 runner ran test-worktree-db
+runner ran test-worktree-drop-gc
+runner ran test-worktree-locking
+runner ran test-worktree-new

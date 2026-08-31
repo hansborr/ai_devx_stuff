@@ -1,12 +1,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { isObjectLike } from "../lib/records.js";
 import { LINT_AGENT_GUIDANCE_OVERLAYS } from "../lint-agent-guidance.js";
+import type { PackageManifestScripts } from "./command-catalog.js";
 import type { GeneratedSurfaceRecord } from "./generated-surfaces.js";
 import { type ControlFailures, formatFailures } from "./harness-check-validation.js";
 import { readHarnessManifest } from "./harness-manifest.js";
 import { loadLocalRuleConfig, type LocalRuleConfig } from "./local-rule-config.js";
+import { loadPackageManifestSurface } from "./package-manifest-scripts.js";
 import {
   collectGeneratedRegistrationFailures,
   type GeneratedRegistrationInputs,
@@ -21,6 +22,7 @@ export interface RegistrationCheckInputs extends GeneratedRegistrationInputs {
   readonly ratchetIds: ReadonlySet<string>;
   readonly overlayRuleIds: ReadonlySet<string>;
   readonly doctorSource: string;
+  readonly packageManifests: readonly PackageManifestScripts[];
 }
 
 export interface RegistrationCheckResult {
@@ -29,26 +31,27 @@ export interface RegistrationCheckResult {
   readonly generatedSurfaces: readonly GeneratedSurfaceRecord[];
 }
 
-function loadPackageScripts(repoRoot: string): Map<string, string> {
-  const parsed: unknown = JSON.parse(readFileSync(join(repoRoot, "package.json"), "utf8"));
-  if (!isObjectLike(parsed) || !isObjectLike(parsed.scripts)) {
-    throw new Error("package.json must declare a scripts object");
-  }
-  const scripts = new Map<string, string>();
-  for (const [name, command] of Object.entries(parsed.scripts)) {
-    if (typeof command === "string") scripts.set(name, command);
-  }
-  return scripts;
+/**
+ * The root manifest's scripts, taken from the same tracked-manifest surface the
+ * command catalog reads rather than re-parsing package.json here: two readers of
+ * one file are two views that can disagree.
+ */
+function rootScripts(manifests: readonly PackageManifestScripts[]): ReadonlyMap<string, string> {
+  const root = manifests.find((manifest) => manifest.path === "package.json");
+  if (root === undefined) throw new Error("package.json is not a tracked manifest");
+  return root.scripts;
 }
 
 export async function loadRegistrationCheckInputs(
   repoRoot: string,
 ): Promise<RegistrationCheckInputs> {
   const { lintRatchets } = await import("../lint-ratchet/lint-ratchet-config.js");
+  const packageManifests = loadPackageManifestSurface(repoRoot).manifests;
   return {
     repoRoot,
     rawManifest: readHarnessManifest(repoRoot),
-    scripts: loadPackageScripts(repoRoot),
+    scripts: rootScripts(packageManifests),
+    packageManifests,
     localRuleConfig: await loadLocalRuleConfig(join(repoRoot, "eslint.config.js")),
     ratchetIds: new Set(lintRatchets.map((ratchet) => ratchet.id)),
     overlayRuleIds: new Set(LINT_AGENT_GUIDANCE_OVERLAYS.keys()),

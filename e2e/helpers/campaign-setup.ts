@@ -1,4 +1,4 @@
-import { type Browser, type BrowserContext, expect, type Page } from "@playwright/test";
+import { type Browser, expect, type Page } from "@playwright/test";
 
 import { CampaignDetailPO } from "../page-objects/campaign-detail.po.js";
 import {
@@ -11,30 +11,44 @@ import {
   apiRegister,
   createApiContext,
 } from "./api.js";
-import { loginViaUi } from "./auth.setup.js";
+import { openApiAuthedContext } from "./auth.setup.js";
 import { makeUser, type TestUser, uniqueName } from "./test-data.js";
 import { TIMEOUT_MEDIUM } from "./timeouts.js";
 
 export interface DmPlayerCampaign {
-  dmContext: BrowserContext;
   dmPage: Page;
   dmUser: TestUser;
   dmDetail: CampaignDetailPO;
-  playerContext: BrowserContext;
   playerPage: Page;
   playerUser: TestUser;
   playerDetail: CampaignDetailPO;
   campaignName: string;
   campaignId: string;
-  inviteCode: string;
-  teardown(): Promise<void>;
+  teardown: () => Promise<void>;
 }
 
 export interface UserWithCharacter {
-  context: BrowserContext;
   page: Page;
-  user: TestUser;
   charName: string;
+  teardown: () => Promise<void>;
+}
+
+/** A registered user and the access token that seeds data on their behalf. */
+export interface ApiUser {
+  user: TestUser;
+  token: string;
+}
+
+/** An {@link ApiUser} plus a browser context already logged in as them. */
+export interface BrowsingApiUser extends ApiUser {
+  page: Page;
+  teardown: () => Promise<void>;
+}
+
+/** A {@link BrowsingApiUser} sitting on the detail page of a campaign they DM. */
+export interface CampaignOwner extends BrowsingApiUser {
+  detail: CampaignDetailPO;
+  campaignName: string;
 }
 
 function defaultCharacterName(prefix: string): string {
@@ -43,42 +57,118 @@ function defaultCharacterName(prefix: string): string {
 }
 
 /**
+ * Register a user over the API and return an access token for them.
+ *
+ * The cheapest seed there is: no browser, no login form. Use it when a test
+ * needs a *second* actor whose only job is to exist or to mutate state over
+ * the API (a player who joins a campaign, an invite recipient).
+ */
+export async function registerApiUser(prefix: string): Promise<ApiUser> {
+  const user = makeUser(prefix);
+  const apiCtx = await createApiContext();
+  try {
+    await apiRegister(apiCtx, user.email, user.password, user.displayName);
+    const auth = await apiLogin(apiCtx, user.email, user.password);
+    return { user, token: auth.accessToken };
+  } finally {
+    await apiCtx.dispose();
+  }
+}
+
+/**
+ * {@link registerApiUser} plus a browser context authenticated as that user.
+ * Caller is responsible for calling `teardown()`.
+ */
+export async function setupApiUser(browser: Browser, prefix: string): Promise<BrowsingApiUser> {
+  const { user, token } = await registerApiUser(prefix);
+  const { context, page } = await openApiAuthedContext(browser, user);
+  return {
+    user,
+    token,
+    page,
+    async teardown() {
+      await context.close();
+    },
+  };
+}
+
+/**
  * Set up one user with a character created via the API.
- * Uses the browser only for login and SPA navigation to the sheet.
- * Caller is responsible for closing `context` in afterAll.
+ * Uses the browser only for the headless login and SPA navigation to the sheet.
+ * Caller is responsible for calling `teardown()`.
  */
 export async function setupUserWithCharacter(
   browser: Browser,
   opts: { prefix: string; character?: ApiCreateCharacterOptions },
 ): Promise<UserWithCharacter> {
-  const user = makeUser(opts.prefix);
   const charName = opts.character?.name ?? defaultCharacterName(opts.prefix);
   const character = opts.character ?? { name: charName };
 
   // --- API setup (fast) ---
+  const { user, token } = await registerApiUser(opts.prefix);
   const apiCtx = await createApiContext();
-  await apiRegister(apiCtx, user.email, user.password, user.displayName);
-  const auth = await apiLogin(apiCtx, user.email, user.password);
-  await apiCreateCharacter(apiCtx, auth.accessToken, character);
+  await apiCreateCharacter(apiCtx, token, character);
   await apiCtx.dispose();
 
   // --- Browser login (required for session cookies) ---
-  const context = await browser.newContext();
-  const page = await context.newPage();
-  await loginViaUi(page, user.email, user.password);
+  const { context, page } = await openApiAuthedContext(browser, user);
 
   // Navigate via SPA link (avoids full-page reload batch query limit)
   await page.getByRole("link", { name: charName }).click();
   await expect(page).toHaveURL(/\/characters\//, { timeout: TIMEOUT_MEDIUM });
 
-  return { context, page, user, charName };
+  return {
+    page,
+    charName,
+    async teardown() {
+      await context.close();
+    },
+  };
+}
+
+/**
+ * Set up a user who DMs one freshly created campaign, with their browser
+ * already on that campaign's detail page.
+ *
+ * This is the single-actor counterpart to {@link setupDmAndPlayer}: use it for
+ * contracts that need a campaign to exist but say nothing about a second
+ * participant. Caller is responsible for calling `teardown()`.
+ */
+export async function setupCampaignOwner(
+  browser: Browser,
+  opts: { prefix: string; campaignPrefix: string; startTab?: string },
+): Promise<CampaignOwner> {
+  const campaignName = uniqueName(opts.campaignPrefix);
+
+  const { user, token } = await registerApiUser(opts.prefix);
+  const apiCtx = await createApiContext();
+  const campaign = await apiCreateCampaign(apiCtx, token, { name: campaignName });
+  await apiCtx.dispose();
+
+  const { context, page } = await openApiAuthedContext(browser, user);
+  await page.goto(`/campaigns/${campaign.id}`);
+
+  const detail = new CampaignDetailPO(page);
+  await detail.expectName(campaignName);
+  if (opts.startTab) await detail.clickTab(opts.startTab);
+
+  return {
+    user,
+    token,
+    page,
+    detail,
+    campaignName,
+    async teardown() {
+      await context.close();
+    },
+  };
 }
 
 /**
  * Set up a campaign with a DM and a player who has already joined.
  * Uses API calls for registration/campaign/invite, browser only for login.
  * Both users end up on the campaign detail page.
- * Caller is responsible for calling `teardown()` in afterAll.
+ * Caller is responsible for calling `teardown()`, which closes both contexts.
  */
 export async function setupDmAndPlayer(
   browser: Browser,
@@ -89,35 +179,24 @@ export async function setupDmAndPlayer(
     startTab?: string;
   },
 ): Promise<DmPlayerCampaign> {
-  const dmUser = makeUser(opts.dmPrefix);
-  const playerUser = makeUser(opts.playerPrefix);
   const campaignName = uniqueName(opts.campaignPrefix);
 
   // --- API setup (fast) ---
+  const { user: dmUser, token: dmToken } = await registerApiUser(opts.dmPrefix);
+  const { user: playerUser, token: playerToken } = await registerApiUser(opts.playerPrefix);
+
   const apiCtx = await createApiContext();
-
-  await apiRegister(apiCtx, dmUser.email, dmUser.password, dmUser.displayName);
-  await apiRegister(apiCtx, playerUser.email, playerUser.password, playerUser.displayName);
-
-  const dmAuth = await apiLogin(apiCtx, dmUser.email, dmUser.password);
-  const playerAuth = await apiLogin(apiCtx, playerUser.email, playerUser.password);
-
-  const campaign = await apiCreateCampaign(apiCtx, dmAuth.accessToken, { name: campaignName });
-  const invite = await apiCreateInvite(apiCtx, dmAuth.accessToken, {
-    campaignId: campaign.id,
-  });
-  await apiJoinCampaign(apiCtx, playerAuth.accessToken, { code: invite.code });
-
+  const campaign = await apiCreateCampaign(apiCtx, dmToken, { name: campaignName });
+  const invite = await apiCreateInvite(apiCtx, dmToken, { campaignId: campaign.id });
+  await apiJoinCampaign(apiCtx, playerToken, { code: invite.code });
   await apiCtx.dispose();
 
   // --- Browser login (required for session cookies) ---
-  const dmContext = await browser.newContext();
-  const dmPage = await dmContext.newPage();
-  await loginViaUi(dmPage, dmUser.email, dmUser.password);
-
-  const playerContext = await browser.newContext();
-  const playerPage = await playerContext.newPage();
-  await loginViaUi(playerPage, playerUser.email, playerUser.password);
+  const { context: dmContext, page: dmPage } = await openApiAuthedContext(browser, dmUser);
+  const { context: playerContext, page: playerPage } = await openApiAuthedContext(
+    browser,
+    playerUser,
+  );
 
   // Navigate directly to campaign detail
   await dmPage.goto(`/campaigns/${campaign.id}`);
@@ -132,17 +211,14 @@ export async function setupDmAndPlayer(
   }
 
   return {
-    dmContext,
     dmPage,
     dmUser,
     dmDetail,
-    playerContext,
     playerPage,
     playerUser,
     playerDetail,
     campaignName,
     campaignId: campaign.id,
-    inviteCode: invite.code,
     async teardown() {
       await playerContext.close();
       await dmContext.close();

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # smoke-order: 310
 # smoke-subjects: scripts/harness/control-field-validation.ts
+# smoke-subjects: scripts/harness/command-catalog-schema.ts
 # smoke-subjects: scripts/harness/command-policy-schema.ts
 # smoke-subjects: scripts/harness/generate-harness-controls.ts
 # smoke-subjects: scripts/harness/generate-harness-controls-validation.ts
@@ -54,6 +55,7 @@ copy_generator() {
   mkdir -p "$fixture_dir/scripts/harness" "$fixture_dir/scripts/lib" "$fixture_dir/scripts/lint-ratchet"
   cp scripts/harness/control-field-validation.ts "$fixture_dir/scripts/harness/control-field-validation.ts"
   cp scripts/harness/command-policy-schema.ts "$fixture_dir/scripts/harness/command-policy-schema.ts"
+  cp scripts/harness/command-catalog-schema.ts "$fixture_dir/scripts/harness/command-catalog-schema.ts"
   cp scripts/harness/generate-harness-controls.ts "$fixture_dir/scripts/harness/generate-harness-controls.ts"
   cp scripts/harness/generate-harness-controls-validation.ts "$fixture_dir/scripts/harness/generate-harness-controls-validation.ts"
   cp scripts/harness/harness-paths.ts "$fixture_dir/scripts/harness/harness-paths.ts"

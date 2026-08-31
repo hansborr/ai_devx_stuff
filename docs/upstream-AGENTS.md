@@ -17,8 +17,13 @@ on the SRD 5.2.1 ruleset.
 
 ## Commands
 
-`bun --cwd="$(git rev-parse --show-toplevel)" pm pkg get scripts` lists every
-root script without Bun's CLI help preamble. Non-obvious ones:
+`docs/generated/command-catalog.md` lists every package.json script in the repo
+with a one-line purpose, its side-effect class, and the exact invocation for the
+manifest it lives in — read it before guessing at a script name. To list the
+raw script bodies instead, run
+`bun --cwd="$(git rev-parse --show-toplevel)" pm pkg get scripts`, which dumps
+the root manifest without Bun's CLI help preamble; the catalog stays the
+authority for what each script is for. Non-obvious ones:
 
 - Root scripts resolve against the nearest `package.json`. From a package subdirectory, run `bun --cwd="$(git rev-parse --show-toplevel)" run <script> [-- <args>]`; this preserves the script's arguments and exit status. Use this form for root-only tools such as `doctor`, `backlog:lint`, `harness:check`, and `worktree:status`. Keep the `=` in `--cwd=...`; Bun 1.3 otherwise prints help instead of running the script.
 

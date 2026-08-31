@@ -250,7 +250,8 @@ warn_if_generated_surface_stale() {
     return 0
   fi
 
-  printf 'pre-commit: WARN: %s appears stale:\n%s\n' "$label" "$output" >&2
+  printf 'pre-commit: WARN: %s appears stale:\n%s\npre-commit: WARN: land-time `bun run harness:check` treats this as a hard failure — regenerate now to avoid a land-time round trip.\n' \
+    "$label" "$output" >&2
 }
 
 FRESHNESS_FRAGMENT="$REPO_ROOT/scripts/harness/generated-surface-freshness.generated.sh"

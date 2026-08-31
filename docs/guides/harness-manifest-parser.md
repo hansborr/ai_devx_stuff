@@ -200,22 +200,49 @@ bash scripts/tests/test-lint-ratchet.sh
 
 ### When not to migrate
 
-Two readers stay on the allowlist as `sanctioned-reader`, each with its reason
-recorded inline. They are the shape of the exceptions worth making:
+Five readers stay on the allowlist as `sanctioned-reader`, each with its reason
+recorded inline in `MANIFEST_DIRECT_READERS`. They come in three shapes, and
+those shapes are the exceptions worth making.
+
+**The composition seam** — it reads directly because reading is what it is for:
+
+- **`harness-manifest-loader.ts`** is the read + typed-parse composition every
+  other consumer imports. This is the module the table at the top of this page
+  tells new code to import, seen from the tripwire's side, not a fourth
+  exception shape.
+
+**Whole-manifest diagnostic owners** — they need the manifest's own schema
+failures as data to report, not as a throw that ends the run:
+
+- **`registration-check.ts`** hands the raw manifest to
+  `safeParseHarnessManifest`, folds every schema failure into the same
+  aggregated failure list as its granular per-control live-tree validation, and
+  keeps checking. The loader's throwing parse would abort before any live-tree
+  checking ran, so one schema defect would hide every registration mismatch in
+  the same run.
+
+**Facet, loose-schema, and partial-tree exceptions** — the throwing
+whole-manifest parse would cost them a diagnostic, a facet, or a tree they must
+still serve:
 
 - **`generate-harness-controls.ts`** owns the one-pass granular registration
   report. It uses the whole-manifest parser and fails closed when authored slot
   profiles need resolution; otherwise its raw fallback preserves the granular,
   per-control diagnostics and narrows successful records through the loose
   `categorizedControlFieldsSchema`.
+- **`generate-skill-artifacts.ts`** reads the manifest unvalidated and projects
+  skill artifacts through `skill-artifact-projection.ts`, whose `skillControls`
+  keeps only the `kind === "skill"` controls and parses each one's `skillWiring`
+  with `skill-inventory-schema.ts`. Migrating it would couple skill-artifact
+  generation to the validity of every control kind it never reads.
 - **`check-registry.ts`** ships in the lint-ratchet portable runtime copy set and
   runs against trees with partial or absent manifests. Importing the typed
   parser would expand that copy closure and couple every `lint:ratchet`
-  invocation to whole-manifest validity.
+  invocation to whole-manifest validity — proven by A/B, which turned the
+  smoke's conflict-marker recovery case from exit 2 into exit 1.
 
-The test: does the throwing whole-manifest parse either destroy a deliberately
-worded diagnostic or reach a tree that cannot satisfy the whole contract? If
-neither, migrate.
+The test: if your reader is not the seam and does not fit one of the exception
+shapes above, migrate.
 
 ## External schema
 

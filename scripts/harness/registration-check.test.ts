@@ -1,3 +1,4 @@
+import type * as childProcess from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
@@ -9,7 +10,14 @@ const excludedCheckSpies = vi.hoisted(() => ({
   spawn: vi.fn(),
 }));
 
-vi.mock("node:child_process", () => ({ spawnSync: excludedCheckSpies.spawn }));
+// Partial mock: only spawnSync is stubbed, because the point is that
+// registration checks never spawn a behavioral check. execFileSync stays real —
+// loading the inputs lists the tracked package.json manifests through git, the
+// same read the live-tree assertions below depend on.
+vi.mock("node:child_process", async (importOriginal) => ({
+  ...(await importOriginal<typeof childProcess>()),
+  spawnSync: excludedCheckSpies.spawn,
+}));
 vi.mock("./fixture-closure-check.js", () => ({
   checkFixtureCopyClosure: excludedCheckSpies.fixtureClosure,
 }));

@@ -1,7 +1,7 @@
 # Drain — dispatching this pack
 
 Status: Reference — the execution contract for [00-index.md](./00-index.md).
-Created: 2026-08-06 · Updated: 2026-08-24
+Created: 2026-08-06 · Updated: 2026-08-29
 
 Selection, gating, and the missions you send are computed by
 [`drain.mjs`](./drain.mjs) from live state. This file is the loop around it —
@@ -139,7 +139,14 @@ in its brief and commit `drain-carriers.jsonl` with the lane.
 
 - Flip each landed leaf's `Status:` to `Landed on fix/cq-<CARRIER>`, regenerate
   the catalogs, update the counts in `00-index.md` and `../README.md`, then run
-  `bun run backlog:lint`.
+  `bun run backlog:lint`. Every status flip moves the generated `../CATALOG.md`
+  totals, so the lane regenerates it (`bun run docs:backlog-catalog`) and
+  commits it: a stale page fails `bun run harness:check`, which `scripts/land.sh`
+  runs before the full verify and CI runs on every push. The pre-commit
+  stale-catalog warning is advisory while the lane iterates, but it must be
+  cleared by the lane's last commit — it is not the integrator's job. Two lanes
+  that both regenerate conflict on the totals; resolve by taking either side and
+  re-running the generator.
 
 **6. Review until a clean round.** Every round is the owner-fixed panel
 (2026-08-23) — five seats run in parallel from a clean worktree on the same

@@ -1,7 +1,7 @@
 # AI Hook Adapters
 
 This directory owns the shared hook bodies used by the Claude, Codex, and
-Copilot adapters. The architecture-level inventory is in `docs/ai-harness.md`;
+Copilot adapters. The architecture-level map is in `docs/ai-harness.md`;
 this file is the implementation and manifest authoring reference.
 
 ## Shim Contract

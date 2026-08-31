@@ -1,6 +1,6 @@
 # 85. The 177-key package-script surface has no contributor-facing command catalog — its only documentation is a raw manifest dump, and 22 root scripts are described nowhere
 
-Status: Not started
+Status: Landed on fix/cq-085
 Theme: command-surface discoverability · Area: docs · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

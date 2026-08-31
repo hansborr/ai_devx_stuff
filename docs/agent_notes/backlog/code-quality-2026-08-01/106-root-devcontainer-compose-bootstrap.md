@@ -1,6 +1,6 @@
 # 106. Root and devcontainer Compose each mount their own copy of the test-DB init SQL, with nothing keeping the copies equal
 
-Status: Not started
+Status: Landed on fix/cq-228
 Theme: enforced single-source bootstrap assets · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

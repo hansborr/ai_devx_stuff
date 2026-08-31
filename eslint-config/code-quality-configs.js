@@ -44,13 +44,12 @@ export const maxLinesExceptionConfigs = maxLinesPolicy.exceptions.map(
 // same hazard by listing exact `.ts` paths.
 export const maxLinesEngineZoneConfigs = [
   {
-    files: [
-      "scripts/lint-ratchet/**/*.ts",
-      "scripts/lib/baseline/**/*.ts",
-      "tools/lint-ratchet/**/*.ts",
-    ],
+    files: [...maxLinesPolicy.engineZone.files],
     rules: {
-      "local/max-lines": ["error", { max: 500, ...maxLinesPolicy.counting }],
+      "local/max-lines": [
+        "error",
+        { max: maxLinesPolicy.engineZone.cap, ...maxLinesPolicy.counting },
+      ],
     },
   },
 ];

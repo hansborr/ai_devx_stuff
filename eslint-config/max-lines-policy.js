@@ -29,10 +29,12 @@ import {
  * }} MaxLinesPolicyGeneratedExemption
  */
 /** @typedef {{ readonly skipBlankLines: true; readonly skipComments: true }} MaxLinesPolicyCounting */
+/** @typedef {{ readonly files: readonly string[]; readonly cap: number }} MaxLinesPolicyEngineZone */
 /**
  * @typedef {{
  *   readonly counting: MaxLinesPolicyCounting;
  *   readonly ratchetFloor: { readonly cap: number };
+ *   readonly engineZone: MaxLinesPolicyEngineZone;
  *   readonly exceptions: readonly MaxLinesPolicyException[];
  *   readonly generatedExemptions: readonly MaxLinesPolicyGeneratedExemption[];
  * }} MaxLinesPolicy
@@ -120,10 +122,27 @@ const maxLinesGeneratedExemptions = [
   },
 ];
 
+// The lint-ratchet engine zone's raised default cap. The globs and cap live
+// here (not in code-quality-configs.js, which turns them into the scoped
+// `local/max-lines` config) so non-eslint consumers — the cap audit in
+// scripts/max-lines-exceptions.ts — can resolve a path's no-exception default
+// without importing eslint plugin modules. Rationale for the zone itself is
+// with `maxLinesEngineZoneConfigs` in code-quality-configs.js.
+/** @type {MaxLinesPolicyEngineZone} */
+const maxLinesEngineZone = {
+  files: [
+    "scripts/lint-ratchet/**/*.ts",
+    "scripts/lib/baseline/**/*.ts",
+    "tools/lint-ratchet/**/*.ts",
+  ],
+  cap: 500,
+};
+
 /** @type {MaxLinesPolicy} */
 export const maxLinesPolicy = {
   counting: maxLinesCountingOptions,
   ratchetFloor: { cap: 300 },
+  engineZone: maxLinesEngineZone,
   exceptions: maxLinesExceptions,
   generatedExemptions: maxLinesGeneratedExemptions,
 };

@@ -1,9 +1,38 @@
 # 82. The devcontainer quick start and its copy-and-reuse pitch both depend on infrastructure the repository does not contain
 
-Status: Not started
+Status: Landed on fix/cq-082
 Theme: devcontainer bootstrap prerequisites · Area: docs · Severity: high · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
+
+## Disposition
+
+Landed as written, batched with 083 on `fix/cq-082`. `.devcontainer/README.md`
+gains a Prerequisites section ahead of Quick start covering the four
+undocumented host dependencies (the `localhost/claude-devcontainer:latest`
+base image with its contract, the `devcontainers.slice` cgroup parent, the
+external `persist` volume, and a pointer to the existing `~/.gitconfig`
+requirement), and the reuse section is rewritten as a portable-vs-replace
+two-column checklist. The census re-run confirmed zero runtime or
+documentation consumers of `start-servers.sh`, so the helper is deleted, the
+Dockerfile `COPY`/`chmod` trimmed, the lint-coverage manifest glob and count
+updated, and the generated map regenerated. `initializeCommand` gained a
+best-effort idempotent `podman volume create --ignore persist`, retiring
+prerequisite (c). One deviation from the leaf: Prerequisites bullets cite
+file plus literal value instead of `file:line`, with the values pinned by the
+new `scripts/devcontainer-contract.test.ts` — a drift guard that fails
+loudly where a line number rots silently. Slice 4 (base-image
+parameterization) stays a split-off follow-up, as the leaf directs.
+
+Review round 1 widened the reuse checklist past the leaf's slice-3 list
+(`PROJECT_NAME` and the `POSTGRES_*` credentials): `.env.example`'s three
+`*_DATABASE_URL`s and `CORS_ORIGIN` hand-duplicate values those rows tell an
+adopter to change, so following the table exactly still produced a stack that
+could not connect. The checklist now names all eleven keys, and a fifth
+contract-test assertion fails if `.env.example` gains a key the checklist does
+not. The same round repinned the firewall assertion to the literal
+`/usr/local/bin/init-firewall.sh` instead of `postStartCommand`'s last token,
+which would have retargeted silently on a reorder.
 
 ## Problem
 

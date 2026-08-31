@@ -1,6 +1,6 @@
 import { formatBacklogLintResult } from "./backlog-lint-format.js";
-import type { MetadataField, NoteMetadata } from "./backlog-lint-metadata.js";
-import { extractMetadata } from "./backlog-lint-metadata.js";
+import type { ParsedBacklogNote } from "./backlog-lint-grammar.js";
+import { invalidDateToken, parseBacklogNote } from "./backlog-lint-grammar.js";
 import { collectPackFindings } from "./backlog-lint-packs.js";
 import { terminalStatus } from "./backlog-lint-status.js";
 import type {
@@ -9,11 +9,6 @@ import type {
   BacklogLintOptions,
   BacklogLintResult,
 } from "./backlog-lint-types.js";
-
-interface DateCandidate {
-  readonly value: Date;
-  readonly line?: number;
-}
 
 interface StaleCheckContext {
   readonly now: Date;
@@ -28,63 +23,6 @@ interface FileCheckContext extends StaleCheckContext {
 const DEFAULT_STALE_MONTHS = 6;
 const DEFAULT_BACKLOG_DIR = "docs/agent_notes/backlog";
 const ISO_DATE_PART_WIDTH = 2;
-const ISO_DATE_TOKEN_PATTERN = /\b(\d{4})-(\d{2})-(\d{2})\b/u;
-const ISO_MONTH_TOKEN_PATTERN = /\b(\d{4})-(\d{2})[a-z]?\b/u;
-
-function validDateFromParts(year: number, month: number, day: number): Date | undefined {
-  const parsed = new Date(Date.UTC(year, month - 1, day));
-  if (parsed.getUTCFullYear() !== year) return undefined;
-  if (parsed.getUTCMonth() !== month - 1) return undefined;
-  if (parsed.getUTCDate() !== day) return undefined;
-  return parsed;
-}
-
-function dateFromMatch(match: RegExpMatchArray, defaultDay?: number): Date | undefined {
-  const yearText = match[1];
-  const monthText = match[2];
-  const dayText = defaultDay === undefined ? match[3] : String(defaultDay);
-  if (yearText === undefined || monthText === undefined || dayText === undefined) {
-    return undefined;
-  }
-  return validDateFromParts(Number(yearText), Number(monthText), Number(dayText));
-}
-
-function parseIsoDateToken(text: string): Date | undefined {
-  const match = text.match(ISO_DATE_TOKEN_PATTERN);
-  return match === null ? undefined : dateFromMatch(match);
-}
-
-function parseIsoMonthToken(text: string): Date | undefined {
-  const match = text.match(ISO_MONTH_TOKEN_PATTERN);
-  return match === null ? undefined : dateFromMatch(match, 1);
-}
-
-function invalidDateToken(text: string): string | undefined {
-  const match = text.match(ISO_DATE_TOKEN_PATTERN);
-  if (match === null || parseIsoDateToken(text) !== undefined) return undefined;
-  return match[0];
-}
-
-function dateCandidateFromField(field: MetadataField): DateCandidate | undefined {
-  const parsed = parseIsoDateToken(field.value);
-  return parsed === undefined ? undefined : { value: parsed, line: field.line };
-}
-
-function dateCandidateFromPath(path: string): DateCandidate | undefined {
-  const exact = parseIsoDateToken(path);
-  if (exact !== undefined) return { value: exact };
-  const month = parseIsoMonthToken(path);
-  return month === undefined ? undefined : { value: month };
-}
-
-function firstDateCandidate(path: string, metadata: NoteMetadata): DateCandidate | undefined {
-  if (metadata.date !== undefined) return dateCandidateFromField(metadata.date);
-  if (metadata.status !== undefined) {
-    const statusDate = dateCandidateFromField(metadata.status);
-    if (statusDate !== undefined) return statusDate;
-  }
-  return dateCandidateFromPath(path);
-}
 
 function staleCutoff(now: Date, staleMonths: number): Date {
   return new Date(
@@ -100,16 +38,16 @@ function formatIsoDate(date: Date): string {
 }
 
 function collectStatusFindings(
-  file: BacklogLintFile,
-  metadata: NoteMetadata,
+  note: ParsedBacklogNote,
   requireFrontMatter: boolean,
 ): BacklogLintFinding[] {
+  const metadata = note.metadata;
   if (metadata.status === undefined) {
     if (!requireFrontMatter) return [];
     return [
       {
         kind: "missing-status",
-        path: file.path,
+        path: note.path,
         message: "missing Status front-matter in the leading note header",
       },
     ];
@@ -118,7 +56,7 @@ function collectStatusFindings(
     return [
       {
         kind: "empty-status",
-        path: file.path,
+        path: note.path,
         line: metadata.status.line,
         message: "Status front-matter is present but empty",
       },
@@ -128,30 +66,29 @@ function collectStatusFindings(
 }
 
 function collectDateFindings(
-  file: BacklogLintFile,
-  metadata: NoteMetadata,
-  date: DateCandidate | undefined,
+  note: ParsedBacklogNote,
   requireFrontMatter: boolean,
 ): BacklogLintFinding[] {
+  const metadata = note.metadata;
   if (metadata.date !== undefined) {
     const invalidToken = invalidDateToken(metadata.date.value);
     if (invalidToken !== undefined) {
       return [
         {
           kind: "invalid-date",
-          path: file.path,
+          path: note.path,
           line: metadata.date.line,
           message: `Date front-matter contains invalid ISO date ${invalidToken}`,
         },
       ];
     }
   }
-  if (date === undefined) {
+  if (note.date === undefined) {
     if (!requireFrontMatter) return [];
     return [
       {
         kind: "missing-date",
-        path: file.path,
+        path: note.path,
         message: "missing Date/Created/Updated front-matter or dated backlog path",
       },
     ];
@@ -160,22 +97,18 @@ function collectDateFindings(
 }
 
 function collectStaleFindings(
-  file: BacklogLintFile,
-  metadata: NoteMetadata,
-  date: DateCandidate | undefined,
+  note: ParsedBacklogNote,
   context: StaleCheckContext,
 ): BacklogLintFinding[] {
-  if (
-    date === undefined ||
-    (metadata.status !== undefined && terminalStatus(metadata.status.value))
-  ) {
+  const date = note.date;
+  if (date === undefined || (note.statusValue !== undefined && terminalStatus(note.statusValue))) {
     return [];
   }
   if (date.value >= staleCutoff(context.now, context.staleMonths)) return [];
   return [
     {
       kind: "stale-note",
-      path: file.path,
+      path: note.path,
       line: date.line,
       message: `latest front-matter date ${formatIsoDate(date.value)} is older than ${String(context.staleMonths)} month(s)`,
     },
@@ -186,12 +119,11 @@ function collectFileFindings(
   file: BacklogLintFile,
   context: FileCheckContext,
 ): BacklogLintFinding[] {
-  const metadata = extractMetadata(file.text);
-  const date = firstDateCandidate(file.path, metadata);
+  const note = parseBacklogNote(file);
   return [
-    ...collectStatusFindings(file, metadata, context.requireFrontMatter),
-    ...collectDateFindings(file, metadata, date, context.requireFrontMatter),
-    ...(context.checkStaleness ? collectStaleFindings(file, metadata, date, context) : []),
+    ...collectStatusFindings(note, context.requireFrontMatter),
+    ...collectDateFindings(note, context.requireFrontMatter),
+    ...(context.checkStaleness ? collectStaleFindings(note, context) : []),
   ];
 }
 

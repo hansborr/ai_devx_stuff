@@ -1,6 +1,6 @@
 {
   "$schema": "./schemas/harness.controls.schema.json",
-  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. This file owns every control kind EXCEPT `lint-rule`: those are derived from the rule files on disk plus their activation surfaces into harness.controls.lint-rules.generated.json (`bun run harness:lint-rule-controls`), which scripts/harness/harness-manifest.ts merges in for every reader. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) \u2014 keep them out of the manifest so there is one source of truth. For `kind: hook` controls, the `hookWiring` facet is the POLICY authority (event, order, body, timeout, statusMessage, outputs, notes); once a facet declares an adapter `surface` (allowed only on the tool-use events PreToolUse/PostToolUse/PostToolUseFailure, whose matchers are pure adapter syntax), its `matcher` and `command` strings stop being free text and become canonical-checked copies: `matcher` of the projection tables in scripts/harness/hook-wiring-schema.ts, `command` of those same tables applied to this facet's own `body`. Repair drift in the copy, not in the tables \u2014 rewrite the manifest string to the projection the validator prints; renaming a `body` legitimately rewrites its commands with no table edit; edit a table itself only for a deliberate adapter-syntax change (a harness changing its matcher vocabulary or shim directory), never to make one binding's typo validate everywhere. The aggregators and claude-only lifecycle hooks declare no `surface`: they record the asymmetry in `notes`, keyed to the harness it explains \u2014 an omitted harness needs a note, and so does a wired harness whose command is not the projection of `body`. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
+  "$comment": "Authoritative inventory of Musi harness controls. Re-generate the agent-facing markdown with `bun run docs:harness-controls`; validate against reality with `bun run harness:check`. This file owns every control kind EXCEPT `lint-rule`: those are derived from the rule files on disk plus their activation surfaces into harness.controls.lint-rules.generated.json (`bun run harness:lint-rule-controls`), which scripts/harness/harness-manifest.ts merges in for every reader. For `kind: lint-rule` entries, the per-rule `category`, `principle`, `pairedGuide`, `repairKind`, and `repairCommand` are re-projected by the generator from the rule's own `meta.docs` (PR 1 contract) — keep them out of the manifest so there is one source of truth. For `kind: hook` controls, the `hookWiring` facet is the POLICY authority (event, order, body, timeout, statusMessage, outputs, notes); once a facet declares an adapter `surface` (allowed only on the tool-use events PreToolUse/PostToolUse/PostToolUseFailure, whose matchers are pure adapter syntax), its `matcher` and `command` strings stop being free text and become canonical-checked copies: `matcher` of the projection tables in scripts/harness/hook-wiring-schema.ts, `command` of those same tables applied to this facet's own `body`. Repair drift in the copy, not in the tables — rewrite the manifest string to the projection the validator prints; renaming a `body` legitimately rewrites its commands with no table edit; edit a table itself only for a deliberate adapter-syntax change (a harness changing its matcher vocabulary or shim directory), never to make one binding's typo validate everywhere. The aggregators and claude-only lifecycle hooks declare no `surface`: they record the asymmetry in `notes`, keyed to the harness it explains — an omitted harness needs a note, and so does a wired harness whose command is not the projection of `body`. In verify slots, `condition` is documentation-only; executable branching belongs in `dynamic` ids with matching scripts/verify/steps-lib.sh resolver arms.",
   "scriptParityExemptions": [
     "verify:async:changed",
     "verify:async:slow",
@@ -38,58 +38,85 @@
   "verifySlotCatalog": [
     {
       "name": "lint",
-      "full": { "script": "lint" },
+      "full": {
+        "script": "lint"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode lints changed files with lint:changed; full mode lints the whole tree with lint.",
-        "slot": { "script": "lint:changed" }
+        "slot": {
+          "script": "lint:changed"
+        }
       },
       "requiresArtifact": "dist-outputs"
     },
     {
       "name": "suppressions",
-      "full": { "script": "lint:suppressions" },
+      "full": {
+        "script": "lint:suppressions"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode scans suppressions in changed files; full mode audits suppression policy across the whole tree.",
-        "slot": { "script": "lint:suppressions:changed" }
+        "slot": {
+          "script": "lint:suppressions:changed"
+        }
       }
     },
     {
       "name": "suppression-ledger",
-      "full": { "script": "lint:suppressions:ledger" },
+      "full": {
+        "script": "lint:suppressions:ledger"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode gates the suppression identity ledger over the paths the register scanners read for the change; full mode gates the whole-tree identity set.",
-        "slot": { "script": "lint:suppressions:ledger:changed" }
+        "slot": {
+          "script": "lint:suppressions:ledger:changed"
+        }
       }
     },
     {
       "name": "ratchet",
       "full": {
         "script": "lint:ratchet",
-        "env": { "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json" }
+        "env": {
+          "HARNESS_DIAGNOSTICS_OUTPUT": "$LOG_DIR/ratchet-diagnostics.json"
+        }
       },
-      "changed": { "kind": "inherit" },
+      "changed": {
+        "kind": "inherit"
+      },
       "requiresArtifact": "dist-outputs"
     },
     {
       "name": "zero-baseline",
-      "full": { "script": "lint:ratchet:zero-baseline" },
-      "changed": { "kind": "inherit" }
+      "full": {
+        "script": "lint:ratchet:zero-baseline"
+      },
+      "changed": {
+        "kind": "inherit"
+      }
     },
     {
       "name": "debt-accounting",
-      "full": { "script": "lint:ratchet:check-debt-accounting" },
+      "full": {
+        "script": "lint:ratchet:check-debt-accounting"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode checks the staged index with --staged; full mode audits the worktree baseline.",
-        "slot": { "script": "lint:ratchet:check-debt-accounting", "args": ["--", "--staged"] }
+        "slot": {
+          "script": "lint:ratchet:check-debt-accounting",
+          "args": ["--", "--staged"]
+        }
       }
     },
     {
       "name": "local-rule-starter",
-      "full": { "script": "docs:local-eslint-rule-starter:check" },
+      "full": {
+        "script": "docs:local-eslint-rule-starter:check"
+      },
       "changed": {
         "kind": "omit",
         "reason": "The standalone documentation starter check is intentionally full-tree-only."
@@ -97,50 +124,79 @@
     },
     {
       "name": "adr",
-      "full": { "script": "adr:check" },
-      "changed": { "kind": "inherit" }
+      "full": {
+        "script": "adr:check"
+      },
+      "changed": {
+        "kind": "inherit"
+      }
     },
     {
       "name": "knip-unused-exports",
-      "full": { "script": "sensor:knip-unused-exports" },
-      "changed": { "kind": "inherit" }
+      "full": {
+        "script": "sensor:knip-unused-exports"
+      },
+      "changed": {
+        "kind": "inherit"
+      }
     },
     {
       "name": "near-duplicates",
-      "full": { "script": "sensor:near-duplicates", "args": ["--", "--check-baseline"] },
+      "full": {
+        "script": "sensor:near-duplicates",
+        "args": ["--", "--check-baseline"]
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode checks pairs touching staged files; full mode checks the whole-tree baseline.",
-        "slot": { "script": "sensor:near-duplicates" }
+        "slot": {
+          "script": "sensor:near-duplicates"
+        }
       }
     },
     {
       "name": "max-lines-exceptions",
-      "full": { "script": "lint:max-lines-exceptions" },
-      "changed": { "kind": "inherit" }
+      "full": {
+        "script": "lint:max-lines-exceptions"
+      },
+      "changed": {
+        "kind": "inherit"
+      }
     },
     {
       "name": "coverage-map",
-      "full": { "script": "docs:lint-coverage-map:audit" },
+      "full": {
+        "script": "docs:lint-coverage-map:audit"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode runs the reach-free whole-map check; full mode adds the whole-tree ESLint-reach probe.",
-        "slot": { "script": "docs:lint-coverage-map:check" }
+        "slot": {
+          "script": "docs:lint-coverage-map:check"
+        }
       }
     },
     {
       "name": "format-check",
-      "full": { "script": "format:check" },
+      "full": {
+        "script": "format:check"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode format-checks changed files; full mode checks the whole tree.",
-        "slot": { "script": "format:changed:check" }
+        "slot": {
+          "script": "format:changed:check"
+        }
       }
     },
     {
       "name": "typecheck",
-      "full": { "script": "typecheck" },
-      "changed": { "kind": "inherit" },
+      "full": {
+        "script": "typecheck"
+      },
+      "changed": {
+        "kind": "inherit"
+      },
       "produces": "dist-outputs"
     },
     {
@@ -160,7 +216,9 @@
     },
     {
       "name": "scripts",
-      "full": { "script": "test:scripts" },
+      "full": {
+        "script": "test:scripts"
+      },
       "changed": {
         "kind": "replace",
         "reason": "Changed mode runs test:scripts:changed through the staged-script classifier; full mode runs the whole script smoke suite.",
@@ -805,6 +863,722 @@
       }
     }
   ],
+  "commandCatalog": [
+    {
+      "manifest": "package.json",
+      "script": "dev",
+      "effect": "dev-utility",
+      "purpose": "Start the dev pipeline. On a secondary worktree it first provisions that worktree's databases, ports and env files, so this is the only start command you need.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "build",
+      "effect": "ci-primitive",
+      "purpose": "Build the three packages in dependency order: shared, then server, then client."
+    },
+    {
+      "manifest": "package.json",
+      "script": "clean",
+      "effect": "dev-utility",
+      "purpose": "Delete build output, TypeScript build-info files and the node_modules cache. Reach for it when a stale artifact is the suspect."
+    },
+    {
+      "manifest": "package.json",
+      "script": "doctor",
+      "effect": "check",
+      "purpose": "Aggregated read-only diagnostic for this worktree: env files, port binding, dependency and Prisma-client freshness, host lint tools, ratchet merge-driver health, suppression registers and migration safety. Every FAIL names the command that repairs it."
+    },
+    {
+      "manifest": "package.json",
+      "script": "prepare",
+      "effect": "lifecycle",
+      "purpose": "Post-install wiring: installs the Husky hooks and every generated-baseline merge driver. Runs from `bun install`, not by hand.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "postinstall",
+      "effect": "lifecycle",
+      "purpose": "Records a content digest of `bun.lock` so dependency-freshness checks compare lockfile content rather than mtime, which `bun install` bumps on every no-op run."
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:init",
+      "effect": "dev-utility",
+      "purpose": "Provision this worktree's databases, ports, Redis index and env files. Idempotent, and what `bun run dev` runs for you.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:new",
+      "effect": "dev-utility",
+      "purpose": "Create a secondary worktree, provision it, and print its URLs, database names and Redis index in one step.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:drop",
+      "effect": "dev-utility",
+      "purpose": "Drop a worktree's allowlisted databases and release its ports and Redis index; `--remove` also removes the worktree while keeping its branch.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:gc",
+      "effect": "dev-utility",
+      "purpose": "Sweep orphaned per-worktree databases whose worktree is gone and whose grace period has elapsed.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:template-refresh",
+      "effect": "dev-utility",
+      "purpose": "Rebuild the seeded template database that every new per-worktree database is cloned from.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "worktree:refresh-data",
+      "effect": "dev-utility",
+      "purpose": "Re-clone this worktree's databases from the template, discarding whatever local data they held.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "code:intel",
+      "effect": "dev-utility",
+      "purpose": "Symbol, dependent and test lookups across the TypeScript projects, for when text search is not precise enough to answer where something is used.",
+      "doc": "docs/guides/code-intel.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "code:intel:server",
+      "effect": "dev-utility",
+      "purpose": "Start, stop and inspect the code-intel daemon that keeps the index warm between queries.",
+      "doc": "docs/guides/code-intel.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "code:intel:perf",
+      "effect": "dev-utility",
+      "purpose": "Time the standard code-intel query set against its budget, so an index regression shows up before it quietly slows every lookup.",
+      "doc": "docs/guides/code-intel.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "test",
+      "effect": "ci-primitive",
+      "purpose": "The whole Vitest suite: shared, server, eslint-rules and scripts in one run, plus the client suite through its isolation lanes."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:changed",
+      "effect": "ci-primitive",
+      "purpose": "Only the Vitest files affected by changes against the base branch, falling back to the full suite when the base ref cannot be resolved."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:coverage",
+      "effect": "dev-utility",
+      "purpose": "The full suite with coverage reporting. Coverage is a periodic read, not a gate.",
+      "doc": "docs/guides/coverage-cadence.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:watch",
+      "effect": "dev-utility",
+      "purpose": "Vitest in watch mode for local iteration."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:server",
+      "effect": "ci-primitive",
+      "purpose": "The `server` and `server-unit` Vitest projects. Needs this worktree's test database.",
+      "doc": "docs/guides/per-worktree-dev.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:shared",
+      "effect": "ci-primitive",
+      "purpose": "The `shared` Vitest project."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:client",
+      "effect": "ci-primitive",
+      "purpose": "The client jsdom suite through its split no-isolate and compatibility lanes. This is the client entry point you normally want."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:client:isolated",
+      "effect": "ci-primitive",
+      "purpose": "The client project in one direct Vitest run, bypassing the split lanes — the comparison point when a split-lane result looks wrong."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:client:split",
+      "effect": "dev-utility",
+      "purpose": "The split-lane client runner itself, including its per-file isolation classification. `test:client` wraps it."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:eslint-rules",
+      "effect": "ci-primitive",
+      "purpose": "The tests for the local ESLint rules under `eslint-rules/`.",
+      "doc": "docs/guides/local-eslint-rules.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:slow",
+      "effect": "dev-utility",
+      "purpose": "The `*.slow.test.*` tier that every other test entry point deliberately excludes."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts",
+      "effect": "ci-primitive",
+      "purpose": "The registered shell smoke suite for the verification and harness scripts. Rejects file arguments — run one smoke directly with `bash <path>`."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts:changed",
+      "effect": "ci-primitive",
+      "purpose": "Only the shell smokes whose subjects, or whose own files, changed against the base branch."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts:file",
+      "effect": "dev-utility",
+      "purpose": "One Vitest file in the `scripts` project: `bun run test:scripts:file -- <file>`."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:mutation",
+      "effect": "dev-utility",
+      "purpose": "Stryker mutation testing over the default scope. Slow, and read as evidence about test strength rather than as a gate."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:server:mutation",
+      "effect": "dev-utility",
+      "purpose": "Stryker mutation testing scoped to the server package."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:scripts:mutation",
+      "effect": "dev-utility",
+      "purpose": "Stryker mutation testing scoped to `scripts/`."
+    },
+    {
+      "manifest": "package.json",
+      "script": "test:lint-ratchet:mutation",
+      "effect": "dev-utility",
+      "purpose": "Stryker mutation testing scoped to the portable `tools/lint-ratchet` package."
+    },
+    {
+      "manifest": "package.json",
+      "script": "typecheck",
+      "effect": "ci-primitive",
+      "purpose": "Build every TypeScript project graph — packages, scripts, eslint-config JS and e2e — concurrently, with readable interleaved output."
+    },
+    {
+      "manifest": "package.json",
+      "script": "typecheck:watch",
+      "effect": "dev-utility",
+      "purpose": "`tsc -b --watch` over the same project graph, for local iteration."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format",
+      "effect": "repair",
+      "purpose": "Prettier over the whole tree, writing in place."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format:check",
+      "effect": "check",
+      "purpose": "Fail when any file is not Prettier-clean. This is the whole-tree gate form."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format:changed",
+      "effect": "repair",
+      "purpose": "Prettier over the files changed against the base branch plus staged and unstaged work."
+    },
+    {
+      "manifest": "package.json",
+      "script": "format:changed:check",
+      "effect": "check",
+      "purpose": "The reporting form of `format:changed`, used by the changed-mode gate."
+    },
+    {
+      "manifest": "package.json",
+      "script": "e2e",
+      "effect": "ci-primitive",
+      "purpose": "The Playwright end-to-end suite against a running stack. Not part of the commit gate.",
+      "doc": "docs/guides/add-e2e-test.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "e2e:ui",
+      "effect": "dev-utility",
+      "purpose": "Playwright's interactive UI runner.",
+      "doc": "docs/guides/add-e2e-test.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "e2e:debug",
+      "effect": "dev-utility",
+      "purpose": "Playwright's step debugger, for one failing spec.",
+      "doc": "docs/guides/add-e2e-test.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "audit:deps",
+      "effect": "check",
+      "purpose": "Bun's high-severity advisory audit, plus the two dependency-exception watchdogs, in one command."
+    },
+    {
+      "manifest": "package.json",
+      "script": "audit:licenses",
+      "effect": "check",
+      "purpose": "Classify every installed package's license and fail on unreviewed copyleft.",
+      "doc": "docs/dependency-license-audit.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "backlog:lint",
+      "effect": "check",
+      "purpose": "Grammar, status and link checks over the tracked notes under `docs/agent_notes/backlog/`, so a drain ledger cannot drift from the leaves it tracks."
+    },
+    {
+      "manifest": "package.json",
+      "script": "check:fast-uri-override",
+      "effect": "check",
+      "purpose": "Fail when the pinned `fast-uri` override stops matching what the tree resolves, so the pin cannot outlive the bug it works around."
+    },
+    {
+      "manifest": "package.json",
+      "script": "check:eslint-react-peer-exception",
+      "effect": "check",
+      "purpose": "Fail when the recorded eslint-plugin-react peer-dependency exception stops being load-bearing."
+    },
+    {
+      "manifest": "package.json",
+      "script": "harness:check",
+      "effect": "check",
+      "purpose": "Validate harness.controls.json against the live tree: every control's source and invocation, rule/ratchet/doctor/overlay/script parity, command-catalog coverage, and generated-surface freshness. This is what stops the manifest describing a harness that no longer exists.",
+      "doc": "docs/ai-harness.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint",
+      "effect": "check",
+      "purpose": "The composite lint floor: ShellCheck over the maintained shell scripts, the config-file sensors, the runtime import-cycle floor, and ESLint over the TypeScript/JavaScript/JSON surface. The controls listed against it are the local rules it enforces.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:fix",
+      "effect": "repair",
+      "purpose": "ESLint's autofix over the tree, with the same TypeScript build-output prerequisite diagnostic as the lint gates.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:changed",
+      "effect": "check",
+      "purpose": "ESLint over the files changed against the base branch plus staged changes. The import-cycle floor still runs whole-tree, because a cycle is a global property.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:agent:local-rules",
+      "effect": "check",
+      "purpose": "Emit local-rule findings (plus the selected steering rules and parser errors) as the machine-readable diagnostics envelope agents consume; each finding carries its manifest control id, severity, repair kind and repair command.",
+      "doc": "docs/guides/local-eslint-rules.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet",
+      "effect": "check",
+      "purpose": "Run every registered ratchet against its committed baseline. Baselines are shrink-only, so a total that grew fails and the report names what grew it.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:update",
+      "effect": "repair",
+      "purpose": "Re-derive the committed ratchet baseline. A worse total is refused without `--allow-worse` and a written reason, which is what makes the ratchet shrink-only.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:check-baseline",
+      "effect": "check",
+      "purpose": "Fail when the committed baseline does not match what ESLint currently finds.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:check-registry",
+      "effect": "check",
+      "purpose": "Validate the ratchet registry itself — ids, globs, options — without running ESLint.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:summary",
+      "effect": "dev-utility",
+      "purpose": "Print committed baseline totals without running ESLint; `--by-directory` groups the remaining findings by directory.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:trend",
+      "effect": "dev-utility",
+      "purpose": "Plot each ratchet's totals across committed baseline history, so you can see whether a drain is actually moving.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:debt-log",
+      "effect": "dev-utility",
+      "purpose": "Render accepted debt, retirements, metric migrations and coverage changes from committed baseline history.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:report",
+      "effect": "dev-utility",
+      "purpose": "Format a ratchet diagnostics envelope read from stdin, for tooling that captured one.",
+      "doc": "docs/guides/lint-ratchet.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:ratchet:install-merge-driver",
+      "effect": "dev-utility",
+      "purpose": "Install the shrink-only git merge driver for the ratchet baseline, so two branches draining it merge to the stricter floor instead of conflicting.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:max-lines-exceptions:update",
+      "effect": "repair",
+      "purpose": "Re-derive and re-sort the max-lines per-file cap exceptions baseline after a hand edit.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "lint:max-lines-exceptions:install-merge-driver",
+      "effect": "dev-utility",
+      "purpose": "Install the merge driver for the max-lines exceptions baseline.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "baseline:restore-stage",
+      "effect": "repair",
+      "purpose": "Restore a conflicted generated baseline's staged copy from one side of a merge, instead of hand-editing a machine-written file.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "sensor:knip-unused-exports:install-merge-driver",
+      "effect": "dev-utility",
+      "purpose": "Install the shrink-only merge driver for the unused-exports sensor baseline.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "sensor:near-duplicates:install-merge-driver",
+      "effect": "dev-utility",
+      "purpose": "Install the shrink-only merge driver for the near-duplicates sensor baseline.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "sensor:near-duplicates:benchmark",
+      "effect": "dev-utility",
+      "purpose": "Measure the near-duplicate detector's runtime against its configured budget, so its cost stays visible as the tree grows."
+    },
+    {
+      "manifest": "package.json",
+      "script": "drift:ai",
+      "effect": "check",
+      "purpose": "Run the report-only AI-drift sensors — duplication, near-duplicates, orphans, import cycles, layer direction, over-narration, suppressions — over the changed scope by default; `--scope` and `--check` select the others. Evidence for a human, never a gate.",
+      "doc": "scripts/drift-ai/README.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "drift:triage",
+      "effect": "dev-utility",
+      "purpose": "Compact the drift sensors' reports into one review queue, and optionally into deterministic review packets."
+    },
+    {
+      "manifest": "package.json",
+      "script": "logs:audit",
+      "effect": "check",
+      "purpose": "Audit the server's structured log calls against the logging contract: stable event fields, input shape, redaction of sensitive values, request-id propagation and JSONL validity.",
+      "doc": "docs/ai-harness.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "docs:lint-coverage-map:audit",
+      "effect": "check",
+      "purpose": "Cross-check the lint coverage map against what ESLint actually reaches. Slower than the committed-map freshness check the gate runs, so it is a periodic audit.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "docs:lint-coverage-map:suggest",
+      "effect": "dev-utility",
+      "purpose": "Propose coverage-map rows for tracked files the map does not yet account for.",
+      "doc": "docs/guides/lint-overview.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "module:index:check",
+      "effect": "check",
+      "purpose": "Fail when `MODULE-INDEX.md` is stale against the tracked `*MODULE.md` files.",
+      "doc": "docs/guides/add-module-doc.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "verify:async:changed",
+      "effect": "dev-utility",
+      "purpose": "Start `verify:changed` detached and return immediately. The child takes the same verify lock the gates use, so it cannot race a commit.",
+      "doc": "docs/guides/verify-gate-lifecycle.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "verify:async:slow",
+      "effect": "dev-utility",
+      "purpose": "Start the slow-tier verification detached, under the same lock.",
+      "doc": "docs/guides/verify-gate-lifecycle.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "verify:async:status",
+      "effect": "dev-utility",
+      "purpose": "Report the detached verification run's state and result.",
+      "doc": "docs/guides/verify-gate-lifecycle.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "verify:async:tail",
+      "effect": "dev-utility",
+      "purpose": "Follow the detached verification run's log.",
+      "doc": "docs/guides/verify-gate-lifecycle.md"
+    },
+    {
+      "manifest": "package.json",
+      "script": "verify:async:stop",
+      "effect": "dev-utility",
+      "purpose": "Stop the detached verification run and release its lock.",
+      "doc": "docs/guides/verify-gate-lifecycle.md"
+    },
+    {
+      "manifest": "packages/shared/package.json",
+      "script": "build",
+      "effect": "ci-primitive",
+      "purpose": "Compile the shared package. Everything downstream reads its emitted types, so this runs first."
+    },
+    {
+      "manifest": "packages/shared/package.json",
+      "script": "dev",
+      "effect": "dev-utility",
+      "purpose": "Recompile the shared package on change, so server and client pick up contract edits without a manual build."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "build",
+      "effect": "ci-primitive",
+      "purpose": "Compile the server package."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "dev",
+      "effect": "dev-utility",
+      "purpose": "Run the API server from source with watch reload, against the root `.env`."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "start",
+      "effect": "dev-utility",
+      "purpose": "Run the built server from `dist/`, against the root `.env`."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:migrate",
+      "effect": "dev-utility",
+      "purpose": "Create and apply a development migration from the current schema. The committed-migration path for any schema change.",
+      "doc": "docs/guides/add-prisma-migration.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:migrate:deploy",
+      "effect": "dev-utility",
+      "purpose": "Apply already-committed migrations without generating one. The deployment-shaped form.",
+      "doc": "docs/guides/add-prisma-migration.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:push",
+      "effect": "dev-utility",
+      "purpose": "Push the schema straight to the database with no migration. Local experimentation only — never the path for committed schema work.",
+      "doc": "docs/guides/add-prisma-migration.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:seed",
+      "effect": "dev-utility",
+      "purpose": "Seed demo users and the SRD reference corpus into the current database. Idempotent upserts.",
+      "doc": "packages/server/src/seed/MODULE.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:reset",
+      "effect": "dev-utility",
+      "purpose": "Drop, re-migrate and re-seed the current database. Destructive by design."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "db:studio",
+      "effect": "dev-utility",
+      "purpose": "Open Prisma Studio against the current database."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "prisma:generate",
+      "effect": "ci-primitive",
+      "purpose": "Regenerate the Prisma client into the gitignored `packages/server/src/generated/prisma` after a schema change. Typecheck, test and build all read the client it writes.",
+      "doc": "docs/guides/add-prisma-migration.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "postinstall",
+      "effect": "lifecycle",
+      "purpose": "Regenerate the Prisma client after `bun install`, so a fresh clone typechecks without a manual step."
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "generate:class-features",
+      "effect": "generator",
+      "purpose": "Regenerate the per-class feature modules from the optional upstream SRD markdown checkout.",
+      "doc": "docs/srd-data-sources.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "generate:subclasses",
+      "effect": "generator",
+      "purpose": "Regenerate the subclass feature modules and subclass seed data from the upstream SRD markdown checkout.",
+      "doc": "docs/srd-data-sources.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "generate:srd-spells",
+      "effect": "generator",
+      "purpose": "Regenerate the committed SRD spell corpus from the upstream SRD markdown checkout.",
+      "doc": "docs/srd-data-sources.md"
+    },
+    {
+      "manifest": "packages/server/package.json",
+      "script": "generate:srd-rules-glossary",
+      "effect": "generator",
+      "purpose": "Regenerate the committed SRD rules-glossary corpus from the upstream SRD markdown checkout.",
+      "doc": "docs/srd-data-sources.md"
+    },
+    {
+      "manifest": "packages/client/package.json",
+      "script": "dev",
+      "effect": "dev-utility",
+      "purpose": "Run the Vite dev server for the client alone. `bun run dev` at the root is the usual entry point."
+    },
+    {
+      "manifest": "packages/client/package.json",
+      "script": "build",
+      "effect": "ci-primitive",
+      "purpose": "Typecheck and build the client bundle."
+    },
+    {
+      "manifest": "packages/client/package.json",
+      "script": "preview",
+      "effect": "dev-utility",
+      "purpose": "Serve the built client bundle locally, to check a production build."
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "smoke",
+      "effect": "check",
+      "purpose": "The demo's own adoption walkthrough, run off the Musi checkout in a throwaway workspace with a real `bun install`. It is what proves the documented adoption path still works for someone outside this repo.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet",
+      "effect": "check",
+      "purpose": "The demo's ratchet gate — the shape an adopter's own `lint:ratchet` takes.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:update",
+      "effect": "repair",
+      "purpose": "Re-derive the demo's baseline, including the accepted-debt path the walkthrough exercises.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:check-baseline",
+      "effect": "check",
+      "purpose": "The demo's baseline freshness check.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:check-registry",
+      "effect": "check",
+      "purpose": "The demo's registry validation, the first step of the documented adoption path.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:trend",
+      "effect": "dev-utility",
+      "purpose": "The demo's baseline history view.",
+      "doc": "docs/guides/lint-ratchet-adoption.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:install-merge-driver",
+      "effect": "dev-utility",
+      "purpose": "Install the shrink-only merge driver inside the demo, showing an adopter the wiring rather than describing it.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:merge-driver:check",
+      "effect": "check",
+      "purpose": "Fail when the demo's merge driver is not installed — the check an adopter copies to keep the driver from silently going missing.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "lint:ratchet:post-merge",
+      "effect": "repair",
+      "purpose": "The post-merge hook body that re-normalizes the demo's baseline after a merge resolves.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    },
+    {
+      "manifest": "examples/lint-ratchet-demo/package.json",
+      "script": "baseline:restore-stage",
+      "effect": "repair",
+      "purpose": "The demo's baseline stage-restore shim, showing the adopter-side allowlist form.",
+      "doc": "docs/guides/lint-ratchet-merges.md"
+    }
+  ],
   "controls": [
     {
       "id": "check/concurrency-relation-graph-generator",
@@ -831,7 +1605,10 @@
         ],
         "checkScript": "concurrency:relation-graph:check",
         "warnLabel": "concurrency relation graph",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "docs/CONCURRENCY.md",
@@ -1063,7 +1840,7 @@
       "id": "sensor/suppression-ledger",
       "kind": "sensor",
       "category": "maintainability",
-      "principle": "Keep the set of suppression directives in the tree identical to the committed suppression-ledger.json identity ledger, so a reasoned inline disable \u2014 which passes every suppression policy check by design \u2014 cannot land uncounted and a drained one must be locked in; suppression policy itself stays in the two register scripts and their data allowlists.",
+      "principle": "Keep the set of suppression directives in the tree identical to the committed suppression-ledger.json identity ledger, so a reasoned inline disable — which passes every suppression policy check by design — cannot land uncounted and a drained one must be locked in; suppression policy itself stays in the two register scripts and their data allowlists.",
       "pairedGuide": "docs/ai-harness.md",
       "repairKind": "manual",
       "source": "scripts/suppression-ledger.ts",
@@ -1133,7 +1910,7 @@
       "id": "sensor/harness-audit",
       "kind": "sensor",
       "category": "maintainability",
-      "principle": "Read-only fusion of HarnessDiagnostics envelope files (lint:ratchet, drift:ai, logs:audit) into one report grouped by tool, with totals and per-control counts; an artifact generator for scheduled or manual review, not an edit-loop gate \u2014 findings never gate, only unreadable or malformed envelopes exit non-zero.",
+      "principle": "Read-only fusion of HarnessDiagnostics envelope files (lint:ratchet, drift:ai, logs:audit) into one report grouped by tool, with totals and per-control counts; an artifact generator for scheduled or manual review, not an edit-loop gate — findings never gate, only unreadable or malformed envelopes exit non-zero.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/harness-audit.ts",
@@ -1188,7 +1965,9 @@
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify",
-      "slotProfile": { "mode": "full" }
+      "slotProfile": {
+        "mode": "full"
+      }
     },
     {
       "id": "verify-wrapper/verify-changed",
@@ -1199,7 +1978,9 @@
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:changed",
-      "slotProfile": { "mode": "changed" }
+      "slotProfile": {
+        "mode": "changed"
+      }
     },
     {
       "id": "verify-wrapper/verify-parallel",
@@ -1210,7 +1991,9 @@
       "repairKind": "manual",
       "source": "scripts/verify.sh",
       "invocation": "bun run verify:parallel",
-      "slotProfile": { "mode": "full" }
+      "slotProfile": {
+        "mode": "full"
+      }
     },
     {
       "id": "verify-wrapper/verify-slow",
@@ -1256,7 +2039,7 @@
       "id": "verify-wrapper/doctor",
       "kind": "verify-wrapper",
       "category": "maintainability",
-      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, lint-ratchet merge-driver health, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only \u2014 exits non-zero only on FAIL counts.",
+      "principle": "Aggregated read-only diagnostic: composes worktree:status, db:status, env-file sanity, port binding, dependency freshness, yamllint and ShellCheck system-tool availability, the lint host-tool inventory, lint-ratchet merge-driver health, suppression registers, migration safety, drift:ai harness-freshness, knip, and blob-size; report-only — exits non-zero only on FAIL counts.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/doctor.sh",
@@ -1286,7 +2069,7 @@
       "id": "doctor-check/dependency-freshness",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Compare the bun install marker mtime against bun.lock so a stale node_modules \u2014 typically after a branch switch \u2014 is flagged before it manifests as a missing or wrong-version dependency.",
+      "principle": "Compare the bun install marker mtime against bun.lock so a stale node_modules — typically after a branch switch — is flagged before it manifests as a missing or wrong-version dependency.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/dependency-freshness.sh",
@@ -1296,7 +2079,7 @@
       "id": "doctor-check/shared-dist-freshness",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Compare packages/shared/src mtimes against the compiled @musi/shared dist that tests import through the package exports map, so a missing or stale dist \u2014 typically after a branch switch or fresh clone \u2014 is flagged before it surfaces as dozens of phantom '<X> is not a function' test failures.",
+      "principle": "Compare packages/shared/src mtimes against the compiled @musi/shared dist that tests import through the package exports map, so a missing or stale dist — typically after a branch switch or fresh clone — is flagged before it surfaces as dozens of phantom '<X> is not a function' test failures.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/lib/test-dist-preflight.sh",
@@ -1306,7 +2089,7 @@
       "id": "doctor-check/prisma-client-freshness",
       "kind": "doctor-check",
       "category": "maintainability",
-      "principle": "Compare schema.prisma against the generated Prisma client mtime so a stale or ungenerated client \u2014 typically after a branch switch or fresh clone \u2014 is flagged before it surfaces as confusing import-time test failures.",
+      "principle": "Compare schema.prisma against the generated Prisma client mtime so a stale or ungenerated client — typically after a branch switch or fresh clone — is flagged before it surfaces as confusing import-time test failures.",
       "pairedGuide": "none",
       "repairKind": "manual",
       "source": "scripts/prisma-client-freshness.sh",
@@ -1466,7 +2249,7 @@
       "id": "drift-scope/harness-freshness",
       "kind": "drift-scope",
       "category": "maintainability",
-      "principle": "Detect docs/ai-harness.md inventory drift: unreferenced docs/guides/*.md, missing referenced guides, and stale backtick repo paths.",
+      "principle": "Detect docs/ai-harness.md inventory drift: unreferenced docs/guides/*.md, guides referenced elsewhere in the file but absent from the canonical Guides table, missing referenced guides, and stale backtick repo paths.",
       "pairedGuide": "docs/guides/local-eslint-rules.md",
       "repairKind": "manual",
       "source": "scripts/drift-ai/harness-freshness.ts",
@@ -1493,6 +2276,45 @@
       "invocation": "bun run drift:e2e"
     },
     {
+      "id": "doc-generator/backlog-catalog",
+      "kind": "doc-generator",
+      "category": "maintainability",
+      "principle": "Project the tracked backlog tree into docs/agent_notes/backlog/CATALOG.md as a record class plus lifecycle state per file with per-pack rollups, so \"what here is actionable?\" is answerable without opening every note; classification reads each note's own Status header through the shared backlog-note grammar and status vocabulary, and --check reports drift in the backlog lint's advisory tier rather than gating a commit.",
+      "pairedGuide": "docs/guides/lint-overview.md",
+      "repairKind": "autofix",
+      "source": "scripts/generate-backlog-catalog.ts",
+      "invocation": "bun run docs:backlog-catalog",
+      "generatedSurface": {
+        "triggerPaths": [
+          "docs/agent_notes/backlog/",
+          "scripts/backlog-catalog-render.ts",
+          "scripts/backlog-lint.ts",
+          "scripts/backlog-lint-classify.ts",
+          "scripts/backlog-lint-core.ts",
+          "scripts/backlog-lint-drift.ts",
+          "scripts/backlog-lint-format.ts",
+          "scripts/backlog-lint-grammar.ts",
+          "scripts/backlog-lint-index-table.ts",
+          "scripts/backlog-lint-metadata.ts",
+          "scripts/backlog-lint-packs.ts",
+          "scripts/backlog-lint-status.ts",
+          "scripts/backlog-lint-types.ts",
+          "scripts/cli-option-values.ts",
+          "scripts/generate-backlog-catalog.ts",
+          "scripts/lib/cli.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/git.ts"
+        ],
+        "outputPaths": ["docs/agent_notes/backlog/CATALOG.md"],
+        "checkScript": "docs:backlog-catalog:check",
+        "warnLabel": "backlog catalog",
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
+      }
+    },
+    {
       "id": "doc-generator/baseline-conflict-recipes",
       "kind": "doc-generator",
       "category": "maintainability",
@@ -1512,7 +2334,10 @@
         "outputPaths": ["docs/guides/lint-ratchet-merges.md"],
         "checkScript": "docs:baseline-conflict-recipes:check",
         "warnLabel": "baseline conflict recovery recipes",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "scripts/git/baseline-merge-driver.sh",
@@ -1576,7 +2401,10 @@
         "outputPaths": ["docs/generated/lint-coverage-map.md"],
         "checkScript": "docs:lint-coverage-map:generate:check",
         "warnLabel": "lint coverage-map document",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "docs/generated/lint-coverage-map.md",
@@ -1587,6 +2415,58 @@
             "reason": "Runtime JSON input is loaded outside the static TypeScript import graph."
           }
         ]
+      }
+    },
+    {
+      "id": "doc-generator/command-catalog",
+      "kind": "doc-generator",
+      "category": "maintainability",
+      "principle": "Project every package.json script across every tracked manifest into docs/generated/command-catalog.md with a one-line purpose and a side-effect class, sourced from the registering harness control where one exists and from the manifest's commandCatalog section otherwise, so the repository's command surface is discoverable without reading raw script bodies; the same model backs a harness:check completeness rule that fails when a script has no metadata source or two, and --check fails on drift between the manifest and the generated page.",
+      "pairedGuide": "docs/ai-harness.md",
+      "repairKind": "autofix",
+      "source": "scripts/harness/generate-command-catalog.ts",
+      "invocation": "bun run docs:command-catalog",
+      "generatedSurface": {
+        "triggerPaths": [
+          "examples/lint-ratchet-demo/package.json",
+          "harness.controls.json",
+          "harness.controls.lint-rules.generated.json",
+          "package.json",
+          "packages/client/package.json",
+          "packages/server/package.json",
+          "packages/shared/package.json",
+          "scripts/harness/command-catalog-schema.ts",
+          "scripts/harness/command-catalog-sections.ts",
+          "scripts/harness/command-catalog-sources.ts",
+          "scripts/harness/command-catalog.ts",
+          "scripts/harness/control-field-validation.ts",
+          "scripts/harness/generate-command-catalog.ts",
+          "scripts/harness/generated-surfaces.ts",
+          "scripts/harness/harness-check-validation.ts",
+          "scripts/harness/harness-manifest-loader.ts",
+          "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
+          "scripts/harness/harness-paths.ts",
+          "scripts/harness/package-manifest-scripts.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-schema.ts",
+          "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/doc-generator.ts",
+          "scripts/lib/git.ts",
+          "scripts/lib/lint-rule-docs.ts",
+          "scripts/lib/records.ts",
+          "scripts/lint-ratchet/ratchet-manifest-message.ts",
+          "tools/harness-diagnostics/package.json",
+          "tools/lint-ratchet/package.json"
+        ],
+        "outputPaths": ["docs/generated/command-catalog.md"],
+        "checkScript": "docs:command-catalog:check",
+        "warnLabel": "command catalog",
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -1605,17 +2485,18 @@
           "eslint-config/script-test-policy.js",
           "harness.controls.json",
           "harness.controls.lint-rules.generated.json",
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/command-policy-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-harness-controls-validation.ts",
           "scripts/harness/generate-harness-controls.ts",
           "scripts/harness/harness-manifest-schema.ts",
-          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-wiring-doc.ts",
           "scripts/harness/hook-wiring-schema.ts",
           "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
@@ -1627,7 +2508,10 @@
         "outputPaths": ["docs/generated/harness-controls.md"],
         "checkScript": "docs:harness-controls:check",
         "warnLabel": "harness controls docs",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -1651,7 +2535,10 @@
         "outputPaths": ["docs/generated/harness-porting-manifest.md"],
         "checkScript": "docs:harness-porting:check",
         "warnLabel": "harness porting copy manifest",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -1675,7 +2562,10 @@
         "outputPaths": ["docs/generated/local-lint-rules.md"],
         "checkScript": "docs:lint-guidance:check",
         "warnLabel": "lint guidance",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -1689,13 +2579,14 @@
       "invocation": "bun run harness:manifest-schema",
       "generatedSurface": {
         "triggerPaths": [
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-manifest-json-schema.ts",
           "scripts/harness/harness-manifest-schema.ts",
-          "scripts/harness/verify-step-programs.ts",
-          "scripts/harness/verify-step-artifacts.ts",
-          "scripts/harness/verify-step-schema.ts",
           "scripts/harness/harness-manifest.ts",
+          "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
@@ -1704,7 +2595,10 @@
         "outputPaths": ["schemas/harness.controls.schema.json"],
         "checkScript": "harness:manifest-schema:check",
         "warnLabel": "published manifest JSON Schema",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -1819,21 +2713,22 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-hook-wiring.ts",
-          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-shim-files.ts",
           "scripts/harness/hook-shims.ts",
           "scripts/harness/hook-wiring-schema.ts",
-          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-schema.ts",
-          "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/atomic-write.ts",
           "scripts/lib/codepoint-compare.ts",
+          "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/records.ts"
         ],
         "outputPaths": [
@@ -1846,7 +2741,10 @@
         ],
         "checkScript": "harness:wiring:check",
         "warnLabel": "AI hook wiring",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "scripts/ai-hooks/check-wiring.sh",
@@ -1883,16 +2781,17 @@
       "generatedSurface": {
         "triggerPaths": [
           "harness.controls.json",
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-hook-timeout-constants.ts",
-          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/hook-timeout-constants.ts",
           "scripts/harness/hook-wiring-schema.ts",
-          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-schema.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
@@ -1902,7 +2801,10 @@
         "outputPaths": ["scripts/ai-hooks/hook-timeouts.generated.sh"],
         "checkScript": "harness:hook-timeouts:check",
         "warnLabel": "hook timeout constants",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "scripts/ai-hooks/hook-timeouts.generated.sh",
@@ -1935,7 +2837,10 @@
         "outputPaths": ["scripts/harness/pre-push-scope-trigger.generated.sh"],
         "checkScript": "harness:pre-push-trigger:check",
         "warnLabel": "pre-push near-duplicates scope trigger",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "drift-ai.config.json",
@@ -1966,13 +2871,14 @@
           "scripts/ai-hooks/git-classify.sh",
           "scripts/ai-hooks/policy-eval.sh",
           "scripts/ai-hooks/policy.sh",
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/command-policy-projection.ts",
           "scripts/harness/command-policy-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-command-policy.ts",
-          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
           "scripts/harness/verify-step-artifacts.ts",
           "scripts/harness/verify-step-programs.ts",
@@ -1985,7 +2891,10 @@
         "outputPaths": ["scripts/ai-hooks/policy-rules.generated.sh"],
         "checkScript": "harness:command-policy:check",
         "warnLabel": "agent command policy rules and native deny projection",
-        "bunHook": { "refresh": "bypass", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "bypass",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -2001,35 +2910,36 @@
         "triggerPaths": [
           "harness.controls.json",
           "scripts/harness-registration-check.ts",
+          "scripts/harness/command-catalog-schema.ts",
           "scripts/harness/control-field-validation.ts",
           "scripts/harness/generate-verify-steps.ts",
           "scripts/harness/generated-surface-dependencies.ts",
           "scripts/harness/generated-surfaces-loader.ts",
           "scripts/harness/generated-surfaces.ts",
           "scripts/harness/harness-check-validation.ts",
-          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-manifest-loader.ts",
           "scripts/harness/harness-manifest-schema.ts",
+          "scripts/harness/harness-manifest.ts",
           "scripts/harness/harness-paths.ts",
-          "scripts/harness/registration-explain.ts",
           "scripts/harness/registration-explain-cli.ts",
           "scripts/harness/registration-explain-describe.ts",
           "scripts/harness/registration-explain-matchers.ts",
           "scripts/harness/registration-explain-model.ts",
           "scripts/harness/registration-explain-render.ts",
-          "scripts/harness/verify-step-programs.ts",
+          "scripts/harness/registration-explain.ts",
           "scripts/harness/verify-step-artifacts.ts",
+          "scripts/harness/verify-step-programs.ts",
           "scripts/harness/verify-step-schema.ts",
+          "scripts/import-closure/closure-walk.ts",
+          "scripts/import-closure/runtime-imports.ts",
+          "scripts/import-closure/runtime-resolution.ts",
           "scripts/lib/codepoint-compare.ts",
           "scripts/lib/doc-generator.ts",
           "scripts/lib/lint-rule-docs.ts",
           "scripts/lib/records.ts",
           "scripts/lint-ratchet/ratchet-manifest-message.ts",
-          "scripts/path-policy/path-policy-smoke-subjects.ts",
           "scripts/path-policy/path-policy-smoke-subjects-data.ts",
-          "scripts/import-closure/closure-walk.ts",
-          "scripts/import-closure/runtime-imports.ts",
-          "scripts/import-closure/runtime-resolution.ts"
+          "scripts/path-policy/path-policy-smoke-subjects.ts"
         ],
         "outputPaths": [
           "scripts/verify/steps.generated.sh",
@@ -2097,7 +3007,10 @@
         "outputPaths": ["tsconfig.configs.json"],
         "checkScript": "harness:config-surfaces:check",
         "warnLabel": "config surface tsconfig",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" },
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        },
         "fixtureExtras": [
           {
             "path": "eslint-config/config-surface-manifest.json",
@@ -2166,7 +3079,10 @@
         ],
         "checkScript": "harness:skills:check",
         "warnLabel": "skill mirrors and smoke routing",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -2205,7 +3121,10 @@
         ],
         "checkScript": "test:scripts:subjects:check",
         "warnLabel": "script smoke-subject metadata",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -2305,7 +3224,10 @@
         "outputPaths": ["harness.controls.lint-rules.generated.json"],
         "checkScript": "harness:lint-rule-controls:check",
         "warnLabel": "lint-rule harness controls",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -2328,7 +3250,10 @@
         "outputPaths": ["eslint-config/local-plugin.generated.js"],
         "checkScript": "lint:local-plugin:check",
         "warnLabel": "local plugin registry",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {
@@ -2355,7 +3280,10 @@
         "outputPaths": ["eslint-config/ratchet-restricted-disable-rules.generated.js"],
         "checkScript": "lint:restricted-disable-rules:check",
         "warnLabel": "restricted-disable rule metadata",
-        "bunHook": { "refresh": "wrapped", "check": "wrapped" }
+        "bunHook": {
+          "refresh": "wrapped",
+          "check": "wrapped"
+        }
       }
     },
     {

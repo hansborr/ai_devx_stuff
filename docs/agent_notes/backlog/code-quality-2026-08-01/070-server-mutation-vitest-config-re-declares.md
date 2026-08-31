@@ -1,9 +1,33 @@
 # 70. The Stryker-only server Vitest config re-declares the regular server test lifecycle field by field, with no parity guard
 
-Status: Not started
+Status: Landed on fix/cq-070
 Theme: single-source test config · Area: tests · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
+
+## Disposition
+
+Landed as written, batched with 071 and 264 on `fix/cq-070`. The shared
+lifecycle now lives in `packages/server/src/test/vitest-project-options.ts`
+(plain values — `SERVER_TEST_PROJECT_OPTIONS`, `SERVER_TEST_EXCLUDE`, the two
+hook-file names, and `resolveServerTestDatabaseUrl`, which keeps the `""`
+fallback rather than the throwing `getBaseTestDatabaseUrl`); both configs
+compose it and keep their documented local differences. `testTimeout` stays
+per-config: both already import `DEFAULT_VITEST_TEST_TIMEOUT_MS` from the root
+config, which a module under the package `rootDir` cannot. The parity guard
+(`vitest-project-options.test.ts`) is source-text based, because a test under
+`src/` cannot statically import the top-level configs (same `rootDir` limit)
+and the DB-free `server-unit` project's include is `src/seed/**` only. Review
+round 1 narrowed it: it asserts only that each config still imports and spreads
+the shared module (plus the `testTimeout` line the module cannot own), not the
+spelling of any field — the earlier substring denylist forbade ordinary prose
+in those configs' comments. The tests that restated the module's own constants
+went with it.
+
+The first land-time verify then failed `scripts/tests/test-test-slow.sh`, which
+grepped `vitest.config.ts` for the literal slow-tier exclude the extraction had moved;
+its section 1 now resolves each package config at runtime and asserts the
+composed `test.exclude`, with the shared module registered as a smoke subject.
 
 ## Problem
 

@@ -1,6 +1,6 @@
 # 93. The manifest guide's exception inventory claims two sanctioned direct readers remain while the enforced allowlist holds five
 
-Status: Not started
+Status: Landed on fix/cq-091
 Theme: harness doc inventory drift · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

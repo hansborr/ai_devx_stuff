@@ -67,8 +67,28 @@ export class CharacterWizardPO {
 
   /** Click Continue and wait for the button to be enabled first. */
   async clickContinue(): Promise<void> {
-    await expect(this.continueButton).toBeEnabled({ timeout: TIMEOUT_SHORT });
+    await this.expectContinueEnabled({ timeout: TIMEOUT_SHORT });
     await this.continueButton.click();
+  }
+
+  /** Assert the current step is incomplete: Continue is still disabled. */
+  async expectContinueDisabled(): Promise<void> {
+    await expect(this.continueButton).toBeDisabled();
+  }
+
+  /** Assert the current step is satisfied: Continue has become enabled. */
+  async expectContinueEnabled(opts?: { timeout?: number }): Promise<void> {
+    await expect(this.continueButton).toBeEnabled(opts);
+  }
+
+  /** Assert the wizard is showing its "step incomplete" hint under Continue. */
+  async expectIncompleteStepHint(): Promise<void> {
+    await expect(this.page.getByText("Complete this step to continue")).toBeVisible();
+  }
+
+  /** Assert the personality step is showing. */
+  async expectPersonalityStep(): Promise<void> {
+    await expect(this.page.getByText("Personality & Details")).toBeVisible();
   }
 
   /** Fill the ability scores step with default values (manual entry). */
@@ -92,22 +112,55 @@ export class CharacterWizardPO {
     await this.selectTripleBoosts(opts);
   }
 
+  /**
+   * Choose the +2 ability in the background step's +2/+1 mode. Waits for the
+   * boost controls to render, so this is the first boost call on the step.
+   */
+  async selectPlus2Boost(ability: string): Promise<void> {
+    await expect(this.boostPlus2).toBeVisible({ timeout: TIMEOUT_SHORT });
+    await this.selectBoost(this.boostPlus2, ability);
+  }
+
+  /** Choose the +1 ability in the background step's +2/+1 mode. */
+  async selectPlus1Boost(ability: string): Promise<void> {
+    await this.selectBoost(this.boostPlus1, ability);
+  }
+
+  /** Switch the background step from the default +2/+1 mode to +1/+1/+1. */
+  async selectTripleBoostMode(): Promise<void> {
+    await this.boostModeTriple.click();
+  }
+
+  /** Choose the first ability in the background step's +1/+1/+1 mode. */
+  async selectFirstBoost(ability: string): Promise<void> {
+    await this.selectBoost(this.boostFirst, ability);
+  }
+
+  /** Choose the second ability in the background step's +1/+1/+1 mode. */
+  async selectSecondBoost(ability: string): Promise<void> {
+    await this.selectBoost(this.boostSecond, ability);
+  }
+
+  /** Choose the third ability in the background step's +1/+1/+1 mode. */
+  async selectThirdBoost(ability: string): Promise<void> {
+    await this.selectBoost(this.boostThird, ability);
+  }
+
   private async selectBoost(locator: typeof this.boostPlus2, ability: string): Promise<void> {
     await locator.click();
     await this.page.getByRole("option", { name: ability }).click();
   }
 
   private async selectSplitBoosts(opts?: BoostOptions): Promise<void> {
-    await expect(this.boostPlus2).toBeVisible({ timeout: TIMEOUT_SHORT });
-    await this.selectBoost(this.boostPlus2, opts?.plus2 ?? "STR");
-    await this.selectBoost(this.boostPlus1, opts?.plus1 ?? "CON");
+    await this.selectPlus2Boost(opts?.plus2 ?? "STR");
+    await this.selectPlus1Boost(opts?.plus1 ?? "CON");
   }
 
   private async selectTripleBoosts(opts?: BoostOptions): Promise<void> {
-    await this.boostModeTriple.click();
-    await this.selectBoost(this.boostFirst, opts?.first ?? "STR");
-    await this.selectBoost(this.boostSecond, opts?.second ?? "DEX");
-    await this.selectBoost(this.boostThird, opts?.third ?? "CON");
+    await this.selectTripleBoostMode();
+    await this.selectFirstBoost(opts?.first ?? "STR");
+    await this.selectSecondBoost(opts?.second ?? "DEX");
+    await this.selectThirdBoost(opts?.third ?? "CON");
   }
 
   /** Set the character name on the personality step. */
@@ -202,7 +255,7 @@ export class CharacterWizardPO {
       await this.clickContinue();
     }
     // Step 7: Personality
-    await expect(this.page.getByText("Personality & Details")).toBeVisible();
+    await this.expectPersonalityStep();
     await this.setCharacterName(opts.name);
     await this.clickContinue();
     // Step 8: Review & Create

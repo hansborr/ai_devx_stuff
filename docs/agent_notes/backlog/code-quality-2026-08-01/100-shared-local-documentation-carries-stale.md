@@ -1,6 +1,6 @@
 # 100. Shared-package docs carry three stale claims contradicted by a colocated test, the import graph, and the SRD 5.2.1 oracle
 
-Status: Not started
+Status: Landed on fix/cq-094
 Theme: stale doc claims vs code oracles · Area: docs · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

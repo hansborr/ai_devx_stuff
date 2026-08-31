@@ -37,8 +37,11 @@ describe("runHarnessFreshnessCheck", () => {
   it("returns no findings when guide inventory and backtick paths are fresh", () => {
     const findings = runFixture({
       harness: [
+        "| Guide | Category |",
+        "|---|---|",
         "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
         "| `docs/guides/change-rules-logic.md` | Rules guide |",
+        "",
         "`packages/server/src/index.ts`",
         "`docs/guides/`",
         "`bun run lint -- --max-warnings=0`",
@@ -57,7 +60,11 @@ describe("runHarnessFreshnessCheck", () => {
 
   it("reports docs/guides markdown files that are not referenced by the harness", () => {
     const findings = runFixture({
-      harness: "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+      harness: [
+        "| Guide | Category |",
+        "|---|---|",
+        "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+      ].join("\n"),
       guides: ["add-trpc-procedure.md", "change-rules-logic.md"],
       existingPaths: ["file:docs/guides/add-trpc-procedure.md"],
     });
@@ -158,6 +165,8 @@ describe("runHarnessFreshnessCheck", () => {
   it("cross-checks every guide path referenced by the harness", () => {
     const findings = runFixture({
       harness: [
+        "| Guide | Category |",
+        "|---|---|",
         "| docs/guides/add-trpc-procedure.md | exists |",
         "| docs/guides/deleted-guide.md | stale |",
       ].join("\n"),
@@ -167,21 +176,101 @@ describe("runHarnessFreshnessCheck", () => {
     expect(findings).toEqual([
       {
         check: "harness-freshness",
-        file: "docs/ai-harness.md:2",
+        file: "docs/ai-harness.md:4",
         message: "references missing guide docs/guides/deleted-guide.md",
         hint: "restore the guide file or update docs/ai-harness.md.",
         details: {
           category: "missing-referenced-guide",
-          line: 2,
+          line: 4,
           path: "docs/guides/deleted-guide.md",
         },
       },
     ]);
   });
 
+  it("reports a guide referenced outside the Guides table as missing from it", () => {
+    const findings = runFixture({
+      harness: [
+        "| Guide | Category |",
+        "|---|---|",
+        "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+        "",
+        "Message evals are documented in `docs/guides/lint-message-evals.md`.",
+      ].join("\n"),
+      guides: ["add-trpc-procedure.md", "lint-message-evals.md"],
+      existingPaths: [
+        "file:docs/guides/add-trpc-procedure.md",
+        "file:docs/guides/lint-message-evals.md",
+      ],
+    });
+
+    expect(findings).toEqual([
+      {
+        check: "harness-freshness",
+        file: "docs/guides/lint-message-evals.md",
+        message: "guide is referenced by docs/ai-harness.md but absent from its Guides table",
+        hint: "add a Guides-table row for the guide in docs/ai-harness.md.",
+        details: {
+          category: "guide-missing-from-table",
+          path: "docs/guides/lint-message-evals.md",
+        },
+      },
+    ]);
+  });
+
+  it("ends the Guides table at the first non-row line, so later tables do not count", () => {
+    const findings = runFixture({
+      harness: [
+        "| Guide | Category |",
+        "|---|---|",
+        "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+        "",
+        "| Sensor | Paired guide |",
+        "|---|---|",
+        "| Lint message eval | `docs/guides/lint-message-evals.md` |",
+      ].join("\n"),
+      guides: ["add-trpc-procedure.md", "lint-message-evals.md"],
+      existingPaths: [
+        "file:docs/guides/add-trpc-procedure.md",
+        "file:docs/guides/lint-message-evals.md",
+      ],
+    });
+
+    expect(findings.map((finding) => finding.details.category)).toEqual([
+      "guide-missing-from-table",
+    ]);
+  });
+
+  it("reports every referenced guide when the Guides table header is reworded away", () => {
+    const findings = runFixture({
+      harness: [
+        "| Task guide | Category |",
+        "|---|---|",
+        "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+        "| `docs/guides/change-rules-logic.md` | Rules guide |",
+      ].join("\n"),
+      guides: ["add-trpc-procedure.md", "change-rules-logic.md"],
+      existingPaths: [
+        "file:docs/guides/add-trpc-procedure.md",
+        "file:docs/guides/change-rules-logic.md",
+      ],
+    });
+
+    expect(findings.map((finding) => finding.details.category)).toEqual([
+      "guide-missing-from-table",
+      "guide-missing-from-table",
+    ]);
+  });
+
   it("requires file-like paths to be files and trailing-slash paths to be directories", () => {
     const findings = runFixture({
-      harness: ["`docs/guides/add-trpc-procedure.md`", "`docs/guides/`"].join("\n"),
+      harness: [
+        "| Guide | Category |",
+        "|---|---|",
+        "| `docs/guides/add-trpc-procedure.md` | tRPC guide |",
+        "",
+        "`docs/guides/`",
+      ].join("\n"),
       guides: ["add-trpc-procedure.md"],
       existingPaths: ["directory:docs/guides/add-trpc-procedure.md", "file:docs/guides"],
     });

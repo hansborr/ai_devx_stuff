@@ -167,6 +167,27 @@ priority judgement:
   cross-cutting leaves here, and 080 the only docs leaf; each is queued because
   a harness leaf is stuck behind it, not on its own merits.
 
+The owner call from 2026-08-29, made when all seven queues above had drained,
+adds four more in file order — **harness, e2e, tests, docs** — so that priority
+order is the file order, not a severity inference:
+
+- `harness-tail` — 152, the one harness leaf left in the pool. It was excluded
+  from `lint-cluster` and `policy-extraction` because its caveats say it must
+  land after 2026-07-25 H15, which is still Open behind 27-PLAN slice 27.3
+  ([DRAIN-LEDGER.md](./DRAIN-LEDGER.md), row 173/152). The gate does not read
+  that caveat, so it shows 152 as free; the conductor taking it must either
+  find H15 landed or hold an explicit owner waiver of the ordering caveat.
+- `e2e` — 077 first (the serial-suite split is the large one), then 078, 079.
+- `tests` — the two high-severity leaves (063, 064) first, then the medium/M
+  pair (065, 066), the medium/S trio (070, 071, 264), and the low/S tail.
+- `docs` — the two high leaves (082, 083), the medium/L–M group, the medium/S
+  group, then the low/S tail. 094 sits here on subject-area grounds, as the
+  2026-08-06 note already said.
+
+Waves within each queue are severity-then-size scheduling proposals; the edge
+graph reports no ordering constraints among these 41 units, and `--check`
+passes.
+
 `queueOrderProblems` (in `drain.mjs`, run by `--check`) pins the part of that
 reasoning a later edit could silently break: a queued unit whose hard
 prerequisite is neither queued nor landed, or is queued after it, is a defect

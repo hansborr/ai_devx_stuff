@@ -1,9 +1,16 @@
 # 264. Make ad-hoc Fastify test teardown failure-safe
 
-Status: Not started
+Status: Landed on fix/cq-070
 Theme: Ad-hoc Fastify tests skip teardown when assertions fail · Area: tests · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
+
+## Disposition
+
+Landed as written, batched on `fix/cq-070`: each of the six ad-hoc instances in
+`packages/server/src/app.test.ts` registers `onTestFinished(() => x.close())`
+right after its handle exists and before `register`/`ready`/inject; the six
+tail closes are gone. Cases, options, requests, and assertions are unchanged.
 
 ## Problem
 

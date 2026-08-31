@@ -63,7 +63,7 @@ type ProcedureOutput<Path extends string> = Path extends `${infer Group}.${infer
 
 /**
  * Create a shared API request context. Call `dispose()` when done.
- * Reuse across multiple calls in a single beforeAll to avoid overhead.
+ * Reuse across the seeding calls of one setup helper to avoid overhead.
  */
 export async function createApiContext(): Promise<APIRequestContext> {
   return request.newContext({ baseURL: resolveServerBaseUrl() });

@@ -1,6 +1,6 @@
 # 104. The scripts README's nested-cwd troubleshooting offers a recovery command that fails for the exact reason it just diagnosed
 
-Status: Not started
+Status: Landed on fix/cq-228
 Theme: self-defeating troubleshooting advice · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

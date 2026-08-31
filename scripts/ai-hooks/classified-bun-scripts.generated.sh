@@ -6,7 +6,9 @@
 
 AI_GENERATED_WRAPPED_BUN_SCRIPTS='
 concurrency:relation-graph:check
+docs:backlog-catalog:check
 docs:baseline-conflict-recipes:check
+docs:command-catalog:check
 docs:harness-controls:check
 docs:harness-porting:check
 docs:lint-coverage-map:generate:check
@@ -36,7 +38,9 @@ verify:steps:check
 
 AI_GENERATED_BYPASS_BUN_SCRIPTS='
 concurrency:relation-graph
+docs:backlog-catalog
 docs:baseline-conflict-recipes
+docs:command-catalog
 docs:harness-controls
 docs:harness-porting
 docs:lint-coverage-map:generate

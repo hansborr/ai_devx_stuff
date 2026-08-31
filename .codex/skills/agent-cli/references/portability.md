@@ -79,3 +79,17 @@ does not cross or enforce a privilege boundary.
 - The backend references name CLI versions and model ids that age quickly
   (the "Verified against ..." lines); re-check the local CLI help/catalog
   after upgrades or when porting the skill.
+
+## Editing the wrapper scripts while they run
+
+Prefer dispatching edits to `agent-run.sh`/`agent-wait.sh` from a separate
+worktree (the normal parallel-worktree `work` pattern in `SKILL.md`). When a
+task must edit them from the same worktree that is currently executing one of
+them, do not edit the file in place: write the new content to a same-directory
+temporary file and atomically replace the original pathname (`mv -fT`, already
+a required prerequisite above), so a process still executing the old file
+keeps reading the old inode's bytes rather than jumping into rewritten content
+mid-script. The mechanism: a shell reads its script as a byte stream at
+increasing file offsets, not fully into memory up front, so an in-place
+overwrite of the same inode can change what a still-running read returns for
+the remainder of the script.

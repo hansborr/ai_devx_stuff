@@ -1,9 +1,18 @@
 # 71. Character and encounter request-schema tests hide inside entity-named suites instead of their dedicated `*-inputs.test.ts` files
 
-Status: Not started
+Status: Landed on fix/cq-070
 Theme: request-contract test ownership · Area: tests · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
+
+## Disposition
+
+Landed as written, batched on `fix/cq-070`: verbatim relocation of the four
+character and five encounter request-schema describes (both encounter banner
+comments included — the live tree had a second, "encounter CRUD (mapId
+handling)", beyond the one the audit cited) into the `*-inputs.test.ts`
+suites; 338 cases across the four files before and after. No builders, no
+merged describes (CQ25-158 stands).
 
 ## Problem
 

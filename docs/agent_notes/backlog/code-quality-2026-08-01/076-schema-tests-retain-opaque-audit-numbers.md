@@ -1,6 +1,6 @@
 # 76. Schema tests label durable rationale with opaque audit numbers and line references that have already drifted
 
-Status: Not started
+Status: Landed on fix/cq-074
 Theme: comment provenance · Area: tests · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -81,3 +81,48 @@ intent — expect that to be rare or zero in these files.
 - Do not blanket-delete comments: every annotation here pairs a number with a
   durable rationale, and the rationale stays. The deletion target is the
   unresolvable identifier and the raw line coordinate, nothing else.
+
+## Disposition
+
+Landed as written. All 24 annotations re-resolved by grep (the audit's line
+pins had drifted; the count and the four-file scope had not): 8 in
+`encounter-inputs.test.ts`, 14 in `homebrew.test.ts`, 1 each in `map.test.ts`
+and `monster.test.ts`. Every rationale sentence stays; only the unresolvable
+label goes — "(finding 19)", "(finding 3)", "Finding 22:", "Finding 14:",
+"Finding 7:", "Finding 33:", "backlog item 35", "backlog finding 20",
+"mutation-coverage finding 15".
+
+The two drifted line references now name the symbol instead: both comments in
+`homebrew.test.ts` point at the guards inside `normalizeLegacyClassData`
+(`packages/shared/src/schemas/homebrew.ts`) and keep quoting the guard
+expressions (`"ritualAdept" in record || ...`, `typeof record.ritualCaster !==
+"boolean"`, and the null/non-object/array early return) rather than any line
+number. No provenance path was worth adding at any site: every sentence
+explains test intent, not history.
+
+Comment-only, as the leaf requires — the diff touches no assertion, fixture,
+schema, or helper, and the four suites pass unchanged (259 tests).
+`packages/shared/src/schemas/character-inputs.test.ts` was left alone.
+
+Review round 1 surfaced two survivors of the same opaque label two files away,
+in shared schema *source* rather than tests: `encounter-inputs.ts:92` and
+`map.ts:11` both still read "See backlog item 35." They were left alone
+deliberately — this leaf's scope is exactly the four `*.test.ts` files above
+and explicitly forbids growing, so editing a fifth file would be the scope
+creep the caveat rules out. They are recorded here because no other leaf or
+pack owns them: the 2026-07-25 pack's refused sweep
+([44-comment-archaeology.md](../code-quality-2026-07-25/44-comment-archaeology.md))
+does not claim `packages/shared/` either.
+
+Those two are pins, not an inventory. Round 2 pointed out that the same
+reasoning leaves a second family unowned under `packages/shared/src/map/`:
+ten opaque `(finding N)` / `(mutation finding N)` references, eight in
+`area-template.test.ts` (lines 94, 121, 131, 141, 150, 173, 197, 238) and two
+in `grid-utils.test.ts` (lines 153, 194). They are equally out of this leaf's
+four-file scope and equally unedited. Nobody has swept `packages/shared/` for
+opaque audit numbers end to end, so a future pack should scope from its own
+sweep rather than treating either list as complete.
+
+A round-1 P2 also noted that seven comment blocks were left ragged by the
+label deletion (a short first line above a full-width second). Those were
+reflowed in 852ce9317 on this lane; no wording changed.

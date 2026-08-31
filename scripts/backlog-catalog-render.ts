@@ -1,0 +1,240 @@
+/**
+ * Markdown projection of the backlog classification into the generated
+ * catalog at `docs/agent_notes/backlog/CATALOG.md`.
+ *
+ * Two presentation rules keep the page useful and honest:
+ *
+ * - **Enumerate only what no other surface enumerates.** Root notes and a
+ *   pack's non-index records have no index of their own, so they get rows.
+ *   Leaves and working artifacts are counted, not listed — their pack's
+ *   `00-index.md` already lists them, and the drift lint keeps that honest.
+ * - **No derived totals in prose and no clock.** Every number here is rendered
+ *   from the tracked tree at generation time, so the `--check` mode is a
+ *   deterministic freshness gate rather than a daily diff.
+ */
+
+import type {
+  BacklogCatalog,
+  BacklogRecordClass,
+  ClassifiedBacklogNote,
+  LifecycleCounts,
+  PackRollup,
+} from "./backlog-lint-classify.js";
+import { BACKLOG_RECORD_CLASSES } from "./backlog-lint-classify.js";
+
+const STATUS_SNIPPET_MAX = 64;
+const NO_STATUS = "—";
+const ELLIPSIS = "…";
+const INLINE_CODE_DELIMITER = "`";
+// Status values often carry pack-relative links. CATALOG.md sits at the backlog
+// root, where those targets no longer resolve, so keep the text and drop the
+// link rather than emitting a dangling one.
+const MARKDOWN_LINK_PATTERN = /\[([^\]]*)\]\([^)]*\)/gu;
+
+const RECORD_CLASS_LABELS: Readonly<Record<BacklogRecordClass, string>> = {
+  "pack-index": "pack index",
+  leaf: "leaf",
+  ledger: "ledger / provenance record",
+  "standalone-note": "standalone note",
+  "working-artifact": "working artifact",
+};
+
+/**
+ * Clip to the snippet budget without splitting an inline code span: a status
+ * cut mid-span would leave one unbalanced backtick and render the rest of the
+ * cell as code.
+ */
+function clipStatus(value: string): string {
+  if (value.length <= STATUS_SNIPPET_MAX) return value;
+  const head = value.slice(0, STATUS_SNIPPET_MAX - ELLIPSIS.length);
+  let insideCode = false;
+  for (const character of head) {
+    if (character === INLINE_CODE_DELIMITER) insideCode = !insideCode;
+  }
+  const balanced = insideCode ? head.slice(0, head.lastIndexOf(INLINE_CODE_DELIMITER)) : head;
+  return `${balanced.trimEnd()}${ELLIPSIS}`;
+}
+
+function statusCell(note: ClassifiedBacklogNote): string {
+  const value =
+    note.statusValue?.replaceAll(MARKDOWN_LINK_PATTERN, "$1").replace(/\s+/gu, " ").trim() ?? "";
+  if (value.length === 0) return NO_STATUS;
+  return clipStatus(value).replaceAll("|", "\\|");
+}
+
+/** Link to a backlog file relative to CATALOG.md, which sits at the root. */
+function relativeLink(text: string, path: string, backlogDir: string): string {
+  return `[${text}](./${path.slice(`${backlogDir}/`.length)})`;
+}
+
+function countCells(counts: LifecycleCounts, total: number): string {
+  return [counts.actionable, counts.terminal, counts.unknown, total]
+    .map((value) => String(value))
+    .join(" | ");
+}
+
+function packIndexCell(pack: PackRollup): string {
+  if (pack.indexPath === undefined) return "none";
+  const base = pack.indexPath.slice(pack.indexPath.lastIndexOf("/") + 1);
+  return pack.indexIsCanonical ? `\`${base}\`` : `\`${base}\` (non-canonical)`;
+}
+
+function packNameCell(pack: PackRollup, backlogDir: string): string {
+  return pack.indexPath === undefined
+    ? pack.name
+    : relativeLink(pack.name, pack.indexPath, backlogDir);
+}
+
+function recordClassRows(catalog: BacklogCatalog): string[] {
+  return BACKLOG_RECORD_CLASSES.map((recordClass) => {
+    const counts = catalog.byRecordClass[recordClass];
+    const total = counts.actionable + counts.terminal + counts.unknown;
+    return `| ${RECORD_CLASS_LABELS[recordClass]} | ${countCells(counts, total)} |`;
+  });
+}
+
+function totalsRow(catalog: BacklogCatalog): string {
+  const total = catalog.notes.length;
+  return `| **all records** | ${countCells(catalog.totals, total)} |`;
+}
+
+function packRows(catalog: BacklogCatalog, backlogDir: string): string[] {
+  return catalog.packs.map(
+    (pack) =>
+      `| ${packNameCell(pack, backlogDir)} | ${packIndexCell(pack)} | ` +
+      `${countCells(pack.counts, pack.total)} | ${String(pack.workingArtifacts)} |`,
+  );
+}
+
+function rootNoteRows(catalog: BacklogCatalog, backlogDir: string): string[] {
+  return catalog.standalone.map(
+    (note) =>
+      `| ${relativeLink(note.base, note.path, backlogDir)} | ` +
+      `${note.lifecycle} | ${statusCell(note)} |`,
+  );
+}
+
+function ledgerRows(catalog: BacklogCatalog, backlogDir: string): string[] {
+  return catalog.ledgers.map((note) => {
+    const pack = note.pack === undefined ? "" : note.pack.slice(`${backlogDir}/`.length);
+    return (
+      `| ${relativeLink(note.base, note.path, backlogDir)} | ${pack} | ` +
+      `${note.lifecycle} | ${statusCell(note)} |`
+    );
+  });
+}
+
+const PREAMBLE: readonly string[] = [
+  "# Backlog catalog",
+  "",
+  "Status: Reference — generated state projection of `docs/agent_notes/backlog/`",
+  "",
+  "<!-- Generated by scripts/generate-backlog-catalog.ts. Do not edit by hand. -->",
+  "<!-- Refresh with `bun run docs:backlog-catalog`; `bun run docs:backlog-catalog:check` reports drift. -->",
+  "",
+  "`backlog/` is simultaneously an action queue, an evidence archive, and a",
+  "completed-work store. The retention is deliberate — provenance records are",
+  "what deduplication reads — but it means the directory name predicts nothing.",
+  "This page is the map: what each file is, and whether it still asks for work.",
+  "",
+  "**This is a state view, not a dispatch queue.** It never ranks or orders",
+  "anything. The curated ready queue in",
+  "[ready-2026-07/00-index.md](./ready-2026-07/00-index.md) owns dispatch, and",
+  "`docs/agent_notes/in_progress/` owns active work.",
+  "",
+  "## How a file is classified",
+  "",
+  "Every classification reads the note's **own** `Status:` header through the",
+  "grammar in `scripts/backlog-lint-grammar.ts` — never a full-text scan, because",
+  "backlog notes routinely report on other items' completion. Terminal and active",
+  "meaning come from the one status vocabulary in `scripts/backlog-lint-status.ts`.",
+  "",
+  "A closure verb (`done`, `finished`, `cancelled`, `rejected`, …) closes a note",
+  "wherever it sits in its clause — unless a negation or a hedge comes first, so",
+  "`NOT implemented` and `Mostly drained — 10 and the 05 probe remain` stay",
+  "actionable. A completion or companion-role word (`landed`, `resolved`,",
+  "`complete`, `reference`, `record`, `provenance`, `historical`, `final`) closes",
+  "a note only when it **opens** the status value: `Landed on fix/cq-084` and",
+  "`Final audit record` are terminal; `largely landed` and `HC-1 landed (…)` stay",
+  "actionable, because they report on something else.",
+  "",
+  "That narrowness has two measured costs, and this page states both rather than",
+  "implying a precision it does not have. A closure phrased past the first token",
+  "(`Scheduled work landed 2026-08-01 on …`, `All 15 slices landed.`) is counted",
+  "actionable. And a note that misdescribes itself is classified as it is",
+  "written — an index whose status opens `Finalized and landed on main` reads",
+  "terminal even while its pack still lists open leaves, so read a pack's own",
+  "row in the table below, not its index's lifecycle. `lifecycleFromStatus` owns",
+  "the ruling and carries the dated count of notes each limit touches.",
+  "",
+  "| Record class | What it is |",
+  "| --- | --- |",
+  "| pack index | The pack's task index: `00-index.md`, or a de-facto index the lint recognizes. |",
+  "| leaf | An `NN-*.md` task note inside a pack. |",
+  "| ledger / provenance record | A non-leaf pack companion: constraints, run ledgers, handoffs. |",
+  "| standalone note | A note living directly in the backlog root. |",
+  "| working artifact | A file in a pack subdirectory (`working/`, `prompts/`, `findings/`). |",
+  "",
+  "| Lifecycle | Meaning |",
+  "| --- | --- |",
+  "| actionable | The note's status still declares open work. |",
+  "| terminal | The note's status declares the work finished, rejected, or superseded — or opens by naming itself a reference or provenance record, which asks for none. |",
+  "| unknown | The note declares no status at all. |",
+  "",
+  "Leaves and working artifacts are counted here but not listed: each pack's own",
+  "index lists its leaves. The backlog lint's index-vs-leaf drift check keeps",
+  "that listing honest only for packs with a canonical `00-index.md` — where the",
+  "Task index column below reads `(non-canonical)` or `none`, no drift,",
+  "dangling-link, or unlisted-leaf check runs, so the pack's leaf listing is",
+  "unverified. `CATALOG.md` does not list itself.",
+  "",
+  "**Who regenerates this page.** Every leaf that flips to `Landed on …` moves a",
+  "count here, so every branch that touches a backlog note refreshes",
+  "`CATALOG.md` (`bun run docs:backlog-catalog`) before it lands. Leaving it to",
+  "an integrator does not work: `scripts/land.sh` runs `bun run harness:check`",
+  "before the full verify, that check runs this page's freshness check, and a",
+  "stale page fails the land — CI runs the same check. The pre-commit warning is",
+  "advisory and a work branch may iterate under it, but it must be cleared by",
+  "the commit that lands. When two lanes conflict on these totals, take either",
+  "side and re-run the generator: the page is a pure function of the tracked",
+  "tree.",
+];
+
+/** Render the whole catalog page. Pure: same catalog in, same text out. */
+export function renderBacklogCatalog(
+  catalog: BacklogCatalog,
+  backlogDir = "docs/agent_notes/backlog",
+): string {
+  const lines = [
+    ...PREAMBLE,
+    "",
+    "## Totals by record class",
+    "",
+    "| Record class | Actionable | Terminal | Unknown | Total |",
+    "| --- | ---: | ---: | ---: | ---: |",
+    ...recordClassRows(catalog),
+    totalsRow(catalog),
+    "",
+    "## Packs",
+    "",
+    "Counts cover each pack's immediate members. Working files in a pack's",
+    "subdirectories are counted in their own column.",
+    "",
+    "| Pack | Task index | Actionable | Terminal | Unknown | Members | Working files |",
+    "| --- | --- | ---: | ---: | ---: | ---: | ---: |",
+    ...packRows(catalog, backlogDir),
+    "",
+    "## Root notes",
+    "",
+    "| Note | Lifecycle | Status |",
+    "| --- | --- | --- |",
+    ...rootNoteRows(catalog, backlogDir),
+    "",
+    "## Pack records outside the task index",
+    "",
+    "| Record | Pack | Lifecycle | Status |",
+    "| --- | --- | --- | --- |",
+    ...ledgerRows(catalog, backlogDir),
+  ];
+  return `${lines.join("\n")}\n`;
+}

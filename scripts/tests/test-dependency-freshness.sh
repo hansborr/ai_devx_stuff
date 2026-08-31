@@ -1963,6 +1963,8 @@ copy_precommit_fixture "$restricted_disable_repo"
     || fail "restricted-disable generator did not invoke its freshness check"
   grep -qF "pre-commit: WARN: restricted-disable rule metadata appears stale" <<< "$output" \
     || fail "restricted-disable generator did not emit the expected stale warning: $output"
+  grep -qF 'land-time `bun run harness:check` treats this as a hard failure — regenerate now to avoid a land-time round trip' <<< "$output" \
+    || fail "stale generated-surface warning did not name the land-time hard failure: $output"
 )
 ok "pre-commit warns when restricted-disable generator output is stale"
 
