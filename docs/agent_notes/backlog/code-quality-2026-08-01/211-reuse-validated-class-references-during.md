@@ -1,6 +1,6 @@
 # 211. Reuse validated class references during spell-bearing character creation
 
-Status: Not started
+Status: Landed on fix/cq-211
 Theme: Spell-bearing character creation reloads class and subclass references already being validated · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

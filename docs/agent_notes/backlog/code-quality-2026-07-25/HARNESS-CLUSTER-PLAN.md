@@ -1,12 +1,12 @@
 # HARNESS-CLUSTER-PLAN. The eight remaining harness leaves: substrate verdict and scheduling plan
 
-Status: **In progress — 18 of 23 slices landed across nine merges:** H1-H2 in
+Status: **In progress — 19 of 23 slices landed across ten merges:** H1-H2 in
 `2667ee8e0`, H3-H5 in `ac3ce2b0f`, H6-H7 in `1bfbfc115`, H8 in `e7462ee51`,
 H9-H10 in `bdc120756`, H16-H17 in `c6e1be2a2`, H22-H23 in `e2dc60cb9`,
-H18-H19 in `57ef569e5`, and H13-H14 in `64a7fac64`. **Four slices remain
-open:** H11 is blocked on unlanded 28-PLAN slice 28.1, H15 is blocked
-on unlanded 27-PLAN slice 27.3, and H20 and H21 are optional and unstarted. H12
-is superseded by code-quality-2026-08-01 leaf 108.
+H18-H19 in `57ef569e5`, H13-H14 in `64a7fac64`, and H15 in `e288e33eb`.
+**Three slices remain open:** H11 is blocked on unlanded 28-PLAN slice 28.1,
+and H20 and H21 are optional and unstarted. H12 is superseded by
+code-quality-2026-08-01 leaf 108.
 Supersedes the Proposed direction in
 [`29-bash-to-ts-cores.md`](./29-bash-to-ts-cores.md),
 [`30-cli-arg-substrate.md`](./30-cli-arg-substrate.md),
@@ -132,7 +132,7 @@ generated harness/subject/doc output — regenerate and commit in the same slice
 | H12 **[G]** | **Superseded by code-quality-2026-08-01 leaf 108** | The shared import-closure family no longer moves under `scripts/worktree-db/`. [`108-PLAN.md`](../code-quality-2026-08-01/108-PLAN.md) owns its move to the neutral `scripts/import-closure/` boundary, its contract documentation, and its alias-parity guard. | Superseded; no prior-pack implementation remains | Owned by `108-PLAN.md` |
 | H13 | **Landed** `64a7fac64`; implementation `9c87ed4fa` | **`scripts/path-policy/MODULE.md` + README row** (leaf 49 steps 1–2). Follow `docs/guides/add-module-doc.md`, modelled on `scripts/drift-triage/MODULE.md`. Record the pass order, the sole external export `validateFixtureShellDependencies` (`fixture-shell-dependencies.ts:242`) and its non-obvious precondition role at `smoke-subject-headers.ts:177`, the `# fixture-closure:` annotation vocabulary, the scope-plus-root keying rule, and the entry-path blind spot — **pointing at the source comments, not restating them**. Disambiguate from `scripts/harness/fixture-closure-check.ts`. Update `scripts/README.md`'s directory row to name both concerns. | MODULE.md exists; index regenerated in the same commit | `bun run module:index`; `bun run module:index:check`; `bun run format:check` |
 | H14 | **Landed** `64a7fac64`; implementation `9ced30028` | **Unify `scripts/path-policy/`'s vocabulary** (leaf 31 step 9), refreshing H13's Data Flow paragraph in the same commit. One smoke-file pattern module exporting **both** meanings — the repo-relative `/^scripts\/tests\/test-[^/]+\.sh$/u` at `path-policy-query-core.ts:132` and the bare-basename `/^test-.+\.sh$/u` used three times — as a basename predicate plus a directory-qualified wrapper. **Do not collapse them**; the path policy feeds the commit gate. Point the two unaware `normalizePath` copies (`smoke-subject-headers.ts:24`, `path-policy-query-core.ts:36` `normalizeComparablePath`) at the exported owner in `smoke-test-files.ts`; implementation review revised the original `fixture-copy-expressions.ts:65` ownership because it made every query consumer depend on the otherwise analyzer-only module. Fold `fixture-helper-calls.ts:46-60`'s private `stripQuotes`/`capture` onto the exported pair in `fixture-copy-expressions.ts`. | Two meanings preserved; three normalisers become one; doc refreshed | `bun run test:scripts:file -- scripts/path-policy/fixture-shell-dependencies.test.ts`; `bun run test:scripts:file -- scripts/path-policy/smoke-subject-headers.test.ts`; `bun run test:scripts:subjects:check`; `bun run harness:check` |
-| H15 | Open | **Path-policy dead data, the constant-true predicate, and lazy discovery** (leaf 31 steps 11–13). Delete `PATH_POLICY.directoryPrefixSubjects.sourceRelevant` (`path-policy.ts:256-264`) and its type field at `:79`, keeping `.scriptSmoke`, which `path-policy.test.ts:264-265` asserts on; hoist the duplicated `excludedDirectoryNames`. Resolve `matchesFormatCheckCandidate` (`path-policy-query-core.ts:115-118`) — delete it, or keep the runtime check with a comment saying it guards a future non-prettier `parserSurface`. A `: string` widening annotation with no explanation must not survive. Make `SCRIPT_SMOKE_TEST_NAMES` (`path-policy-smoke-subjects.ts:21`) a memoised function and update the three reads at `path-policy-query-core.ts:141-158`. | Dead field gone; discovery lazy; the predicate is deleted or explained | `bun run test:scripts:file -- scripts/path-policy/path-policy.test.ts`; `bun run test:scripts:file -- scripts/path-policy/path-policy-query.test.ts`; `bash scripts/tests/test-test-scripts.sh`; `bun run harness:check` |
+| H15 | **Landed** `e288e33eb`; implementation `0ff18cd41`, `108ab8b9e`, `ced29a94e`, `da695d3c3`, `a0849d9ef` | **Re-validated 2026-09-03 against `eecef70bc`; all five pins below moved and one count was wrong.** **Path-policy dead data, the constant-true predicate, and lazy discovery** (leaf 31 steps 11–13). Delete `PATH_POLICY.directoryPrefixSubjects.sourceRelevant` (`path-policy.ts:266-274`) and its type field at `:84`, keeping `.scriptSmoke`, which `path-policy.test.ts:280-281` asserts on — note neither field has a production reader, so keep `.scriptSmoke` for the policy-data assertion it carries, not for a consumer. Confirmed dead: the seven strings are byte-identical to the `{kind:"prefix"}` selectors at `path-policy.ts:182-188` and `directoryPrefixSubjects` has exactly four occurrences in code (`path-policy.ts:83`, `:265`, `path-policy.test.ts:280`, `:281`). Hoist the duplicated `excludedDirectoryNames`: both copies are in `path-policy.ts` (`:227` under `shellSurfaces`, `:252` under `configSurfaces`, type fields `:61` and `:70`), still byte-identical `["node_modules", "worktrees", ".playwright-cli"]` and unchanged since `eb26802c7`, read at `path-policy-query-core.ts:95` and `:107` — a file-local `const` in `path-policy.ts` is the whole fix; **do not create a module for it.** Resolve `matchesFormatCheckCandidate` (`path-policy-query-core.ts:111-114`) — delete it, or keep the runtime check with a comment saying it guards a future non-prettier `parserSurface`. **Whichever branch, the `format-check-candidate` query name must survive**: `scripts/format-changed.sh:74` invokes it and `path-policy-query.test.ts:184` pins it. Both pin the *name and pass-through*, not the handler's empty-string filter — `:182-191` feeds five non-empty paths and there is no `""` input anywhere in that file, and `parsePathPolicyInput` (`path-policy-query-core.ts:204-208`) already drops empty parts before any handler runs, so `pathFilter`'s `path.length > 0` is unreachable from the CLI. Do not treat it as fenced; if you want it fenced, add the pin. The `: string` widening annotation with no explanation is `path-policy-query-core.ts:112`; it exists only to stop `@typescript-eslint/no-unnecessary-condition` — live for every TypeScript file through the `strictTypeChecked` spread at `eslint-config/base-configs.js:87-89`, and overridden nowhere — from flagging the always-true comparison on `:113`. **`tsc` accepts the file either way, and this row's Verify column runs no lint step**, so dropping the annotation alone fails the pre-commit lint slot, not anything below. Deleting the predicate deletes both lines; the keep-branch must keep the widening too, because the comparison itself is the violation. Make `SCRIPT_SMOKE_TEST_NAMES` (`path-policy-smoke-subjects.ts:22`) a memoised function per the [seam specification](#h15-seam-specification) below and update **five** production reads, not three: `path-policy-query-core.ts:132`, `:142`, `:147`, **`:193`** (the `script-smoke-test-names` handler, missed by the original row) and `scripts/harness/registration-explain.ts:58`. **Do not rename the module** — leaf 31 step 13's aside is declined; see the `27.3 → H15` edge. Update the H15 status text in [`31-harness-shared-helpers.md`](./31-harness-shared-helpers.md), [`49-path-policy-fixture-analyzer.md`](./49-path-policy-fixture-analyzer.md) and [`00-index.md`](./00-index.md) in the same lane, as leaf 152's caveats require. | Dead field gone; discovery lazy and shaped as the seam specification says; the predicate is deleted or explained; the four `path-policy.test.ts` discovery cases still pass unchanged in intent | `bun run test:scripts:file -- scripts/path-policy/path-policy.test.ts`; `bun run test:scripts:file -- scripts/path-policy/path-policy-query.test.ts`; `bun run test:scripts:file -- scripts/harness/registration-explain.test.ts`; `bash scripts/tests/test-test-scripts.sh`; `bun run harness:check` |
 | H16 | **Landed** `c6e1be2a2`; implementation `386a3994f` | **Move the Markdown projection out of `hook-wiring-schema.ts`** (leaf 32 step 1). Cut `formatOutputs`, `formatCommandDetails`, `formatHarnessLine`, `formatHookWiring` (`:373-412`) into `scripts/harness/hook-wiring-doc.ts` and repoint the single import in `scripts/harness/generate-harness-controls.ts:28`. Mechanical; no behaviour change. | The `*-schema.ts` name is truthful; generated docs byte-identical | `bun run test:scripts:file -- scripts/harness/generate-hook-wiring.test.ts`; `bun run docs:harness-controls:check`; `bun run harness:check` |
 | H17 | **Landed** `c6e1be2a2`; implementation `5b5dd2af5` | **Two written harness rulings, one commit** (leaf 33 step 1 + leaf 32 step 6). Add an env-var naming rule to `docs/ai-harness.md`. Recommended taxonomy, to be adopted or deliberately overruled — **the rule is chosen, not derived**: `HARNESS_` for cross-tool protocol surfaces a producer and consumer must agree on (`HARNESS_DIAGNOSTICS_OUTPUT` is already exactly this; see [Environment Variable Naming](../../../ai-harness.md#environment-variable-naming)); `MUSI_` for repo-local operator and CI knobs; `AI_` for hook implementation and test controls; existing unprefixed names frozen. Exempt test-only fakes (`AI_BUN_FAKE_STARTED`, `AI_FAKE_NOW`, `AGENT_FAKE_*`) explicitly rather than treating them as user knobs. In the same commit state whether git hooks are in or out of the shim convention `scripts/harness/hook-shims.ts:1-11` documents. No rename, no inventory, no enforcement. | Both rules stated where the next author looks | `bun run backlog:lint`; `bun run format:check`; `bun run harness:check` |
 | H18 | **Landed** `57ef569e5`; implementation `d65612bd2`, hardened `a99c7c3f9`, simplified `ba4636886`, tested `ac1f8a533`, polished `42d877830` | **code-intel result narrowing** (leaf 35 steps 1–3). Add `Extract<IntelResult, { kind: … }>` aliases beside the existing `DefinitionResult` (`types.ts:60`); narrow `queryDefinition`/`queryExports`/`queryDependents`/`queryTests` and `ReferencesQueryResult.results`. Then retype the seven formatters (`format.ts:219-255`) to their specific arm and delete each opening unreachable `throw`, and pass the kind into the empty-line path instead of `header.startsWith` sniffing (`format.ts:202-209`). Compiler-verified throughout. | No formatter opens with an impossible throw; no header sniffing | `bun run test:scripts:file -- scripts/code-intel/format.test.ts`; `bun run test:scripts:file -- scripts/code-intel/query-executor.test.ts`; `bun run test:scripts:file -- scripts/code-intel/daemon-query.test.ts`; `bun run typecheck` |
@@ -153,6 +153,65 @@ generated harness/subject/doc output — regenerate and commit in the same slice
 > needs its own migration rather than hand-fixes here. Per `CONSTRAINTS.md`, the
 > scan must discover subjects by pattern instead of its comparison allowlist and
 > assert that it found subjects before comparing closure.
+
+### H15 seam specification
+
+Re-validated 2026-09-03 against `eecef70bc`. H15 and
+[code-quality-2026-08-01 leaf 152](../code-quality-2026-08-01/152-path-policy-query-core-closed-over-musis.md)
+both reshape smoke discovery, and 152 injects what H15 exports. **H15 lands
+exactly this and nothing else, so 152 can inject it without reshaping it:**
+Leaf 152 landed in merge `86447dd3e` (2026-09-04) consuming this seam exactly as
+specified — `path-policy-smoke-subjects.ts` has zero diff on that lane, and its
+`scriptSmokeTestNames` is passed through as the factory's provider with no adapter.
+
+- **Module** — stays `scripts/path-policy/path-policy-smoke-subjects.ts`. No
+  rename (see the `27.3 → H15` edge for the cost).
+- **Export** — `export function scriptSmokeTestNames(): readonly string[]`.
+  The zero-argument shape is what leaf 152's factory takes as its
+  `() => readonly string[]` lazy provider, so 152 passes the function itself
+  with no adapter. Leaf 31 step 13 authorises an explicit-repo-root variant
+  too (`31-harness-shared-helpers.md:247`); H15 lands the zero-argument one, so
+  a lane taking the other must reconcile with leaf 152 first.
+- **`SCRIPT_SMOKE_TEST_NAMES` is deleted, not kept alongside.** Every consumer
+  converts in the same commit — `CONSTRAINTS.md` forbids landing a new export
+  ahead of its adopter, and an eager constant left in place would keep the
+  import-time `readdirSync` H15 exists to remove.
+- **cwd and memoisation** — the first *call* reads the cwd-relative
+  `scripts/tests` directory, where today it is the *import* that reads it;
+  import no longer touches the filesystem. The memo must live inside the module
+  graph so `vi.resetModules()` clears it — a process-global or a cache hoisted
+  outside the module graph would survive the reset and break the discovery
+  cases in `path-policy.test.ts`. Every existing case chdirs before
+  `rediscover()` and calls immediately after the dynamic import, so nothing
+  observes the import-to-call shift.
+- **Contract, preserved exactly** — **wrap `discoverScriptSmokeTestNames`, do
+  not rewrite it**, which preserves the behaviour whether or not it is
+  enumerated. Leaf 152 depends on four properties: curated names first
+  in `SCRIPT_SMOKE_SUBJECTS` key order (`:17`); curated names whose `.sh` is
+  missing on disk dropped (`:17`); disk-only extras appended in `.sort()` order
+  (`:18-19`); and, when `scripts/tests` is absent, the raw curated names
+  returned in declaration order (`:10`).
+- **What H15 does *not* buy.** `queryHandlers` is still an eagerly constructed
+  module-level literal (`path-policy-query-core.ts:153-196`) closed over
+  `PATH_POLICY`, and `PATH_POLICY` still embeds the generated registry
+  (`path-policy.ts:13-16`, `:72-74`, `:254-256`). H15 removes the filesystem
+  edge only; 152 cuts the two registry edges. Do not widen H15 to chase them.
+
+**The `process.chdir` + `vi.resetModules` choreography stays.** It is neither
+H15's to simplify nor 152's. `path-policy.test.ts:317-352` explains and builds
+it, and its four cases — `:354`, `:396`, `:431`, `:441` — are the only coverage
+of the ordering and fallback contract above; the two direct reads at `:145` and
+`path-policy-query.test.ts:296` only pin the collapsed steady state.
+Simplifying the choreography requires a directory-parameterised discovery
+function, which is a separate cleanup with no authored leaf in either pack.
+H15's obligation there is mechanical: change `mod.SCRIPT_SMOKE_TEST_NAMES` to
+`mod.scriptSmokeTestNames()` at `:341` and at those two direct reads. Four
+comment blocks go stale on the same
+commit and must be corrected with it: `path-policy.test.ts` `:321-324` ("runs
+once at import") and `:335-337` ("recomputed at import time"),
+`scripts/harness-registration-check.ts:16-21` and
+`registration-explain.test.ts:740-744` (both "reads the cwd-relative
+scripts/tests directory at import time").
 
 Out of scope for this plan, with the ruling recorded: leaf 29 steps 3 and 5;
 leaf 30 step 3 (bulk) and the rest of step 4; leaf 31 step 1's
@@ -175,12 +234,40 @@ Re-derived, and **two edges recorded in the leaves are corrected**:
   needs the written position first.
 - **`H13 → H14 → H15`.** The doc names the seams H14 unifies. H14 refreshes the
   doc's Data Flow paragraph in its own commit.
-- **`27-PLAN.md` slice 27.3 → H15 (hard, and narrowed).** `00-index.md` and leaf
-  31 both record the edge as `27 and 32 → 31 step 13`. **Leaf 32 no longer adds
-  a smoke file** — its step 4 is not scheduled — so the surviving edge is
-  `27.3 → H15` alone. 27.3 lands the last new `scripts/tests/test-*.sh`
-  registration before H15 changes how `path-policy-smoke-subjects.ts` discovers
-  names.
+- **`27-PLAN.md` slice 27.3 → H15 (kept; re-validated 2026-09-03).**
+  `00-index.md` and leaf 31 both record the edge as `27 and 32 → 31 step 13`.
+  **Leaf 32 no longer adds a smoke file** — its step 4 is not scheduled — so the
+  surviving edge is `27.3 → H15` alone. 27.3 lands the last new
+  `scripts/tests/test-*.sh` registration before H15 changes how
+  `path-policy-smoke-subjects.ts` discovers names. **Re-checked against the live
+  code, the mechanism is serialisation and debuggability, not a code hazard**:
+  the two slices share no *code* file (27.3 regenerates
+  `path-policy-smoke-subjects-data.ts` and `all-smoke-tests.txt`; H15 edits
+  `path-policy-smoke-subjects.ts`, `path-policy-query-core.ts`,
+  `path-policy.ts`, `registration-explain.ts`,
+  `scripts/harness-registration-check.ts` and three test files), and discovery
+  returns the same set before and after H15's laziness change, because
+  `discoverScriptSmokeTestNames` returns exactly the on-disk `test-*.sh` set
+  either way — curated keys supply the ordering and disk-only extras are
+  appended sorted (`path-policy-smoke-subjects.ts:17-19`), which is not a
+  literal intersection. Both lanes do touch `00-index.md` and the regenerated
+  `CATALOG.md` for their own bookkeeping; that is a merge conflict at worst. **One thing would make it hard, and H15's row now forbids it:**
+  renaming the discovery module. **Eight** suites declare it as a subject
+  (`test-format-changed.sh:12`, `test-lint-changed.sh:34`,
+  `test-lint-config-sensors.sh:38`, `test-lint-dist-preflight.sh:42`,
+  `test-lint-shell.sh:36`, `test-test-scripts.sh:19`,
+  `test-tool-memory-admission.sh:16`, `test-verify-history.sh:16`) and **five**
+  of those also copy it into fixtures (`test-format-changed.sh:38,84`,
+  `test-lint-changed.sh:73,167,779`, `test-lint-config-sensors.sh:68,165`,
+  `test-lint-dist-preflight.sh:82,336`, `test-lint-shell.sh:72,123`) — and
+  `path-policy.test.ts:300-314`
+  pins that every subject tracking the discovery module also tracks the data
+  module, so a rename rewrites the same generated registry 27.3 rewrites.
+  Three further hard-coded occurrences sit outside the headers and copy lists
+  (`test-lint-changed.sh:827`, `test-test-scripts.sh:551`, and the second
+  generated surface `scripts/tests/harness-check-fixture-manifest.generated.txt:164`). Keep
+  the edge — H15 stays sequenced after 27.3 — but take it as ordering, not as a
+  hazard to debug.
 - **`H18 → H20` (soft).** Both edit `query-executor.ts`; landing the narrowing
   first makes the context reshape a smaller diff. **`H20 → H21`** if both are
   done. Both are optional and droppable.
@@ -332,8 +419,9 @@ Not "never", but not on discoverability alone. All five:
    the changed-file classification `verify:changed` and pre-commit use. Run
    `bun run harness:check` before committing either.
 4. **Do not wire anything new into registration admission.** `.husky/pre-commit`
-   runs `harness:registration:check` under a hard 5-second timeout before
-   cached-marker reuse on every source-relevant commit.
+   runs `harness:registration:check` under a hard 45-second timeout before
+   cached-marker reuse, and only on a fast-commit run. The pins are in
+   [`27-PLAN.md`'s operational risk item 3](./27-PLAN.md#operational-risk).
 5. **Generated surfaces fail structurally for everyone if committed partially.**
    `scripts/path-policy/path-policy-smoke-subjects-data.ts` and
    `scripts/fixtures/test-scripts/all-smoke-tests.txt` are generated and reject

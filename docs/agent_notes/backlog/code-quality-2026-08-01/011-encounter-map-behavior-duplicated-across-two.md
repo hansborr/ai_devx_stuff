@@ -1,6 +1,6 @@
 # 11. Two large router suites both assert the encounterMap link/unlink/auto-link contracts, and one of them re-tests its own failure paths a second time
 
-Status: Not started
+Status: Landed on fix/cq-011
 Theme: single-authority test suites · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

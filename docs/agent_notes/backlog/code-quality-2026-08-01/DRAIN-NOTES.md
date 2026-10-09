@@ -150,18 +150,25 @@ priority judgement:
   (127, 114, 116, 125, 126, then 110, 115), plus the cheap standalone config
   leaves (108, 136, 128, 267). It precedes `ai-hook-policy` because `107-S0`
   adds a manifest facet and carries `serial` edges to 114, 116, 125, and 126;
-  110 is `serial` with 116 and 125. 127 leads on `pref-before:114` (`d-114-01`).
+  110 is `serial` with 116 and 125. 127 was placed ahead of 114 on a misread
+  of `d-114-01`: that edge prefers 114 first (114's row says `pref-before:127`),
+  and the `--check` of the time read preference edges backwards (fixed
+  2026-09-04). Both landed, so the reversal cost nothing.
 - `ai-hook-policy` — 107's five slices. The `plans` contract already forces
   their order, so the wave is one entry.
-- `policy-extraction` — 152 first as the hub (`collides:131`, `serial:159`,
-  `rebase:220`), then 109's slices, then the drift/analyzer, triage/sensor, and
-  code-intel families. 109 precedes P2 deliberately: it is `serial` with 132 and
-  134 and 147 `rebase`s on it, so the reverse order makes every P2 lane
-  reconcile work 109 was going to redo.
+- `policy-extraction` — the 159/131/220 cluster first, then 109's slices, then
+  the drift/analyzer, triage/sensor, and code-intel families. 152 was the hub
+  this queue was built around (`collides:131`, `serial:159`, `rebase:220`), but
+  its H15 ordering caveat was unmet when the call was made, so it is an
+  `exclusions` entry here — the same treatment 171 gets in `diagnostics-chain` —
+  and it was conducted from `harness-tail` instead. 109 precedes P2
+  deliberately: it is `serial` with 132 and 134 and 147 `rebase`s on it, so the
+  reverse order makes every P2 lane reconcile work 109 was going to redo.
 - `verify-engine` — 204, 253, 206, 271. Same payoff argument as `gate-cost`,
   but placed after 107, which rewrites hook-side shell.
 - `diagnostics-chain` — 182 (its co-land decision carries 171, which is why 171
-  is excluded rather than queued), then 144 on `pref-before` (`d-144-01`), then
+  is excluded rather than queued), then 144 — against `d-144-01`, which prefers
+  144 first; the same backwards preference read as 127/114 above — then
   181, which is `serial` with 067/068 and 152 and must precede 119
   (`S3-contradicts`) and 080 (`S3-collides`). 181 and 182 are the only
   cross-cutting leaves here, and 080 the only docs leaf; each is queued because
@@ -173,10 +180,10 @@ order is the file order, not a severity inference:
 
 - `harness-tail` — 152, the one harness leaf left in the pool. It was excluded
   from `lint-cluster` and `policy-extraction` because its caveats say it must
-  land after 2026-07-25 H15, which is still Open behind 27-PLAN slice 27.3
+  land after 2026-07-25 H15, which landed in `e288e33eb` on 2026-09-04
   ([DRAIN-LEDGER.md](./DRAIN-LEDGER.md), row 173/152). The gate does not read
-  that caveat, so it shows 152 as free; the conductor taking it must either
-  find H15 landed or hold an explicit owner waiver of the ordering caveat.
+  that caveat, so it showed 152 as free throughout; with the caveat satisfied,
+  152 was conducted from `3b1737a7c`, which already carries H15.
 - `e2e` — 077 first (the serial-suite split is the large one), then 078, 079.
 - `tests` — the two high-severity leaves (063, 064) first, then the medium/M
   pair (065, 066), the medium/S trio (070, 071, 264), and the low/S tail.
@@ -187,6 +194,39 @@ order is the file order, not a severity inference:
 Waves within each queue are severity-then-size scheduling proposals; the edge
 graph reports no ordering constraints among these 41 units, and `--check`
 passes.
+
+The owner call from 2026-09-04, made when all eleven queues above had drained,
+queues the whole remainder of the pack — every leaf outside the harness, e2e,
+tests, and docs areas — as five more queues in file order: **server, shared,
+client, cross-cutting, docs-tail**. Area order is the owner's call; within a
+queue, waves are standalone leaves first (batch material), then the edge
+clusters, then the hard-edge tails. The drain is serial-only, so `serial` edges
+constrain no wave here; only the seven hard edges and five recorded preferences
+among these units shaped the order, and `--check` under the corrected
+preference read passes on all 124 `Not started` leaves (123 queued, 203
+excluded):
+
+- `server` — S0 is eleven leaves with no recorded edges; S1 is the 004 chain
+  with 019 first (`d-019-01` prefers it before 004); S2 the 001, 003, and 007
+  clusters; S3 is 211, which `requires` 004.
+- `shared` — H0 standalone; H1 puts 250 and 031 before 025 (`d-250-01`,
+  `d-031-05`); H2 puts 024 before 026 (`d-024-02`); H3 is the 027 hub cluster.
+- `client` — 039 and 040 first as the only two high-severity leaves left in the
+  pack; C1 is the hard chain 062 → 041 → 044/050; C2 the 042 cluster; C3 the
+  medium tail; C4 pulls in the two cross-cutting prerequisites the client needs
+  (189 before 263, 200 before 214, with 061 before 189 on `d-189-01`) plus 215
+  before 239; C5 the low tail.
+- `cross-cutting` — X0 standalone, X1 the 184/191/193 group, X2 the two leaves
+  that `require` server work (229 after 014, 268 after 001), which is why this
+  queue follows `server`. 203 is an `exclusions` entry: the 2026-08-11 decision
+  on `d-097-01` recorded it moot and 097 has landed, so it closes by the
+  evidence route rather than a lane.
+- `docs-tail` — 101, the one docs leaf the 2026-08-29 call left out because
+  066 had not landed yet.
+
+The 2026-07-25 pack has nothing in flight; its unpromoted proposals 07 and 40
+overlap 020/025/029/031/210 and 011/019/058/241 in subject, which a brief for
+those units should mention.
 
 `queueOrderProblems` (in `drain.mjs`, run by `--check`) pins the part of that
 reasoning a later edit could silently break: a queued unit whose hard

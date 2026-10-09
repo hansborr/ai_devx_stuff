@@ -279,7 +279,7 @@ export const ratchetRuntimeScriptEntries: readonly CoverageEntry[] = [
       "scripts/path-policy/fixture-loop-bindings.ts",
       "scripts/path-policy/fixture-seeding-annotations.ts",
     ],
-    files: "25 .ts",
+    files: "27 .ts",
     normalLint: { covered: true, note: "`scripts/**/*.ts` default" },
     ratchets: "`ratchet/local-type-assertion-boundary`",
     parser: "ESLint via `tsconfig.scripts.json` parser override",

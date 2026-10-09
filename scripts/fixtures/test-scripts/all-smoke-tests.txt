@@ -36,6 +36,7 @@ runner ran test-migration-safety-scan
 runner ran test-mutation-run
 runner ran test-parallel-runner
 runner ran test-post-create
+runner ran test-pre-commit
 runner ran test-pre-push
 runner ran test-skill-dispatch-wrappers
 runner ran test-slow-drift-audit

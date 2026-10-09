@@ -1,6 +1,6 @@
 # 234. Route manual combat logs through encounter-combat's fan-out coordinator
 
-Status: Not started
+Status: Landed on fix/cq-008
 Theme: Manual combat logs bypass the encounter-combat fan-out coordinator · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

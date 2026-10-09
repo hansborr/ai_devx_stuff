@@ -235,28 +235,32 @@
           "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx": {
-          "count": 3,
-          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
-        },
-        "packages/client/src/components/vtt/drawer/tabs/actions-tab-spells.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
+          "count": 2,
+          "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
         "packages/client/src/components/vtt/drawer/tabs/actions-tab-weapons.tsx": {
           "count": 2,
           "messagesFingerprint": "sha256:7311e2fff2752625d58f138a47314ce5496bbb2f303d62be92ba32fb567cc199"
         },
+        "packages/client/src/components/vtt/drawer/tabs/feature-row-primitives.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
+        },
         "packages/client/src/components/vtt/drawer/tabs/features-tab.tsx": {
-          "count": 5,
-          "messagesFingerprint": "sha256:b02f66f1e98b6cdc3a081d23bde8d0290e16d9c6e242f53d5c0eca7fbf6c7ba0"
+          "count": 3,
+          "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
         "packages/client/src/components/vtt/drawer/tabs/inventory-tab.tsx": {
           "count": 3,
           "messagesFingerprint": "sha256:03dbe78381f4104a32ca1ab55600cf4b51210daa1b9052f8525d6961c6ffe049"
         },
+        "packages/client/src/components/vtt/drawer/tabs/spell-row-primitives.tsx": {
+          "count": 1,
+          "messagesFingerprint": "sha256:4b162728ec57705d3cbdb2fb9002e687d1f304e513e3b2fc06fb06667908949b"
+        },
         "packages/client/src/components/vtt/drawer/tabs/spells-tab.tsx": {
-          "count": 5,
-          "messagesFingerprint": "sha256:b02f66f1e98b6cdc3a081d23bde8d0290e16d9c6e242f53d5c0eca7fbf6c7ba0"
+          "count": 4,
+          "messagesFingerprint": "sha256:6bc1a6d779816d3e5d487ae7db9101eda50b6751be0d25b17ae99d1deb2abe69"
         },
         "packages/client/src/components/vtt/drawer/tabs/stats-tab-rolls.tsx": {
           "count": 3,
@@ -435,10 +439,6 @@
       "configHash": "sha256:a148c15af74377921974ea8a1c22d13e40a882d0bda587f3466d693f655c250b",
       "ruleSourceHash": "sha256:04d174263df6b7bec85c4c45173e8d2aad68bc6cb96bd9f3fce95e8ec23409d1",
       "items": {
-        "packages/server/src/seed/generate-class-features.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
-        },
         "packages/server/src/seed/seed-srd-backgrounds.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:50995dd1f21b9ce076473f5c63d91dbcb66d7d112454a6748b92a62d9c4fab80"
@@ -526,10 +526,6 @@
           "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
         },
         "packages/client/src/components/sheet/add-item-dialog.tsx": {
-          "count": 1,
-          "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
-        },
-        "packages/client/src/components/sheet/desktop-sheet-layout.tsx": {
           "count": 1,
           "messagesFingerprint": "sha256:31ef2d372b5e9d7db7f835b377150724e67759b5da9031e8b1e3dd48db65aed7"
         },
@@ -710,10 +706,6 @@
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
         },
-        "packages/server/src/routers/invite.test.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
-        },
         "packages/server/src/routes/upload-routes.test.ts": {
           "count": 1,
           "messagesFingerprint": "sha256:5098811e01ce1a2317c545ac9042cd6f11da1fe7ec2aa50465d7147222790975"
@@ -839,8 +831,8 @@
           "messagesFingerprint": "sha256:f921bf48dd58e6d70b82ae72f6f6d0ec71b522acdf05c84d5e7fe9aeb2c346c7"
         },
         "packages/client/src/components/character-create/wizard-context.tsx": {
-          "count": 5,
-          "messagesFingerprint": "sha256:deac5a55b3bcd8cf3620316cd36624b1bb5e9b6c02880364b7f577234e972e6a"
+          "count": 3,
+          "messagesFingerprint": "sha256:5198f2ba12ac0578222c713b6a14b9bf003bf2bc92cdf92fc83e71c5af97d64f"
         },
         "packages/client/src/components/common/filter-select.tsx": {
           "count": 2,
@@ -982,17 +974,17 @@
       "configHash": "sha256:d1b094c213262861760acba137d6910317c33a5874105565bb6eb9aec0b9d63b",
       "ruleSourceHash": "sha256:68fe596e95c0991c3417009b1dbe913edee1eec923b3ac159cee1af77216d934",
       "items": {
-        "packages/server/src/services/character-create-helpers.ts": {
+        "packages/server/src/services/character-create/character-create.ts": {
+          "count": 3,
+          "messagesFingerprint": "sha256:3ae50531f2dcb924ba20eaadabe227c1dc08ddf01dd608e3e0f45ed3da6efa2e"
+        },
+        "packages/server/src/services/character-create/nested-creates.ts": {
           "count": 4,
           "messagesFingerprint": "sha256:622e00030839d044af1c1703a7460029d5769d5bd6c372d6ccfe7cad0f0ab118"
         },
-        "packages/server/src/services/character-create-spells.ts": {
-          "count": 1,
-          "messagesFingerprint": "sha256:a24c907045421b49338d5dd6d6463bf7f96816b9c9db254e3192c72c3330361c"
-        },
-        "packages/server/src/services/character-create.ts": {
+        "packages/server/src/services/character-create/starting-equipment.ts": {
           "count": 3,
-          "messagesFingerprint": "sha256:3ae50531f2dcb924ba20eaadabe227c1dc08ddf01dd608e3e0f45ed3da6efa2e"
+          "messagesFingerprint": "sha256:30cc0dc75d985ff0fd1ea669464dc6767fa81dce7bba3c2e240507c9e156ae2d"
         },
         "packages/server/src/services/character-live-state/rest.ts": {
           "count": 2,
@@ -1029,10 +1021,6 @@
         "packages/server/src/services/spell-casting/spell-casting.ts": {
           "count": 2,
           "messagesFingerprint": "sha256:e16775286bccc0b4ba9f194770684c956540b9ed5f0684b3571b0b253f2bd8a6"
-        },
-        "packages/server/src/services/starting-equipment-service.ts": {
-          "count": 3,
-          "messagesFingerprint": "sha256:30cc0dc75d985ff0fd1ea669464dc6767fa81dce7bba3c2e240507c9e156ae2d"
         }
       }
     },

@@ -1,7 +1,7 @@
 # Drain — dispatching this pack
 
 Status: Reference — the execution contract for [00-index.md](./00-index.md).
-Created: 2026-08-06 · Updated: 2026-08-29
+Created: 2026-08-06 · Updated: 2026-09-04
 
 Selection, gating, and the missions you send are computed by
 [`drain.mjs`](./drain.mjs) from live state. This file is the loop around it —
@@ -61,9 +61,13 @@ refuses a ref that already exists, which is what makes the claim atomic. If
 creation fails because someone got there first, throw the gate result away and
 start again at step 1 — it was computed against a world that no longer exists.
 
-*Then*, with the claim held, **read both leaves of every incident edge in
-full**. A blank relation cell is a minimum known constraint set, not proof of
-independence, and it never waives a collision check against the separate
+*Then*, with the claim held, do the deep read to a fixed budget: **the unit's
+own leaf in full, and of every incident edge's other leaf only its `Status:`
+header and `## Scope / caveats`** — that is where a collision hides, and
+reading whole neighbour leaves is what had conductors spending 115k–125k
+tokens before they dispatched anything. A blank relation cell is a minimum
+known constraint set, not proof of independence, and it never waives a
+collision check against the separate
 [2026-07-25 pack](../code-quality-2026-07-25/00-index.md), which is outside this
 graph entirely. If that reading changes your mind, abandon the claim (step 8's
 commands) — a released claim is cheap, a raced one is not.
@@ -89,22 +93,28 @@ and there is never a second lane to collide with.
 **A `BLOCKED` unit that needs a decision is not a dead end.** Two kinds wait
 on a judgement no tool can make, and both are cleared by a row in
 [drain-queue.json](./drain-queue.json) under `ownerDecisions`. Do not wait for
-the owner to author it: run a cross-model panel — parallel consults from at
-least two off-family models, with Grok 4.6 judging the routes — and record its
-verdict as the row. Only a call resting on a preference the owner alone holds
-is deferred: leave that unit blocked and take other work. Worked examples live
-in [DRAIN-NOTES.md](./DRAIN-NOTES.md).
+the owner to author it: run the decision consult and record its verdict as the
+row. While Claude-only is the current mode (step 6a), that consult is two
+seats — one Opus 5 and one Fable 5.1, each an `Agent`-tool seat with fresh
+context, read-only, a single agent that spawns no subagents — and each writes
+its own findings file. Where the two disagree, Fable's verdict is the one
+recorded. The agent-cli form of the same consult is parallel consults from at
+least two off-family models with Grok 4.6 judging the routes; it is not
+retired, and it waits on the same backend availability as step 6b's panel.
+Only a call resting on a preference the owner alone holds is deferred: leave
+that unit blocked and take other work. Worked examples live in
+[DRAIN-NOTES.md](./DRAIN-NOTES.md).
 
 - **Outcome** (`moots`, `moots-part`, `alt`) — one leaf may make all or part of
-  another unnecessary. Put the pair and the leaf warrants to the panel; record
-  the verdict under `ownerDecisions.outcomes` as which units
+  another unnecessary. Put the pair and the leaf warrants to the decision
+  consult; record the verdict under `ownerDecisions.outcomes` as which units
   `proceed` and which are `moot`. The gate clears a unit only by naming it in
   `proceed`, so a decision that drops one side keeps it blocked rather than
   freeing both, and an incomplete row unblocks nothing. On an `alt` edge
   exactly one side may proceed. **Landing the other leaf is not a decision** —
-  it may be what tells the panel the answer, but the row is what records it.
+  it may be what tells the consult the answer, but the row is what records it.
 - **Co-land** (`coland`) — the pair must land on one branch, and this tool
-  provisions one lane per unit. Have the panel name a **carrier** unit under
+  provisions one lane per unit. Have the consult name a **carrier** unit under
   `ownerDecisions.colandCarriers`; that lane then implements every covered unit,
   its brief names them all, the decision maps every covered unit to the carrier,
   and step 8 closes them all together.
@@ -119,11 +129,10 @@ instead of quietly unblocking work.
 node $D brief <UNIT> > /tmp/cq-<UNIT>-implementer.prompt
 ```
 
-Send it to one fresh-context agent; the transport (a subagent, or the
-agent-cli skill) is yours to pick — the mission file is what this protocol
-owes you. Dev work — implementer and fix agents — runs on **Opus 5**
-(`claude-opus-5`), never Sonnet 5, which is a review seat only. To hand steps
-3–8 off entirely instead of running them yourself, see “Conducting a unit”.
+Send it to one fresh-context agent; step 6's current seating mode fixes the
+model and the transport, and the mission file is what this protocol owes you.
+To hand steps 3–8 off entirely instead of running them yourself, see
+“Conducting a unit”.
 
 **4. Verify the lane yourself** when it reports: `git -C <lane> log --oneline
 main..HEAD`, `git -C <lane> diff --stat main...HEAD`, and the gate output.
@@ -148,59 +157,100 @@ in its brief and commit `drain-carriers.jsonl` with the lane.
   that both regenerate conflict on the totals; resolve by taking either side and
   re-running the generator.
 
-**6. Review until a clean round.** Every round is the owner-fixed panel
-(2026-08-23) — five seats run in parallel from a clean worktree on the same
-review brief plus the angles file. Land only on a round with no P0/P1 from any
+**6. Review until a clean round.** Land only on a round with no P0/P1 from any
 seat. Two rounds is normal; a third that produces only P2 style preferences
-means land, not iterate. There is no separate merge gate: a fix goes back
-through the whole panel on a fresh brief (next round number), and nothing
-lands whose latest commits no reviewer has seen.
+means land, not iterate. Two owner stop rules from 2026-08 bound the other
+end: if fix commits start outnumbering feature commits 5:1, or a round still
+opens new defect groups after round three, stop and **re-scope** — narrow what
+the unit delivers and record the narrowing in the leaf — rather than iterate.
+There is no separate merge gate: a fix goes back through review on a fresh
+brief (next round number), and nothing lands whose latest commits no reviewer
+has seen.
+
+Two seating modes exist, and **Claude-only (6a) is the current one** — the
+owner set it on 2026-09-04 because codex, cursor, and copilot are all
+unavailable. The five-seat agent-cli panel (6b) is the mode to come back to
+when those backends do; check that they answer before assuming either.
+
+**6a. Claude-only rounds — the current mode.** Nothing below you fans out.
+Every brief you write — review seat, implementer, fix agent — carries this
+sentence verbatim:
+
+> Do this work yourself. Do not use the Agent tool or spawn subagents,
+> consults, or parallel angle workers; one agent, one context.
+
+`node $D brief <UNIT> --review --round N` renders that sentence and both
+mandatory angles into the review brief itself, so there is no angles file and
+nothing to prepend by hand; only the fix missions you write by hand need the
+sentence added.
+
+- **Implementer and fix agents** are Opus 5 (`model: "opus"`), fresh context,
+  started *inside* the lane worktree.
+- **One Opus 5 seat per round**: the `Agent` tool, `model: "opus"`, fresh
+  context, read-only, with "single agent, no subagents, read-only" in the
+  brief. Its findings go to a fresh file per seat per round
+  (`/tmp/cq-<UNIT>-opus-r<N>.md`), and the fix agent is pointed at that path.
+- **A fix is re-reviewed scoped**: one Opus seat re-reads only the line ranges
+  the fix report names, not the whole diff again.
+- **The final round is the last read before land**, and only opens once an
+  Opus round came back clean: one Fable 5.1 seat over the whole branch diff
+  against `main` and one Sonnet 5 consult on that same brief, in parallel. If
+  either reports P0/P1, fix, then Fable re-reads only the changed ranges.
+  Neither seat sits in an earlier round, and Sonnet is never the round
+  reviewer.
+- **A mechanical unit gets no review round at all** — a byte-pure relocation,
+  a bookkeeping-only diff, an evidence-route close. One deterministic check
+  replaces it: reconstruct the diff from `main` and run the unit's Verify
+  commands green, either yourself or through one Opus seat. Say in the report
+  which of the two the unit got.
+
+The two mandatory angles are simplicity and useful test coverage, and for
+both, proposing removal is the ask. Their wording lives in `reviewerMission`
+in `drain.mjs`, which renders them; edit them there, not here.
+
+**6b. The five-seat agent-cli panel, for when the backends return.** The owner
+fixed this panel on 2026-08-23 and it is not retired, only unreachable: five
+seats run in parallel from a clean worktree on the same review brief, which
+carries the two mandatory angles, each seat fanning out its own subagents
+across a few distinct review angles. Restore it only once `cursor` answers
+again; until then 6a is the mode.
 
 | Seat | Backend | Flags |
 |---|---|---|
 | Opus 5 | claude | `-m claude-opus-5 -e high` |
-| Fable 5 | claude | `-m claude-fable-5 -e high` |
+| Fable 5.1 | claude | `-m claude-fable-5-1 -e high` |
 | Sonnet 5 | claude | `-m claude-sonnet-5 -e high` |
 | Grok 4.6 | cursor | `-m cursor-grok-4.6-high` |
 | GPT-5.6 | cursor | `-m gpt-5.6-sol-high` |
 
 `-high`, never `-xhigh`. The cursor wrapper defaults to
 `cursor-grok-4.6-xhigh`, so every cursor seat passes `-m` explicitly. Not on
-the panel: codex (subscription lapsed 2026-08-23, until the owner renews),
-copilot (policy-dead), GLM and Gemini (benched). Cursor is consult-only —
-`work cursor` runs outside the repo's hook policy.
-
-Write `/tmp/cq-angles.prompt` once per session, before the first round. It
-tells each seat to fan out its own subagents across a few distinct review
-angles, and that for the two mandatory ones below proposing removal is the
-ask, not a redesign the brief forbids:
-
-- **Simplicity** — flag code written for edge cases or threat models that do
-  not matter here, and prefer deletion over hardening.
-- **Useful test coverage** — the suite is already too slow to run and memory
-  limits rule out more parallelism; flag tests whose runtime buys no real
-  signal, not just coverage gaps.
+the panel even when it runs: codex (subscription lapsed 2026-08-23, until the
+owner renews), copilot (policy-dead), GLM and Gemini (benched). Cursor is
+consult-only — `work cursor` runs outside the repo's hook policy.
 
 ```bash
 WRAP="$(git rev-parse --show-toplevel)/scripts/agent-cli/agent-run.sh"
 node $D brief <UNIT> --review --round 1 > /tmp/cq-<UNIT>-review-r1.prompt   # batch lanes: keep --with
-for seat in "opus:claude:-m claude-opus-5 -e high" "fable:claude:-m claude-fable-5 -e high" \
+for seat in "opus:claude:-m claude-opus-5 -e high" "fable:claude:-m claude-fable-5-1 -e high" \
             "sonnet:claude:-m claude-sonnet-5 -e high" "grok:cursor:-m cursor-grok-4.6-high" \
             "gpt:cursor:-m gpt-5.6-sol-high"; do
   IFS=: read -r name backend flags <<<"$seat"
-  setsid nohup "$WRAP" consult "$backend" $flags -P /tmp/cq-<UNIT>-review-r1.prompt \
-    -P /tmp/cq-angles.prompt -o /tmp/cq-<UNIT>-$name-r1.msg \
+  setsid nohup "$WRAP" consult "$backend" $flags \
+    -P /tmp/cq-<UNIT>-review-r1.prompt -o /tmp/cq-<UNIT>-$name-r1.msg \
     > /tmp/cq-<UNIT>-$name-r1.log 2>&1 &
 done
 ```
 
 **Dispatch every consult detached** (`setsid nohup … &`), exactly as above:
 when an agent dies the harness reaps its background children, and a
-non-detached consult is SIGTERM'd mid-flight with the seat lost. Fresh `-o`
-path per seat **per round** — a spent answer path cannot be reused. Then wait
-in **one** long-lived sleep loop that polls for the answer files, not many
-short calls: consults never wake the dispatcher, and every turn boundary is
-another chance to lose the session to an API outage.
+non-detached consult is SIGTERM'd mid-flight with the seat lost. Then wait in
+**one** long-lived sleep loop that polls for the answer files, not many short
+calls: consults never wake the dispatcher, and every turn boundary is another
+chance to lose the session to an API outage. An agent-cli consult is
+deliberate here — the skill's "spawn a subagent instead" does not apply,
+because the fix dispatch needs a findings file on disk, the same reason 6a's
+seats write one.
 
 A seat that dies on credits or a 529 is a retry, not a lane failure. A seat
 whose shell was blocked returns a **static read**; weigh it as one and say so
@@ -208,14 +258,13 @@ in the round — across this drain every P0/P1 came from a seat that ran the
 code, and shell-blocked seats have declared branches landable minutes before
 the gate found a P1 (see [DRAIN-NOTES.md](./DRAIN-NOTES.md), "Review cycle").
 
-An agent-cli consult is deliberate — the skill's "spawn a subagent instead"
-does not apply, because the fix dispatch needs a findings file on disk.
-Dispatch fixes by pointing the fix agent at the reviewer answer files (paths in
-the prompt, or `-f`) — do not restate findings, and do not re-verify them
-against the code first. If a fix round changes what the unit delivered, update
-step 5's bookkeeping and let the next round review that too. Accepted P2s and
-open questions the round leaves behind go to the ledger's "Deferred for
-owner" table (see standing rules), not into the report and not into the fix.
+**Fixes, in either mode.** Dispatch a fix by pointing the fix agent at the
+reviewer's findings file (paths in the prompt, or `-f`) — do not restate
+findings, and do not re-verify them against the code first. If a fix round
+changes what the unit delivered, update step 5's bookkeeping and let the next
+round review that too. Accepted P2s and open questions the round leaves behind
+go to the ledger's "Deferred for owner" table (see standing rules), not into
+the report and not into the fix.
 
 The rendered review mission already carries the independence clause (review
 only from the repository and your own experiments; a shell-blocked seat says so
@@ -274,7 +323,7 @@ step 8** — advancing early deletes the branch it is still verifying.
 | 3 | `merged-unverified` | **yes** | **Still landed.** Run the action it printed; once green, go to step 8. Never re-run `land.sh` after a 3. |
 
 Any recovery or fix that adds commits to the branch — on any exit — re-enters
-step 6 for a clean panel round before the next `land.sh` run.
+step 6 for a clean review round before the next `land.sh` run.
 
 The bare `git -C "$MAIN_WT" merge --no-ff fix/cq-<UNIT>` form runs no gate at
 all and must name the branch — a bare `git merge --no-ff` merges the configured
@@ -298,6 +347,46 @@ runs it on every member; the conductor mission already renders that list.
 `verify-closed` checks the landing facts from live state; catalogs and counts
 are step 5's hand-edited bookkeeping, which `bun run backlog:lint` checks but
 never regenerates.
+
+**Bookkeeping that can only exist after the merge** — the landing sha in a
+cross-pack plan, the round narrative in the ledger's "Deferred for owner"
+table — cannot be committed on `main`. Agents are refused there twice over: by
+the ai-hook policy rule `git-commit-on-main`
+(`scripts/ai-hooks/policy-rules.generated.sh:31`, predicate
+`ai_policy_has_git_commit_on_main` in `scripts/ai-hooks/git-classify.sh:597`),
+and by `.husky/pre-commit`'s step 0 protected-branch guard, which git runs
+inside the committing repo, so it fires wherever the commit was issued from.
+The matcher is not blind to the `git -C <path>` and `cd <path> && git commit`
+forms either — it judges them against the checkout they name
+(`scripts/ai-hooks/test.sh:4033-4035`); husky is a second, in-checkout guard,
+not a fallback for forms the matcher misses (see the note after the recipe).
+Put that bookkeeping on a short branch off `main` and merge it back:
+
+```bash
+git -C "$MAIN_WT" switch -c docs/cq-<UNIT>-post-merge
+# commit the bookkeeping here
+git -C "$MAIN_WT" switch main
+git -C "$MAIN_WT" merge --no-ff docs/cq-<UNIT>-post-merge
+git -C "$MAIN_WT" branch -d docs/cq-<UNIT>-post-merge
+```
+
+Every lane of 2026-09-03/04 landed its bookkeeping this way: merges
+`bdf835434`, `1ce047680`, `4d95aa8f1`, `3b1737a7c`, `4aa40765e`.
+
+The PreToolUse rule is narrower than it looks in the other direction. It
+resolves the commit's *target* checkout from the command text before it reads a
+branch (`ai_resolve_target_dir`, `scripts/ai-hooks/git-classify.sh:383`), so
+`git -C <literal lane path> commit` issued from the main worktree is judged
+against the **lane's** branch and allowed — `scripts/ai-hooks/test.sh:4030`
+pins exactly that. What fails closed is a target the resolver cannot read:
+`git -C "$VAR"`, a `~` path, or a stale directory is refused as an unverifiable
+target (`AI_POLICY_GIT_UNVERIFIABLE_TARGET`, `git-classify.sh:405`) and asks
+you to re-issue with a literal path. That refusal is keyed on a commit verb
+(`ai_unverifiable_commit_target_reason`, `git-classify.sh:441`), so the
+`git -C "$MAIN_WT"` switch, merge and branch lines in the recipe above are not
+refused — only a commit spelled that way is. Lane commits still go
+through an agent started *inside* the lane worktree; that is this protocol's
+preference, not something the hook enforces.
 
 **9. Release the lock** when the session ends and no lane is open:
 `node $D lock release`.
@@ -352,16 +441,22 @@ node $D brief <UNIT> --conduct > /tmp/cq-<UNIT>-conductor.prompt   # batch lanes
 
 Dispatch it as one fresh-context agent with no model override, inheriting the
 dispatcher's model — the mission is shepherding plus scaffolded judgement. The
-conductor may therefore share a model with a panel seat; a seat's independence
-rests on its fresh context and on the off-family seats beside it, not on a
-model split. If a conductor dies mid-lane (API outages have killed six in a
-row), resume it with `SendMessage` — its transcript survives — rather than
-redispatching. The seam is fixed, and it is the same loop either way:
+conductor may therefore share a model with a review seat; a seat's independence
+rests on its fresh context and its read-only brief, not on a model split, which
+is what makes step 6a's Claude-only mode workable at all. If a conductor dies
+mid-lane (API outages have killed six in a row), resume it with `SendMessage`
+— its transcript survives — rather than redispatching. The seam is fixed, and
+it is the same loop either way:
 
-- **You keep steps 0–2**: the lock, `plan`, the claim, and decision panels for
-  BLOCKED units. Gating and claiming stay in one session so the gate-to-claim
+- **You keep steps 0–2**: the lock, `plan`, the claim, and decision consults
+  for BLOCKED units. Gating and claiming stay in one session so the gate-to-claim
   window stays short. The conductor does step 2's post-claim deep read — pin
   re-verification included — and keeps the right to abandon.
+- **The conductor reads only what it executes.** Of this file: steps 5–8 under
+  “The loop”, and this section. Of the leaves: step 2's budget above. Never
+  `CONSTRAINTS.md`, and never a `MODULE.md` — that one is the implementer's
+  read. Every brief the conductor writes cites line ranges rather than whole
+  files, and says not to read the rest.
 - **The conductor owns steps 3–8**: implementer dispatch, lane verification,
   bookkeeping, review rounds, `land.sh`, close-out — and
   parking its own lane when that path fails, since it already owns `land.sh`'s
@@ -399,9 +494,8 @@ redispatching. The seam is fixed, and it is the same loop either way:
   parallel-lane rule the protocol once carried existed to police a mode that
   is now off. To move more than one unit per land, share the lane (see
   “Batch lanes”) — never open a second one. Read-only consults are exempt:
-  a round's reviewers and a decision panel run in parallel as one **flat**
-  panel; it is lanes, full gates, and nested fan-outs (a consult that itself
-  spawns a panel of consults) that stay serial.
+  the seats of one round run in parallel. Nested fan-out — a consult that
+  itself spawns consults — is off entirely under 6a, not merely serialized.
 - **`land.sh` is the only full gate.** Step 7 runs one full sequential
   `verify` per land, and nothing else in a lane ever runs one: implementers,
   fix agents, and conductors never run `bun run verify` or `land.sh` mid-lane.
@@ -419,8 +513,8 @@ redispatching. The seam is fixed, and it is the same loop either way:
   [DRAIN-LEDGER.md](./DRAIN-LEDGER.md)'s "Deferred for owner" table as it
   arises, one row per unit, so nothing accumulates in a session's memory.
 - **Do not stop for input.** Keep going as long as possible without the owner.
-  A judgement call goes to a cross-model panel with Grok 4.6 as judge, recorded
-  as step 2's `ownerDecisions` row; a unit that truly needs the owner's own
+  A judgement call goes to the decision consult step 2 describes, recorded as
+  its `ownerDecisions` row; a unit that truly needs the owner's own
   call is deferred — take the next free unit and keep moving.
 - **Bug fixes are in scope at implementer judgement**, with a regression test
   and an explicit mention in the lane's report.
@@ -444,7 +538,7 @@ redispatching. The seam is fixed, and it is the same loop either way:
   close in [DRAIN-LEDGER.md](./DRAIN-LEDGER.md), all committed like any
   other unit work; the row's `Merge` cell stays empty — the landing sha does
   not exist yet, and the ledger takes no backfills — and the concurring
-  panel round is step 6's ordinary review of that lane diff, so
+  review round is step 6's ordinary review of that lane diff, so
   reviewers see the flip and the ledger row.
   Then run `land.sh` (step 7) and close per step 8
   exactly as for a code close — the lane merged, so the safe `branch -d`
@@ -458,7 +552,7 @@ redispatching. The seam is fixed, and it is the same loop either way:
   deliberately with a queue exclusion or an edge removal, as when parking,
   before it runs against a missing prerequisite. Not a licence to
   drop work that is merely hard, and never for a `moots`/`alt` pair — that
-  stays an outcome call for step 2's panel.
+  stays an outcome call for step 2's decision consult.
 
 ## Parking a lane
 

@@ -1,6 +1,6 @@
 # 12. The 46-file flat server utils directory owns authorization, race-sensitive mutation, and Prisma trust boundaries but has no MODULE.md to orient anyone
 
-Status: Not started
+Status: Landed on fix/cq-012
 Theme: module orientation contracts · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

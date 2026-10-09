@@ -1,6 +1,6 @@
 # 13. The character-spell router imports spell eligibility from a spell-casting internal file that the module's own doc says must be reached through the facade
 
-Status: Not started
+Status: Landed on fix/cq-013
 Theme: module facade discipline · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

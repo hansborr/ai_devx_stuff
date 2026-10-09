@@ -1,10 +1,11 @@
 # claude backend notes
 
-Verified against claude 2.1.201.
+Verified against claude 2.1.259.
 
 ## Models and effort
 
-- `-m` accepts aliases (`fable`, `opus`, `sonnet`, `haiku`) or full ids (`claude-fable-5`); omitting it runs the user-configured default model.
+- `-m` accepts aliases (`fable`, `opus`, `sonnet`, `haiku`) or full ids (`claude-fable-5-1`, `claude-opus-5`, `claude-fable-5`); omitting it runs the user-configured default model.
+- Aliases float to the latest release: `fable` runs Claude Fable 5.1 (`claude-fable-5-1`) and `opus` runs Claude Opus 5 (`claude-opus-5`) (verified 2026-09-02 from the `modelUsage` key in the JSON envelope). Claude Fable 5 (`claude-fable-5`) is still served under its full id. Pin the full id when a seat must reproduce an earlier round or a brief names a specific release; use the alias when the brief just says "Fable" or "Opus".
 - Dated model ids use hyphens everywhere: `claude-opus-4-8`, never the prose spelling `claude-opus-4.8`. The dotted form is rejected with "There's an issue with the selected model. It may not exist or you may not have access to it", which reads like an entitlement problem rather than a typo (verified 2026-07-27: `canonicalModel: claude-opus-4-8`, first-party, 1M context).
 - `-e low|medium|high|xhigh|max` on Claude 5-era models; older models have fewer tiers.
 

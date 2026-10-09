@@ -10,82 +10,18 @@ import {
   COPILOT_HOOKS_PATH,
 } from "../harness/harness-paths.js";
 import { BASELINE_FILENAME, DEBT_LOG_FILENAME } from "../lint-ratchet/paths.js";
-import {
-  SCRIPT_SMOKE_SUBJECTS,
-  type ScriptSmokeSubjects,
-} from "./path-policy-smoke-subjects-data.js";
+import type { PathPolicy, PathPolicySelector } from "./path-policy-query-engine.js";
 
-export type PathPolicySelector =
-  | {
-      readonly kind: "exact";
-      readonly path: string;
-    }
-  | {
-      readonly kind: "prefix";
-      readonly prefix: string;
-    }
-  | {
-      readonly kind: "single-segment-glob";
-      /** `*` is the only pattern character; it matches within one path segment. */
-      readonly pattern: string;
-    }
-  | {
-      readonly kind: "extension";
-      readonly extension: `.${string}`;
-    }
-  | {
-      readonly kind: "prefix-extension";
-      readonly prefix: string;
-      readonly extension: `.${string}`;
-    };
+export type { PathPolicySelector };
 
-export type PathPolicy = {
-  readonly lintableExtensions: {
-    readonly eslintChanged: readonly `.${string}`[];
-    readonly agentChanged: readonly `.${string}`[];
-  };
-  readonly sourceRelevant: {
-    readonly selectors: readonly PathPolicySelector[];
-    readonly precommitStagedExcludedSelectors: readonly PathPolicySelector[];
-    readonly precommitTrackedExtraPrefixes: readonly string[];
-  };
-  readonly fullScanTriggers: {
-    readonly eslintChanged: readonly PathPolicySelector[];
-    readonly agentLintChanged: readonly PathPolicySelector[];
-    readonly configSensorsChanged: readonly PathPolicySelector[];
-    readonly eslintDisableRegisterChanged: readonly PathPolicySelector[];
-    readonly suppressionRegisterChanged: readonly PathPolicySelector[];
-  };
-  readonly shellSurfaces: {
-    readonly maintained: readonly PathPolicySelector[];
-    readonly excludedDirectoryNames: readonly string[];
-    readonly excludedPrefixes: readonly string[];
-  };
-  readonly configSurfaces: {
-    readonly workflowYaml: readonly PathPolicySelector[];
-    readonly yaml: readonly PathPolicySelector[];
-    readonly toml: readonly PathPolicySelector[];
-    readonly dockerfile: readonly PathPolicySelector[];
-    readonly referenceDockerfile: readonly PathPolicySelector[];
-    readonly excludedDirectoryNames: readonly string[];
-  };
-  readonly scriptSmoke: {
-    readonly subjects: ScriptSmokeSubjects;
-  };
-  readonly formatCheckCandidates: {
-    readonly parserSurface: "prettier";
-    readonly ignoreFile: ".prettierignore";
-    readonly metadataFiles: readonly string[];
-    readonly fullRepo: {
-      readonly path: ".";
-    };
-  };
+/**
+ * Musi's policy value carries one group the portable engine does not read:
+ * `directoryPrefixSubjects`, the curated directory subjects smoke metadata is
+ * authored against.
+ */
+type MusiPathPolicy = PathPolicy & {
   readonly directoryPrefixSubjects: {
-    readonly sourceRelevant: readonly string[];
     readonly scriptSmoke: readonly string[];
-  };
-  readonly deletionClasses: {
-    readonly scriptSmokeSensitive: readonly PathPolicySelector[];
   };
 };
 
@@ -100,6 +36,15 @@ const CONFIG_SURFACE_SOURCE_RELEVANT_SELECTORS = configSurfaceEntries.map((entry
   kind: "exact" as const,
   path: entry.path,
 }));
+
+// Shared by shellSurfaces and configSurfaces: both scans walk the same working
+// tree, so a directory name one of them must skip is one the other must skip
+// too.
+const EXCLUDED_SCAN_DIRECTORY_NAMES = [
+  "node_modules",
+  "worktrees",
+  ".playwright-cli",
+] as const satisfies readonly string[];
 
 const ESLINT_FULL_SCAN_TRIGGERS = [
   { kind: "exact", path: "bun.lock" },
@@ -224,7 +169,7 @@ export const PATH_POLICY = {
       { kind: "single-segment-glob", pattern: ".copilot/hooks/*.sh" },
       { kind: "single-segment-glob", pattern: ".devcontainer/*.sh" },
     ],
-    excludedDirectoryNames: ["node_modules", "worktrees", ".playwright-cli"],
+    excludedDirectoryNames: EXCLUDED_SCAN_DIRECTORY_NAMES,
     excludedPrefixes: [".husky/_/"],
   },
   configSurfaces: {
@@ -249,29 +194,9 @@ export const PATH_POLICY = {
       { kind: "exact", path: "docs/refs/5e-database/Dockerfile" },
     ],
     referenceDockerfile: [{ kind: "exact", path: "docs/refs/5e-database/Dockerfile" }],
-    excludedDirectoryNames: ["node_modules", "worktrees", ".playwright-cli"],
-  },
-  scriptSmoke: {
-    subjects: SCRIPT_SMOKE_SUBJECTS,
-  },
-  formatCheckCandidates: {
-    parserSurface: "prettier",
-    ignoreFile: ".prettierignore",
-    metadataFiles: [".prettierrc", ".prettierignore"],
-    fullRepo: {
-      path: ".",
-    },
+    excludedDirectoryNames: EXCLUDED_SCAN_DIRECTORY_NAMES,
   },
   directoryPrefixSubjects: {
-    sourceRelevant: [
-      ".husky/",
-      "packages/",
-      "e2e/",
-      "scripts/",
-      "tools/",
-      "eslint-config/",
-      "eslint-rules/",
-    ],
     scriptSmoke: [
       ".claude/hooks/",
       ".github/workflows/",
@@ -296,4 +221,4 @@ export const PATH_POLICY = {
       { kind: "prefix", prefix: "scripts/" },
     ],
   },
-} as const satisfies PathPolicy;
+} as const satisfies MusiPathPolicy;

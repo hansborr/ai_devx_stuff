@@ -35,7 +35,7 @@ The fallback is also less deliberate in production than the helper's contract
 now makes it sound. Both callers pass raw
 `prisma.encounterParticipant.findMany(...)` results with no `orderBy`:
 
-- `executeRollAllInitiative` rolls every participant, then sorts and persists
+- `rollAndPersistAllInitiative` rolls every participant, then sorts and persists
   the resulting `sortOrder`;
 - `activateEncounter` re-sorts already-rolled participants before starting
   combat.

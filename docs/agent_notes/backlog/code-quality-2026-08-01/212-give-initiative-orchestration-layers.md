@@ -1,6 +1,6 @@
 # 212. Give initiative orchestration layers depth-signalling names
 
-Status: Not started
+Status: Landed on fix/cq-018
 Theme: Initiative rolling obscures three orchestration depths behind two names and an alias · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

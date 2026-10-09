@@ -19,4 +19,17 @@ function discoverScriptSmokeTestNames(): readonly string[] {
   return [...ordered, ...extra];
 }
 
-export const SCRIPT_SMOKE_TEST_NAMES = discoverScriptSmokeTestNames();
+let cachedScriptSmokeTestNames: readonly string[] | undefined;
+
+/**
+ * Smoke test names in run order, discovered lazily.
+ *
+ * The first call reads the cwd-relative `scripts/tests` directory; importing
+ * this module touches no filesystem. The memo is module-scope on purpose, so
+ * `vi.resetModules()` clears it and a test can drive discovery against a
+ * fixture root — see the discovery cases in `path-policy.test.ts`.
+ */
+export function scriptSmokeTestNames(): readonly string[] {
+  cachedScriptSmokeTestNames ??= discoverScriptSmokeTestNames();
+  return cachedScriptSmokeTestNames;
+}

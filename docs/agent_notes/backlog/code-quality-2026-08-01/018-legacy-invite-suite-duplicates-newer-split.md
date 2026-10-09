@@ -1,6 +1,6 @@
 # 18. The legacy monolithic invite suite survived the split into focused manage/join suites, duplicating 16 of its 17 cases
 
-Status: Not started
+Status: Landed on fix/cq-018
 Theme: duplicate test suites · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

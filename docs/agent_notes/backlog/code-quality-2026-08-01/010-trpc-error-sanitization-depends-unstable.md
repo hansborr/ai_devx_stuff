@@ -1,6 +1,6 @@
 # 10. The wire-facing error sanitizer types its security policy against tRPC's unstable import path and casts sanitized issues back into Zod's framework union
 
-Status: Not started
+Status: Landed on fix/cq-017
 Theme: transport-owned error types · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -109,6 +109,14 @@ so no orphaned marker comment survives the casts it justified.
 
 ## Scope / caveats
 
+- **Part 1 landed only in `trpc.test.ts`.** `trpc.ts` still imports
+  `DefaultErrorShape` from the unstable subpath because that import is what
+  keeps the subpath in the server's program: `utils/srd-query-helpers.ts`
+  deliberately elides its factory return types (see its header), and their
+  emitted declarations reference tRPC's `inferParser`, which is nameable only
+  through that subpath — switching `trpc.ts` alone fails `tsc -b` with
+  TS2883 on the helpers. Unblocked by annotating those factories' return
+  types (revisiting the helpers header's second concession), not by a rename.
 - **The sanitization policy itself is out of scope.** What ships over the wire
   (code/path/message plus passthrough diagnostics, minus `input`), the
   `surfaceValidationErrors` env gate (`trpc.ts:63`), and the stack-stripping in

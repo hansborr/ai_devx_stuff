@@ -12,6 +12,7 @@
 # smoke-subjects: scripts/lib/verify-state-paths.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-engine.ts
 # smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/path-policy/smoke-test-files.ts
@@ -19,6 +20,7 @@
 # smoke-subjects: scripts/ai-hooks/check-wiring.sh
 # smoke-subjects: scripts/ai-hooks/
 # smoke-subjects: scripts/tests/lib/test-git-env.sh
+# smoke-subjects: scripts/tests/lib/test-assertions.sh
 # smoke-subjects: .claude/hooks/
 # smoke-subjects: .codex/hooks/
 # smoke-subjects: .copilot/hooks/

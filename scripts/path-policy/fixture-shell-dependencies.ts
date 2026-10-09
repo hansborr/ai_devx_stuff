@@ -22,15 +22,19 @@ import type { FixtureCopyGroup } from "./fixture-helper-calls.js";
 import { collectFixtureImportClosureFailures } from "./fixture-import-closure.js";
 import { collectFixtureSandboxes, type FixtureSandbox } from "./fixture-sandbox-model.js";
 import { collectScopedShellLines } from "./fixture-shell-scope.js";
-import { isSmokeTestBasename } from "./smoke-test-files.js";
+import {
+  isSmokeTestBasename,
+  matchesSmokeSubject,
+  parseSmokeSubjectsHeaderLine,
+} from "./smoke-test-files.js";
 
 const shellcheckSourcePattern = /^\s*#\s*shellcheck\s+source=(\S+)\s*$/gmu;
-const smokeSubjectPattern = /^#\s*smoke-subjects:(.*)$/gmu;
-
 function collectSmokeSubjects(source: string): ReadonlySet<string> {
   const subjects = new Set<string>();
-  for (const match of source.matchAll(smokeSubjectPattern)) {
-    for (const subject of capture(match, 1).trim().split(/\s+/u)) subjects.add(subject);
+  for (const line of source.split(/\r?\n/u)) {
+    const headerSubjects = parseSmokeSubjectsHeaderLine(line);
+    if (headerSubjects === undefined) continue;
+    for (const subject of headerSubjects) subjects.add(subject);
   }
   return subjects;
 }
@@ -73,14 +77,14 @@ function collectSourcedDependencyClosure(repoRoot: string, root: string): Readon
 }
 
 /**
- * Subject coverage, read exactly the way the changed-mode selector reads it
- * (`matchesSmokeSubject` in path-policy-query-core.ts): an exact path, or a
- * trailing-slash subject covering everything beneath it.
+ * Subject coverage, read through the same `matchesSmokeSubject` the changed-mode
+ * query engine selects with: an exact path, or a trailing-slash subject covering
+ * everything beneath it. Sharing the implementation is what makes the parity
+ * real rather than a claim two copies happen to uphold.
  */
 function isCoveredBySubject(subjects: ReadonlySet<string>, path: string): boolean {
-  if (subjects.has(path)) return true;
   for (const subject of subjects) {
-    if (subject.endsWith("/") && path.startsWith(subject)) return true;
+    if (matchesSmokeSubject(path, subject)) return true;
   }
   return false;
 }

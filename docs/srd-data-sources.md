@@ -104,6 +104,28 @@ to match, and the output is then silently unattested rather than failing a test.
    | `bun run --filter @musi/server generate:srd-spells` | `src/07_Spells.md` | `packages/server/src/seed/data/5e-srd-spells-5.2.json` |
    | `bun run --filter @musi/server generate:srd-rules-glossary` | `src/08_RulesGlossary.md` | `packages/server/src/seed/data/5e-srd-rules-glossary.json` |
 
+   **Every generator fails closed.** A spell block or glossary entry the
+   parser rejects, a class file with no recognizable subclass heading, or a
+   class feature whose description resolves to empty is a warning, and a run
+   with any warning exits non-zero **without touching its output files** —
+   `generate:class-features` parses all twelve classes before it writes any
+   module, so a late class cannot leave the earlier ones already replaced.
+   This run is the only moment completeness can be checked (step 5 below
+   attests checksums, not completeness), so a refresh where an upstream
+   heading shifted stops here instead of shipping a reduced artifact. To see
+   the partial output while diagnosing the parser, append the one accepted
+   flag after `--`:
+
+   ```bash
+   bun run --filter @musi/server generate:srd-spells -- --allow-partial
+   ```
+
+   Output written under `--allow-partial` is for diagnosis only; do not commit
+   it or record its checksums. The policy lives in
+   `packages/server/src/seed/srd-generator-run.ts`; each script's
+   parse-and-render step is the sibling `srd-*-generator.ts` module, whose
+   tests pin the clean output and the warning paths with fixture markdown.
+
 3. Format the TypeScript output. The two JSON generators run prettier
    themselves; the two TypeScript ones concatenate strings and do not, so their
    output only lands clean after a formatting pass over just the emitted paths:

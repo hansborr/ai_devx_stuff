@@ -84,7 +84,7 @@ create-character wire contract without breaking the non-caster path.
 `spells: [{ spellId, source }]` array (`source` defaults to `"class"`).
 The shared rules module owns the per-class level-1 counts via
 `getLevel1SpellSelection(classId, casterType)`. The server
-(`character-create-spells.ts`) validates caster-only, level 0/1, class
+(`character-create/spells.ts`) validates caster-only, level 0/1, class
 availability, count limits, and duplicates, then builds the nested writes; a
 non-caster submitting spells is a contract violation -> `BAD_REQUEST`.
 Cantrips persist prepared, while level-1 picks persist prepared in submitted
@@ -100,5 +100,5 @@ order only up to the level-1 `getMaxPreparedSpells` result.
 
 ### References
 - `packages/shared/src/schemas/character-inputs.ts`
-- `packages/shared/src/rules/spellcasting.ts` (`getLevel1SpellSelection`)
-- `packages/server/src/services/character-create-spells.ts`
+- `packages/shared/src/rules/level-1-spell-selection.ts` (`getLevel1SpellSelection`)
+- `packages/server/src/services/character-create/spells.ts`

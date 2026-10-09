@@ -77,16 +77,17 @@ make_fresh_repo() {
     "$repo/packages/shared/dist/rules/attack-damage.js" \
     "$repo/packages/shared/dist/schemas/auth.js" \
     "$repo/packages/shared/dist/test/parse-helpers.js"
-  # `tsc -b` writes tsconfig.tsbuildinfo on every build; the staleness rule now
-  # compares src against THIS marker (not a dist .js), so a fresh tree needs it
-  # to exist and be newer than src. Backdate it to a FIXED point after the src
-  # backdate (2020) but well before "now": the "stale" cases below prove staleness
-  # by touch-ing a src file to NOW, and `find -newer` is a STRICT greater-than on
-  # mtime — were the marker also touched to NOW, on a coarse (1-second) mtime
-  # filesystem the two could land in the same second and a stale case would
-  # spuriously read fresh and flake. A fixed past marker makes every
-  # src-newer-than-marker case deterministic regardless of FS granularity.
-  touch -d '2021-01-01 00:00:00' "$repo/packages/shared/tsconfig.tsbuildinfo"
+  # `tsc -b tsconfig.build.json` writes tsconfig.build.tsbuildinfo on every
+  # build; the staleness rule compares src against THIS marker (not a dist
+  # .js), so a fresh tree needs it to exist and be newer than src. Backdate it
+  # to a FIXED point after the src backdate (2020) but well before "now": the
+  # "stale" cases below prove staleness by touch-ing a src file to NOW, and
+  # `find -newer` is a STRICT greater-than on mtime — were the marker also
+  # touched to NOW, on a coarse (1-second) mtime filesystem the two could land
+  # in the same second and a stale case would spuriously read fresh and flake.
+  # A fixed past marker makes every src-newer-than-marker case deterministic
+  # regardless of FS granularity.
+  touch -d '2021-01-01 00:00:00' "$repo/packages/shared/tsconfig.build.tsbuildinfo"
   # The freshness rule is `schema -nt client`; ensure the client dir is at
   # least as new as the schema by touching it after the backdate.
   touch "$repo/packages/server/src/generated/prisma"
@@ -154,7 +155,7 @@ ok "stale shared dist (src newer) fails with build remediation"
 
 # --- non-TS edit newer than tsbuildinfo stays fresh --------------------------
 # Only files `tsc -b` compiles (the `*.ts` under src) are build inputs. A
-# Markdown-only change (e.g. a MODULE.md) never refreshes tsconfig.tsbuildinfo,
+# Markdown-only change (e.g. a MODULE.md) never refreshes the build marker,
 # so if the staleness scan counted it the tree would read stale forever and the
 # user could not escape the build-remediation loop. Editing a non-.ts file newer
 # than the marker must stay fresh.
@@ -180,12 +181,28 @@ expect_preflight_fail "ts-stale" "$REPO_TS_STALE" \
   "@musi/shared src newer than dist"
 ok "compiled src/**/*.ts newer than tsbuildinfo still reports stale"
 
+# --- colocated *.test.ts edit newer than the marker stays fresh ---------------
+# @musi/shared builds through tsconfig.build.json, which excludes
+# `src/**/*.test.ts`: test suites are type-checked by the inclusive
+# tsconfig.json but never emitted, so editing one does not (and must not)
+# refresh the build marker. If the staleness scan counted test files, every
+# test edit would read stale forever — the same remediation loop the
+# Markdown case above guards against. A nested `*.test.ts` newer than the
+# marker must stay fresh.
+REPO_TEST_FRESH="$ROOT/test-fresh"
+make_fresh_repo "$REPO_TEST_FRESH"
+mkdir -p "$REPO_TEST_FRESH/packages/shared/src/rules"
+printf 'export {};\n' > "$REPO_TEST_FRESH/packages/shared/src/rules/attack-damage.test.ts"
+touch "$REPO_TEST_FRESH/packages/shared/src/rules/attack-damage.test.ts"
+expect_preflight_ok "test-fresh" "$REPO_TEST_FRESH"
+ok "colocated src/**/*.test.ts newer than the build marker stays fresh (excluded from the build)"
+
 # --- incremental rebuild clears stale (P1 regression) ------------------------
 # An incremental `tsc -b` only rewrites the dist outputs affected by the edited
 # file, so unrelated dist sentinels keep their old mtimes. The staleness check
-# must therefore key on tsconfig.tsbuildinfo (which tsc -b rewrites on EVERY
-# build), not the oldest dist sentinel. Simulate: edit a src file (now newer
-# than the old marker => stale), then rebuild touching ONLY tsconfig.tsbuildinfo
+# must therefore key on tsconfig.build.tsbuildinfo (which tsc -b rewrites on
+# EVERY build), not the oldest dist sentinel. Simulate: edit a src file (now
+# newer than the old marker => stale), then rebuild touching ONLY the marker
 # while leaving the dist .js sentinels at their old mtimes. The preflight must
 # now report fresh; the pre-fix oldest-sentinel comparison would still see the
 # edited src as newer than the untouched sentinels and keep failing.
@@ -200,21 +217,21 @@ ok "edited src is stale before the incremental rebuild marker is refreshed"
 # untouched (an incremental build need not rewrite unrelated outputs) and make
 # the marker unambiguously newer than the edited src.
 sleep 1
-touch "$REPO_INCREMENTAL/packages/shared/tsconfig.tsbuildinfo"
+touch "$REPO_INCREMENTAL/packages/shared/tsconfig.build.tsbuildinfo"
 expect_preflight_ok "incremental-post" "$REPO_INCREMENTAL"
 ok "incremental rebuild (tsbuildinfo refreshed, dist sentinels untouched) clears stale"
 
-# --- missing tsconfig.tsbuildinfo does not loop on stale ---------------------
+# --- missing tsconfig.build.tsbuildinfo does not loop on stale ---------------
 # If the build marker is absent we have no trustworthy "built at" timestamp;
 # the stale branch must NOT fire (missing-dist still owns "needs build"). With
 # dist sentinels present but no marker, even a freshly-edited src is treated as
 # not-stale so the tree does not get stuck reporting stale forever.
 REPO_NO_MARKER="$ROOT/no-marker"
 make_fresh_repo "$REPO_NO_MARKER"
-rm "$REPO_NO_MARKER/packages/shared/tsconfig.tsbuildinfo"
+rm "$REPO_NO_MARKER/packages/shared/tsconfig.build.tsbuildinfo"
 touch "$REPO_NO_MARKER/packages/shared/src/constants.ts"
 expect_preflight_ok "no-marker" "$REPO_NO_MARKER"
-ok "absent tsconfig.tsbuildinfo skips the stale branch (no false-stale loop)"
+ok "absent tsconfig.build.tsbuildinfo skips the stale branch (no false-stale loop)"
 
 # --- missing generated prisma client fails fast (server/full run) ------------
 REPO_PRISMA_MISSING="$ROOT/prisma-missing"

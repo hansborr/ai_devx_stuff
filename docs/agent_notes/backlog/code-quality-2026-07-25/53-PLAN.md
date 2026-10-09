@@ -84,7 +84,7 @@ being read back is the DM's own persisted `sortOrder`**, not an invented one.
    the DM has no way to do is be **told a tie exists** and have the decision
    recorded.
 3. **The leaf's step 3 as written ("persist the pending state") cannot mean
-   "do not persist an order".** `executeRollAllInitiative` must write contiguous
+   "do not persist an order".** `rollAndPersistAllInitiative` must write contiguous
    `sortOrder`, because the turn pointer and the read path's index invariant
    both depend on a written order. "Pending" therefore means *a suggested order
    is written but not blessed*, which is what the ruling's own "may be useful as

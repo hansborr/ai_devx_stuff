@@ -55,7 +55,7 @@ export const productionPackageSourceEntries: readonly CoverageEntry[] = [
     id: "packages-client-src-ts-tsx",
     globs: ["packages/client/src/**/*.{ts,tsx}"],
     pathNote: "(production, non-test)",
-    files: "389 .ts+.tsx",
+    files: "390 .ts+.tsx",
     filesCountNote:
       "production, non-test only. The sibling client-test row owns the rest of `packages/client/src`, and rows carry no `ignores`, so this glob matches both halves.",
     normalLint: { covered: true },
@@ -93,7 +93,7 @@ export const productionPackageSourceEntries: readonly CoverageEntry[] = [
   {
     id: "packages-server-prisma-migrations-sql",
     globs: ["packages/server/prisma/migrations/**/*.sql"],
-    files: "20 .sql",
+    files: "21 .sql",
     normalLint: { covered: false },
     ratchets: "none",
     parser: "—",
@@ -140,7 +140,7 @@ export const packageTestEntries: readonly CoverageEntry[] = [
   {
     id: "packages-shared-src-test-spec-ts-tsx",
     globs: ["packages/shared/src/**/*.{test,spec}.{ts,tsx}", "packages/shared/src/**/test/**/*.ts"],
-    files: "74 .ts",
+    files: "85 .ts",
     normalLint: {
       covered: true,
       note: "test-relaxed tier: `max-lines`, `no-magic-numbers`, `no-non-null-assertion`, `no-unsafe-return`, `no-unnecessary-type-assertion` off; vitest rules and `local/test-file-location` on",
@@ -159,7 +159,7 @@ export const packageTestEntries: readonly CoverageEntry[] = [
       "packages/server/src/**/__type-tests__/**/*.ts",
       "packages/server/src/**/**/*-test-helper.ts",
     ],
-    files: "263 .ts",
+    files: "271 .ts",
     normalLint: { covered: true, note: "test-relaxed tier with vitest rules" },
     ratchets: "`ratchet/local-type-assertion-boundary`, `ratchet/no-real-time-in-package-tests`",
     parser: "ESLint `type-aware-ts`",
@@ -174,7 +174,7 @@ export const packageTestEntries: readonly CoverageEntry[] = [
       "packages/client/src/**/test/**/*.{ts,tsx}",
       "packages/client/src/**/*.test-helper.*",
     ],
-    files: "340 .ts+.tsx (213 .tsx + 127 .ts)",
+    files: "347 .ts+.tsx (213 .tsx + 134 .ts)",
     normalLint: {
       covered: true,
       note: "test-relaxed tier with vitest rules, plus `mock-trpc*` `promise-function-async` carve-out",

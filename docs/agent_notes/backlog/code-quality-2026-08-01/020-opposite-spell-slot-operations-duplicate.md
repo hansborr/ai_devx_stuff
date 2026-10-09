@@ -1,6 +1,6 @@
 # 20. `consumeSpellSlot` and `recoverSpellSlot` hand-maintain mirror copies of the same 30-line Pattern B CAS protocol
 
-Status: Not started
+Status: Landed on fix/cq-013
 Theme: duplicated concurrency protocol · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

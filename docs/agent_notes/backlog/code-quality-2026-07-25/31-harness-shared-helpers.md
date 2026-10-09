@@ -3,8 +3,8 @@
 Status: Partially landed — H6/H7 landed on `fix/cq-harness-h6-h7` (merge
 `1bfbfc115`), H8 on `fix/cq-harness-h8` (merge `e7462ee51`), H9/H10 on
 `fix/cq-harness-h9-h10` (merge `bdc120756`), and path-policy step 9 as H14 on
-`fix/cq-harness-h13-h14` (merge `64a7fac64`); H15 remains blocked on unlanded
-27-PLAN slice 27.3
+`fix/cq-harness-h13-h14` (merge `64a7fac64`); H15 (steps 11-13) landed on
+`fix/cq-harness-h15` (merge `e288e33eb`)
 Theme: Duplicated helpers in the harness tooling tree · Area: harness · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-07-25 · Confidence: high

@@ -127,7 +127,7 @@ export const rootAndPackageConfigEntries: readonly CoverageEntry[] = [
       "packages/{client,server,shared}/tsconfig*.json",
       "packages/server/tsconfig.scripts.json",
     ],
-    files: "4 .json",
+    files: "5 .json",
     normalLint: { covered: true, note: "jsonc track" },
     ratchets: "none",
     parser: "—",

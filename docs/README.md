@@ -4,7 +4,8 @@ Orientation for this folder. Start here, then follow the pointer that matches
 what you need.
 
 - **Humans:** the repo [`README.md`](../README.md) is the quickstart (setup,
-  commands, project structure).
+  commands, project structure), and [`CONTRIBUTING.md`](../CONTRIBUTING.md) is
+  the contribution path (branch, commit gate, pull request).
 - **Agents:** [`AGENTS.md`](../AGENTS.md) holds the always-loaded repo rules,
   working model, and task-guide triggers.
 

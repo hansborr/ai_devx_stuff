@@ -12,7 +12,11 @@ cd "$REPO_ROOT"
 
 MODE=full
 BASE=main
-HADOLINT_VERSION="$(bun -e '
+# --config=/dev/null: this is a plain JSON read of package.json, and it must not
+# depend on the repo's bunfig.toml parsing. Bun 1.4 refuses to start on a
+# malformed bunfig, which would pre-empt the taplo sensor whose job is to
+# report exactly that file.
+HADOLINT_VERSION="$(bun --config=/dev/null -e '
   const pkg = require(process.argv[1]);
   const version = pkg.config?.hadolint;
   if (typeof version !== "string" || version.length === 0) process.exit(1);

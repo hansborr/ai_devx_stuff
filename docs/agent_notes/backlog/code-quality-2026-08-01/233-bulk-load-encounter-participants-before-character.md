@@ -1,6 +1,6 @@
 # 233. Bulk-load encounter participants before character deletion reconciliation
 
-Status: Not started
+Status: Landed on fix/cq-017
 Theme: Character deletion serially reloads every active encounter's participant list · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

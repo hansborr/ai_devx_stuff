@@ -1,6 +1,6 @@
 # 265. Document cross-worktree status modes
 
-Status: Not started
+Status: Landed on fix/cq-218
 Theme: Document the two cross-worktree status modes in the per-worktree guide · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

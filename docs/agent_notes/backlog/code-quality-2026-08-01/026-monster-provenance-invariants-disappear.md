@@ -1,6 +1,6 @@
 # 26. Monster provenance mutual exclusion lives only in a superRefine, so the inferred type admits states the parser rejects and the exported monster schema skips the check entirely
 
-Status: Not started
+Status: Landed on fix/cq-026
 Theme: inference-visible schema invariants · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -135,6 +135,18 @@ behavior are preserved.
 - **Out of scope:** adding a second wire discriminator key, restructuring the
   character/npc variants, widening `assertHomebrewEntryLinkedToCampaign`'s
   signature, and any Prisma or persistence changes.
+- **Landing note (fix/cq-026):** step 5's "client code needs no changes" did
+  not hold once the union was in place — `encounter-detail-view.tsx` spread the
+  client's every-key-optional `MonsterAddData` into the mutation, and that
+  literal is assignable to none of the three variants. Rather than pre-empt
+  [048](./048-monsteradddata-erases-mutually-exclusive.md) (which owns the
+  `MonsterAddData` shape), the lane added a small pure bridge,
+  `packages/client/src/components/campaign/encounters/monster-participant-input.ts`,
+  that narrows `MonsterAddData` into one variant at the call site and throws on
+  inconsistent provenance. 048 should delete that bridge when it gives
+  `MonsterAddData` the same union. The server-side tightening in step 5 needed
+  no code: after the union, narrowing on `homebrewMonsterEntryId` already
+  types `expectedVersion` as `number`.
 - **Error-shape degradation is real and accepted.** Zod plain unions report
   failures as a single `invalid_union` issue with per-option errors nested
   under `errors`, so field-level error quality degrades versus the current

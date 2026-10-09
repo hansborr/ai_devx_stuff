@@ -1,6 +1,6 @@
 # 4. Character creation is a 640-line four-file pseudo-module loose in the services root, and the services README misclassifies it as a flat service
 
-Status: Not started
+Status: Landed on fix/cq-004
 Theme: service module boundaries · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

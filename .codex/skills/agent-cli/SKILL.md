@@ -32,9 +32,9 @@ For an off-family opinion, swap in `consult copilot -m <model>` or `consult curs
 
 ## Choosing agent and model
 
-- Delegated implementation: `work codex` (no `-m`; user-configured model) is the default delegate. Use `work claude -m opus|fable`, `work copilot -m <model>`, or `work cursor` only when the implementation should come from that specific model.
+- Delegated implementation: `work codex` (no `-m`; user-configured model) is the default delegate. Use `work claude -m opus|fable`, `work copilot -m <model>`, or `work cursor` only when the implementation should come from that specific model. On the claude backend `fable` resolves to Claude Fable 5.1 (`claude-fable-5-1`, the frontier seat) and `opus` to Claude Opus 5 (`claude-opus-5`); pass the full id when a seat must stay pinned to one release (see [references/claude.md](references/claude.md)).
 - Second opinion from Claude Code: `consult codex` for GPT, `consult copilot -m gemini-3.6-flash` for Gemini, `consult cursor` for Grok (catalogs in [references/copilot.md](references/copilot.md) and [references/cursor.md](references/cursor.md)). `consult claude` is pointless from Claude Code — spawn a subagent instead.
-- Second opinion from Codex: `consult claude -m fable|opus`; `consult copilot` for Gemini/Kimi, `consult cursor` for Grok. Copilot-hosted `claude-*`/`gpt-*` models are fallbacks for when the native CLI can't serve the model.
+- Second opinion from Codex: `consult claude -m fable|opus` (Claude Fable 5.1 or Claude Opus 5); `consult copilot` for Gemini/Kimi, `consult cursor` for Grok. Copilot-hosted `claude-*`/`gpt-*` models are fallbacks for when the native CLI can't serve the model.
 - `review codex -- --base main` runs codex's native priority-tagged diff review (log-only; prefer `consult codex` so the result lands in `-o`).
 
 ## Command shape

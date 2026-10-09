@@ -77,11 +77,11 @@ tree.
 | Record class | Actionable | Terminal | Unknown | Total |
 | --- | ---: | ---: | ---: | ---: |
 | pack index | 18 | 7 | 2 | 27 |
-| leaf | 195 | 282 | 7 | 484 |
+| leaf | 130 | 347 | 7 | 484 |
 | ledger / provenance record | 7 | 33 | 5 | 45 |
 | standalone note | 18 | 9 | 2 | 29 |
 | working artifact | 24 | 0 | 100 | 124 |
-| **all records** | 262 | 331 | 116 | 709 |
+| **all records** | 197 | 396 | 116 | 709 |
 
 ## Packs
 
@@ -97,11 +97,11 @@ subdirectories are counted in their own column.
 | [arch-review-2026-07](./arch-review-2026-07/01-promotion-map.md) | `01-promotion-map.md` (non-canonical) | 2 | 1 | 0 | 3 | 0 |
 | [client-test-isolation-step3](./client-test-isolation-step3/00-index.md) | `00-index.md` | 0 | 2 | 0 | 2 | 0 |
 | [code-quality-2026-07-25](./code-quality-2026-07-25/00-index.md) | `00-index.md` | 29 | 59 | 0 | 88 | 0 |
-| [code-quality-2026-08-01](./code-quality-2026-08-01/00-index.md) | `00-index.md` | 132 | 161 | 1 | 294 | 118 |
+| [code-quality-2026-08-01](./code-quality-2026-08-01/00-index.md) | `00-index.md` | 68 | 225 | 1 | 294 | 118 |
 | [codebase-audit](./codebase-audit/00-report.md) | `00-report.md` (non-canonical) | 0 | 6 | 0 | 6 | 0 |
 | drift-triage-2026-07-13 | none | 2 | 1 | 0 | 3 | 0 |
 | [harness-presentation-2026-06](./harness-presentation-2026-06/00-README.md) | `00-README.md` (non-canonical) | 1 | 1 | 4 | 6 | 0 |
-| [harness-research-followups-2026-06](./harness-research-followups-2026-06/00-index.md) | `00-index.md` | 5 | 3 | 0 | 8 | 0 |
+| [harness-research-followups-2026-06](./harness-research-followups-2026-06/00-index.md) | `00-index.md` | 4 | 4 | 0 | 8 | 0 |
 | [harness-review-2026-07](./harness-review-2026-07/00-index.md) | `00-index.md` | 3 | 1 | 0 | 4 | 1 |
 | [harness-review-tasks](./harness-review-tasks/00-index.md) | `00-index.md` | 0 | 7 | 2 | 9 | 0 |
 | [harness-strictness-comprehension-2026-06](./harness-strictness-comprehension-2026-06/00-index.md) | `00-index.md` | 2 | 1 | 0 | 3 | 0 |
@@ -160,7 +160,7 @@ subdirectories are counted in their own column.
 | [AUDIT-SUMMARY.md](./code-quality-2026-07-25/AUDIT-SUMMARY.md) | code-quality-2026-07-25 | terminal | Reference — background for 00-index.md, not a work item |
 | [CLIENT-CLUSTER-PLAN.md](./code-quality-2026-07-25/CLIENT-CLUSTER-PLAN.md) | code-quality-2026-07-25 | actionable | All 15 slices landed. 7 landed in merge `6cf8c78d5` (C1, C2, C3… |
 | [CONSTRAINTS.md](./code-quality-2026-07-25/CONSTRAINTS.md) | code-quality-2026-07-25 | terminal | Reference — standing rulings for 00-index.md; read before addin… |
-| [HARNESS-CLUSTER-PLAN.md](./code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md) | code-quality-2026-07-25 | actionable | In progress — 18 of 23 slices landed across nine merges:** H1-H… |
+| [HARNESS-CLUSTER-PLAN.md](./code-quality-2026-07-25/HARNESS-CLUSTER-PLAN.md) | code-quality-2026-07-25 | actionable | In progress — 19 of 23 slices landed across ten merges:** H1-H2… |
 | [SERVER-COMMENTS-PLAN.md](./code-quality-2026-07-25/SERVER-COMMENTS-PLAN.md) | code-quality-2026-07-25 | actionable | S1 and S2 landed 2026-07-28 on branch… |
 | [SESSION-HANDOFF-2026-07-28.md](./code-quality-2026-07-25/SESSION-HANDOFF-2026-07-28.md) | code-quality-2026-07-25 | terminal | Historical — nothing here is in flight.** Every branch this not… |
 | [SHARED-CLUSTER-PLAN.md](./code-quality-2026-07-25/SHARED-CLUSTER-PLAN.md) | code-quality-2026-07-25 | terminal | Finished — 21 of 22 slices landed, closing all eight leaves; U3… |

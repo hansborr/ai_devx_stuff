@@ -1,6 +1,6 @@
 # 223. Remove the fulfilled shared-rules mutation gap from harness documentation
 
-Status: Not started
+Status: Landed on fix/cq-218
 Theme: Harness current-gaps list still calls scheduled rules mutation missing · Area: docs · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

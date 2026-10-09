@@ -59,6 +59,14 @@ export const restrictedSyntaxSelectors = defineRestrictedSyntaxSelectors({
     message:
       "Raw Prisma SQL is restricted to sanctioned server boundaries. Move it to a reviewed service/helper and see docs/CONCURRENCY.md.",
   },
+  "prisma-singleton-import": {
+    // Relative `prisma/client.js` only: the generated client at
+    // `generated/prisma/client.js` exports types and the class, not `prisma`.
+    selector:
+      "ImportDeclaration[importKind!='type'][source.value=/^(\\.\\.?\\/)+prisma\\/client\\.js$/] > ImportSpecifier[imported.name='prisma']",
+    message:
+      "Import the Prisma singleton only at the composition root (`app.ts#buildServer`), which resolves it once and hands the client down as a parameter (`PrismaClient`, or the narrowed `DbClient` for business code). Tests and helpers keep direct access. See docs/CONCURRENCY.md and `utils/prisma-types.ts#toDbClient`.",
+  },
   "shared-schema-z-any": {
     selector:
       "CallExpression[callee.object.name='z'][callee.property.name='any'], CallExpression[callee.object.name='z'][callee.computed=true][callee.property.value='any']",
@@ -124,10 +132,9 @@ export const restrictedSyntaxSelectors = defineRestrictedSyntaxSelectors({
 // tracked test and helper files. The intended behavior for the files this
 // affects is pinned by the synthetic `.spec`/helper cases in
 // eslint-rules/restricted-syntax-and-globals-config.test.js.
-const serverRawSqlIgnores = [
+const serverProductionIgnores = [
   ...serverTestAndHelperSourceFiles,
   "packages/server/src/**/*test-helper*.ts",
-  "packages/server/src/services/inventory-service.ts",
   ...testAndHelperFiles,
 ];
 
@@ -141,17 +148,29 @@ const policies = [
     selectors: ["process.exit", "process.env"],
   }),
 
-  // Raw Prisma SQL is fenced to sanctioned server boundaries; see
-  // docs/CONCURRENCY.md.
+  // The Prisma singleton may only be imported at the composition root (the
+  // `server-composition-root` exception below); see docs/CONCURRENCY.md. This
+  // is the outer server production family: `server-raw-sql` nests inside it
+  // so a raw-SQL allowance never doubles as a singleton allowance.
   restrictedSyntaxPolicy({
-    id: "server-raw-sql",
+    id: "server-prisma-singleton",
     within: "process-primitives",
     files: ["packages/server/src/**/*.ts"],
-    ignores: serverRawSqlIgnores,
+    ignores: serverProductionIgnores,
+    selectors: ["prisma-singleton-import"],
+  }),
+
+  // Raw Prisma SQL is fenced to sanctioned server boundaries. The one
+  // production service allowed `$queryRaw` is ignored here and only here.
+  restrictedSyntaxPolicy({
+    id: "server-raw-sql",
+    within: "server-prisma-singleton",
+    files: ["packages/server/src/**/*.ts"],
+    ignores: ["packages/server/src/services/inventory-service.ts"],
     selectors: ["raw-prisma-sql"],
   }),
 
-  // Inherits `serverRawSqlIgnores`, so router test and helper files take the
+  // Inherits `serverProductionIgnores`, so router test and helper files take the
   // test carve-out too — see the recorded decision above; this is the family
   // the old block order treated inconsistently.
   restrictedSyntaxPolicy({
@@ -245,6 +264,17 @@ const exceptions = [
     remove: ["process.exit", "process.env"],
   }),
 
+  // The composition root resolves the production Prisma singleton exactly once
+  // and injects it into every request and socket boundary; nothing below
+  // `buildServer` may reach for the module itself. Nested under `server-raw-sql`
+  // (not the family that adds the selector) so `app.ts` keeps the raw-SQL fence.
+  restrictedSyntaxException({
+    id: "server-composition-root",
+    within: "server-raw-sql",
+    files: ["packages/server/src/app.ts"],
+    remove: ["prisma-singleton-import"],
+  }),
+
   // The sanctioned client env boundary: import.meta.env reads belong here and
   // nowhere else, while the query-key guards still apply.
   restrictedSyntaxException({
@@ -263,6 +293,7 @@ export const restrictedSyntaxConfigs = buildRestrictedSyntaxConfigs({
     "process.exit",
     "process.env",
     "raw-prisma-sql",
+    "prisma-singleton-import",
     "shared-schema-z-any",
     "trpc-output-permissive",
     "query-key-array-property",

@@ -1,6 +1,6 @@
 # 7. Two cascade deleters hand-copy the load-bearing snapshot-then-cascade-then-clear turn-origin sweep, with comments as the only synchronization mechanism
 
-Status: Not started
+Status: Landed on fix/cq-009
 Theme: transaction protocol single-sourcing · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

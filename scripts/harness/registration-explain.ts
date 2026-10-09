@@ -17,7 +17,7 @@
 // registration-explain-cli.ts.
 
 import { compareByCodepoint } from "../lib/codepoint-compare.js";
-import { SCRIPT_SMOKE_TEST_NAMES } from "../path-policy/path-policy-smoke-subjects.js";
+import { scriptSmokeTestNames } from "../path-policy/path-policy-smoke-subjects.js";
 import { SCRIPT_SMOKE_SUBJECTS } from "../path-policy/path-policy-smoke-subjects-data.js";
 import {
   isScriptSmokeTestPath,
@@ -55,7 +55,7 @@ import {
 export function liveExplainPathPolicy(): ExplainPathPolicy {
   return {
     smokeSubjects: SCRIPT_SMOKE_SUBJECTS,
-    smokeTestNames: SCRIPT_SMOKE_TEST_NAMES,
+    smokeTestNames: scriptSmokeTestNames(),
     metadataFreshnessTestName: SMOKE_METADATA_FRESHNESS_TEST_NAME,
     isSmokeTestPath: isScriptSmokeTestPath,
   };

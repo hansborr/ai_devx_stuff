@@ -1,6 +1,6 @@
 # 256. Constrain class caster metadata with database enums
 
-Status: Not started
+Status: Landed on fix/cq-011
 Theme: Class caster metadata bypasses existing database enum boundaries · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

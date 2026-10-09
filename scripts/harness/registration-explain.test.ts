@@ -737,11 +737,14 @@ describe("preflight entrypoint eager module graph", () => {
     const repoRoot = process.cwd();
     const closure = eagerFirstPartyClosure(join(repoRoot, "scripts/harness-registration-check.ts"));
 
-    // The no-arg preflight gate must not pay for the explain-only modules or
-    // run their module-scope work — path-policy-smoke-subjects.ts reads the
-    // cwd-relative scripts/tests directory at import time. The explain modules
-    // stay reachable through literal dynamic imports, which the fixture-copy
-    // closure walker still follows (see runtime-imports.ts recordImport).
+    // The no-arg preflight gate must not pay for parsing and evaluating the
+    // explain-only modules, which pull in the path-policy smoke-subject
+    // modules and the generated subject registry the preflight never imports.
+    // (It does read that generated registry from disk for the skill-artifact
+    // freshness check; the expects below pin eager-closure membership, not
+    // disk reads.) The explain modules stay reachable through literal dynamic
+    // imports, which the fixture-copy closure walker still follows (see
+    // runtime-imports.ts recordImport).
     expect(closure.has(join(repoRoot, "scripts/harness/registration-explain.ts"))).toBe(false);
     expect(closure.has(join(repoRoot, "scripts/harness/registration-explain-render.ts"))).toBe(
       false,

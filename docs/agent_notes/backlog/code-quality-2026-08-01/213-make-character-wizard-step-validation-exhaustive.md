@@ -1,6 +1,6 @@
 # 213. Make character-wizard step validation exhaustive over its closed registry
 
-Status: Not started
+Status: Landed on fix/cq-062
 Theme: Keep character-wizard step keys closed through validation · Area: client · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -75,3 +75,16 @@ navigation block.
 - Preserve the nine current step keys, their order, applicability behavior,
   validator logic, and out-of-range navigation guard. This leaf closes the
   type boundary; it does not redesign validation or wizard navigation.
+- **Landed on fix/cq-062 (2026-09-12) on the pre-042 state shape.** Leaf 042
+  had not started, so the closed `WizardStepKey` contract was carried
+  through the current `wizard-state.ts` / `wizard-validation.ts`; 042 must
+  keep the exhaustive `Record<WizardStepKey, StepValidator>` when it
+  restructures. `WizardStepKey` is exported from `wizard-state.ts` only and
+  is deliberately not re-exported from `wizard-context.tsx`: no component
+  needs it today, and an unused re-export would trip the knip unused-export
+  gate. The registry table test lives in `wizard-state.test.ts`
+  (`describe("WIZARD_STEPS registry")`), not in the 056 file. Review round 1
+  narrowed that table to a per-key `isStepApplicable` check plus one
+  `computeCanAdvance` sweep across every registry index: per-key validation
+  cases already exist in the same file, and validator completeness is
+  enforced by the exhaustive `Record` type at compile time, not by the table.

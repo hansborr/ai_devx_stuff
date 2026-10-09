@@ -11,8 +11,8 @@ describe("eval-family security fences", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.ts",
-        "packages/server/src/services/auth-service.test.ts",
+        "packages/server/src/services/auth-primitives.ts",
+        "packages/server/src/services/auth-primitives.test.ts",
         "packages/client/src/lib/api-base.ts",
         "scripts/drift-ai.ts",
         "eslint-rules/no-barrel.js",
@@ -29,7 +29,7 @@ describe("eval-family security fences", () => {
     "reports direct eval, string timers, and Function construction",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const file = "packages/server/src/services/auth-service.ts";
+      const file = "packages/server/src/services/auth-primitives.ts";
       const probes = [
         { ruleId: "no-eval", code: 'eval("2 + 2");' },
         {
@@ -53,7 +53,7 @@ describe("server weak-randomness security fence", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         "packages/server/prisma/seed.ts",
         "packages/server/prisma/seed-template.ts",
         "packages/server/scripts/pgexec.ts",
@@ -74,7 +74,7 @@ describe("server weak-randomness security fence", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.test.ts",
+        "packages/server/src/services/auth-primitives.test.ts",
         "packages/server/src/test/prepare-test-db.ts",
         "packages/server/src/services/level-up/level-up-test-helper.ts",
         "packages/server/src/utils/__type-tests__/character-stats-restrictions.ts",

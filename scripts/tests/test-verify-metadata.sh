@@ -12,6 +12,7 @@
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-engine.ts
 # smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/path-policy/smoke-test-files.ts
@@ -287,7 +288,7 @@ ok "musi_success_marker_matches rejects future timestamp (negative age)"
 [ "${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}" = "3600" ] \
   || fail "MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS should be 3600 (got '${MUSI_GATE_PRE_PUSH_FRESHNESS_SECONDS:-unset}')"
 # MUSI_GATE_PRECOMMIT_REGISTRATION_TIMEOUT_DEFAULT is deliberately not restated
-# here: test-dependency-freshness.sh pins the meaningful behaviour by observing
+# here: test-pre-commit.sh pins the meaningful behaviour by observing
 # pre-commit hand `45s` to `timeout`, so a second assertion would only repeat
 # the constant.
 ok "shared gate timing constants expose the canonical 120/2400/3600 budgets"

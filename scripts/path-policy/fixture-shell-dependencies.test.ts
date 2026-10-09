@@ -127,9 +127,10 @@ describe("monitored fixture shell dependencies", () => {
   });
 
   it("accepts copied paths covered by a directory-prefix smoke subject", () => {
-    // `matchesSmokeSubject` in path-policy-query-core treats a trailing-slash
-    // subject as a prefix; the metadata check must read subjects the same way
-    // or it would demand a per-file subject the selector does not need.
+    // The shared `matchesSmokeSubject` treats a trailing-slash subject as a
+    // prefix; the metadata check reads subjects through that same function as
+    // the changed-mode selector, so it cannot demand a per-file subject the
+    // selector does not need.
     mkdirSync(join(repoRoot, "eslint-config"), { recursive: true });
     writeFileSync(join(repoRoot, "eslint-config", "baseline.json"), "{}\n");
     writeSmoke([

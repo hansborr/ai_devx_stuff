@@ -478,10 +478,12 @@ ai_branch_is_protected() {
 
 # Hard guard for git-level hooks (.husky/pre-commit): refuse a direct commit on
 # the protected branch and point at the merge-based integration path. Because
-# git runs the hook inside the target repo, this is cwd-correct and also covers
-# the `git -C <path>` / `cd <path> && git commit` forms that the PreToolUse
-# string matcher (ai_policy_has_git_commit_on_main) cannot resolve. Prints to
-# stderr and returns 1 when blocked, 0 otherwise; the caller decides to exit.
+# git runs the hook inside the target repo, this is cwd-correct and holds
+# however the commit was issued — a second guard behind the PreToolUse matcher
+# (ai_policy_has_git_commit_on_main), which already judges the `git -C <path>` /
+# `cd <path> && git commit` forms against the checkout they name and refuses the
+# targets it cannot resolve outright. Prints to stderr and returns 1 when
+# blocked, 0 otherwise; the caller decides to exit.
 ai_guard_commit_branch_or_die() {
   local branch
   branch=$(ai_current_branch)

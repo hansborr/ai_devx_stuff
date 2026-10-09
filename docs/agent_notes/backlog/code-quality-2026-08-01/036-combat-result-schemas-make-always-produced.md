@@ -1,6 +1,6 @@
 # 36. Combat result schemas declare `rollMode` optional even though every producer always emits it
 
-Status: Not started
+Status: Landed on fix/cq-211
 Theme: schema/producer contract alignment · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

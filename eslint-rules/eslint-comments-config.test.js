@@ -39,7 +39,7 @@ describe("eslint-comments restricted disable fence", () => {
     "resolves every ratcheted rule id plus the manual hard-fence rules",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const config = await configFor("packages/server/src/services/auth-service.ts");
+      const config = await configFor("packages/server/src/services/auth-primitives.ts");
       const restrictedOptions = restrictedDisableOptions(config);
 
       expect(severityOf(config, "eslint-comments/no-restricted-disable")).toBe(2);
@@ -68,7 +68,7 @@ describe("eslint-comments restricted disable fence", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       const [result] = await lintTextFor(
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         [
           "// eslint-disable-next-line no-restricted-syntax -- fixture must be fenced",
           "process.exit(1);",
@@ -89,7 +89,7 @@ describe("eslint-comments restricted disable fence", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       const [result] = await lintTextFor(
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         [
           "// eslint-disable-next-line local/concurrency-guard -- fixture must be fenced",
           "export const value = 1;",
@@ -110,7 +110,7 @@ describe("eslint-comments restricted disable fence", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       const [result] = await lintTextFor(
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         [
           "declare const handler: string;",
           "// eslint-disable-next-line @typescript-eslint/no-implied-eval -- fixture must be fenced",

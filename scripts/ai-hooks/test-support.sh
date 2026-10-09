@@ -1,41 +1,15 @@
 #!/bin/bash
 
-# Shared assertion helpers for the ai-hooks shell test suites. Sourced by the
+# Hook-specific test support for the ai-hooks shell test suites. Sourced by the
 # aggregate runner (test.sh) and the focused per-hook scripts (e.g.
-# test-ratchet-regression.sh) so both share one definition of the generic
-# pass/fail and hook-JSON assertions. Keep this file scoped to test support
-# only: pure helper functions with no hook fixtures or stateful setup.
+# test-ratchet-regression.sh) so both share one definition of the hook-JSON
+# assertions and the hook shim builders. `fail()` and the generic assertions
+# come from scripts/tests/lib/test-assertions.sh, which this file sources so
+# ai-hooks suites keep getting them from here. Keep this file scoped to test
+# support only: pure helper functions with no hook fixtures or stateful setup.
 
-fail() {
-  printf 'FAIL: %s\n' "$1" >&2
-  exit 1
-}
-
-# `--` terminates option parsing: without it a needle that starts with `-` (say
-# `--dry-run completed`) is read by grep as an option, the assertion errors out
-# instead of comparing, and assert_not_contains then passes vacuously.
-assert_contains() {
-  local haystack="$1"
-  local needle="$2"
-
-  grep -qF -- "$needle" <<< "$haystack" || fail "expected [$haystack] to contain [$needle]"
-}
-
-assert_not_contains() {
-  local haystack="$1"
-  local needle="$2"
-
-  if grep -qF -- "$needle" <<< "$haystack"; then
-    fail "expected [$haystack] not to contain [$needle]"
-  fi
-}
-
-assert_no_output() {
-  local output="$1"
-  local label="$2"
-
-  [ -z "$output" ] || fail "$label should emit nothing, got: $output"
-}
+# shellcheck source=../tests/lib/test-assertions.sh
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/../tests/lib/test-assertions.sh"
 
 assert_hook_json() {
   local output="$1"

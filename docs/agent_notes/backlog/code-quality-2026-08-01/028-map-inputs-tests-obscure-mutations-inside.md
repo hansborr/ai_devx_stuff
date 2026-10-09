@@ -1,6 +1,6 @@
 # 28. The map-input schema suite buries the one field under test inside dozens of repeated full-payload literals
 
-Status: Not started
+Status: Landed on fix/cq-028
 Theme: typed test payload builders · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

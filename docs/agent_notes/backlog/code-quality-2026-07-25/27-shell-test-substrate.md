@@ -5,6 +5,13 @@ Theme: shell test substrate · Area: harness · Severity: medium · Size: XL
 
 Source: codebase quality audit 2026-07-25 · Confidence: high
 
+> **Every `path:line`, count and line total in this leaf is frozen at the
+> 2026-07-25 audit snapshot and is not re-validated.** Treat none of them as
+> live — the suites they pin have grown, shrunk and been split since. The
+> re-validated 2026-09-03 coordinates are in
+> [`27-PLAN.md`](./27-PLAN.md); read the pins there and this leaf for the
+> reasoning only.
+
 ## Problem
 
 There are 52 shell smoke suites under `scripts/tests/`, totalling ~36,000 lines,
@@ -71,6 +78,15 @@ generalize a pattern the repo has already proven.
 - `scripts/README.md:74-76` — "Helper-only shell files belong in `scripts/tests/lib/`", so the placement for a new `scripts/tests/` library is already documented; `scripts/lib/` is described at `:61` as shared shell/TS helpers for *script families* (it is sourced by `scripts/verify.sh` and the hooks), not a home for test-only code.
 
 ## Proposed direction
+
+> **Superseded.** [`27-PLAN.md`](./27-PLAN.md) supersedes this section and
+> carries the re-validated 2026-09-03 pins; the frozen-pins banner at the top
+> of this leaf applies here too. Two claims below are also substantively wrong
+> and corrected in the plan: `scripts/ai-hooks/test-support.sh` defines neither
+> `ok()` nor a pass counter (step 1), and every hook-only helper is called only
+> from the moved block, so step 5's shared-library hoist would create a
+> single-consumer file. Read the plan's slice rows; use this section for the
+> reasoning, not the coordinates.
 
 Do steps 1-4 (the substrate) before any split. Splitting first multiplies the
 boilerplate instead of retiring it.

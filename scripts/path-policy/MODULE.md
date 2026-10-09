@@ -8,6 +8,19 @@ This directory owns three harness concerns: changed-file classification, smoke
 subject selection, and static analysis of the copy sets assembled
 by hand-written smoke tests.
 
+The classification half is split into a portable evaluator and a Musi adapter.
+[`path-policy-query-engine.ts`](./path-policy-query-engine.ts) owns the selector
+language, the query names, the handler factory, and the NUL-safe parse/format
+helpers; it holds no policy data and reads no repository state. Its copy
+contract is that file plus its two local dependencies,
+[`segment-pattern.ts`](./segment-pattern.ts) (the star-only segment dialect the
+`single-segment-glob` selector evaluates) and
+[`smoke-test-files.ts`](./smoke-test-files.ts) (the smoke-file vocabulary and
+subject matcher) — both policy-neutral, and the engine imports nothing else.
+[`path-policy.ts`](./path-policy.ts) owns Musi's policy value, and
+[`path-policy-query-core.ts`](./path-policy-query-core.ts) is the adapter that
+binds the two together.
+
 It does not own the manifest closure validator in
 [`scripts/harness/fixture-closure-check.ts`](../harness/fixture-closure-check.ts).
 That validator compares declared generated-surface paths with import closure;
@@ -16,10 +29,19 @@ this directory reads smoke-test shell and does not update
 
 ## Data Flow
 
-The query entry reads `PATH_POLICY` and the generated smoke-subject map to answer
-changed-file classification requests. Both query selection and generator
-discovery use the distinct basename and repo-path predicates plus path
-normalization owned by `smoke-test-files.ts`. Its `single-segment-glob`
+The query entry answers changed-file classification requests through the engine's
+handler table. `path-policy-query-core.ts` builds that table once with
+`createPathPolicyQueryHandlers`, passing `PATH_POLICY`, the generated
+smoke-subject registry, the memoized `scriptSmokeTestNames` discovery provider,
+and the metadata-freshness smoke name. Both smoke dependencies are lazy
+providers, so the engine never runs smoke discovery for a query that does not
+consume it. The registry is a different matter: the adapter imports it
+statically, so any query answered through the adapter still evaluates the
+generated module — what the split bought is that `path-policy.ts` and the
+engine no longer carry that edge. Both query
+selection and generator discovery use the distinct basename and repo-path
+predicates, path normalization, and the smoke-subject header parser and subject
+matcher owned by `smoke-test-files.ts`. The engine's `single-segment-glob`
 selectors use the star-only matcher documented in
 [`segment-pattern.ts`](./segment-pattern.ts). The generator takes the other
 direction: `projectSmokeSubjectOutputs` first runs the fixture analyzer as a
@@ -63,6 +85,12 @@ belong in reasoned `fixtureExtras` records in `harness.controls.json`.
 
 ## State Ownership
 
+The query engine owns no module state: handlers close over injected
+dependencies, so one process can build several tables. The only memo in the
+directory is the discovered smoke-name list inside
+[`path-policy-smoke-subjects.ts`](./path-policy-smoke-subjects.ts), which is
+module-scope so `vi.resetModules()` clears it.
+
 The fixture analyzer owns no persistent state or output artifact; it reports
 copy-set drift by throwing. The subject-map side owns the generated
 `path-policy-smoke-subjects-data.ts` and
@@ -75,7 +103,11 @@ copy-set drift by throwing. The subject-map side owns the generated
   shell and import closure.
 - `fixture-helper-calls.test.ts` covers helper-call composition directly.
 - `segment-pattern.test.ts` pins the shared segment-pattern dialect contracts.
-- `smoke-test-files.test.ts` pins both smoke-file meanings and path normalization.
+- `smoke-test-files.test.ts` pins both smoke-file meanings, path normalization,
+  and the shared smoke-subject header parser and subject matcher.
+- `path-policy-query-engine.test.ts` drives the engine from an injected fixture
+  policy and injected smoke providers, including its zero-repository-import
+  contract.
 - `smoke-subject-headers.test.ts`, `path-policy-query.test.ts`, and
   `path-policy.test.ts` cover subject generation and changed-file policy.
 - Run a focused file with `bun run test:scripts:file -- <file>`; generated
@@ -91,6 +123,16 @@ copy-set drift by throwing. The subject-map side owns the generated
   [`fixture-seeding-annotations.ts`](./fixture-seeding-annotations.ts).
 - Entry selection has a deliberate path-based blind spot documented, with its
   live example, in [`fixture-import-closure.ts`](./fixture-import-closure.ts).
+- `path-policy-query-engine.ts` must stay free of repository policy, generated
+  data, and filesystem reads; its test asserts the import list. New Musi-specific
+  wiring belongs in `path-policy-query-core.ts`, which must keep re-exporting
+  `PATH_POLICY_QUERY_NAMES`, `isPathPolicyQueryName`, `queryPathPolicy`,
+  `parsePathPolicyInput`, and `formatPathPolicyOutput` for the shell consumers.
+- `# smoke-subjects:` syntax and subject matching have exactly one owner,
+  `smoke-test-files.ts`. The generator layers its source-path, line-number,
+  non-empty, and repo-relative POSIX diagnostics above that parser; the fixture
+  analyzer and the query engine share the matcher so fixture coverage cannot
+  approve metadata changed-mode selection reads differently.
 - Changed-file selectors and fixture shell analysis intentionally use different
   segment-pattern dialects. Read [`segment-pattern.ts`](./segment-pattern.ts)
   before changing either language; fixture brackets remain a JavaScript RegExp

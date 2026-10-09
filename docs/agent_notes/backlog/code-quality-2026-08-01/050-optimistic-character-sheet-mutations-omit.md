@@ -1,6 +1,6 @@
 # 50. Seven of eight optimistic character-sheet rollback branches — and every settled invalidation binding — have no consumer-level test
 
-Status: Not started
+Status: Landed on fix/cq-050
 Theme: optimistic rollback test coverage · Area: client · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -158,3 +158,125 @@ use-sorcery-points; two distinct settled callbacks in use-character-spells).
   before this leaf so the new rollback and invalidation tests use the narrowed
   action payloads; 041 changes all four hook implementations consumed here and
   their adjacent suites.
+
+**Implementation notes (2026-09-12, `fix/cq-050`):**
+
+- Done, entirely inside the four test files (no hook, `cache-helpers.ts`,
+  mock-trpc, or e2e change; no new shared test infrastructure). All seven
+  uncovered rollback branches now have a consumer-level failure test
+  (inventory update + delete, spellSlot use + recover + recoverAll,
+  sorceryPoint convertSlotToPoints, characterSpell remove), and all thirteen
+  settled invalidation bindings are asserted per mutation with
+  `toHaveBeenCalledTimes(n)` plus one `toHaveBeenCalledWith` per bound key —
+  never "something was invalidated". The `use-character-spells` tests pin the
+  `invalidate` (spellsKey only, with an explicit `not.toHaveBeenCalledWith`
+  on characterKey) vs `invalidateAll` (spellsKey + characterKey) split.
+- Rollback shape: each test keeps the mutation pending through the existing
+  keep-pending helper (which now returns its `Deferred` so the test can
+  `reject` it), asserts the optimistic write landed, rejects, then asserts
+  the cache captured at the `restoreSnapshot` moment `toEqual`s the seeded
+  snapshot. Every rollback test uses a file-local `captureCacheAtRollback()`
+  (the module-spy pattern from the pre-existing togglePrepared test, which was
+  moved onto the same helper); none reads the cache after settle. The helper
+  is duplicated per file by design — the leaf asked for no new infrastructure
+  — and is a candidate for a `*.test-helper.ts` consolidation later.
+- Expected keys are derived, not hand-written: each suite renders the hook
+  alongside `useCharacterKeys` (and `useTRPC().inventory.list.queryFilter`
+  for the inventory filter) inside the same `renderHook` callback.
+- Shell tests replaced: inventory "exposes createItem/updateItem/deleteItem
+  mutation function" (three), sorcery "exposes flexible casting mutation
+  functions" and "all pending flags start as false", and the sorcery
+  "createSlotFromPoints invokes without error" smoke test (now the settled
+  invalidation assertion). The optimistic-state, campaign-scope, and 044
+  projection / parse-throw tests are untouched.
+- Break-the-wiring proof run per suite before committing (hook edited, suite
+  run, hook restored from a backup copy): removing `onError` failed every new
+  rollback test with `expected undefined to deeply equal …`; removing an
+  `onSettled` or swapping `invalidateAll`/`invalidate` on cast/toggle failed
+  the matching invalidation tests on their call counts.
+- Nothing narrowed. Test counts: inventory 14 -> 14, spell-slots 9 -> 12,
+  sorcery-points 7 -> 6, character-spells 9 -> 15.
+
+**Round-1 fixes (2026-09-12, after the Opus round-1 review):**
+
+- Applied (P1): the per-file `captureCacheAtRollback()` copies restored
+  their `restoreSnapshot` spy only through a trailing `rollback.restore()`
+  call, so a failing assertion leaked the spy (`clearMocks` does not restore
+  implementations) and the next capture wrapped it in itself, overflowing
+  the stack and adding a misleading second red test. The helper now lives
+  once in `cache-helpers.test-helper.ts` and restores its spy through
+  `onTestFinished`; the eight `restore()` call sites are gone. Re-proved:
+  a deliberately failing rollback assertion, and a hook with its remove
+  `onError` deleted, each produce exactly one red test and no overflow.
+  `read()` returns `unknown` (the seeded value in each `toEqual` carries the
+  shape) because the lint tier rejects a single-use type parameter.
+- Applied (P2, consolidation): the new `*.test-helper.ts` supersedes the
+  "duplicated per file by design" note above. The leaf's "no new
+  infrastructure" caveat targets the mock-tRPC seam, not a colocated test
+  helper of the kind this directory already keeps
+  (`use-character-stats.test-helper.tsx`). The file is excluded from
+  coverage by the existing `*.test-helper.*` glob; the lint coverage-map row
+  count for the client test tier moved 346 -> 347 and the generated map was
+  refreshed. The three spell-slot rollback tests are one `it.each` with a
+  `slot()` seed helper; `recoverAll` keeps its multi-slot partially-used seed.
+- Applied (P2, redundant case): the `removeSpell` row of the `invalidate`
+  `it.each` is dropped; its rollback test asserts the same count and key
+  against the same `onSettled` binding (deleting the binding fails the
+  rollback test alone).
+- Applied (P2, row shape): `SeededSpellRow` is replaced by one
+  `SEEDED_SPELLS` const sliced from `TEST_CHARACTER_SPELLS` and typed
+  `CharacterSpellWithDetails`, shared by the optimistic-remove and rollback
+  tests.
+- Applied (P2, docs): `MODULE.md` "Test Seams" gains the capture-at-rollback
+  and derived-keys conventions.
+- Nothing declined. Test counts after the round: spell-slots 12 (unchanged,
+  now tabled), character-spells 15 -> 14.
+
+**Final-round fixes (2026-09-12, after the round-3 review):**
+
+- Applied (P1): `captureCacheAtRollback()` read `qc.getQueryData(key)` with
+  the key the hook handed to `restoreSnapshot`, so a mis-keyed `onError` was
+  a false green — the restore wrote the snapshot to the wrong key and the
+  capture read that same wrong key back, while the seeded query kept the
+  optimistic write. The helper now takes `(queryClient, seededKey)` and
+  reads the key the test seeded. Proof: mis-keying `use-character-spells`
+  `remove` `onError` to `characterKey` and `use-spell-slots` `recoverAll`
+  `onError` to `spellsKey` each left the suite fully green before the change
+  (14/14 and 12/12) and each fails exactly its own rollback test after it.
+- Applied (P2, narrowing step 4): the seven pre-existing `optimistically …`
+  tests that the rollback tests subsume are deleted — spell-slots useSlot /
+  recoverSlot / recoverAll, inventory delete / update, character-spells
+  remove, sorcery convertSlotToPoints. Each rollback test seeds the same
+  cache, fires the same mutation and waits on the same optimistic assertion
+  before rejecting, so the duplicates bought no signal while still building
+  a persistent wrapper and rendering the hook. Step 4's "keep the existing
+  optimistic-state tests as-is" is narrowed accordingly. Kept: the clamping
+  tests (`does not increment used past total`, `does not decrement used
+  below zero`), the campaign-scope tests, and the 044 patch-projection /
+  parse-throw tests — none of those is covered by a rollback test. The
+  sorcery rollback test absorbed the consumed-slot assertion its duplicate
+  carried. Re-proved after the deletions: neutering the `useSlot` increment
+  and the inventory update patch each fails the matching rollback test, so
+  the optimistic writes are still pinned.
+- Declined (P2, `isPending` column): the `expect(isPending(...)).toBe(false)`
+  read inside each settled `waitFor` is redundant with the invalidation call
+  count, but it is the line that says "the mutation settled" at the point of
+  the wait; dropping it churns four files for no change in signal, and both
+  final-round reviewers rated it non-blocking.
+- Test counts after the round: inventory 14 -> 12, spell-slots 12 -> 9,
+  sorcery-points 6 -> 5, character-spells 14 -> 13 (93 in the directory).
+- Applied (two P2s from the scoped round-3 re-read): the sorcery rollback
+  test's absorbed optimistic assertion read only `spellSlots[1]?.used`, so
+  `convertSlotToPoints` could burn every available slot and stay green — it
+  now compares the whole `spellSlots` array in the same `waitFor`, in the
+  `use-spell-slots` `optimisticUsed` style. Re-proved the reviewer's way:
+  dropping the `slot.spellLevel === slotLevel` guard from
+  `use-sorcery-points.ts` fails the strengthened test (slot-1 reads
+  `used: 1`) where it passed before, and the suite is green again with the
+  guard restored (93/93). And the MODULE.md rollback-test convention claimed
+  every rollback test waits on the optimistic state, which would license
+  deleting the two `optimistically toggles prepared status` tests — the
+  `togglePrepared` rollback test waits on the toast instead, so those two
+  are that write's only pin; the sentence now names the exception and says
+  they must stay. Nothing else from the re-read was actioned: it closed the
+  P1 and raised no other finding.

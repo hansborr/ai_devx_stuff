@@ -1,13 +1,13 @@
 # cursor backend notes
 
-Verified against Cursor Agent CLI 2026.08.11-e8db854. The binary is confusingly named `agent`. Requires a logged-in account (`agent login`) and, like the claude backend, `python3` on PATH to parse the JSON result envelope.
+Verified against Cursor Agent CLI 2026.08.31-4057e58. The binary is confusingly named `agent`. Requires a logged-in account (`agent login`) and, like the claude backend, `python3` on PATH to parse the JSON result envelope.
 
 ## Model catalog (`-m` defaults to `cursor-grok-4.6-xhigh`)
 
 - `cursor-grok-4.6-xhigh` — "Cursor Grok 4.6 Extra High", the wrapper default: not served by any other backend, so it is the fresh-perspective pick for consults and reviews. `-xhigh-fast` is the faster/cheaper variant; `-low`/`-medium`/`-high` tiers exist too. (The catalog renamed the grok ids with a `cursor-` prefix in 2026-08; the old `grok-4.5-xhigh` id is gone.)
 - `composer-2.5` — Cursor's own fast agentic model; a reasonable `work cursor` delegate for mechanical tasks.
 - Cursor is a multi-family gateway on its own quota, separate from the codex and copilot accounts: GPT (`gpt-5.6-sol-high`, `gpt-5.6-luna-high`, `gpt-5.3-codex-high`, plus `-low`/`-xhigh`/`-fast` variants), Grok 4.6/4.5, Gemini 3.7/3.5 flash, Kimi k3/k2.7, `glm-5.2`, and `composer-2.5`. `gpt-5.6-sol-high` is the GPT fallback seat when codex cannot serve; otherwise prefer `consult codex` (native harness).
-- `claude-opus-4-8-thinking-high`, `claude-fable-5-thinking-high` (no ZDR) — Claude family: prefer the native claude CLI.
+- `claude-fable-5-1-thinking-high`, `claude-fable-5-thinking-high` (both no ZDR), `claude-opus-5-thinking-high`, `claude-opus-4-8-thinking-high` — Claude family: prefer the native claude CLI. Fable 5.1, Fable 5 and Sonnet 5 carry the full plain `-low`/`-medium`/`-high`/`-xhigh`/`-max` and `-thinking-<tier>` sets; Opus 5 has plain `-low`/`-medium`/`-high` only, with `xhigh` and `max` served solely as `-thinking-xhigh`/`-thinking-max` (verified 2026-09-02 via `agent --list-models`).
 - There is no separate effort flag (the wrapper rejects `-e`): effort is encoded in the model id (`-xhigh`, `-low`) or a bracket override, e.g. `-m 'claude-opus-4-8[context=1m,effort=high]'`.
 - A `[resource_exhausted]` result is a quota bounce, not a lane failure: retry on a fresh `-o` path (the spent path cannot be reused).
 - The catalog is account-side and changes; re-discover it with `agent --list-models` (safe to run directly — it only prints and exits).

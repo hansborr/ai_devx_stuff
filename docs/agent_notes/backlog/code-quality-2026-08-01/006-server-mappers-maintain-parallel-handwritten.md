@@ -1,6 +1,6 @@
 # 6. Server mappers hand-transcribe 14 Prisma payload shapes that the package's own `GetPayload` convention already derives for free
 
-Status: Not started
+Status: Landed on fix/cq-006
 Theme: Prisma payload derivation · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: medium

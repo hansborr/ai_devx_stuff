@@ -1,6 +1,6 @@
 # 44. Three optimistic writers separate transport control fields from cached entity data with three incompatible conventions, and one of them leaks `campaignId` into cached rows today
 
-Status: Not started
+Status: Landed on fix/cq-044
 Theme: transport vs domain projection · Area: client · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -194,3 +194,34 @@ optimistic writers.
   it adds rollback tests around use-inventory's onMutate behavior and edits the
   same inventory test suite; avoid concurrent edits, with no hard ordering.
 - No prior-pack coverage of this finding.
+- **Implementation notes (2026-09-12, `fix/cq-044`):**
+  - Direction items 1-5 implemented as written. Shared: `inventoryItemPatchSchema`,
+    `characterStatsPatchSchema`, `characterPersonalityPatchSchema` (plain
+    `z.object`, exported patch types); each wire input recomposed as
+    `patchSchema.extend({ control }).strict()`. `.extend()` on Zod 4.4.3 keeps
+    the parent's strictness, but `.strict()` is re-applied on every wire input
+    regardless. Client: all three `onMutate`s build the patch with
+    `patchSchema.parse(variables)`; `UPDATE_STATS_CONTROL_FIELDS` is deleted,
+    `buildUpdateStatsPatch` / `buildAdjustHpOptimisticPatch` / `applyStatsPatch`
+    are typed over `CharacterStatsPatch`, the version increment and the
+    heal-from-zero death-save reset are unchanged. The hazard comment moved
+    onto `characterStatsPatchSchema` (personality and inventory point at it).
+  - Skipped the optional `cache-helpers.ts` projection helper: each writer's
+    projection is already the one-liner `patchSchema.parse(variables)`, so a
+    wrapper would add a seam without removing code.
+  - `createInventoryItemInputSchema` untouched, as the caveats require; the
+    shared `.default()` / `.superRefine` tests pass unchanged.
+  - Parse-throw path pinned in the inventory and stats suites (the two writers
+    whose behaviour changed most; personality has the same mechanics). Actual
+    behaviour, not a swallow: the ZodError fails the mutation before the
+    server call, `onError` runs with an undefined snapshot so `restoreSnapshot`
+    is a no-op, no `setQueryData` write happens, stats fires the generic
+    failure toast, and `onSettled` still invalidates. Because that invalidation
+    refetches, the tests pin "no optimistic write" as `setQueryData` never
+    called rather than as final cache contents.
+  - Test-shape correction found while pinning: `characterId` is an entity
+    field on `CharacterStats` and `campaignId` on `CharacterDetail`, so the
+    leak tests assert equality with entity plus patch (which also proves the
+    wire value did not overwrite the entity's) instead of property absence.
+  - No new files, so the lint coverage map did not change; `bun run
+    module:index` was run after the MODULE.md refresh.

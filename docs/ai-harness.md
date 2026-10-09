@@ -964,8 +964,9 @@ survivor counts never change the exit code.
 
 The weekly slow-drift lane (see Slow Drift Schedule above) additionally runs
 a scoped shared-rules mutation pass plus this summarizer, so survivor counts
-finally trend week over week instead of living in one-off local audits. That
-recurring signal stays report-only end to end.
+recur weekly instead of living in one-off local audits. Nothing aggregates the
+counts across runs (see Current Gaps). That recurring signal stays report-only
+end to end.
 
 The scripts mutation command currently excludes `scripts/codemods/**`. That
 subsystem's `trpc-shared-input` fixture test compares exact transformed output,
@@ -1019,9 +1020,15 @@ Triage rules:
   judges the wrong checkout. See "How the commit wrapper resolves its target
   checkout".
 - Slow drift now has a weekly fused artifact for `lint:ratchet` plus
-  current-scope `drift:ai --check all`. Remaining slow-lane gaps include runtime
-  JSONL capture for `logs:audit`, changed behavior without nearby tests, scoped
-  mutation testing for `packages/shared/src/rules/`, and flake/timing trends.
+  current-scope `drift:ai --check all`, and the same scheduled lane runs the
+  scoped `packages/shared/src/rules/` mutation pass and records per-step
+  timings. Remaining slow-lane gaps: runtime JSONL capture for `logs:audit`
+  (the scheduled job skips that step because it collects no server logs);
+  changed behavior without nearby tests; and cross-run trends for the timings
+  and mutation survivor counts the lane already emits — each run's
+  `timings.txt` and `mutation-survivors.txt` reach only that run's step summary
+  and a 14-day artifact, nothing aggregates them week over week, and no step
+  repeats a suite to separate flake from real drift.
 
 ## Promotion Rule
 

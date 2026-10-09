@@ -1,10 +1,38 @@
 # 10 — Preserve lint-ratchet identity across path renames
 
-Status: Proposed — ready for design review
+Status: Proposed — re-scope before a second attempt; the first implementation
+was dropped 2026-09-02
 Date: 2026-07-21
 Priority: P2
 Size: L
 Risk: high
+
+> **First attempt dropped 2026-09-02.** `feat/lint-ratchet-rename-identity`
+> (tip `e169c535`, 28 non-merge commits, all on 2026-07-22) was deleted; its
+> tip is kept as the local tag `archive/feat-lint-ratchet-rename-identity`.
+> The problem is still real: the baseline is still keyed by exact
+> `(ratchetId, path)`, and the last entry in `lint-ratchet.debt-log.jsonl`
+> is a manual "net-neutral path rename" acceptance.
+>
+> Why it was dropped: the branch delivered the rekey (kernel module
+> `tools/lint-ratchet/src/kernel/baseline-path-renames.ts`, ~250 lines, plus
+> the `--rename-path` token walk in `scripts/lint-ratchet/cli.ts`) in three
+> `feat` commits, then spent 22 `fix` commits on the cross-model panel's
+> findings. Only two of those concerned renames. The other twenty turned the
+> "Ordered range replay" and "Write and retry ordering" sections below into an
+> accepted-debt v2 event shape, a 414-line replay reducer, operation ids, and a
+> cross-process `pending-update` lock — a debt-log transaction system, each
+> fix widening the invariant surface the next round reviewed. Main has since
+> reshaped the same seam (discriminated accepted-debt kinds, append-shape
+> rejection, vocabulary injection) and the branch no longer merges (14
+> conflicting files).
+>
+> Before a second attempt, cap the scope: declaration parsing, the
+> virtual-baseline rekey feeding the update comparator, and one `path-rename`
+> log event. Treat arbitrary-range ordered replay and the append/retry
+> protocol as separate leaves with their own acceptance, not as gates on the
+> rekey. The archived kernel module and its test are the right starting point
+> to read; the governance and retry code is not.
 
 > Scheduling note (owner decision 2026-07-22): this need not stay parked until
 > a real baselined-file move appears. Simulate the trigger — fixture-driven

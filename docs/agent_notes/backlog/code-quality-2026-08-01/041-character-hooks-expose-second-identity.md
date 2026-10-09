@@ -1,6 +1,6 @@
 # 41. Nine character-scoped hooks redundantly expose character scope in at least one action payload, with mixed identity-field conventions
 
-Status: Not started
+Status: Landed on fix/cq-041
 Theme: single identity channel · Area: client · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -161,3 +161,37 @@ Ordered slices (each self-contained; nine modules named so none is skipped):
   `"characterId"`: wire-level variables contain the injected id when
   `onMutate` builds the optimistic patch, so removing it would leak the id
   into the cached stats object.
+- **Implementation notes (2026-09-12, `fix/cq-041`):**
+  - `adjustHp` / `adjustHpAsync`, which the evidence did not name, were
+    narrowed with slice 1 under the same rule (their `characterId` denotes
+    the hook's scope). `AdjustHpPayload` in `components/sheet/sheet-props.ts`
+    dropped `characterId`, and the DM `campaignId` spread in
+    `useDmStatsCallbacks` kept compiling as predicted.
+  - The injection lives in one helper,
+    `hooks/character-sheet/use-character-scoped-mutation.ts`, generic over the
+    wire input with a single `interop`-marked cast (TS cannot relate
+    `Omit<T, K>` plus the key back to a generic `T`). It forwards trailing
+    arguments, so `levelUp` and `setMasteries` keep their `{ onSuccess }`
+    second argument. Personality restores `id` inline in its own hook rather
+    than through the helper.
+  - Payload-only `characterId` props were removed where nothing else read
+    them: `HpAdjuster`, `DeathSavesInteractive`, `SorceryPointsPanel`,
+    `InspirationToggle`, `AddSpellDialog`, the `InventoryPanel` ->
+    `AddItemDialog` -> `HomebrewItemTab` chain (`homebrewItemToInventoryInput`
+    lost its first parameter), `buildInventoryProps`'s first parameter, and
+    the personality field editor. Gating props stayed untouched:
+    `CombatStats.characterId` and `AbilityScores.characterId` still decide
+    whether the editable branch renders, and `buildLevelUpInput` merely lost
+    its `characterId` option.
+  - `recoverAll`, `longRest`, and `dropConcentration` now take `{}`; the
+    parameter stayed required for uniformity with the other actions.
+  - The pre-migration call-site audit found no site passing a foreign
+    character id; every caller restated the sheet's `character.id`.
+  - Not narrowed: the query side of every hook, `expectedVersion`, and the
+    VTT drawer's `inventory-tab.tsx`, which only calls item-targeted
+    `updateItem`.
+  - Gate bookkeeping carried in the lane: the new helper test bumped the
+    lint coverage-map file count (`scripts/lint-coverage-map-manifest-packages.ts`
+    plus the regenerated `docs/generated/lint-coverage-map.md`), and
+    `desktop-sheet-layout.tsx` dropped below the `max-lines-per-function`
+    ratchet baseline, which `lint:ratchet:update` lowered.

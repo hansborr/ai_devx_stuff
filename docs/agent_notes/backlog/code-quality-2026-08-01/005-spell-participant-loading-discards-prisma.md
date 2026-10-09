@@ -1,6 +1,6 @@
 # 5. Spell participant loading routes the caster query through `unknown` into a hand-mirrored type that weakens always-selected fields to optional
 
-Status: Not started
+Status: Landed on fix/cq-004
 Theme: Prisma boundary type fidelity · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

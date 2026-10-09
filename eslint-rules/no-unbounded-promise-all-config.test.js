@@ -27,7 +27,7 @@ describe("no-unbounded-promise-all config", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         "packages/server/prisma/seed.ts",
         "packages/server/scripts/pgexec.ts",
       ]) {
@@ -42,7 +42,7 @@ describe("no-unbounded-promise-all config", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.test.ts",
+        "packages/server/src/services/auth-primitives.test.ts",
         "packages/client/src/lib/api-base.ts",
       ]) {
         expect(ruleSeverityOf(await configFor(file)), file).toBeUndefined();

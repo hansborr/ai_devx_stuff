@@ -1,6 +1,6 @@
 # 8. The chat broadcast facade alone demands a concrete socket server and a caller-resolved room, so all seven call sites repeat policy the registry already owns
 
-Status: Not started
+Status: Landed on fix/cq-008
 Theme: broadcast facade consistency · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

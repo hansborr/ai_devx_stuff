@@ -1,21 +1,35 @@
 # EV-1 - Codebase-grounded golden-task eval harness
 
-Status: In progress — implemented on `feat/golden-task-eval`; acceptance needs
-the remaining fixture admissions and a first live-agent run
+Status: Closed — first attempt abandoned 2026-09-02; the proposal below stands
+if the work is restarted under the narrower v1 criterion recorded here
 
-> **Superseded — in flight on `feat/golden-task-eval` (`ad60abec`).** This file
-> is the original proposal. The branch carries a 292-line implementation ledger
-> at this same path recording five cross-model review rounds (findings #1–#27:
-> 19 fixed, 8 owner-classified deferrals, no known blockers). **Read the branch
-> copy, not this one**, before touching the work.
+> **Abandoned 2026-09-02.** The first implementation lived on
+> `feat/golden-task-eval` (tip `ad60abec`, 44 non-merge commits, ~6.1k lines). The branch
+> was deleted; its tip is kept as the local tag `archive/feat-golden-task-eval`
+> and its own copy of this file is a 292-line ledger of five cross-model review
+> rounds (findings #1–#27).
 >
-> Built there: runner, workspace isolation, agent adapter, grader, scoring,
-> reporter, `bun run eval:golden`, `docs/guides/golden-task-evals.md`, full
-> harness registration, 85 green unit tests, and one admitted calibrated
-> fixture. Remaining: rebase (65 behind, `package.json`-only conflict), the
-> first real live-agent run (every run so far is controller-mode), four more
-> admitted fixtures, and a pilot recalibration. Tracked as row C4 in
-> `../ready-2026-07/00-index.md` §2.
+> Why it was dropped: the branch built an untrusted-agent sandbox (isolated
+> object store, transactional refs, bounded logs, per-run DBs) and then spent
+> 30 of its 44 commits closing isolation findings raised by successive review
+> rounds — process-group escape, symlink escape, answer key readable through
+> the shared object store, spoofable `backend-pid` trailer, Redis pool
+> exhaustion. Each fix widened the surface the next round reviewed, round five
+> still found four new defect groups, and eight findings in the security core
+> stayed open. Meanwhile the acceptance criteria were never approached: one
+> admitted fixture against a target of five, and **zero live-agent runs**
+> (every run was controller-mode). The harness's headline claim was never
+> measured. It also hardcoded the wrapper at
+> `.claude/skills/agent-cli/scripts/agent-run.sh`, which has since moved to
+> `scripts/agent-cli/`.
+>
+> Restart criterion, if this is picked up again: build the v1 in this
+> proposal literally — a trusted operator runs it in a plain worktree, no
+> untrusted-agent sandbox, five fixtures, and the first live run happens before
+> any hardening work is accepted. The archived fixture
+> `evals/golden/tasks/weapon-property-normalization/` is a usable design
+> reference for a fixture layout (`manifest.json`, `task.md`, `setup.patch`,
+> `reference.patch`, `known-bad.patch`, `grader.patch`).
 
 ## Problem
 

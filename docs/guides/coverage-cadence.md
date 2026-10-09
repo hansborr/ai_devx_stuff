@@ -11,16 +11,36 @@ Run this from the repo root:
 bun run test:coverage
 ```
 
-The most recent baseline snapshot was recorded under `AUD-COV-001` /
-`AUD-COV-002` (see `docs/agent_notes/LOG.md` 2026-05-13 entries); the original
-audit notes were deleted on 2026-05-14. The next cadence run should write a
-fresh baseline to a new tracked path under `docs/agent_notes/` (not the
-ignored `coverage/` output) and update this guide to point at it. After a run,
-record `lines`, `statements`, `functions`, and `branches` from
-`coverage/coverage-summary.json` for each tracked scope.
+The last baseline recorded as a tracked note lives in the codebase audit's
+coverage note, `docs/agent_notes/in_progress/codebase-audit/coverage.md`.
+Commit `54f2eb910` recorded it under `AUD-COV-001` on 2026-05-13; commit
+`61c98f348` is the note's last revision before `dda70f1f9` deleted it from the
+working tree on 2026-05-14. It is still retrievable from Git history — run this
+from the repository root:
 
-Use `git log -p` against the previously tracked baseline (or the new tracked
-path, once established) as the comparison point.
+```bash
+git show 61c98f348:docs/agent_notes/in_progress/codebase-audit/coverage.md
+```
+
+That revision holds the `AUD-COV-001` snapshot, the `AUD-COV-002`
+floor-calibration tables, and the `Fresh Run - 2026-05-13` tables.
+
+Read those tables as provenance, not as a comparison point. They were measured
+before the coverage denominator in `vitest.config.ts` was narrowed to
+production files (commits `d1b7ecb91`, `106ac576b`, and `d6bbc91c1`, all
+2026-08-30), so they and a fresh run count different sets of files and the
+difference between them is mostly denominator. Re-derive a comparison point on
+the current denominator instead, and record which run it came from.
+
+The newest measurement on the current denominator is committed in
+`vitest.config.ts`'s floors comment, re-derived 2026-08-30 from a full
+`bun run test:coverage`. Use it as the interim comparison point.
+
+The next cadence run should write a fresh baseline to a new tracked path under
+`docs/agent_notes/` (not the ignored `coverage/` output) and update this guide
+to point at it. After a run, record `lines`, `statements`, `functions`, and
+`branches` from `coverage/coverage-summary.json` for each tracked scope. Once
+that path exists, use `git log -p` against it as the comparison point.
 
 Open a follow-up leaf when any configured floor makes `bun run test:coverage`
 fail. If the command still passes, open a follow-up when any tracked

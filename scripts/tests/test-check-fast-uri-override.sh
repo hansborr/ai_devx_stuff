@@ -2,6 +2,7 @@
 # smoke-order: 440
 # smoke-subjects: scripts/check-fast-uri-override.sh
 # smoke-subjects: scripts/tests/test-check-fast-uri-override.sh
+# smoke-subjects: scripts/tests/lib/test-assertions.sh
 # Pure-shell tests for the fast-uri override watchdog.
 #
 # The watchdog reads package.json + bun.lock only (no network), so these tests
@@ -12,12 +13,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WATCHDOG="$SCRIPT_DIR/../check-fast-uri-override.sh"
 
-PASS=0
+# shellcheck source=scripts/tests/lib/test-assertions.sh
+. "$SCRIPT_DIR/lib/test-assertions.sh"
+
 TMP_ROOT="$(mktemp -d)"
 trap 'rm -rf "$TMP_ROOT"' EXIT
-
-fail() { printf 'FAIL: %s\n' "$1" >&2; exit 1; }
-ok() { PASS=$((PASS + 1)); printf 'ok %d - %s\n' "$PASS" "$1"; }
 
 # write_case <name> <manifest-contents> <lockfile-contents|__none__>
 # Returns the case directory and exports MUSI_FAST_URI_* for the run.

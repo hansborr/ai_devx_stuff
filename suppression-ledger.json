@@ -5,10 +5,10 @@
   "scanners": "scripts/eslint-disable-register.sh,scripts/suppression-register.sh",
   "regenerate": "bun scripts/suppression-ledger.ts --update",
   "summary": {
-    "count": 119,
+    "count": 121,
     "kinds": {
-      "eslint-disable": 47,
-      "ts-expect-error": 62,
+      "eslint-disable": 44,
+      "ts-expect-error": 67,
       "ts-ignore": 0,
       "ts-nocheck": 0,
       "stryker-disable": 10
@@ -74,16 +74,6 @@
       "selectorHash": "sha256:8962c2befd94",
       "duplicateIndex": 0,
       "reason": "explicit role=\"list\" preserves list semantics when list-style: none is applied (Safari/VoiceOver workaround)"
-    },
-    {
-      "key": "eslint-disable|packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx|no-console|next-line|sha256:64ed6b2f112f|0",
-      "path": "packages/client/src/components/vtt/drawer/tabs/actions-tab-features.tsx",
-      "kind": "eslint-disable",
-      "target": "no-console",
-      "scope": "next-line",
-      "selectorHash": "sha256:64ed6b2f112f",
-      "duplicateIndex": 0,
-      "reason": "placeholder drawer action logging until feature-use resolution is wired"
     },
     {
       "key": "eslint-disable|packages/client/src/hooks/auth-context.tsx|react-hooks/exhaustive-deps|next-line|sha256:5fe3ffe5475a|0",
@@ -206,58 +196,38 @@
       "reason": "entry point; logger not yet initialized"
     },
     {
-      "key": "eslint-disable|packages/server/src/seed/generate-class-features.ts|@typescript-eslint/restrict-template-expressions|file|sha256:95e1caa131c8|0",
-      "path": "packages/server/src/seed/generate-class-features.ts",
-      "kind": "eslint-disable",
-      "target": "@typescript-eslint/restrict-template-expressions",
-      "scope": "file",
-      "selectorHash": "sha256:95e1caa131c8",
-      "duplicateIndex": 0,
-      "reason": "one-time generator script"
-    },
-    {
-      "key": "eslint-disable|packages/server/src/seed/generate-class-features.ts|complexity|file|sha256:95e1caa131c8|0",
-      "path": "packages/server/src/seed/generate-class-features.ts",
+      "key": "eslint-disable|packages/server/src/seed/srd-class-features-generator.ts|complexity|next-line|sha256:3d1f9072e5bb|0",
+      "path": "packages/server/src/seed/srd-class-features-generator.ts",
       "kind": "eslint-disable",
       "target": "complexity",
-      "scope": "file",
-      "selectorHash": "sha256:95e1caa131c8",
+      "scope": "next-line",
+      "selectorHash": "sha256:3d1f9072e5bb",
       "duplicateIndex": 0,
-      "reason": "one-time generator script"
+      "reason": "the table walk is one state machine over markdown rows; splitting it would hide the row-kind cases it distinguishes"
     },
     {
-      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|@typescript-eslint/restrict-template-expressions|file|sha256:47a0ba320f46|0",
-      "path": "packages/server/src/seed/generate-subclasses.ts",
-      "kind": "eslint-disable",
-      "target": "@typescript-eslint/restrict-template-expressions",
-      "scope": "file",
-      "selectorHash": "sha256:47a0ba320f46",
-      "duplicateIndex": 0,
-      "reason": "one-time generator script"
-    },
-    {
-      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|complexity|file|sha256:47a0ba320f46|0",
-      "path": "packages/server/src/seed/generate-subclasses.ts",
+      "key": "eslint-disable|packages/server/src/seed/srd-class-features-generator.ts|complexity|next-line|sha256:3d1f9072e5bb|1",
+      "path": "packages/server/src/seed/srd-class-features-generator.ts",
       "kind": "eslint-disable",
       "target": "complexity",
-      "scope": "file",
-      "selectorHash": "sha256:47a0ba320f46",
-      "duplicateIndex": 0,
-      "reason": "one-time generator script"
+      "scope": "next-line",
+      "selectorHash": "sha256:3d1f9072e5bb",
+      "duplicateIndex": 1,
+      "reason": "the table-name resolution rules are one decision chain; each branch is a documented corpus quirk"
     },
     {
-      "key": "eslint-disable|packages/server/src/seed/generate-subclasses.ts|no-magic-numbers|file|sha256:47a0ba320f46|0",
-      "path": "packages/server/src/seed/generate-subclasses.ts",
+      "key": "eslint-disable|packages/server/src/seed/srd-subclasses-generator.ts|complexity|next-line|sha256:3d1f9072e5bb|0",
+      "path": "packages/server/src/seed/srd-subclasses-generator.ts",
       "kind": "eslint-disable",
-      "target": "no-magic-numbers",
-      "scope": "file",
-      "selectorHash": "sha256:47a0ba320f46",
+      "target": "complexity",
+      "scope": "next-line",
+      "selectorHash": "sha256:3d1f9072e5bb",
       "duplicateIndex": 0,
-      "reason": "one-time generator script"
+      "reason": "one heading scan plus one feature state machine; the branches are the markdown cases it must tell apart"
     },
     {
-      "key": "eslint-disable|packages/server/src/services/auth-service.ts|@typescript-eslint/promise-function-async|next-line|sha256:4866d7dcae90|0",
-      "path": "packages/server/src/services/auth-service.ts",
+      "key": "eslint-disable|packages/server/src/services/auth-primitives.ts|@typescript-eslint/promise-function-async|next-line|sha256:4866d7dcae90|0",
+      "path": "packages/server/src/services/auth-primitives.ts",
       "kind": "eslint-disable",
       "target": "@typescript-eslint/promise-function-async",
       "scope": "next-line",
@@ -426,6 +396,16 @@
       "reason": "D&D 2024 ASI milestone levels"
     },
     {
+      "key": "eslint-disable|packages/shared/src/rules/prepared-spell-limits.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/rules/prepared-spell-limits.ts",
+      "kind": "eslint-disable",
+      "target": "no-magic-numbers",
+      "scope": "file",
+      "selectorHash": "sha256:5319a49961d9",
+      "duplicateIndex": 0,
+      "reason": "SRD prepared-spell table data"
+    },
+    {
       "key": "eslint-disable|packages/shared/src/rules/sorcery-points.ts|no-magic-numbers|next-line|sha256:f1813602a64b|0",
       "path": "packages/shared/src/rules/sorcery-points.ts",
       "kind": "eslint-disable",
@@ -436,24 +416,14 @@
       "reason": "SRD metamagic selection levels"
     },
     {
-      "key": "eslint-disable|packages/shared/src/rules/spellcasting.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
-      "path": "packages/shared/src/rules/spellcasting.ts",
+      "key": "eslint-disable|packages/shared/src/rules/spell-slots.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
+      "path": "packages/shared/src/rules/spell-slots.ts",
       "kind": "eslint-disable",
       "target": "no-magic-numbers",
       "scope": "file",
       "selectorHash": "sha256:5319a49961d9",
       "duplicateIndex": 0,
       "reason": "SRD spell slot table data"
-    },
-    {
-      "key": "eslint-disable|packages/shared/src/rules/spellcasting.ts|no-magic-numbers|file|sha256:5319a49961d9|1",
-      "path": "packages/shared/src/rules/spellcasting.ts",
-      "kind": "eslint-disable",
-      "target": "no-magic-numbers",
-      "scope": "file",
-      "selectorHash": "sha256:5319a49961d9",
-      "duplicateIndex": 1,
-      "reason": "SRD prepared-spell table data"
     },
     {
       "key": "eslint-disable|packages/shared/src/rules/xp.ts|no-magic-numbers|file|sha256:5319a49961d9|0",
@@ -556,8 +526,8 @@
       "reason": "anyOf groups have a single requirement; join separator unobservable on length-1 arrays"
     },
     {
-      "key": "stryker-disable|packages/shared/src/rules/spellcasting.ts|ConditionalExpression|next-line|sha256:754dab29a530|0",
-      "path": "packages/shared/src/rules/spellcasting.ts",
+      "key": "stryker-disable|packages/shared/src/rules/spell-slots.ts|ConditionalExpression|next-line|sha256:754dab29a530|0",
+      "path": "packages/shared/src/rules/spell-slots.ts",
       "kind": "stryker-disable",
       "target": "ConditionalExpression",
       "scope": "next-line",
@@ -566,8 +536,8 @@
       "reason": "later table fallbacks preserve the same empty result"
     },
     {
-      "key": "stryker-disable|packages/shared/src/rules/spellcasting.ts|ConditionalExpression|next-line|sha256:754dab29a530|1",
-      "path": "packages/shared/src/rules/spellcasting.ts",
+      "key": "stryker-disable|packages/shared/src/rules/spell-slots.ts|ConditionalExpression|next-line|sha256:754dab29a530|1",
+      "path": "packages/shared/src/rules/spell-slots.ts",
       "kind": "stryker-disable",
       "target": "ConditionalExpression",
       "scope": "next-line",
@@ -1124,6 +1094,56 @@
       "selectorHash": "sha256:4b6202f6c29e",
       "duplicateIndex": 0,
       "reason": "direct characterStats.update is forbidden; use updateCharacterStatsLocked"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/rules/multiclass-rules.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",
+      "path": "packages/shared/src/rules/multiclass-rules.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 0,
+      "reason": "a row must choose one mode; no mode is not a rule state"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/rules/multiclass-rules.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|1",
+      "path": "packages/shared/src/rules/multiclass-rules.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 1,
+      "reason": "all and anyOf are exclusive; a mixed row would gain implicit AND semantics"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/rules/multiclass-rules.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|2",
+      "path": "packages/shared/src/rules/multiclass-rules.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 2,
+      "reason": "an empty all-map would pass vacuously"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/rules/multiclass-rules.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|3",
+      "path": "packages/shared/src/rules/multiclass-rules.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 3,
+      "reason": "an empty anyOf tuple could never pass"
+    },
+    {
+      "key": "ts-expect-error|packages/shared/src/rules/multiclass-rules.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|4",
+      "path": "packages/shared/src/rules/multiclass-rules.test.ts",
+      "kind": "ts-expect-error",
+      "target": "@ts-expect-error",
+      "scope": "next-line",
+      "selectorHash": "sha256:4b6202f6c29e",
+      "duplicateIndex": 4,
+      "reason": "every anyOf group must name at least one ability"
     },
     {
       "key": "ts-expect-error|packages/shared/src/test/parse-helpers.test.ts|@ts-expect-error|next-line|sha256:4b6202f6c29e|0",

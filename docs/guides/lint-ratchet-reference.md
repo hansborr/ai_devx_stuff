@@ -565,7 +565,7 @@ Normal ESLint now uses ESLint's per-file cache for `bun run lint` and
 `bun run lint:changed`, with `--cache-strategy content` under
 `node_modules/.cache/eslint-main/identity-<fingerprint>/.eslintcache`. The
 `<fingerprint>` hashes working-tree type-graph inputs (`*.ts`, `*.tsx`,
-`*.mts`, `*.cts`, `tsconfig*.json/jsonc`, and `tsconfig.tsbuildinfo`, excluding
+`*.mts`, `*.cts`, `tsconfig*.json/jsonc`, and `tsconfig*.tsbuildinfo`, excluding
 tool/cache dirs) plus lint-policy inputs (`eslint.config.*`,
 `eslint-config/**`, and `eslint-rules/**/*.js`) plus dependency identity
 (`package.json` and `bun.lock`, with `node_modules` pruned at any depth), so a

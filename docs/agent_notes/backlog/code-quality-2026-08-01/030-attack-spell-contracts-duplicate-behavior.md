@@ -1,6 +1,6 @@
 # 30. Attack and spell-action contracts privately re-compose the same combat field validators and -10/99 bonus bounds, which can silently diverge
 
-Status: Not started
+Status: Landed on fix/cq-026
 Theme: shared combat field schemas · Area: shared · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

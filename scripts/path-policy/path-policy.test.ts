@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { PATH_POLICY, type PathPolicySelector } from "./path-policy.js";
-import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
+import { scriptSmokeTestNames } from "./path-policy-smoke-subjects.js";
 import { SCRIPT_SMOKE_SUBJECTS } from "./path-policy-smoke-subjects-data.js";
 import { matchStarOnlySegmentPattern } from "./segment-pattern.js";
 
@@ -142,7 +142,7 @@ describe("PATH_POLICY full-scan triggers", () => {
 
 describe("PATH_POLICY known path surfaces", () => {
   it("keeps script-smoke names aligned with subject entries", () => {
-    expect(SCRIPT_SMOKE_TEST_NAMES).toEqual(Object.keys(PATH_POLICY.scriptSmoke.subjects));
+    expect(scriptSmokeTestNames()).toEqual(Object.keys(SCRIPT_SMOKE_SUBJECTS));
   });
 
   it("covers source-relevant verification inputs", () => {
@@ -265,18 +265,18 @@ describe("PATH_POLICY known path surfaces", () => {
   });
 
   it("covers script-smoke subjects, directory-prefix subjects, and deletion classes", () => {
-    expect(PATH_POLICY.scriptSmoke.subjects["test-format-changed"]).toContain(".prettierignore");
-    expect(PATH_POLICY.scriptSmoke.subjects["test-format-changed"]).toContain(
+    expect(SCRIPT_SMOKE_SUBJECTS["test-format-changed"]).toContain(".prettierignore");
+    expect(SCRIPT_SMOKE_SUBJECTS["test-format-changed"]).toContain(
       "scripts/path-policy/path-policy-query.ts",
     );
-    expect(PATH_POLICY.scriptSmoke.subjects["test-format-changed"]).toContain(
+    expect(SCRIPT_SMOKE_SUBJECTS["test-format-changed"]).toContain(
       "scripts/path-policy/path-policy-smoke-subjects.ts",
     );
-    expect(PATH_POLICY.scriptSmoke.subjects["test-typecheck"]).toContain("scripts/typecheck.sh");
-    expect(PATH_POLICY.scriptSmoke.subjects["test-lint-agent-changed"]).toContain(
+    expect(SCRIPT_SMOKE_SUBJECTS["test-typecheck"]).toContain("scripts/typecheck.sh");
+    expect(SCRIPT_SMOKE_SUBJECTS["test-lint-agent-changed"]).toContain(
       "scripts/lint-agent-changed.sh",
     );
-    expect(PATH_POLICY.scriptSmoke.subjects["test-code-intel"]).toContain("scripts/code-intel/");
+    expect(SCRIPT_SMOKE_SUBJECTS["test-code-intel"]).toContain("scripts/code-intel/");
     expect(PATH_POLICY.directoryPrefixSubjects.scriptSmoke).toContain("scripts/code-intel/");
     expect(PATH_POLICY.directoryPrefixSubjects.scriptSmoke).toContain("eslint-config/");
 
@@ -300,9 +300,8 @@ describe("smoke-subject data module", () => {
   it("is tracked by every smoke subject that tracks the discovery module", () => {
     const discoveryModule = "scripts/path-policy/path-policy-smoke-subjects.ts";
     const dataModule = "scripts/path-policy/path-policy-smoke-subjects-data.ts";
-    const subjectEntries: ReadonlyArray<readonly [string, readonly string[]]> = Object.entries(
-      PATH_POLICY.scriptSmoke.subjects,
-    );
+    const subjectEntries: ReadonlyArray<readonly [string, readonly string[]]> =
+      Object.entries(SCRIPT_SMOKE_SUBJECTS);
     const tracksDiscovery = subjectEntries.filter(([, subjects]) =>
       subjects.includes(discoveryModule),
     );
@@ -319,9 +318,10 @@ describe("smoke-subject data module", () => {
 // collapsed steady state where the discovered file set EXACTLY equals the
 // subject set, which masks the real merge/dedup/ordering/fallback logic in
 // discoverScriptSmokeTestNames(). discoverScriptSmokeTestNames is module-private
-// and runs once at import against join(process.cwd(), "scripts", "tests"), so we
-// drive it against a controlled fixture by chdir-ing into a temp root and
-// re-importing the module with vi.resetModules(). No production change.
+// and runs at most once per module instance -- on the first
+// scriptSmokeTestNames() call, against join(process.cwd(), "scripts", "tests")
+// -- so we drive it against a controlled fixture by chdir-ing into a temp root
+// and re-importing the module with vi.resetModules() to clear its memo.
 describe("discoverScriptSmokeTestNames merge/dedup/ordering/fallback", () => {
   const originalCwd = process.cwd();
   let fixtureRoot: string;
@@ -332,14 +332,17 @@ describe("discoverScriptSmokeTestNames merge/dedup/ordering/fallback", () => {
     writeFileSync(join(testsDir, name), "");
   };
 
-  // Re-run module-private discovery against the current cwd by busting the
-  // module cache and re-importing; SCRIPT_SMOKE_TEST_NAMES is recomputed at
-  // import time from the live cwd's scripts/tests directory.
-  const rediscover = async (): Promise<readonly string[]> => {
+  // Bust the module cache and re-import to get a module instance with an empty
+  // memo, then hand back its accessor rather than a result: discovery runs on
+  // the accessor's first call, so keeping import and call separable is what the
+  // laziness and memoisation cases below depend on.
+  const freshDiscovery = async (): Promise<() => readonly string[]> => {
     vi.resetModules();
     const mod = await import("./path-policy-smoke-subjects.js");
-    return mod.SCRIPT_SMOKE_TEST_NAMES;
+    return mod.scriptSmokeTestNames;
   };
+
+  const rediscover = async (): Promise<readonly string[]> => (await freshDiscovery())();
 
   beforeEach(() => {
     fixtureRoot = mkdtempSync(join(tmpdir(), "smoke-discovery-"));
@@ -349,6 +352,36 @@ describe("discoverScriptSmokeTestNames merge/dedup/ordering/fallback", () => {
     process.chdir(originalCwd);
     vi.resetModules();
     rmSync(fixtureRoot, { recursive: true, force: true });
+  });
+
+  it("reads scripts/tests on the first call rather than at import time", async () => {
+    // Import while scripts/tests is absent. An import-time read would capture
+    // the curated fallback here and never see the directory created below.
+    process.chdir(fixtureRoot);
+    const discover = await freshDiscovery();
+
+    const testsDir = join(fixtureRoot, "scripts", "tests");
+    mkdirSync(testsDir, { recursive: true });
+    writeTest(testsDir, "test-created-after-import.sh");
+
+    expect(discover()).toEqual(["test-created-after-import"]);
+  });
+
+  it("memoises the first call, so later on-disk changes do not reopen discovery", async () => {
+    const testsDir = join(fixtureRoot, "scripts", "tests");
+    mkdirSync(testsDir, { recursive: true });
+    writeTest(testsDir, "test-first-call.sh");
+
+    process.chdir(fixtureRoot);
+    const discover = await freshDiscovery();
+    const first = discover();
+    expect(first).toEqual(["test-first-call"]);
+
+    writeTest(testsDir, "test-added-after-first-call.sh");
+    const second = discover();
+
+    // The memo answers the second call instead of re-reading the directory.
+    expect(second).not.toContain("test-added-after-first-call");
   });
 
   it("keeps curated subject order, drops curated names whose .sh is missing on disk, and appends disk-only names alphabetically after the curated ones", async () => {

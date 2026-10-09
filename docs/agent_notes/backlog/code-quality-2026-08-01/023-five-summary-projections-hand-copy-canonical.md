@@ -1,6 +1,6 @@
 # 23. Five summary projections hand-copy 33 canonical entity fields, and the copies have already drifted looser than their entity schemas
 
-Status: Not started
+Status: Landed on fix/cq-022
 Theme: derived schema projections · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

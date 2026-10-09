@@ -1,6 +1,6 @@
 # 27. Condition and damage-type vocabulary, Zod contracts, and persisted-JSON repair live in rules modules, completing a bidirectional edge with the encounter schema
 
-Status: Not started
+Status: Landed on fix/cq-027
 Theme: shared contract layering · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

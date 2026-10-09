@@ -59,11 +59,11 @@
     },
     "packages/server/src/config/env.ts": {
       "severity": 2,
-      "selectors": ["72cb5b31f313ebaf"]
+      "selectors": ["72cb5b31f313ebaf", "620581498e813c15"]
     },
     "packages/server/src/main.ts": {
       "severity": 2,
-      "selectors": ["72cb5b31f313ebaf"]
+      "selectors": ["72cb5b31f313ebaf", "620581498e813c15"]
     },
     "packages/server/src/routers/character.test.ts": {
       "severity": 2,
@@ -71,23 +71,35 @@
     },
     "packages/server/src/routers/character.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "f47518c4f19fe874"]
+      "selectors": [
+        "732b04b923702683",
+        "b0331a6254375631",
+        "72cb5b31f313ebaf",
+        "620581498e813c15",
+        "f47518c4f19fe874"
+      ]
     },
     "packages/server/src/routers/inventory.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "f47518c4f19fe874"]
+      "selectors": [
+        "732b04b923702683",
+        "b0331a6254375631",
+        "72cb5b31f313ebaf",
+        "620581498e813c15",
+        "f47518c4f19fe874"
+      ]
     },
-    "packages/server/src/services/auth-service.test.ts": {
+    "packages/server/src/services/auth-primitives.test.ts": {
       "severity": 2,
       "selectors": ["732b04b923702683"]
     },
-    "packages/server/src/services/auth-service.ts": {
+    "packages/server/src/services/auth-primitives.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "620581498e813c15"]
     },
     "packages/server/src/services/inventory-service.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631"]
+      "selectors": ["732b04b923702683", "b0331a6254375631", "620581498e813c15"]
     },
     "packages/server/src/test/prepare-test-db.ts": {
       "severity": 2,
@@ -95,11 +107,11 @@
     },
     "packages/server/src/utils/character-class-mutations.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "620581498e813c15"]
     },
     "packages/server/src/utils/prisma-types.ts": {
       "severity": 2,
-      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf"]
+      "selectors": ["732b04b923702683", "b0331a6254375631", "72cb5b31f313ebaf", "620581498e813c15"]
     },
     "packages/shared/src/rules/combat.ts": {
       "severity": 2,

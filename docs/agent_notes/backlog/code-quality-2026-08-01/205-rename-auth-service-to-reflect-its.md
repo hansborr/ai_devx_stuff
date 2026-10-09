@@ -1,6 +1,6 @@
 # 205. Rename auth-service to reflect its authentication-primitive boundary
 
-Status: Not started
+Status: Landed on fix/cq-019
 Theme: auth-service is named and catalogued as orchestration although it contains only authentication primitives · Area: server · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

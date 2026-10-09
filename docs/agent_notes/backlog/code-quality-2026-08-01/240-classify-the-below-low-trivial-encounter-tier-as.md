@@ -1,6 +1,6 @@
 # 240. Classify the below-Low Trivial encounter tier as Musi policy
 
-Status: Not started
+Status: Landed on fix/cq-211
 Theme: Classify the below-Low "trivial" encounter tier as Musi policy · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

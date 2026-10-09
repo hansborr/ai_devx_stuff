@@ -54,8 +54,11 @@ export const PATTERN_B_BY_FILE = new Map<string, PatternBConfig>([
     "spell-slot-mutations.ts",
     {
       countersByFunction: new Map([
-        ["consumeSpellSlot", "used"],
-        ["recoverSpellSlot", "used"],
+        // Private primitive shared by the exported consumeSpellSlot and
+        // recoverSpellSlot wrappers; it holds the file's only CAS `updateMany`.
+        // The wrappers are deliberately absent so a raw `updateMany` re-added
+        // inside one of them is reported as unclassified.
+        ["stepUsedWithCas", "used"],
       ]),
       delegate: "characterSpellSlot",
     },

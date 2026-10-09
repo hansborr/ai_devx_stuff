@@ -1,6 +1,6 @@
 # 24. The encounter input contract is one 329-line, 20-schema module whose three router consumers each use a disjoint slice
 
-Status: Not started
+Status: Landed on fix/cq-021
 Theme: Contract layout mirrors router boundaries · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

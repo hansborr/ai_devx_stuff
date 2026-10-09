@@ -22,6 +22,8 @@ export class CharacterSheetPO {
   readonly levelUpConfirmButton = this.page.getByRole("button", { name: /level up to/i });
   readonly inspirationToggle = this.page.getByRole("button", { name: "Toggle inspiration" });
   readonly inventoryPanel = this.page.getByTestId("inventory-panel");
+  readonly desktopLayout = this.page.getByTestId("desktop-sheet-layout");
+  readonly mobileTabs = this.page.getByTestId("mobile-tabs");
   readonly addItemDialog = this.page.getByRole("dialog", { name: "Add Item" });
   readonly editItemDialog = this.page.getByRole("dialog", { name: "Edit Item" });
   readonly spells = new SpellsPanelPO(this.page);
@@ -63,13 +65,9 @@ export class CharacterSheetPO {
     });
   }
 
-  /**
-   * Saving-throw row for a full ability name, e.g. "Strength". The sheet
-   * mounts the desktop and mobile layouts together, so each row exists twice
-   * in the DOM; the visible filter picks the copy the active layout shows.
-   */
+  /** Saving-throw row for a full ability name, e.g. "Strength". */
   private saveRow(ability: string): Locator {
-    return this.page.getByTestId(/^save-/).filter({ hasText: ability, visible: true });
+    return this.page.getByTestId(/^save-/).filter({ hasText: ability });
   }
 
   async expectSavingThrowProficient(ability: string): Promise<void> {
@@ -85,11 +83,25 @@ export class CharacterSheetPO {
   }
 
   async expectSkillProficient(skill: string): Promise<void> {
-    // Same dual desktop/mobile mount as saveRow; keep only the visible row.
-    const row = this.page.getByTestId(`skill-${skill}`).filter({ visible: true });
+    const row = this.page.getByTestId(`skill-${skill}`);
     await expect(row.getByLabel("Proficient", { exact: true })).toBeVisible({
       timeout: TIMEOUT_SHORT,
     });
+  }
+
+  // ── Layout boundary ─────────────────────────────────────────────────
+
+  /** One layout tree mounts per viewport: the desktop grid, with every panel in the DOM once. */
+  async expectDesktopLayout(): Promise<void> {
+    await expect(this.desktopLayout).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(this.mobileTabs).toHaveCount(0);
+    await expect(this.hpAdjuster).toHaveCount(1);
+  }
+
+  /** The mobile tabs, with only the active tab's panels in the DOM. */
+  async expectMobileLayout(): Promise<void> {
+    await expect(this.mobileTabs).toBeVisible({ timeout: TIMEOUT_MEDIUM });
+    await expect(this.desktopLayout).toHaveCount(0);
   }
 
   async expectFeatureVisible(feature: string): Promise<void> {

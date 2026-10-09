@@ -98,6 +98,63 @@ smoke, grep `scripts/tests/` for `MUSI_SCRIPTS_CHANGED_FILES=` and extend any
 expected-set literal that must gain (or lose) your smoke. Extend the exact set;
 never weaken the assertion to a substring match.
 
+### Where a new test goes
+
+TypeScript logic — parsing, registries, data transformation, fixture
+orchestration — belongs in the `scripts` Vitest project, not in a shell smoke.
+`scripts/vitest.config.ts` sets `include: ["**/*.test.ts"]`, so a test colocated
+beside the module it covers needs no Vitest registration step; check that file's
+`exclude` list before placing one under a fixture or worktree path, because an
+excluded file is silently never run. The coverage-map gate does need one:
+account for the new file in `scripts/lint-coverage-map-manifest-<area>.ts` (a
+new glob, or a corrected `files` count where an existing glob already reaches
+it), then refresh with `bun run docs:lint-coverage-map:generate`. That tier is
+already the established majority rather than a new proposal: most tests under
+`scripts/` are already `*.test.ts` files rather than shell suites. Run one with
+`bun run test:scripts:file -- <file>`.
+
+The cross-cutting temp-repo scaffold lives at
+`scripts/test-support/tmp-repo.test-helper.ts`; family-specific scaffolding
+stays colocated as `*.test-helper.ts` beside the module it serves. That scaffold
+exports one function, `registerTempRootCleanup()`, which a suite calls once at
+collection scope and which returns a handle whose `writeRepo`, `makeTempRepo`,
+`writeRepoFile` and `makeTmpGitRepo` builders are then used inside the tests, so
+a suite needing a scratch repo does not hand-roll the temp-root lifecycle.
+
+Shell smokes stay for shell semantics: environment inheritance, signals, hook
+execution, exit codes, command composition, and black-box CLI behaviour. That
+boundary governs where a *new* test goes; it is not a port-everything mandate.
+Existing shell suites are not migration targets, and per-file preamble is
+retired opportunistically, when a suite is already being edited for another
+reason.
+
+New shell cases open a new focused `scripts/tests/test-<subject>.sh` sourcing
+the shared helpers under `scripts/tests/lib/` (the helper-only files described
+at the start of this `## Smoke Tests` section), rather than extending whichever
+suite happens to be open. Changed-mode selection runs a whole suite at a time,
+so a suite that accretes unrelated subjects reruns in full whenever any one of
+them is touched; and `scripts/test-scripts.sh` runs one process per suite with
+bounded parallelism, so subject-coherent suites also shorten full-suite
+wall-clock.
+
+Under `scripts/`, `scripts/ai-hooks/` is the one place shell test suites live
+outside `scripts/tests/`: ten `test-*.sh` files — nine focused suites plus
+`test-support.sh`, which holds the hook-JSON assertions and the hook shim
+builders and sources the generic assertions from
+`scripts/tests/lib/test-assertions.sh` — and `test.sh`, which delegates to each
+of the nine and still holds inline every case not yet extracted into one. They
+sit there because they exercise the hook bodies beside them, and the same growth
+brake applies: a new ai-hooks case opens another focused suite rather than
+growing `test.sh`. The directory's smoke subject is aggregate-only:
+`scripts/tests/test-ai-hooks.sh` declares the directory prefix
+`# smoke-subjects: scripts/ai-hooks/` and `exec`s `scripts/ai-hooks/test.sh`, so
+every file under `scripts/ai-hooks/` — the colocated suites included — routes to
+that aggregate, and the colocated suites route nowhere else. Some hook bodies
+are additionally declared as subjects by other smokes, so editing one of those
+fans out further. The focused suites have no individual subject and cannot be
+given one without a `scripts/tests/` entry point, because the header parser
+reads only files directly under `scripts/tests/`.
+
 ## Generated Files
 
 Checked-in generated files must have a freshness gate. Prefer placing generated

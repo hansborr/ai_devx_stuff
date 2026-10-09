@@ -29,7 +29,7 @@ queue. Promote accepted work only through
 | 07 | [Replace stale `worktree:new` recovery output](./07-make-worktree-recovery-single-command.md) | P2 | S | Implemented — 2026-07-22 |
 | 08 | [Generate skill mirrors and smoke subjects](./08-generate-skill-mirrors-and-subjects.md) | P2 | L | Implemented — 2026-07-22 |
 | 09 | [Run a structural registration preflight in fast-commit mode](./09-fast-commit-registration-preflight.md) | P2 | L | Implemented — 2026-07-22 |
-| 10 | [Preserve lint-ratchet identity across path renames](./10-lint-ratchet-path-renames.md) | P2 | L | Proposed — ready for design review |
+| 10 | [Preserve lint-ratchet identity across path renames](./10-lint-ratchet-path-renames.md) | P2 | L | Proposed — re-scope before a second attempt; first implementation dropped 2026-09-02 |
 | 11 | [Type successful shared-schema fixtures](./11-type-positive-schema-fixtures.md) | P2 | L | Implemented — 2026-07-22 |
 | 12 | [Decouple Copilot retry artifacts](./12-decouple-copilot-retry-artifacts.md) | P2 | M | Implemented — 2026-07-25 |
 
@@ -42,10 +42,11 @@ ownership, and rejected designs are recorded in
 Seven of the nine repository candidates landed between 2026-07-22 and
 2026-07-25 (02, 06, 07, 08, 09, 11, 12). Two items are still open:
 
-1. **10** — schedule proactively: simulate the rename trigger in fixtures
-   rather than waiting for a real pending baselined-file move. Implementation
-   and cost are approved, but merge is gated on a cross-model review panel
-   (see the owner decision below). WIP branch: `feat/lint-ratchet-rename-identity`.
+1. **10** — still open. The first implementation on
+   `feat/lint-ratchet-rename-identity` was dropped 2026-09-02 after the review
+   panel drove it from a rekey into a debt-log transaction system; the leaf
+   records the scope cap for a second attempt. The archived tip is
+   `archive/feat-lint-ratchet-rename-identity`.
 2. **05** — run the probe opportunistically, starting with the A1 capability
    check; implement Phase B only on an explicit `GO`. Agent team mode is still
    disabled locally and must be re-enabled to run it.
@@ -77,6 +78,8 @@ producer-authoritative behavior that repair establishes.
 - **10 unparked.** Do not wait for a real pending rename to justify the work.
   Implementation and cost approved, but merge is gated on a thorough cross-model
   review panel — a clean local gate is not sufficient to land. See the leaf.
+  (2026-09-02: the panel gate is what inflated the first attempt; the leaf now
+  caps the scope the panel reviews.)
 - **11 approved as specced.** The full scope — typed schema helper, explicit
   result helper, repository-wide migration, and retirement of the ambiguous
   `expectParseSuccess` name — is approved; no slim/alias variant. Rationale:

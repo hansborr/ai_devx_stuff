@@ -1,6 +1,6 @@
 # 17. The participant-stats mutation header misroutes visibility and conditions writes to the wrong concurrency helpers
 
-Status: Not started
+Status: Landed on fix/cq-017
 Theme: Concurrency-boundary comment accuracy · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

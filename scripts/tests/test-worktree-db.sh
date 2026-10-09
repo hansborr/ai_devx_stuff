@@ -261,7 +261,8 @@ counts="$(printf '?? only-untracked.ts' | count_status_porcelain)"
 ok "count_status_porcelain classifies staged/unstaged/untracked columns"
 
 # resolve_lane_base precedence: explicit --base override, then the branch's
-# upstream, then the primary worktree's checked-out branch, then origin/HEAD.
+# upstream, then the primary worktree's checked-out branch, then origin/HEAD,
+# then a local main/master.
 # Lanes fan out from arbitrary feature bases, so `main` is never assumed while
 # any earlier source resolves.
 (
@@ -295,11 +296,21 @@ ok "count_status_porcelain classifies staged/unstaged/untracked columns"
   [[ "$out" == "origin/main" ]] || fail "resolve_lane_base origin/HEAD: $out"
 )
 (
+  git() {
+    case "$*" in
+      *"show-ref"*"refs/heads/main"*) return 0 ;;
+      *) return 1 ;;
+    esac
+  }
+  out="$(resolve_lane_base /tmp/wt "" "<detached>")"
+  [[ "$out" == "main" ]] || fail "resolve_lane_base local main: $out"
+)
+(
   git() { return 1; }
   out="$(resolve_lane_base /tmp/wt "" "<detached>")"
   [[ -z "$out" ]] || fail "resolve_lane_base detached primary must not become a base: $out"
 )
-ok "resolve_lane_base resolves override, upstream, primary branch, origin/HEAD"
+ok "resolve_lane_base resolves override, upstream, primary branch, origin/HEAD, local main"
 
 # lane_git_work_facts assembles raw read-only facts (behind<TAB>ahead from
 # rev-list --left-right against the merge-base, porcelain counts, %cr age) and
@@ -468,6 +479,7 @@ printf 'shared rule\n' > "$fingerprint_dir/packages/shared/src/rules/conditions.
 printf '{"name":"@musi/shared"}\n' > "$fingerprint_dir/packages/shared/package.json"
 printf '{"name":"musi","private":true}\n' > "$fingerprint_dir/package.json"
 printf '{"extends":"../../tsconfig.base.json"}\n' > "$fingerprint_dir/packages/shared/tsconfig.json"
+printf '{"extends":"./tsconfig.json"}\n' > "$fingerprint_dir/packages/shared/tsconfig.build.json"
 printf '{"compilerOptions":{}}\n' > "$fingerprint_dir/tsconfig.base.json"
 printf '%s\n' \
   '{' \
@@ -916,6 +928,7 @@ for dir in "$fingerprint_a" "$fingerprint_b"; do
   printf 'shared rule\n' > "$dir/packages/shared/src/rules/conditions.ts"
   printf '{"name":"@musi/shared"}\n' > "$dir/packages/shared/package.json"
   printf '{"extends":"../../tsconfig.base.json"}\n' > "$dir/packages/shared/tsconfig.json"
+  printf '{"extends":"./tsconfig.json"}\n' > "$dir/packages/shared/tsconfig.build.json"
   printf '{"compilerOptions":{}}\n' > "$dir/tsconfig.base.json"
   printf '{"name":"musi","private":true}\n' > "$dir/package.json"
   printf '{"lockfileVersion":1}\n' > "$dir/bun.lock"
@@ -1019,6 +1032,8 @@ printf '{"name":"@musi/shared","scripts":{"build":"tsc -b"}}\n' \
   > "$shared_build_dir/packages/shared/package.json"
 printf '{"extends":"../../tsconfig.base.json","include":["src"]}\n' \
   > "$shared_build_dir/packages/shared/tsconfig.json"
+printf '{"extends":"./tsconfig.json","exclude":["src/**/*.test.ts"]}\n' \
+  > "$shared_build_dir/packages/shared/tsconfig.build.json"
 printf '{"compilerOptions":{}}\n' > "$shared_build_dir/tsconfig.base.json"
 printf '%s\n' \
   '#!/usr/bin/env bash' \
@@ -1057,6 +1072,22 @@ unset MUSI_SHARED_OUTPUT_READY_ROOT
 PATH="$shared_build_stub_dir:$PATH" ensure_shared_output "$shared_build_dir" >/dev/null 2>&1
 [[ "$(cat "$SHARED_BUILD_OUT")" == "$expected_shared_build_argv" ]] \
   || fail "shared build-config mismatch should rebuild the output"
+: > "$SHARED_BUILD_OUT"
+printf '{"extends":"./tsconfig.json","exclude":["src/**/*.test.ts","src/**/*.spec.ts"]}\n' \
+  > "$shared_build_dir/packages/shared/tsconfig.build.json"
+# A rebuild must start from an empty dist and no build marker: `tsc -b` never
+# deletes outputs it no longer emits, and with the marker present it treats a
+# missing dist as up to date and emits nothing.
+touch "$shared_build_dir/packages/shared/dist/stale.test.js" \
+  "$shared_build_dir/packages/shared/tsconfig.build.tsbuildinfo"
+unset MUSI_SHARED_OUTPUT_READY_ROOT
+PATH="$shared_build_stub_dir:$PATH" ensure_shared_output "$shared_build_dir" >/dev/null 2>&1
+[[ "$(cat "$SHARED_BUILD_OUT")" == "$expected_shared_build_argv" ]] \
+  || fail "shared emit-config (tsconfig.build.json) mismatch should rebuild the output"
+[[ ! -e "$shared_build_dir/packages/shared/dist/stale.test.js" ]] \
+  || fail "shared rebuild should clear previously emitted dist output first"
+[[ ! -e "$shared_build_dir/packages/shared/tsconfig.build.tsbuildinfo" ]] \
+  || fail "shared rebuild should clear the tsc build marker so a missing dist is re-emitted"
 
 printf '%s\n' '#!/usr/bin/env bash' 'exit 19' > "$shared_build_stub_dir/bun"
 chmod +x "$shared_build_stub_dir/bun"

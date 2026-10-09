@@ -17,7 +17,7 @@
 #                       One git-work row per worktree (ahead/behind vs base,
 #                       staged/unstaged counts, last-commit age). Read-only,
 #                       no Postgres. Base: --base, else upstream, else the
-#                       primary worktree's branch, else origin/HEAD.
+#                       primary worktree's branch, origin/HEAD, or main/master.
 #   template-refresh [--from-musi]
 #                       (Re)build the fingerprinted musi_template_<hash> DB via
 #                       prisma migrate deploy + seedSrd; fingerprint stored in
@@ -575,7 +575,7 @@ write_seed_fingerprint_input_digests() {
 
   # Shared package configs determine how the blanket-hashed sources are built
   # and exposed to the server seed runtime.
-  for config in packages/shared/package.json packages/shared/tsconfig.json tsconfig.base.json; do
+  for config in packages/shared/package.json packages/shared/tsconfig.json packages/shared/tsconfig.build.json tsconfig.base.json; do
     [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint template inputs"
     sha256sum "$config" || return 1
   done
@@ -591,7 +591,7 @@ write_shared_output_fingerprint_input_digests() {
 
   [[ -d "$root" ]] || die "missing $PWD/$root — can't fingerprint shared output inputs"
   find "$root" -type f -print0 | sort -z | xargs -0 -r sha256sum || return 1
-  for config in packages/shared/package.json packages/shared/tsconfig.json tsconfig.base.json; do
+  for config in packages/shared/package.json packages/shared/tsconfig.json packages/shared/tsconfig.build.json tsconfig.base.json; do
     [[ -f "$config" ]] || die "missing $PWD/$config — can't fingerprint shared output inputs"
     sha256sum "$config" || return 1
   done
@@ -1018,7 +1018,12 @@ ensure_shared_output() {
     return 0
   fi
   log "building @musi/shared output required by template seeding"
-  rm -f "$fingerprint_path"
+  # Start from an empty dist and no build marker: `tsc -b` never deletes outputs
+  # it previously emitted (a tree built before `tsconfig.build.json` excluded
+  # `*.test.ts` keeps `dist/**/*.test.js` until something removes it), and with
+  # the marker still present it treats the missing dist as up to date and emits
+  # nothing at all. Removing both forces one full, clean emit.
+  rm -rf "$dist" "$wt_root/packages/shared/tsconfig.build.tsbuildinfo"
   (
     cd "$wt_root"
     bun run --filter @musi/shared build >&2

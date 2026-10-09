@@ -1,6 +1,6 @@
 # 221. Rename metamagic slot terminology to options-known terminology
 
-Status: Not started
+Status: Landed on fix/cq-221
 Theme: Metamagic option counts are named as slots in the shared API and caller · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

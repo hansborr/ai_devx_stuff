@@ -1,6 +1,6 @@
 # 32. The encounter difficulty and XP calculators hand-write the participant discriminator instead of typing it from the canonical schema
 
-Status: Not started
+Status: Landed on fix/cq-027
 Theme: schema-derived vocabulary typing · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

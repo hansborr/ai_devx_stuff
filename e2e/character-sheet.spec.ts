@@ -80,6 +80,31 @@ test.describe("Character sheet", () => {
     }
   });
 
+  // Exactly one layout tree mounts per viewport (backlog unit 039): the
+  // desktop grid at Playwright's default 1280px, the tab strip at phone width,
+  // and crossing the boundary swaps them rather than revealing a hidden twin.
+  // Only a real browser proves the hook's `64rem` is the edge Tailwind's `lg`
+  // utilities use; what a tab mounts is covered in `sheet-layout.test.tsx`.
+  test("mounts one layout tree per viewport", async ({ browser }) => {
+    const { teardown, page } = await setupUserWithCharacter(browser, { prefix: "sheetLayout" });
+    const sheet = new CharacterSheetPO(page);
+
+    try {
+      await test.step("desktop viewport mounts the grid alone", async () => {
+        await sheet.expectDesktopLayout();
+      });
+
+      await test.step("phone viewport mounts the tabs alone", async () => {
+        await page.setViewportSize({ width: 375, height: 812 });
+
+        await sheet.expectMobileLayout();
+        await expect(sheet.hpAdjuster).toHaveCount(0);
+      });
+    } finally {
+      await teardown();
+    }
+  });
+
   test("inspiration toggle works", async ({ browser }) => {
     const { teardown, page } = await setupUserWithCharacter(browser, { prefix: "sheetInsp" });
     const sheet = new CharacterSheetPO(page);

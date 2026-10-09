@@ -13,6 +13,19 @@ interface Cell {
   readonly y: number;
 }
 
+function escapeRegExp(text: string): string {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+/**
+ * The drawer's Cast control is named `Cast <spell>` while a slot is free and
+ * `Cast as ritual <spell>` once a ritual spell's slots are spent, so match
+ * either rather than timing out mid-spec after a few casts.
+ */
+function castButtonName(spellName: string): RegExp {
+  return new RegExp(`^Cast (as ritual )?${escapeRegExp(spellName)}$`);
+}
+
 /**
  * Page object for the in-map VTT drawer flow.
  *
@@ -135,7 +148,7 @@ export class VttDrawerPO {
     spellName: string,
     target: Cell,
   ): Promise<BrowserCombatSpellResponse> {
-    await this.page.getByRole("button", { name: `Cast ${spellName}` }).click();
+    await this.page.getByRole("button", { name: castButtonName(spellName) }).click();
     await expect(this.page.getByTestId("cast-rail")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
     await this.page.getByTestId("cast-rail-place").click();
     await this.clickCell(target);
@@ -180,7 +193,7 @@ export class VttDrawerPO {
     placement: Cell,
     minimumTargetCount: number,
   ): Promise<BrowserCombatSpellResponse> {
-    await this.page.getByRole("button", { name: `Cast ${spellName}` }).click();
+    await this.page.getByRole("button", { name: castButtonName(spellName) }).click();
     await expect(this.page.getByTestId("cast-rail")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
     const slot = this.page.getByTestId(`cast-rail-slot-${String(slotLevel)}`);
     await expect(slot).toBeVisible({ timeout: TIMEOUT_SHORT });
@@ -215,7 +228,7 @@ export class VttDrawerPO {
     };
     this.page.on("request", trackCombatRequest);
     try {
-      await this.page.getByRole("button", { name: `Cast ${spellName}` }).click();
+      await this.page.getByRole("button", { name: castButtonName(spellName) }).click();
       await expect(this.page.getByTestId("cast-rail")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
       const slot = this.page.getByTestId(`cast-rail-slot-${String(slotLevel)}`);
       await expect(slot).toBeVisible({ timeout: TIMEOUT_SHORT });
@@ -245,7 +258,7 @@ export class VttDrawerPO {
     };
     this.page.on("request", trackCombatRequest);
     try {
-      await this.page.getByRole("button", { name: `Cast ${spellName}` }).click();
+      await this.page.getByRole("button", { name: castButtonName(spellName) }).click();
       await expect(this.page.getByTestId("cast-rail")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
       await this.page.getByTestId("cast-rail-place").click();
       const strip = this.page.getByTestId("confirm-cast-strip");
@@ -286,7 +299,7 @@ export class VttDrawerPO {
   }
 
   async cancelConcentrationConflict(spellName: string): Promise<void> {
-    await this.page.getByRole("button", { name: `Cast ${spellName}` }).click();
+    await this.page.getByRole("button", { name: castButtonName(spellName) }).click();
     await expect(this.page.getByTestId("cast-rail")).toBeVisible({ timeout: TIMEOUT_MEDIUM });
     await this.page.getByTestId("cast-rail-place").click();
     const modal = this.page.getByTestId("cast-rail-concentration-modal");

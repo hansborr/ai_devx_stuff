@@ -1,6 +1,6 @@
 # 21. A normal shared build emits all 73 colocated test suites into dist, and the wildcard exports turn nearly all of them into valid package subpaths
 
-Status: Not started
+Status: Landed on fix/cq-021
 Theme: build/export surface hygiene · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

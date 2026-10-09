@@ -15,6 +15,7 @@
 # smoke-subjects: scripts/lib/records.ts
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-engine.ts
 # smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
@@ -63,6 +64,7 @@ CHANGED_LINTABLE_FILES="$SCRIPT_DIR/../lib/changed-lintable-files.sh"
 YAMLLINT_CONFIG="$REPO_ROOT/.yamllint.yml"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+PATH_POLICY_QUERY_ENGINE="$SCRIPT_DIR/../path-policy/path-policy-query-engine.ts"
 SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
@@ -160,6 +162,7 @@ new_repo() {
   cp "$CHANGED_LINTABLE_FILES" "$repo/scripts/lib/changed-lintable-files.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$PATH_POLICY_QUERY_ENGINE" "$repo/scripts/path-policy/path-policy-query-engine.ts"
   cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"

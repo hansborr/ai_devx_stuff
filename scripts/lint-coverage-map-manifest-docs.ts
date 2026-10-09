@@ -36,6 +36,7 @@ export const markdownAndDocEntries: readonly CoverageEntry[] = [
       "AGENTS.md",
       "CLAUDE.md",
       "CONTEXT.md",
+      "CONTRIBUTING.md",
       "DESIGN.md",
       "MODULE-INDEX.md",
       "packages/**/MODULE.md",

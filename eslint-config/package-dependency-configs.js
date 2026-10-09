@@ -17,10 +17,14 @@ export function createPackageDependencyConfigs(repoRoot) {
   const sharedDir = path.resolve(repoRoot, "packages/shared");
   const serverDir = path.resolve(repoRoot, "packages/server");
   const clientDir = path.resolve(repoRoot, "packages/client");
-  const serverSeedGeneratorGlob = path.resolve(
-    repoRoot,
-    "packages/server/src/seed/generate-srd-*.ts",
-  );
+  // The two operator-run SRD generators that emit JSON format their output
+  // with prettier, a root devDependency; nothing else under packages/server/src
+  // may import one (the TypeScript-emitting generators and the thin
+  // `generate-*.ts` scripts import only server dependencies).
+  const serverSeedGeneratorGlobs = [
+    path.resolve(repoRoot, "packages/server/src/seed/srd-spells-generator.ts"),
+    path.resolve(repoRoot, "packages/server/src/seed/srd-rules-glossary-generator.ts"),
+  ];
 
   return [
     // packages/shared - strict tier: production-ish source
@@ -61,7 +65,7 @@ export function createPackageDependencyConfigs(repoRoot) {
           "error",
           {
             packageDir: [serverDir],
-            devDependencies: [serverSeedGeneratorGlob],
+            devDependencies: serverSeedGeneratorGlobs,
           },
         ],
       },

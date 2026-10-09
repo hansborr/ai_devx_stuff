@@ -1,6 +1,6 @@
 # 39. Responsive character sheets always mount both layout trees and hide one with CSS, keeping duplicate live panel state at every viewport
 
-Status: Not started
+Status: Landed on fix/cq-039
 Theme: responsive layout boundary · Area: client · Severity: high · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

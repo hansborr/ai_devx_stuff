@@ -58,7 +58,11 @@ is genuinely not applicable:
   decisions future contributors are likely to accidentally break.
 
 Short module docs can keep each section to a few bullets. Deep services should
-be more explicit about contracts, invariants, and broadcasts.
+be more explicit about contracts, invariants, and broadcasts. A folder promoted
+on structural grounds alone (the structure-driven path in
+`packages/server/src/services/README.md`) keeps the light tier: stages,
+transaction ownership, entry points, and test seams, with no
+concurrency-invariant charter to write because there is none to break.
 
 ## Discoverability
 

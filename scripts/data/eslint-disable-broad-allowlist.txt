@@ -3,11 +3,9 @@
 packages/shared/src/map/grid-utils.ts|no-magic-numbers
 packages/shared/src/map/area-template.ts|no-magic-numbers
 packages/shared/src/rules/xp.ts|no-magic-numbers
-packages/shared/src/rules/spellcasting.ts|no-magic-numbers
+packages/shared/src/rules/spell-slots.ts|no-magic-numbers
+packages/shared/src/rules/prepared-spell-limits.ts|no-magic-numbers
 packages/shared/src/constants.ts|no-magic-numbers
-packages/server/src/seed/generate-*.ts|no-magic-numbers
-packages/server/src/seed/generate-*.ts|complexity
-packages/server/src/seed/generate-*.ts|@typescript-eslint/restrict-template-expressions
 packages/server/src/utils/prisma-types.test.ts|@typescript-eslint/no-deprecated
 packages/server/src/utils/srd-query-helpers.ts|@typescript-eslint/explicit-function-return-type
 packages/server/src/utils/__type-tests__/*.ts|@typescript-eslint/no-deprecated

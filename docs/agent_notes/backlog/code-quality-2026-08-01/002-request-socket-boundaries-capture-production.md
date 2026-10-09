@@ -1,6 +1,6 @@
 # 2. Request and socket boundaries capture the production Prisma singleton at module load, so `buildServer` composes dependencies it never actually provides
 
-Status: Not started
+Status: Landed on fix/cq-002
 Theme: composition-root dependency injection · Area: server · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

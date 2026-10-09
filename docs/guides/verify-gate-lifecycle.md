@@ -269,8 +269,10 @@ records evidence without making any budget or deadline load-adaptive.
 
 A staged change that trips a path-policy full-scan trigger (the
 `full-scan-trigger:*` classes in
+[`path-policy-query-engine.ts`](../../scripts/path-policy/path-policy-query-engine.ts),
+wired to Musi's policy through the
 [`path-policy-query-core.ts`](../../scripts/path-policy/path-policy-query-core.ts)
-— `eslint-config/**` is the common one) escalates `lint:changed` to a
+adapter — `eslint-config/**` is the common one) escalates `lint:changed` to a
 full-tree ESLint run and `test:changed` to the full suite, and the parallel
 pre-commit runner executes both concurrently. Facts that follow:
 

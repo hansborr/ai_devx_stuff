@@ -1,6 +1,6 @@
 # 270. Add a local orientation contract for the client character-creation wizard
 
-Status: Not started
+Status: Landed on fix/cq-062
 Theme: Give the client character-creation wizard a local orientation contract · Area: client · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -104,3 +104,10 @@ document and include the regenerated `MODULE-INDEX.md`, as required by
   scope. No wizard behavior, state shape, validation rule, mutation contract,
   or server projection changes belong here.
 - No prior-pack record covers this missing client orientation contract.
+- **Landed on fix/cq-062 (2026-09-12) ahead of 042 and 045.** The document
+  describes the audit-pinned ownership plus the 213 closed-key contract that
+  landed on the same branch, and its Gotchas section names 042 and 045 as the
+  leaves that must refresh State Ownership and Gotchas when they land.
+  `MODULE-INDEX.md` was regenerated with `bun run module:index`; that run
+  also picked up an unrelated, already-landed `attunement` breadcrumb for
+  `packages/shared/src/rules/MODULE.md` that the committed index had missed.

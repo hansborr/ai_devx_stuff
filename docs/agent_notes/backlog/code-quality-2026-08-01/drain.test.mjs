@@ -811,6 +811,73 @@ test("a conductor mission routes the evidence route through the lane and land.sh
   assert.doesNotMatch(mission, /nothing merges/u);
 });
 
+test("a conductor mission bounds its own reading instead of ordering a full one", () => {
+  // Owner ruling 2026-09-04: conductors were spending 115k-125k tokens on
+  // DRAIN.md, CONSTRAINTS.md and MODULE.md before dispatching anything. The
+  // mission now names the sections it executes and rules the rest out.
+  const mission = conductorMission(unitOf("154"));
+  assert.doesNotMatch(mission, /in full before acting/u);
+  assert.match(mission, /## Conducting a unit/u);
+  assert.match(mission, /CONSTRAINTS\.md/u);
+  assert.match(mission, /MODULE\.md/u);
+  assert.match(mission, /line ranges/u);
+});
+
+test("a conductor mission seats Claude-only review rounds, not the agent-cli panel", () => {
+  // The five-seat agent-cli panel is unreachable (codex, cursor and copilot
+  // all down), so the rendered mission must describe the mode that actually
+  // runs — otherwise every dispatch needs a preamble overriding it.
+  const mission = conductorMission(unitOf("154"));
+  assert.doesNotMatch(mission, /five-seat|agent-cli|agent-run\.sh|answer file/u);
+  assert.match(mission, /Opus 5/u);
+  assert.match(mission, /Fable 5\.1/u);
+  assert.match(mission, /Sonnet 5/u);
+  assert.match(mission, /one agent, one context/u);
+});
+
+test("a conductor mission routes post-merge bookkeeping off the protected branch", () => {
+  // Agent commits on main are refused by the ai-hook rule git-commit-on-main
+  // and by .husky/pre-commit step 0, so the bookkeeping that only exists once
+  // the merge exists rides a short branch merged back with --no-ff.
+  const mission = conductorMission(unitOf("154"));
+  assert.match(mission, /docs\/cq-154-post-merge/u);
+  assert.match(mission, /--no-ff/u);
+  assert.match(mission, /git-commit-on-main/u);
+});
+
+test("a conductor mission states the lane-commit rule the hook actually implements", () => {
+  // The PreToolUse hook resolves the commit's TARGET checkout before it reads a
+  // branch (ai_resolve_target_dir, scripts/ai-hooks/git-classify.sh:383), so a
+  // literal `git -C <lane>` commit from another checkout is judged against the
+  // LANE's branch and allowed — scripts/ai-hooks/test.sh:4030 asserts exactly
+  // that. What fails closed is a target the lexer cannot read from the command
+  // text: `git -C "$VAR"` or a `~` path, refused as an unverifiable target
+  // (AI_POLICY_GIT_UNVERIFIABLE_TARGET, git-classify.sh:405). The mission used
+  // to teach the reverse, and it renders into every conductor dispatch.
+  const mission = conductorMission(unitOf("154"));
+  assert.doesNotMatch(mission, /checkout you are sitting in/u);
+  assert.match(mission, /unverifiable/u);
+  assert.match(mission, /literal path/u);
+});
+
+test("an implementer mission forbids the implementer from fanning out", () => {
+  const mission = implementerMission(unitOf("154"));
+  assert.match(mission, /Do this work yourself\./u);
+  assert.match(mission, /one agent, one context/u);
+});
+
+test("a review brief carries the one-agent rule and both mandatory angles", () => {
+  // DRAIN.md 6a requires every review seat's brief to carry the one-agent
+  // sentence verbatim and the two mandatory angles. The renderer is the only
+  // place that can guarantee it: when the brief omits them the conductor has
+  // to prepend them by hand before every dispatch, which 6a never says to do.
+  const mission = reviewerMission(unitOf("154"), 1);
+  assert.match(mission, /Do this work yourself\./u);
+  assert.match(mission, /one agent, one context/u);
+  assert.match(mission, /Simplicity/u);
+  assert.match(mission, /Useful test coverage/u);
+});
+
 test("a batch conductor mission names every unit and keeps --with", () => {
   const units = pickOf(["154", "169"]).units;
   const mission = conductorMission(units[0], units.slice(1));
@@ -870,16 +937,18 @@ test("queue order spanning two queues still reads as one order", () => {
 });
 
 test("a reversed preference is reported only while both sides are unlanded", () => {
-  // 251 `pref-after:111`: 111 is the preferred-first side.
-  assert.match(queueOrderProblems(queueOf("251", "111"), landedOf())[0], /prefer/u);
-  assert.deepEqual(queueOrderProblems(queueOf("251", "111"), landedOf("111")), []);
-  assert.deepEqual(queueOrderProblems(queueOf("111", "251"), landedOf()), []);
+  // d-251-01 is `prefersBefore` from 251 to 111, which `relationToken` renders
+  // on 251's catalog row as `pref-before:111`: 251 is the preferred-first side.
+  assert.match(queueOrderProblems(queueOf("111", "251"), landedOf())[0], /prefer/u);
+  assert.deepEqual(queueOrderProblems(queueOf("111", "251"), landedOf("111")), []);
+  assert.deepEqual(queueOrderProblems(queueOf("251", "111"), landedOf()), []);
 });
 
-test("an unqueued preferred-first peer is not a queue-order problem", () => {
+test("an unqueued side of a preference is not a queue-order problem", () => {
   // Preferences are reversible, so a peer nobody scheduled constrains nothing;
-  // only a hard prerequisite has to be present.
+  // only a hard prerequisite has to be present. True from either end.
   assert.deepEqual(queueOrderProblems(queueOf("251"), landedOf()), []);
+  assert.deepEqual(queueOrderProblems(queueOf("111"), landedOf()), []);
 });
 
 // --- CLI parsing ------------------------------------------------------------

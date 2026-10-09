@@ -536,8 +536,8 @@ decision and [RUN-LEDGER.md](./RUN-LEDGER.md#runs) for run provenance.
 - suggestedOwner: code-review
 
 ### 06-B19 — Multiclass half-caster levels are rounded independently
-- `packages/shared/src/rules/spellcasting.ts`
-- `packages/shared/src/rules/spellcasting.test.ts`
+- `packages/shared/src/rules/spell-slots.ts`
+- `packages/shared/src/rules/spell-slots.test.ts`
 - Why suspected: Paladin 1 plus Ranger 1 becomes effective caster level 2, although SRD aggregation before rounding yields level 1.
 - suggestedOwner: code-review
 

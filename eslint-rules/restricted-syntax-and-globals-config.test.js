@@ -73,6 +73,11 @@ function bansRawPrismaSql(selector) {
 }
 
 /** @param {string} selector */
+function bansPrismaSingletonImport(selector) {
+  return selector.includes("prisma\\/client") && selector.includes("imported.name='prisma'");
+}
+
+/** @param {string} selector */
 function bansQueryKeyArrayProperty(selector) {
   return (
     selector.includes("Property") &&
@@ -183,19 +188,34 @@ function restrictedGlobalMessagesByName(config) {
 // is a real diff here rather than something only a hand count would notice.
 const restrictedSyntaxSelectorCompositionCases = [
   {
-    file: "packages/server/src/services/auth-service.ts",
-    ids: ["process.exit", "process.env", "raw-prisma-sql"],
+    file: "packages/server/src/services/auth-primitives.ts",
+    ids: ["process.exit", "process.env", "raw-prisma-sql", "prisma-singleton-import"],
   },
   {
     file: "packages/server/src/routers/character.ts",
-    ids: ["process.exit", "process.env", "raw-prisma-sql", "trpc-output-permissive"],
+    ids: [
+      "process.exit",
+      "process.env",
+      "raw-prisma-sql",
+      "prisma-singleton-import",
+      "trpc-output-permissive",
+    ],
   },
+  // The raw-SQL carve-out for this service does not carve out the singleton
+  // fence: `server-prisma-singleton` is the wider family, `server-raw-sql`
+  // nests inside it, and only the inner one ignores this file.
   {
     file: "packages/server/src/services/inventory-service.ts",
-    ids: ["process.exit", "process.env"],
+    ids: ["process.exit", "process.env", "prisma-singleton-import"],
   },
-  { file: "packages/server/src/config/env.ts", ids: ["raw-prisma-sql"] },
-  { file: "packages/server/src/main.ts", ids: ["raw-prisma-sql"] },
+  // The composition root is the one production module allowed to import the
+  // Prisma singleton; every other fence still applies to it.
+  { file: "packages/server/src/app.ts", ids: ["process.exit", "process.env", "raw-prisma-sql"] },
+  {
+    file: "packages/server/src/config/env.ts",
+    ids: ["raw-prisma-sql", "prisma-singleton-import"],
+  },
+  { file: "packages/server/src/main.ts", ids: ["raw-prisma-sql", "prisma-singleton-import"] },
   {
     file: "packages/shared/src/schemas/character.ts",
     ids: ["process.exit", "process.env", "shared-schema-z-any"],
@@ -220,7 +240,7 @@ const restrictedSyntaxSelectorCompositionCases = [
     ],
   },
   { file: "scripts/drift-ai.ts", ids: ["process.exit", "process.env"] },
-  { file: "packages/server/src/services/auth-service.test.ts", ids: ["process.exit"] },
+  { file: "packages/server/src/services/auth-primitives.test.ts", ids: ["process.exit"] },
   { file: "packages/client/src/test/mock-trpc.tsx", ids: ["process.exit"] },
   { file: "e2e/a11y.spec.ts", ids: ["process.exit"] },
 ];
@@ -385,7 +405,7 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
       for (const file of [
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
         "packages/server/src/routers/character.ts",
         "packages/shared/src/schemas/character.ts",
         "packages/client/src/components/campaign/chat/chat-message.tsx",
@@ -416,7 +436,7 @@ describe("process-primitive restrictions (no-restricted-syntax)", () => {
     "test and helper files keep the process.exit ban but may touch process.env",
     { timeout: resolvedConfigTestTimeoutMs },
     async () => {
-      const config = await configFor("packages/server/src/services/auth-service.test.ts");
+      const config = await configFor("packages/server/src/services/auth-primitives.test.ts");
       expect(severityOf(config, "no-restricted-syntax")).toBe(2);
       const selectors = restrictedSelectorsOf(config);
       expect(selectors.some(bansProcessExitCall)).toBe(true);
@@ -504,6 +524,87 @@ describe("raw Prisma SQL restriction (no-restricted-syntax)", () => {
       ]) {
         const config = await configFor(file);
         expect(restrictedSelectorsOf(config).some(bansRawPrismaSql), file).toBe(false);
+      }
+    },
+  );
+});
+
+describe("prisma singleton boundary (no-restricted-syntax)", () => {
+  it(
+    "reports a value import of the prisma singleton in fenced server source",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cases = [
+        { name: "sibling-relative path", code: 'import { prisma } from "../prisma/client.js";' },
+        { name: "deeper relative path", code: 'import { prisma } from "../../prisma/client.js";' },
+        {
+          name: "aliased specifier",
+          code: 'import { prisma as client } from "../prisma/client.js";',
+        },
+      ];
+
+      for (const probe of cases) {
+        const messages = restrictedSyntaxMessages(
+          await lintTextFor("packages/server/src/routers/inventory.ts", probe.code),
+        );
+        expect(messages, probe.name).toHaveLength(1);
+      }
+    },
+  );
+
+  it(
+    "still fences the singleton in the raw-SQL carve-out service",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      // `inventory-service.ts` is ignored by `server-raw-sql` for its
+      // `$queryRaw` use; that allowance must not also exempt it from the
+      // composition-root rule.
+      const messages = restrictedSyntaxMessages(
+        await lintTextFor(
+          "packages/server/src/services/inventory-service.ts",
+          'import { prisma } from "../prisma/client.js";',
+        ),
+      );
+      expect(messages).toHaveLength(1);
+    },
+  );
+
+  it(
+    "leaves generated-client type imports and the client factory alone",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      const cases = [
+        {
+          name: "generated client types",
+          code: 'import type { PrismaClient } from "../generated/prisma/client.js";',
+        },
+        {
+          name: "client factory",
+          code: 'import { createPrismaClient } from "../prisma/create-client.js";',
+        },
+      ];
+
+      for (const probe of cases) {
+        const messages = restrictedSyntaxMessages(
+          await lintTextFor("packages/server/src/routers/inventory.ts", probe.code),
+        );
+        expect(messages, probe.name).toHaveLength(0);
+      }
+    },
+  );
+
+  it(
+    "keeps the selector off the composition root and the test surfaces",
+    { timeout: resolvedConfigTestTimeoutMs },
+    async () => {
+      for (const file of [
+        "packages/server/src/app.ts",
+        "packages/server/src/test/test-db.ts",
+        "packages/server/src/services/level-up/level-up-test-helper.ts",
+        "packages/server/src/socket/campaign-room.test.ts",
+      ]) {
+        const config = await configFor(file);
+        expect(restrictedSelectorsOf(config).some(bansPrismaSingletonImport), file).toBe(false);
       }
     },
   );
@@ -897,7 +998,7 @@ describe("runtime-boundary globals (no-restricted-globals)", () => {
     async () => {
       for (const file of [
         "packages/client/src/components/campaign/chat/chat-message.tsx",
-        "packages/server/src/services/auth-service.ts",
+        "packages/server/src/services/auth-primitives.ts",
       ]) {
         const config = await configFor(file);
         expect(severityOf(config, "no-restricted-globals"), file).toBe(2);

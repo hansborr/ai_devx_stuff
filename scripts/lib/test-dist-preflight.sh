@@ -50,17 +50,21 @@ musi_test_dist_first_missing() {
   return 1
 }
 
-# `tsc -b`'s incremental build marker. It is rewritten on EVERY build — full or
-# incremental — so its mtime is the true "@musi/shared last built at" time. We
-# compare src against THIS rather than against a dist .js sentinel: an
-# incremental rebuild only rewrites the outputs affected by the edited file, so
-# unrelated sentinels keep older mtimes and a src-vs-sentinel comparison would
-# keep reporting stale even after a successful rebuild. tsconfig.tsbuildinfo
-# advancing on every build clears that false-stale signal.
-MUSI_TEST_DIST_TSBUILDINFO="packages/shared/tsconfig.tsbuildinfo"
+# `tsc -b`'s incremental build marker for @musi/shared's EMIT project
+# (packages/shared/tsconfig.build.json; the marker name derives from the config
+# filename). It is rewritten on EVERY build — full or incremental — so its
+# mtime is the true "@musi/shared last built at" time. We compare src against
+# THIS rather than against a dist .js sentinel: an incremental rebuild only
+# rewrites the outputs affected by the edited file, so unrelated sentinels keep
+# older mtimes and a src-vs-sentinel comparison would keep reporting stale even
+# after a successful rebuild. The marker advancing on every build clears that
+# false-stale signal. The sibling packages/shared/tsconfig.tsbuildinfo belongs
+# to the inclusive no-emit CHECK project that `tsc -b` at the repo root
+# refreshes on typecheck; it says nothing about dist and must not be used here.
+MUSI_TEST_DIST_TSBUILDINFO="packages/shared/tsconfig.build.tsbuildinfo"
 
 # Echoes the first compiled shared/src TypeScript file newer than the build
-# marker (tsconfig.tsbuildinfo), else nothing. Uses a short-circuiting
+# marker (tsconfig.build.tsbuildinfo), else nothing. Uses a short-circuiting
 # `find -newer ... -quit` so the already-fresh common path stops at the first
 # comparison.
 musi_test_dist_first_stale_src() {
@@ -79,20 +83,23 @@ musi_test_dist_first_stale_src() {
   tsbuildinfo="$repo_root/$MUSI_TEST_DIST_TSBUILDINFO"
   [ -f "$tsbuildinfo" ] || return 1
 
-  # Only count files `tsc -b` actually compiles as build inputs. @musi/shared's
-  # tsconfig uses `include: ["src"]` with no `exclude`, so every TypeScript file
-  # under src (regular AND `*.test.ts` — they are emitted to dist and DO bump
-  # tsconfig.tsbuildinfo on rebuild) is a real input, while non-TS files
-  # (MODULE.md, etc.) are not. A Markdown-only edit never refreshes tsbuildinfo,
-  # so without the extension filter an untouched-by-the-build doc would read as
-  # stale forever and trap the user in a build-remediation loop. We match the
-  # full set tsc compiles and emits — `*.ts`/`*.tsx`/`*.mts`/`*.cts` — not just
-  # `*.ts`: src is all `*.ts` today, but a later `*.tsx`/`*.mts`/`*.cts` is a
-  # genuine build input the staleness scan must not silently skip (which would
-  # let an edited-but-unrebuilt file evade the preflight). An imported `*.json`
-  # under resolveJsonModule is also an input, but none exist under src today, so
-  # it is left out to avoid flagging non-imported JSON config as stale.
-  hit="$(find "$src_dir" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mts' -o -name '*.cts' \) -newer "$tsbuildinfo" -print -quit 2>/dev/null)"
+  # Only count files the build project actually compiles as build inputs.
+  # @musi/shared's tsconfig.build.json uses `include: ["src"]` with
+  # `exclude: ["src/**/*.test.ts"]`: every non-test TypeScript file under src
+  # is a real input, while colocated `*.test.ts` suites (type-checked by the
+  # inclusive tsconfig.json, never emitted) and non-TS files (MODULE.md, etc.)
+  # are not. Neither a test edit nor a Markdown-only edit refreshes the build
+  # marker, so without these filters an untouched-by-the-build file would read
+  # as stale forever and trap the user in a build-remediation loop. We match
+  # the full set tsc compiles and emits — `*.ts`/`*.tsx`/`*.mts`/`*.cts` — not
+  # just `*.ts`: src is all `*.ts` today, but a later `*.tsx`/`*.mts`/`*.cts`
+  # is a genuine build input the staleness scan must not silently skip (which
+  # would let an edited-but-unrebuilt file evade the preflight). The test
+  # exclusion mirrors the build config's glob exactly (`*.test.ts`, which also
+  # covers `*.slow.test.ts`). An imported `*.json` under resolveJsonModule is
+  # also an input, but none exist under src today, so it is left out to avoid
+  # flagging non-imported JSON config as stale.
+  hit="$(find "$src_dir" -type f \( -name '*.ts' -o -name '*.tsx' -o -name '*.mts' -o -name '*.cts' \) ! -name '*.test.ts' -newer "$tsbuildinfo" -print -quit 2>/dev/null)"
   if [ -n "$hit" ]; then
     printf '%s\n' "${hit#"$repo_root/"}"
     return 0

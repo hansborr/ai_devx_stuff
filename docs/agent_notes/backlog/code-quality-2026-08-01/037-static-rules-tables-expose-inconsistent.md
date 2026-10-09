@@ -1,6 +1,6 @@
 # 37. Uppercase SRD reference tables export mutable arrays and records while the neighboring difficulty table shows the readonly idiom
 
-Status: Not started
+Status: Landed on fix/cq-221
 Theme: reference-data mutability contracts · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

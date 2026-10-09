@@ -54,13 +54,6 @@
         },
         {
           "files": [
-            "packages/server/src/services/character-create-helpers.ts",
-            "packages/server/src/services/character-create.ts"
-          ],
-          "rationale": "character-create.ts owns validation, transaction orchestration, and persistence while importing nested proficiency, feat, and spell-slot derivation from character-create-helpers.ts; remove this exception when that derivation is folded into the service or moves behind a differently named boundary."
-        },
-        {
-          "files": [
             "packages/server/src/utils/map-helpers.ts",
             "packages/server/src/utils/map-types.ts"
           ],
@@ -91,10 +84,6 @@
         }
       ],
       "allowedEdges": [
-        [
-          "packages/server/src/utils/character-mapping.test.ts",
-          "packages/server/src/services/character-create.ts"
-        ],
         [
           "packages/server/src/utils/__type-tests__/assert-turn-opts-dedup.ts",
           "packages/server/src/services/combat-actions/types.ts"

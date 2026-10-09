@@ -15,8 +15,10 @@ For a worked reference, read the `encounter` slice in build order — it
 exercises every step below on real code:
 
 - shared contract: strict inputs in
-  `packages/shared/src/schemas/encounter-inputs.ts` and named output schemas
-  in `packages/shared/src/schemas/encounter.ts`, with tests beside each;
+  `packages/shared/src/schemas/encounter-combat-inputs.ts` (its siblings
+  `encounter-inputs.ts` and `encounter-map-inputs.ts` serve the `encounter`
+  and `encounter-map` routers) and named output schemas in
+  `packages/shared/src/schemas/encounter.ts`, with tests beside each;
 - server service: `packages/server/src/services/encounter-combat/` holds the
   combat business logic, tested in place;
 - router: `packages/server/src/routers/encounter-combat.ts` is the exemplary

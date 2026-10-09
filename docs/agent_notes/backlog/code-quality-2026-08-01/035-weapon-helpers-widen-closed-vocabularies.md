@@ -1,6 +1,6 @@
 # 35. Weapon attack and proficiency helpers widen the closed WeaponCategory and DamageTypeName vocabularies back to string
 
-Status: Not started
+Status: Landed on fix/cq-221
 Theme: Closed vocabularies erased at helper boundaries · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

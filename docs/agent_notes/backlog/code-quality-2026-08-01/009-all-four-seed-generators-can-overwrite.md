@@ -1,6 +1,6 @@
 # 9. All four SRD seed generators warn and still write, so a run that dropped records or blanked descriptions exits 0 and overwrites committed artifacts
 
-Status: Not started
+Status: Landed on fix/cq-009
 Theme: seed generator error policy · Area: server · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

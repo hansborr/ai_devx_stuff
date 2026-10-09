@@ -1,6 +1,6 @@
 # 3. Seed JSON boundaries alternate between Zod schemas and unchecked assertion chains because no directory-level rule says what a seed-data boundary guarantees
 
-Status: Not started
+Status: Landed on fix/cq-003
 Theme: seed validation boundary policy · Area: server · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

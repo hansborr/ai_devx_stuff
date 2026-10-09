@@ -1,6 +1,6 @@
 # 1. Six chat-message writers each re-invent persistence and delivery policy because there is no chat-message application boundary
 
-Status: Not started
+Status: Landed on fix/cq-001
 Theme: chat-message coordination boundary · Area: server · Severity: medium · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

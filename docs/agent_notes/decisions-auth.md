@@ -60,4 +60,4 @@ Same response shape, same status, no leakage.
 - `docs/authorization.md`
 - The same doctrine applies to auth endpoints (login + register both run a
   bcrypt compare regardless of user existence) — see
-  `packages/server/src/services/auth-service.ts`.
+  `packages/server/src/services/auth-primitives.ts`.

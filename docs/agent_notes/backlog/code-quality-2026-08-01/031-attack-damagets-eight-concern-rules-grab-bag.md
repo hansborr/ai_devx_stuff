@@ -1,6 +1,6 @@
 # 31. Spell save DC and spell attack bonus derivation lives in the weapon attack-damage module instead of `rules/spellcasting.ts`
 
-Status: Not started
+Status: Landed on fix/cq-028
 Theme: rules module placement · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

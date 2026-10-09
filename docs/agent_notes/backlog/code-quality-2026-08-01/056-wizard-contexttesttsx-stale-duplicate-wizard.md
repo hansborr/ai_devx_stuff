@@ -1,6 +1,6 @@
 # 56. wizard-context.test.tsx never tests the context it is named for — it re-runs stale reducer cases that wizard-state.test.ts already owns
 
-Status: Not started
+Status: Landed on fix/cq-062
 Theme: stale duplicate test coverage · Area: client · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -95,3 +95,20 @@ untouched.
   touch `wizard-context.test.tsx`. Either order works, but do not implement the
   two leaves concurrently; if leaf 042 lands first, rebase this cleanup onto
   its new reducer and test shapes.
+- **Landed on fix/cq-062 (2026-09-12) as the replace variant, with one
+  narrow production edit this leaf did not anticipate.** The file is now a
+  seven-case `useWizard` facade test (outside-provider throw, `canAdvance`
+  derivation, `goNext`/`goPrev`/`goToStep` wiring, value memoization) driven
+  through `renderHook` with a `WizardProvider` wrapper rather than
+  `renderWizard`, which renders elements, not hooks. Deleting the old cases
+  left the `wizardReducer` and `computeCanAdvance` re-exports in
+  `wizard-context.tsx` with no consumer anywhere, and the knip unused-export
+  pre-commit gate rejects new unused exports, so those two re-exports were
+  removed; every other re-export in the block stays (the stepper, navigation,
+  and step components still import through it). The
+  `react-refresh/only-export-components` ratchet baseline for that file
+  lowered from 5 to 3 as a consequence. `wizard-state.test.ts` was not
+  modified by this unit (213 appended a registry table to it on the same
+  branch). Review round 1 trimmed the `goToStep` case to the single
+  dispatch assertion; the out-of-range clamping re-checks were dropped
+  because `wizard-state.test.ts` already pins the reducer clamp.

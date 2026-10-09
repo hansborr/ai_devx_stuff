@@ -14,6 +14,7 @@
 # smoke-subjects: scripts/lib/changed-lintable-files.sh
 # smoke-subjects: scripts/path-policy/path-policy-query.ts
 # smoke-subjects: scripts/path-policy/path-policy-query-core.ts
+# smoke-subjects: scripts/path-policy/path-policy-query-engine.ts
 # smoke-subjects: scripts/path-policy/segment-pattern.ts
 # smoke-subjects: scripts/path-policy/path-policy.ts
 # smoke-subjects: scripts/harness/harness-manifest.ts
@@ -68,6 +69,7 @@ LINT_DIST_PREFLIGHT="$SCRIPT_DIR/../lib/lint-dist-preflight.sh"
 GATE_ENV="$SCRIPT_DIR/../lib/gate-env.sh"
 PATH_POLICY_QUERY="$SCRIPT_DIR/../path-policy/path-policy-query.ts"
 PATH_POLICY_QUERY_CORE="$SCRIPT_DIR/../path-policy/path-policy-query-core.ts"
+PATH_POLICY_QUERY_ENGINE="$SCRIPT_DIR/../path-policy/path-policy-query-engine.ts"
 SEGMENT_PATTERN="$SCRIPT_DIR/../path-policy/segment-pattern.ts"
 PATH_POLICY="$SCRIPT_DIR/../path-policy/path-policy.ts"
 PATH_POLICY_SMOKE_SUBJECTS="$SCRIPT_DIR/../path-policy/path-policy-smoke-subjects.ts"
@@ -162,6 +164,7 @@ new_repo() {
   cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
   cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
   cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+  cp "$PATH_POLICY_QUERY_ENGINE" "$repo/scripts/path-policy/path-policy-query-engine.ts"
   cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
   cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
   cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
@@ -774,6 +777,7 @@ cp "$LINT_DIST_PREFLIGHT" "$repo/scripts/lib/lint-dist-preflight.sh"
 cp "$GATE_ENV" "$repo/scripts/lib/gate-env.sh"
 cp "$PATH_POLICY_QUERY" "$repo/scripts/path-policy/path-policy-query.ts"
 cp "$PATH_POLICY_QUERY_CORE" "$repo/scripts/path-policy/path-policy-query-core.ts"
+cp "$PATH_POLICY_QUERY_ENGINE" "$repo/scripts/path-policy/path-policy-query-engine.ts"
 cp "$SEGMENT_PATTERN" "$repo/scripts/path-policy/segment-pattern.ts"
 cp "$PATH_POLICY" "$repo/scripts/path-policy/path-policy.ts"
 cp "$PATH_POLICY_SMOKE_SUBJECTS" "$repo/scripts/path-policy/path-policy-smoke-subjects.ts"
@@ -824,7 +828,7 @@ touch "$repo/packages/shared/dist/rules/attack-damage.d.ts"
 touch "$repo/packages/shared/dist/schemas/auth.d.ts"
 touch "$repo/packages/shared/dist/test/parse-helpers.d.ts"
 touch "$repo/packages/server/dist/routers/app-router.d.ts"
-git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-cache.ts scripts/lib/process-argv.ts scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/verify-commit-queue.sh scripts/lib/verify-fast-commit.sh scripts/lib/verify-markers.sh scripts/lib/verify-path-policy.sh scripts/lib/verify-run-meta.sh scripts/lib/verify-state-paths.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/segment-pattern.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/path-policy/smoke-test-files.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lib/records.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/path-glob-policy.js packages/shared/dist/constants.d.ts packages/shared/dist/logging-policy.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
+git -C "$repo" add scripts/eslint-main.sh scripts/lint-changed.sh scripts/lint-shell.sh scripts/lib/parallel-runner.sh scripts/lint-config-sensors.sh scripts/lint-import-cycles.sh scripts/lib/eslint-main-cache.sh scripts/lib/eslint-main-cache.ts scripts/lib/process-argv.ts scripts/lib/eslint-main-partitions.sh scripts/lib/verify-metadata.sh scripts/lib/verify-commit-queue.sh scripts/lib/verify-fast-commit.sh scripts/lib/verify-markers.sh scripts/lib/verify-path-policy.sh scripts/lib/verify-run-meta.sh scripts/lib/verify-state-paths.sh scripts/lib/changed-base.sh scripts/lib/changed-lintable-files.sh scripts/lib/lint-dist-preflight.sh scripts/lib/gate-env.sh scripts/path-policy/path-policy-query.ts scripts/path-policy/path-policy-query-core.ts scripts/path-policy/path-policy-query-engine.ts scripts/path-policy/segment-pattern.ts scripts/path-policy/path-policy.ts scripts/path-policy/path-policy-smoke-subjects.ts scripts/path-policy/path-policy-smoke-subjects-data.ts scripts/path-policy/smoke-test-files.ts scripts/harness/harness-paths.ts scripts/harness/harness-manifest.ts scripts/lib/records.ts scripts/lint-ratchet/paths.ts eslint-config/config-surfaces.js eslint-config/config-surface-manifest.json eslint-config/path-glob-policy.js packages/shared/dist/constants.d.ts packages/shared/dist/logging-policy.d.ts packages/shared/dist/dice/dice-roller.d.ts packages/shared/dist/map/drawing.d.ts packages/shared/dist/rules/attack-damage.d.ts packages/shared/dist/schemas/auth.d.ts packages/shared/dist/test/parse-helpers.d.ts packages/server/dist/routers/app-router.d.ts
 : > "$repo/eslint.log"
 output="$(run_lint_changed "$repo" 2>&1)" || fail "missing base should fall back to full lint: $output"
 grep -qF "neither 'main' nor 'origin/main' exists" <<< "$output" \

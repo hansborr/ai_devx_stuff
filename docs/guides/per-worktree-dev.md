@@ -22,6 +22,8 @@ The root scripts expose the worktree command surface:
 | `bun run worktree:drop [<path>] [--remove]` | Drop a worktree's allowlisted DBs and release its allocation; `--remove` also removes a clean target worktree while retaining its branch. |
 | `bun run worktree:gc` | Sweep orphan `musi_wt_<slug>*` DBs whose worktrees no longer exist and whose grace period has elapsed; pass `--force` when intentionally overriding the grace period. |
 | `bun run worktree:status` | Print current worktree DB, port, and template diagnostics. |
+| `bun run worktree:status --all` | Provisioning diagnostics for every worktree: one block per worktree, plus the template fingerprints and any stale allocations. |
+| `bun run worktree:status --lanes [--base <ref>]` | Print one Git-work row per worktree: ahead/behind against a base ref, staged and unstaged counts, and last-commit age. Read-only and Postgres-free. |
 | `bun run worktree:template-refresh` | Rebuild the fingerprinted `musi_template_<hash>` DB via Prisma migrate deploy plus `seedSrd`; pass `--from-musi` when intentionally seeding from the primary DB. |
 | `bun run worktree:refresh-data` | Recover from SRD seed drift by rebuilding the template, then applying migrations and SRD seed in place on dev/test/e2e DBs; pass `--destructive` to reclone those DBs from the template and discard local dev data. |
 
@@ -33,6 +35,13 @@ provisioning fails closed on a different, computed, competing, or misplaced
 value instead of caching a template whose migration inputs are only partially
 hashed. The check reads formatted code only, so neither a commented-out mention
 nor a canonical `path:` under some other key can vouch for the real one.
+
+The two cross-worktree status modes answer different questions and are not
+interchangeable: `--all` answers "is each worktree provisioned", `--lanes`
+answers "what is each lane's Git work doing". They are mutually exclusive, and
+`--base <ref>` is valid only with `--lanes`; `status` fails on either misuse.
+Omit `--base` and the script resolves one itself — see the `status` entry in
+the command header for the fallback order.
 
 This mirrors the command headers in `scripts/worktree-db.sh:4-36` and the thin
 `worktree:new` wrapper in `scripts/worktree-new.sh:1-20`.
@@ -144,6 +153,8 @@ waiting, not stuck.
 
 Size and pace lanes with that serialization in mind:
 
+- **Inspect lane state before deciding who commits, waits, or lands.** Run
+  `bun run worktree:status --lanes`.
 - **Place lane worktrees on the same filesystem as the primary checkout.** This
   lets Bun hardlink packages from its cache instead of copying them, and lets
   provisioning skip rebuilding shared derived outputs when their freshness
@@ -214,6 +225,9 @@ When `bun run dev` reports residual worktree drift, inspect first:
 ```bash
 bun run worktree:status
 ```
+
+Add `--all` to get the same provisioning block for every worktree when you do
+not yet know which one drifted.
 
 Then refresh data:
 

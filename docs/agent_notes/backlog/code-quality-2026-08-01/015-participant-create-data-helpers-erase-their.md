@@ -1,6 +1,6 @@
 # 15. The participant create-data builder erases the discriminated type it just built, so its only caller mutates an opaque record and re-stamps it as Prisma create data
 
-Status: Not started
+Status: Landed on fix/cq-013
 Theme: Prisma boundary types · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

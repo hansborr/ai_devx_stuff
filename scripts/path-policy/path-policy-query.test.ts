@@ -7,7 +7,7 @@ import {
   parsePathPolicyInput,
   queryPathPolicy,
 } from "./path-policy-query-core.js";
-import { SCRIPT_SMOKE_TEST_NAMES } from "./path-policy-smoke-subjects.js";
+import { scriptSmokeTestNames } from "./path-policy-smoke-subjects.js";
 
 function runPathPolicyQuery(query: string, paths: readonly string[]): SpawnSyncReturns<string> {
   const result = spawnSync("bun", ["scripts/path-policy/path-policy-query.ts", query], {
@@ -293,7 +293,7 @@ describe("path-policy-query CLI", () => {
     const result = runPathPolicyQuery("script-smoke-test-names", []);
 
     expect(result.status).toBe(0);
-    expect(parsePathPolicyInput(result.stdout)).toEqual(SCRIPT_SMOKE_TEST_NAMES);
+    expect(parsePathPolicyInput(result.stdout)).toEqual(scriptSmokeTestNames());
   });
 
   it("reports unsupported query names without stdout", () => {

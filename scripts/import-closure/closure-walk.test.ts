@@ -76,7 +76,7 @@ describe("validateSeedImportClosure options", () => {
     expect(result.status).toBe(0);
     expect(result.stderr).toBe("");
     const files = result.stdout.split("\0").filter((path) => path.length > 0);
-    expect(files).toHaveLength(49);
+    expect(files).toHaveLength(50);
     expect(files).toContain("packages/server/prisma/seed-template.ts");
   });
 

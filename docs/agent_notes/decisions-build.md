@@ -152,7 +152,8 @@ in repo docs rather than in ignored `coverage/` output.
 ### References
 - `docs/guides/coverage-cadence.md`
 - `vitest.config.ts`
-- `AUD-COV-002` (audit notes deleted; see `docs/agent_notes/LOG.md` 2026-05-13 entry)
+- `AUD-COV-002` (audit notes deleted 2026-05-14; retrieve the last revision
+  with `git show 61c98f348:docs/agent_notes/in_progress/codebase-audit/coverage.md`)
 
 ---
 

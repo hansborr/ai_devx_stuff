@@ -1,6 +1,6 @@
 # 29. Cast-input validation caps metamagic per cast with the level-up picks constant, coupling two unrelated rules that only coincidentally equal 2
 
-Status: Not started
+Status: Landed on fix/cq-026
 Theme: single-purpose rule constants · Area: shared · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

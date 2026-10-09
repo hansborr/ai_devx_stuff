@@ -1,6 +1,6 @@
 # 34. The campaign-homebrew router's four output schemas live alone in a 19-line module, split from their matching inputs
 
-Status: Not started
+Status: Landed on fix/cq-027
 Theme: contract co-location · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

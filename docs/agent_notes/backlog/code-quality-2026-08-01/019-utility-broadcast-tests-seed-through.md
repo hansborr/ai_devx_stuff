@@ -1,6 +1,6 @@
 # 19. Mapper and broadcast suites seed characters through character-create service internals instead of a DB-level fixture
 
-Status: Not started
+Status: Landed on fix/cq-019
 Theme: test fixture layering · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

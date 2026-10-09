@@ -15,9 +15,11 @@ const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 async function runExplain(selector: ExplainSelector, format: "text" | "json"): Promise<void> {
   // Explain-only modules load lazily (mirroring the lint-ratchet-config
   // import in registration-check.ts): the no-arg preflight gate must not pay
-  // for the explain closure or run its module-scope work — path-policy
-  // smoke-subject loading reads the cwd-relative scripts/tests directory at
-  // import time. The literal specifiers keep both modules visible to the
+  // for parsing and evaluating the explain closure, which pulls in the
+  // path-policy smoke-subject modules and the generated subject registry the
+  // preflight never imports. (It does read that generated file from disk for
+  // the skill-artifact freshness check; only the module stays out of its eager
+  // closure.) The literal specifiers keep both modules visible to the
   // fixture-copy closure walker (see runtime-imports.ts recordImport).
   const {
     buildExplainReport,

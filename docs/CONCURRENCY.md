@@ -155,7 +155,11 @@ it. Construction order is construct → extend → narrow:
 `createPrismaClient` installs the extension, then `toDbClient` applies the
 compile-time restricted-delegate shape at business-code boundaries. The
 extension is pinned in both array and interactive-callback `$transaction`
-forms.
+forms. The production singleton is imported only by the composition root
+(`app.ts#buildServer`), which resolves it once and passes it into every request
+and socket boundary as a parameter; the `prisma-singleton-import` fence in
+`eslint-config/restricted-syntax-policy.js` keeps other server modules from
+reaching for it (tests and helpers stay exempt).
 
 `local/concurrency-guard` keeps its nested branch as an explicitly
 non-authoritative author-time diagnostic. It uses the same generated reachable subgraph
@@ -210,11 +214,14 @@ all in `utils/participant-stats-mutations.ts`:
    transaction as the link write — required because the projection's
    visibility gate reads the *currently linked* token while the origin
    was captured from the token linked at turn start.
-3. `clearTurnOriginsForParticipants`, the tolerant batch clear that the
-   two cascade deleters (`map.delete`, whose map cascade removes every
-   token on the map, and `deleteCharacterWithCascade`, whose character
-   cascade removes tokens possibly cross-linked to surviving
-   participants) run in the same transaction as the delete.
+3. `runTokenCascadeWithOriginSweep`, the coordinator the two cascade
+   deleters (`map.delete`, whose map cascade removes every token on the
+   map, and `deleteCharacterWithCascade`, whose character cascade removes
+   tokens possibly cross-linked to surviving participants) run inside
+   their transaction. It owns the order — read the linked participant ids
+   in-tx, run the caller's cascade delete, then the tolerant batch clear
+   over those ids — and the batch clear itself is private to the module,
+   so the sweep cannot be invoked out of order.
 
 All writers set the whole four-column set atomically and none bumps
 `version`, so capture/clear stays invisible to concurrent CAS-protected
@@ -592,7 +599,7 @@ with one guarded caller and a dozen ordinary writers is worse than none.
 path, not about the table: *`togglePrepared` never raises a character's
 prepared count above its cap, however many prepares run concurrently.*
 Character creation now enforces the same cap separately:
-`services/character-create-spells.ts` prepares submitted level-1 choices
+`services/character-create/spells.ts` prepares submitted level-1 choices
 in order only up to the level-1 result from `getMaxPreparedSpells`, leaving a
 wizard's fifth and sixth spell known but unprepared. That is a forward writer
 check, not a concurrency guarantee or a database constraint, and characters

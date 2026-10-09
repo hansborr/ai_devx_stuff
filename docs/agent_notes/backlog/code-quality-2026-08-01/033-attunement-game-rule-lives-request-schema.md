@@ -1,6 +1,6 @@
 # 33. The attunement limit — a game rule enforced by the server and displayed by two UIs — is declared in a request-schema module none of whose schemas use it
 
-Status: Not started
+Status: Landed on fix/cq-221
 Theme: rules constant placement · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

@@ -18,6 +18,7 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [Campaign NPC Components](packages/client/src/components/campaign/npcs/MODULE.md) - `packages/client/src/components/campaign/npcs/`
 - [Campaign Settings Components](packages/client/src/components/campaign/settings/MODULE.md) - `packages/client/src/components/campaign/settings/`
 - [Campaign Token Components](packages/client/src/components/campaign/tokens/MODULE.md) - `packages/client/src/components/campaign/tokens/` - Concepts: map tokens, token shape, HP bar, condition badges, token context menu
+- [character creation wizard module](packages/client/src/components/character-create/MODULE.md) - `packages/client/src/components/character-create/` - Concepts: character creation wizard, wizard steps, step validation, conditional spell step, create-character projection
 - [background - homebrew entity module](packages/client/src/components/homebrew/background/MODULE.md) - `packages/client/src/components/homebrew/background/`
 - [class - homebrew entity module](packages/client/src/components/homebrew/class/MODULE.md) - `packages/client/src/components/homebrew/class/`
 - [collections - homebrew collections module](packages/client/src/components/homebrew/collections/MODULE.md) - `packages/client/src/components/homebrew/collections/`
@@ -43,8 +44,10 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [client test helpers module](packages/client/src/test/MODULE.md) - `packages/client/src/test/` - Concepts: test fixtures, tRPC mocks, hook mocks, render helper, vitest setup
 - [routers module](packages/server/src/routers/routers-MODULE.md) - `packages/server/src/routers/routers-MODULE.md` - Concepts: tRPC routers, app-router, router surface map, procedure partition, where does procedure X live
 - [server routes module](packages/server/src/routes/MODULE.md) - `packages/server/src/routes/` - Concepts: REST routes, multipart upload, map image upload, non-tRPC error convention, HTTP status mapping
-- [server seed module](packages/server/src/seed/MODULE.md) - `packages/server/src/seed/` - Concepts: SRD seeding, seed data provenance, SRD generators, vendored SRD JSON
+- [server seed module](packages/server/src/seed/MODULE.md) - `packages/server/src/seed/` - Concepts: SRD seeding, seed data provenance, SRD generators, vendored SRD JSON, seed validation levels
+- [character-create module](packages/server/src/services/character-create/MODULE.md) - `packages/server/src/services/character-create/` - Concepts: character creation, starting equipment, level-1 spells, nested creates, single transaction
 - [character-live-state module](packages/server/src/services/character-live-state/MODULE.md) - `packages/server/src/services/character-live-state/` - Concepts: character stats, HP, conditions, spell slots, sorcery points, feature uses, rest commands
+- [Chat message service](packages/server/src/services/chat-message-MODULE.md) - `packages/server/src/services/chat-message-MODULE.md` - Concepts: campaign chat, chat send, whisper, whisper-offline notification, chat broadcast, chat persistence, chat failure policy
 - [combat-actions module](packages/server/src/services/combat-actions/MODULE.md) - `packages/server/src/services/combat-actions/` - Concepts: attacks, initiative rolls, turn advancement, turn locks, turn origin, combat logs, concentration checks
 - [encounter-combat module](packages/server/src/services/encounter-combat/MODULE.md) - `packages/server/src/services/encounter-combat/` - Concepts: encounter combat mutations, combat fan-out, roll initiative, advance turn, combat log query
 - [homebrew-import-service module](packages/server/src/services/homebrew-import-MODULE.md) - `packages/server/src/services/homebrew-import-MODULE.md` - Concepts: homebrew collection import, two-pass cross-entry reference resolution
@@ -55,8 +58,9 @@ For the module-doc contract, see [docs/module-docs.md](docs/module-docs.md).
 - [spell-casting module](packages/server/src/services/spell-casting/MODULE.md) - `packages/server/src/services/spell-casting/` - Concepts: spell casting, spell slots, concentration, combat spells, ritual casting, metamagic
 - [server socket module](packages/server/src/socket/MODULE.md) - `packages/server/src/socket/` - Concepts: Socket.io, campaign rooms, presence, heartbeats, socket broadcasts, broadcast registry
 - [server test helpers module](packages/server/src/test/MODULE.md) - `packages/server/src/test/` - Concepts: test fixtures, encounter builders, test database, trpc inject helpers, integration setup
+- [server utils module](packages/server/src/utils/MODULE.md) - `packages/server/src/utils/` - Concepts: authorization guards, NOT_FOUND masking, restricted delegates, locked mutations, RawTxClient, version CAS, Prisma row mappers, authz logs
 - [area-template module](packages/shared/src/map/area-template-MODULE.md) - `packages/shared/src/map/area-template-MODULE.md` - Concepts: AoE geometry, grid-cell projection, coordinate convention, angle snapping, Chebyshev distance
-- [shared rules module](packages/shared/src/rules/MODULE.md) - `packages/shared/src/rules/` - Concepts: 5E rules, ability modifiers, combat math, spellcasting, XP, weapon mastery
+- [shared rules module](packages/shared/src/rules/MODULE.md) - `packages/shared/src/rules/` - Concepts: 5E rules, ability modifiers, combat math, spellcasting, XP, weapon mastery, attunement
 - [shared schemas module](packages/shared/src/schemas/MODULE.md) - `packages/shared/src/schemas/` - Concepts: zod schemas, contract layer, tRPC inputs, entity schemas, SRD reference, derived types
 - [code-intel module](scripts/code-intel/MODULE.md) - `scripts/code-intel/` - Concepts: code intel queries, import graph, ts-morph projects, code-intel daemon, graph cache, workspace resolver
 - [drift-triage module](scripts/drift-triage/MODULE.md) - `scripts/drift-triage/` - Concepts: drift triage, review queue, swarm packets, verdict collection, drift-ai reducer

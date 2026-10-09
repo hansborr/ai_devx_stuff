@@ -53,8 +53,8 @@ being *worked on*.
 
 ## Parked items
 
-- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (140 landed,
-  129 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
+- `code-quality-2026-08-01/00-index.md` — **audit complete, 269 leaves (204 landed,
+  65 not started), queued 2026-08-06, cleared to drain 2026-08-08:** the owner
   prioritised harness leaves, lint-related first, and granted standing
   merge-on-green; on 2026-08-14 the queue was extended to cover the whole
   harness area (104 queued leaves) for an unattended drain. To dispatch,
@@ -117,11 +117,12 @@ being *worked on*.
   assertions now guard both existing copy lists before sandbox construction,
   without restoring a fixture manifest or teaching the generic analyzer to
   parse dynamic pipelines. The shared, client, and scheduled server/comments
-  work is finished. The harness cluster is in progress: 18 of 23 slices landed
+  work is finished. The harness cluster is in progress: 19 of 23 slices landed
   across merges `2667ee8e0`, `ac3ce2b0f`, `1bfbfc115`, `e7462ee51`,
-  `bdc120756`, `c6e1be2a2`, `e2dc60cb9`, `57ef569e5`, and `64a7fac64`. Five
-  slices remain open: H11/H12 await unlanded 28-PLAN slice 28.1, H15 awaits
-  unlanded 27-PLAN slice 27.3, and optional H20/H21 are unstarted. The
+  `bdc120756`, `c6e1be2a2`, `e2dc60cb9`, `57ef569e5`, `64a7fac64`, and
+  `e288e33eb`. Three slices remain open: H11 awaits unlanded 28-PLAN slice
+  28.1, and optional H20/H21 are unstarted. The
+  remaining slice, H12, is superseded by code-quality-2026-08-01 leaf 108. The
   client-cache delivery made immutable SRD lists fresh
   without retaining every parameterized key, invalidated the initiating
   client's whole character-detail family after assignment changes, and

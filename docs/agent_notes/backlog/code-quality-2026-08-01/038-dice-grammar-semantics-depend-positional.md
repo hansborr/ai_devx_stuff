@@ -1,6 +1,6 @@
 # 38. Dice grammar semantics ride on four positional regex captures plus a mislabeled keep-discriminator assertion
 
-Status: Not started
+Status: Landed on fix/cq-211
 Theme: typed regex decoding · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

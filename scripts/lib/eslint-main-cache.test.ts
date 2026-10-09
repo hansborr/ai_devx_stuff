@@ -26,7 +26,8 @@ describe("ESLint main cache plan", () => {
       "packages/server/src/app.ts": "export const app = true;\n",
       "packages/shared/dist/constants.d.ts": "export declare const value: string;\n",
       "packages/shared/tsconfig.build.jsonc": "{}\n",
-      "packages/shared/tsconfig.tsbuildinfo": "build\n",
+      "packages/shared/tsconfig.build.tsbuildinfo": "build\n",
+      "packages/shared/tsconfig.tsbuildinfo": "check\n",
       "reports/generated.ts": "export const report = true;\n",
       "src/not-an-input.js": "export const js = true;\n",
     });
@@ -40,6 +41,7 @@ describe("ESLint main cache plan", () => {
       "./packages/server/src/app.ts",
       "./packages/shared/dist/constants.d.ts",
       "./packages/shared/tsconfig.build.jsonc",
+      "./packages/shared/tsconfig.build.tsbuildinfo",
       "./packages/shared/tsconfig.tsbuildinfo",
     ]);
   });

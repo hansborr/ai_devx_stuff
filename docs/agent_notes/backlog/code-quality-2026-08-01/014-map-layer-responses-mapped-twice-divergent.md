@@ -1,6 +1,6 @@
 # 14. Map-layer rows are mapped to the wire contract twice, and the two mappers disagree on malformed-JSON handling
 
-Status: Not started
+Status: Landed on fix/cq-019
 Theme: duplicated Prisma read mappers · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

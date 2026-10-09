@@ -89,7 +89,7 @@ function isIdentityInput(relativePath: string, name: string): boolean {
   return (
     /\.(?:ts|tsx|mts|cts)$/u.test(name) ||
     /^tsconfig.*\.jsonc?$/u.test(name) ||
-    name === "tsconfig.tsbuildinfo" ||
+    /^tsconfig.*\.tsbuildinfo$/u.test(name) ||
     (relativePath.startsWith("./eslint.config.") &&
       !relativePath.slice(DOT_SLASH_LENGTH).includes("/")) ||
     relativePath.startsWith("./eslint-config/") ||

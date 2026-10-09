@@ -1,6 +1,6 @@
 # 16. Presence and session cleanup accept the unrestricted generated Prisma client although each needs exactly one delegate, bypassing the compile-time `DbClient` boundary
 
-Status: Not started
+Status: Landed on fix/cq-013
 Theme: narrow database ports · Area: server · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

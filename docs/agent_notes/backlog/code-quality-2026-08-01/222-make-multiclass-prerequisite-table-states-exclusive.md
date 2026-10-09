@@ -1,6 +1,6 @@
 # 222. Make multiclass prerequisite table states exclusive and non-empty
 
-Status: Not started
+Status: Landed on fix/cq-222
 Theme: Multiclass prerequisite types admit rule states the table never defines · Area: shared · Severity: medium · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

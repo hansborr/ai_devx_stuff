@@ -1,6 +1,6 @@
 # 250. Correct two shared assertion-boundary categories
 
-Status: Not started
+Status: Landed on fix/cq-028
 Theme: Correct two shared type-assertion boundary categories · Area: shared · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

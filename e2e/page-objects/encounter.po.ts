@@ -64,7 +64,7 @@ export class EncounterPO {
   async addMonster(searchTerm: string): Promise<void> {
     const dialog = this.page.getByRole("dialog", { name: "Add Participant" });
     await dialog.getByRole("tab", { name: "Monsters" }).click();
-    await dialog.getByRole("textbox", { name: "Search monsters..." }).fill(searchTerm);
+    await dialog.getByRole("searchbox", { name: "Search monsters" }).fill(searchTerm);
     // Scope to the exact monster's row — hasText is substring so "Goblin Warrior"
     // would also match "Hobgoblin Warrior". Use has: with exact name match instead.
     const row = dialog.getByTestId("monster-row").filter({

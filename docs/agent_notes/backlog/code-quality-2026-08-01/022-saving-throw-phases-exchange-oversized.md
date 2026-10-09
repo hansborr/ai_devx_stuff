@@ -1,6 +1,6 @@
 # 22. Saving-throw phases pass the full 13-field input everywhere, so a check and the input it was rolled from travel as an unlinked pair callers must keep synchronized
 
-Status: Not started
+Status: Landed on fix/cq-022
 Theme: Phase-boundary data contracts · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

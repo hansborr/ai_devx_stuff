@@ -1,6 +1,6 @@
 # 25. spellcasting.ts packs five independently changing rule areas — caster resolution, slot progression, prepared limits, cantrip fallback, and creation selection — into one 380-line module
 
-Status: Not started
+Status: Landed on fix/cq-222
 Theme: one rule area per file · Area: shared · Severity: medium · Size: M
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

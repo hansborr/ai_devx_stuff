@@ -552,27 +552,37 @@ export const queueOrderProblems = (queueEntries = queue.queues, landed = new Map
   for (const normalized of normalizedEdges) {
     for (const sequence of normalized.sequencing) {
       const hard = sequence.kind === "requires";
-      if (!hard && sequence.kind !== "prefersBefore") continue;
-      const dependent = leafByFile.get(sequence.from)?.number;
-      const first = leafByFile.get(sequence.to)?.number;
-      if (!dependent || !first) continue;
-      const dependentAt = position.get(dependent);
-      if (!dependentAt) continue;
-      if (leafHasLanded(dependent) || leafHasLanded(first)) continue;
+      const preference = sequence.kind === "prefersBefore" || sequence.kind === "prefersAfter";
+      if (!hard && !preference) continue;
+      // Direction convention, the one `relationToken` in
+      // `working/phase5/edge-graph-relations.mjs` renders and the catalogs
+      // print: a `requires` edge points from the dependent *to* its
+      // prerequisite (`after:<to>` on the `from` row), so `to` lands first. A
+      // `prefersBefore` edge points the other way — from the leaf that should
+      // land first to the one that should follow (`pref-before:<to>` on the
+      // `from` row) — and `prefersAfter` is that same edge written backwards.
+      const firstFile = hard || sequence.kind === "prefersAfter" ? sequence.to : sequence.from;
+      const laterFile = firstFile === sequence.to ? sequence.from : sequence.to;
+      const later = leafByFile.get(laterFile)?.number;
+      const first = leafByFile.get(firstFile)?.number;
+      if (!later || !first) continue;
+      const laterAt = position.get(later);
+      if (!laterAt) continue;
+      if (leafHasLanded(later) || leafHasLanded(first)) continue;
       const firstAt = position.get(first);
       if (!firstAt) {
         if (hard) {
           problems.push(
-            `${dependentAt.where}: ${dependent} requires ${first}, which is neither queued nor landed (${normalized.edge.id})`,
+            `${laterAt.where}: ${later} requires ${first}, which is neither queued nor landed (${normalized.edge.id})`,
           );
         }
         continue;
       }
-      if (firstAt.order < dependentAt.order) continue;
+      if (firstAt.order < laterAt.order) continue;
       problems.push(
         hard
-          ? `${dependentAt.where}: ${dependent} is queued before its prerequisite ${first} (${firstAt.where}, ${normalized.edge.id})`
-          : `${dependentAt.where}: ${dependent} is queued before ${first} (${firstAt.where}), contradicting the recorded preference (${normalized.edge.id})`,
+          ? `${laterAt.where}: ${later} is queued before its prerequisite ${first} (${firstAt.where}, ${normalized.edge.id})`
+          : `${laterAt.where}: ${later} is queued before ${first} (${firstAt.where}), contradicting the recorded preference (${normalized.edge.id})`,
       );
     }
   }
@@ -732,6 +742,7 @@ ${scope}${colandClause}${batchClause}
 \`## Problem\` and \`## Evidence\` are load-bearing and every claim carries a \`path:line\`. Line anchors are pinned to the audit and may have rotted, so re-resolve each citation **by symbol name** (\`bun run code:intel\` helps) and expect the claim itself to hold. If a claim no longer holds against the live tree, stop and report that instead of implementing around it.
 
 Constraints:
+- Do this work yourself. Do not use the Agent tool or spawn subagents, consults, or parallel angle workers; one agent, one context.
 - TDD. Read the relevant \`docs/guides/\` guide first.
 - Do not take on scope the leaf excludes, and do not act on a ruling in \`${packDir}/CONSTRAINTS.md\` as though it were open.
 - You may fix a real bug you hit inside this unit's blast radius: add a regression test and say so explicitly in your final report. Do not go looking for bugs outside it.
@@ -770,6 +781,12 @@ If the lane's diff is bookkeeping-only and it flips the leaf's \`Status:\` to \`
 
 If this change touches defensive or guard code, the threat model is accidental misuse — a caller getting it wrong in good faith — not an adversarial caller working to defeat the guard. Do not report evasion findings that require deliberate circumvention. Without this calibration, review rounds on guard code produce P1 evasion findings indefinitely and never converge.
 
+Do this work yourself. Do not use the Agent tool or spawn subagents, consults, or parallel angle workers; one agent, one context.
+
+Two angles are mandatory. For both, proposing removal is the ask, not a redesign this brief forbids:
+- **Simplicity** — flag code written for edge cases or threat models that do not matter here, and prefer deletion over hardening.
+- **Useful test coverage** — the suite is already too slow to run and memory limits rule out more parallelism; flag tests whose runtime buys no real signal, not just coverage gaps.
+
 Review only from the repository and your own experiments. Do not read any other reviewer's answer, log, or scratch files, and do not base any claim on them. If your shell is blocked, say so explicitly at the top of your answer and mark every claim you could only check statically.`;
 };
 
@@ -777,7 +794,7 @@ Review only from the repository and your own experiments. Do not read any other 
  * The conductor mission: one fresh agent that runs steps 3–8 for one claimed
  * unit, so a long drain's orchestrating session stays small (DRAIN.md
  * “Conducting a unit”). The seam is deliberate: gate, claim, lock, and
- * decision panels stay with the dispatcher; everything downstream of the
+ * decision consults stay with the dispatcher; everything downstream of the
  * claim — parking its own lane included — moves here. Done is `verify-closed`
  * passing — externally checkable, so the dispatcher never has to trust the
  * conductor's report.
@@ -803,9 +820,9 @@ export const conductorMission = (unit, batch = []) => {
   const batchClause = batch.length
     ? `\n\n**This lane is a batch.** One branch carries every one of ${unitIds.join(", ")}. Keep \`--with ${batch.map((member) => member.id).join(",")}\` on every brief you render, and confirm the record commands from the implementer brief are run and committed before the first review round.`
     : "";
-  return `Conduct unit **${unit.id}** of \`${packDir}/\`. The unit is already claimed on branch \`${branchFor(unit.id)}\` with lane worktree \`${lanePathFor(unit.id)}\`, and you own everything from that claim to a closed unit: steps 3–8 of \`${packDir}/DRAIN.md\`, which is the authority wherever this mission is silent. Read it in full before acting.
+  return `Conduct unit **${unit.id}** of \`${packDir}/\`. The unit is already claimed on branch \`${branchFor(unit.id)}\` with lane worktree \`${lanePathFor(unit.id)}\`, and you own everything from that claim to a closed unit: steps 3–8 of \`${packDir}/DRAIN.md\`, which is the authority wherever this mission is silent. Read only the parts of it you execute — steps 5–8 under \`## The loop\`, and \`## Conducting a unit\` — and nothing else in the pack: not the rest of that file, not \`${packDir}/CONSTRAINTS.md\`, and not any \`MODULE.md\` (that one is the implementer's read). Every brief you write cites line ranges rather than whole files, and tells its agent not to read the rest.
 
-First finish step 2's deferred half: read ${leafPaths} and BOTH leaves of every incident edge in full, and re-verify every pin (file, line, symbol, cited test) against the live tree — the audit is from 2026-08-01 and its pins rot; the implementer brief gets your live-verified pins and traps, not the audit's. Two different exits hang on that reading: if the claim should not proceed in this lane now but the unit's work remains valid, **abandon** it with step 8's release commands, report why, and stop — the unit returns to the pool, and a released claim is cheap; if the reading shows the unit's work is obsolete, take the **evidence route** in the done-block below, which is yours to finish, not a stop.${colandClause}${batchClause}
+First finish step 2's deferred half: read ${leafPaths} in full, and of every incident edge's other leaf only its \`Status:\` header and \`## Scope / caveats\`, then re-verify every pin (file, line, symbol, cited test) against the live tree — the audit is from 2026-08-01 and its pins rot; the implementer brief gets your live-verified pins and traps, not the audit's. Two different exits hang on that reading: if the claim should not proceed in this lane now but the unit's work remains valid, **abandon** it with step 8's release commands, report why, and stop — the unit returns to the pool, and a released claim is cheap; if the reading shows the unit's work is obsolete, take the **evidence route** in the done-block below, which is yours to finish, not a stop.${colandClause}${batchClause}
 
 Boundaries — these stay with the session that dispatched you:
 - The drain lock. Never touch \`node ${selfPath} lock\`, and never adopt or clear one you find.
@@ -815,8 +832,8 @@ Boundaries — these stay with the session that dispatched you:
 The loop you run:
 1. Dispatch ONE fresh-context implementer into the lane with the mission from \`node ${selfPath} brief ${unit.id}${withFlag}\`. Do not implement the unit yourself: your context is for judging the work, not doing it.
 2. Verify the lane directly when the implementer reports — or goes quiet, which often means it finished: \`git -C ${lanePathFor(unit.id)} log --oneline main..HEAD\`, the diff stat, the gate output. Self-reports are not evidence.
-3. Do step 5's bookkeeping, then run review rounds exactly as step 6 prescribes: the fixed five-seat panel dispatched detached through the agent-cli wrapper so each seat's findings land in an \`-o\` answer file handed directly to the fix agent — never a subagent whose report you would transcribe by hand — a fresh file per seat per round, and land only on a clean panel round.
-4. Land per step 7 — background \`land.sh\` and read its exit line before moving on — then close per step 8. That run is the lane's only full \`verify\`: never run one yourself, and never ask an implementer or fix agent for one.
+3. Do step 5's bookkeeping, then run review rounds exactly as step 6a prescribes — Claude-only is the current mode. One Opus 5 seat per round (\`Agent\` tool, \`model: "opus"\`, fresh context, read-only), writing its findings to a fresh file per seat per round (\`/tmp/cq-${unit.id}-opus-r1.md\`, \`-r2.md\`, and so on) that you hand the fix agent by path: never restate a finding in your own words, and never pre-verify one against the code. A fix is re-read scoped — one Opus seat over only the line ranges the fix report names. Once an Opus round comes back clean, the last read before land is one Fable 5.1 seat over the whole branch diff against \`main\` and one Sonnet 5 consult on that same brief, in parallel; Sonnet is never the round reviewer. Land only on a round with no P0/P1. A mechanical unit — byte-pure relocation, bookkeeping-only diff, evidence-route close — skips review for one deterministic check instead (reconstruct the diff from \`main\`, run the unit's Verify commands green); say in your report which of the two it got. Every brief you send — review seat, implementer, fix agent — carries this verbatim: "Do this work yourself. Do not use the Agent tool or spawn subagents, consults, or parallel angle workers; one agent, one context."
+4. Land per step 7 — background \`land.sh\` and read its exit line before moving on — then close per step 8. That run is the lane's only full \`verify\`: never run one yourself, and never ask an implementer or fix agent for one. Bookkeeping that exists only once the merge does — the landing sha, the round narrative in the ledger — cannot be committed on \`main\`: the ai-hook rule \`git-commit-on-main\` and \`.husky/pre-commit\`'s step 0 both refuse it. Commit it on \`docs/cq-${unit.id}-post-merge\` off \`main\`, merge that back with \`git merge --no-ff\`, and delete the branch. The hook resolves the commit's target checkout before it reads a branch, so a literal \`git -C <lane path>\` commit is judged against the lane's branch and allowed; what it refuses is a target it cannot read from the command text — \`git -C "\$VAR"\`, a \`~\` path — which fails closed as an unverifiable target and asks you to re-issue with a literal path. Lane commits still go through an agent started inside the lane worktree, which is this protocol's preference and not something the hook enforces.
 
 Done when \`node ${selfPath} verify-closed ${unitIds.join(" ")}\` passes; your dispatcher audits that command's answer, not your report. The evidence route closes through that same audit as a normal close whose diff is bookkeeping-only: a unit whose audited premise no longer holds (standing rules) flips its Status to \`Not needed\` naming the evidence and does step 5's bookkeeping on the lane branch, committed like any other unit work; the concurring review round is the ordinary review of that lane diff, and \`land.sh\` and step 8 then close it exactly like a code close — the landing merge is what carries the flip to main, where \`verify-closed\` reads the status. Exactly two stops never reach \`verify-closed\`, and both are yours to finish, not calls to hand back:
 - Abandoned — the deep read's valid-but-not-now exit above: claim released with step 8's commands, unit back in the pool.

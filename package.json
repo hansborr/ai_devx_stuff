@@ -111,7 +111,7 @@
     "e2e": "playwright test",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "clean": "rm -rf packages/*/dist packages/*/tsconfig.tsbuildinfo tools/*/dist tools/*/tsconfig.tsbuildinfo node_modules/.cache",
+    "clean": "rm -rf packages/*/dist packages/*/tsconfig*.tsbuildinfo tools/*/dist tools/*/tsconfig*.tsbuildinfo node_modules/.cache",
     "db:status": "bun run scripts/db-status.ts",
     "db:migration-safety": "bash scripts/migration-safety-scan.sh",
     "doctor": "bash scripts/doctor.sh",

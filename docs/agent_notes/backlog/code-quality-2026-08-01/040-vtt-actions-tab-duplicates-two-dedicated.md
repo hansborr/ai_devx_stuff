@@ -1,6 +1,6 @@
 # 40. The VTT Actions tab reimplements the Spells and Features tabs' rows with divergent eligibility, and its Use button is a console.log placeholder
 
-Status: Not started
+Status: Landed on fix/cq-040
 Theme: compact/full drawer surface duplication · Area: client · Severity: high · Size: L
 
 Source: codebase quality audit 2026-08-01 · Confidence: high

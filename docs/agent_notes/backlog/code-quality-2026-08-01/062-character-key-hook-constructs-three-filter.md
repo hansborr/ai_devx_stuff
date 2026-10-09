@@ -1,6 +1,6 @@
 # 62. useCharacterKeys builds three query-filter members and their QueryFilter type that no production caller ever reads
 
-Status: Not started
+Status: Landed on fix/cq-062
 Theme: dead cache-key surface · Area: client · Severity: low · Size: S
 
 Source: codebase quality audit 2026-08-01 · Confidence: high
@@ -96,3 +96,8 @@ callers listed above never touch the deleted members.
   ruled on these unread return members; shrinking the hook's contract does
   not disturb anything the cluster landed, and the MODULE.md test-seam
   statement about `character-keys.ts` remains true afterwards.
+- **Landed as prescribed (fix/cq-062, 2026-09-12).** Leaf 105 had already
+  rewritten the members' comment block before this landed, so the whole
+  block went with the members and no comment correction remained. The
+  `character-keys.test.ts` filter block was the only reader; the two
+  exact-key cases stay. No consumer or mock edits were needed.
